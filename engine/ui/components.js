@@ -147,7 +147,7 @@ const Components = {
 
                     score:
 
-                    QuizEngine.score,
+                    ScoreManager.score,
 
 
                     currentQuestion:
@@ -257,7 +257,7 @@ const Components = {
 
                     score:
 
-                    QuizEngine.score,
+                    ScoreManager.score,
 
 
                     currentQuestion:

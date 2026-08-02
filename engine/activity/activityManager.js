@@ -60,8 +60,8 @@ const ActivityManager = {
             activity.title,
 
             score:
-            QuizEngine.score,
 
+            ScoreManager.score,
             currentQuestion:
             QuizEngine.currentQuestion + 1,
 
