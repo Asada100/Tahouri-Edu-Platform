@@ -361,13 +361,17 @@ const QuizEngine = {
 
 
 
-        EventManager.emit(
+        const result =
 
-            "activity:finish",
+ResultManager.create(
+    this.getResult()
+);
 
-            this.getResult()
 
-        );
+EventManager.emit(
+    "activity:finish",
+    result
+);
 
 
 

@@ -177,20 +177,24 @@ const Components = {
             else{
 
 
-                const finalResult =
+               const finalResult =
 
-                QuizEngine.getResult();
+ResultManager.create(
 
+    QuizEngine.getResult()
 
-                Components.isLocked = false;
-
-
-                Screen.showFinish(
-                    finalResult
-                );
+);
 
 
-                Components.bindResultButtons();
+Components.isLocked = false;
+
+
+Screen.showFinish(
+    finalResult
+);
+
+
+Components.bindResultButtons();
 
 
             }

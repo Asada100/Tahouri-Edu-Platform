@@ -1,7 +1,8 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 0.7
+// Version 2.1
 // Screen Manager
+// Result Message + Stars Support
 // =====================================
 
 
@@ -51,7 +52,6 @@ const Screen = {
 
 
 
-
     showQuiz:function(data){
 
 
@@ -91,6 +91,7 @@ const Screen = {
 
 
 
+
             <div class="questionBox">
 
 
@@ -107,7 +108,9 @@ const Screen = {
 
 
 
+
             <hr>
+
 
 
 
@@ -121,7 +124,9 @@ const Screen = {
 
 
 
+
             <br>
+
 
 
 
@@ -131,6 +136,7 @@ const Screen = {
             زوج
 
             </button>
+
 
 
 
@@ -158,7 +164,6 @@ const Screen = {
 
 
     },
-
 
 
 
@@ -237,6 +242,7 @@ const Screen = {
 
 
 
+
             <h2>
             نتیجه آزمون
             </h2>
@@ -298,6 +304,34 @@ const Screen = {
             درصد موفقیت:
 
             ${result.percentage}٪
+
+            </p>
+
+
+
+
+
+            <p>
+
+            ⭐ ستاره‌ها:
+
+            ${
+                result.stars
+                ?
+                "⭐".repeat(result.stars)
+                :
+                "⭐"
+            }
+
+            </p>
+
+
+
+
+
+            <p>
+
+            ${result.message || ""}
 
             </p>
 
