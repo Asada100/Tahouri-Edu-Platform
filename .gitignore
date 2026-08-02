@@ -1,0 +1,22 @@
+# VS Code
+.vscode/
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# Backup files
+*.bak
+
+# Node (برای آینده)
+node_modules/
+
+# OS files
+.DS_Store
