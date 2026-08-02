@@ -1,7 +1,8 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 2.0
+// Version 2.2
 // Activity Manager
+// Registry System
 // =====================================
 
 const ActivityManager = {
@@ -21,61 +22,30 @@ const ActivityManager = {
 
 
 
-        switch(activity.engine){
+        const engine =
 
-            case "QuizEngine":
-
-                this.loadQuiz(activity);
-
-                break;
+        ActivityRegistry[
+            activity.engine
+        ];
 
 
 
-            default:
+        if(!engine){
 
-                console.error(
-                    "Unknown Engine:",
-                    activity.engine
-                );
+            console.error(
+                "Unknown Engine:",
+                activity.engine
+            );
+
+            return;
 
         }
 
-    },
 
 
-
-    loadQuiz:function(activity){
-
-        const question =
-
-        QuizEngine.start(
+        engine.start(
             activity
         );
-
-
-
-        Screen.showQuiz({
-
-            title:
-            activity.title,
-
-            score:
-
-            ScoreManager.score,
-            currentQuestion:
-            QuizEngine.currentQuestion + 1,
-
-            totalQuestions:
-            QuizEngine.questions.length,
-
-            question:
-            question
-
-        });
-
-
-
-        Components.bindQuizButtons();
 
     }
 

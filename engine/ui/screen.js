@@ -1,8 +1,8 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 2.1
+// Version 2.5
 // Screen Manager
-// Result Message + Stars Support
+// Quiz + Memory Result Support
 // =====================================
 
 
@@ -17,17 +17,13 @@ const Screen = {
         document.getElementById("app");
 
 
-
         app.innerHTML = `
 
-
         <div class="screen">
-
 
             <h1>
             انتخاب پایه
             </h1>
-
 
 
             <button id="grade6Btn">
@@ -37,9 +33,7 @@ const Screen = {
             </button>
 
 
-
         </div>
-
 
         `;
 
@@ -80,7 +74,6 @@ const Screen = {
             </h2>
 
 
-
             <div class="scoreBox">
 
             امتیاز:
@@ -91,9 +84,7 @@ const Screen = {
 
 
 
-
             <div class="questionBox">
-
 
             سؤال
             ${data.currentQuestion}
@@ -102,16 +93,12 @@ const Screen = {
 
             ${data.totalQuestions}
 
-
             </div>
 
 
 
 
-
             <hr>
-
-
 
 
 
@@ -123,11 +110,7 @@ const Screen = {
 
 
 
-
-
             <br>
-
-
 
 
 
@@ -139,15 +122,11 @@ const Screen = {
 
 
 
-
-
             <button id="oddBtn">
 
             فرد
 
             </button>
-
-
 
 
 
@@ -172,8 +151,8 @@ const Screen = {
 
 
 
-    showMessage:function(message,type){
 
+    showMessage:function(message,type){
 
 
         const box =
@@ -192,12 +171,112 @@ const Screen = {
 
 
 
-
         box.innerHTML = message;
 
 
         box.className = type;
 
+
+
+    },
+
+
+
+
+
+
+
+
+
+    showMemory:function(data){
+
+
+
+        const app =
+
+        document.getElementById("app");
+
+
+
+        app.innerHTML = `
+
+
+
+        <div class="memoryScreen">
+
+
+
+            <h1>
+
+            پلتفرم آموزشی طهوری
+
+            </h1>
+
+
+
+            <hr>
+
+
+
+            <h2>
+
+            ${data.title}
+
+            </h2>
+
+
+
+
+            <div class="scoreBox">
+
+            امتیاز:
+
+            ${ScoreManager.score}
+
+            </div>
+
+
+
+
+
+            <div class="memoryBoard">
+
+
+            ${data.cards.map(function(card){
+
+
+                return `
+
+
+                <button
+
+                class="memoryCard"
+
+                data-id="${card.id}">
+
+
+                ${card.flipped ? card.value : "❓"}
+
+
+                </button>
+
+
+                `;
+
+
+            }).join("")}
+
+
+
+            </div>
+
+
+
+        </div>
+
+
+
+        `;
 
 
     },
@@ -220,34 +299,19 @@ const Screen = {
 
 
 
-
-
-        app.innerHTML = `
-
-
-
-        <div class="finishScreen">
-
-
-
-            <h1>
-            🎉 فعالیت تمام شد
-            </h1>
-
-
-
-
-            <hr>
+        let content = "";
 
 
 
 
 
-            <h2>
-            نتیجه آزمون
-            </h2>
+        // نتیجه Quiz
+
+        if(result.totalQuestions){
 
 
+
+            content = `
 
 
 
@@ -261,8 +325,6 @@ const Screen = {
 
 
 
-
-
             <p>
 
             تعداد سؤال:
@@ -270,8 +332,6 @@ const Screen = {
             ${result.totalQuestions}
 
             </p>
-
-
 
 
 
@@ -285,8 +345,6 @@ const Screen = {
 
 
 
-
-
             <p>
 
             پاسخ اشتباه:
@@ -294,8 +352,6 @@ const Screen = {
             ${result.wrongAnswers}
 
             </p>
-
-
 
 
 
@@ -309,23 +365,54 @@ const Screen = {
 
 
 
+            `;
+
+
+
+        }
+
+
+
+
+
+
+        // نتیجه Memory
+
+        else if(result.pairs !== undefined){
+
+
+
+            content = `
+
 
 
             <p>
 
-            ⭐ ستاره‌ها:
+            امتیاز:
 
-            ${
-                result.stars
-                ?
-                "⭐".repeat(result.stars)
-                :
-                "⭐"
-            }
+            ${result.score}
 
             </p>
 
 
+
+            <p>
+
+            جفت‌های پیدا شده:
+
+            ${result.pairs}
+
+            </p>
+
+
+
+            <p>
+
+            تعداد حرکت:
+
+            ${result.moves}
+
+            </p>
 
 
 
@@ -337,10 +424,52 @@ const Screen = {
 
 
 
+            `;
+
+
+        }
+
+
+
+
+
+        app.innerHTML = `
+
+
+
+        <div class="finishScreen">
+
+
+
+            <h1>
+
+            🎉 فعالیت تمام شد
+
+            </h1>
+
+
+
+
+            <hr>
+
+
+
+
+            <h2>
+
+            نتیجه بازی
+
+            </h2>
+
+
+
+
+            ${content}
+
+
 
 
             <br>
-
 
 
 
@@ -354,7 +483,6 @@ const Screen = {
 
 
 
-
             <button id="backActivitiesBtn">
 
             بازگشت به فعالیت‌ها
@@ -363,13 +491,19 @@ const Screen = {
 
 
 
-
-
         </div>
 
 
 
         `;
+
+
+
+        console.log(
+
+            "Finish Screen Ready"
+
+        );
 
 
 

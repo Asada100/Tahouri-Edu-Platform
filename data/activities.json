@@ -16,5 +16,25 @@
 
         "path":
         "content/grades/grade6/math/chapter1/evenOdd"
+    },
+
+
+    {
+        "id": "memoryDemo",
+
+        "title": "حافظه تصویری",
+
+        "grade": "grade6",
+
+        "subject": "math",
+
+        "chapter": "chapter1",
+
+        "type": "memory",
+
+        "engine": "MemoryEngine",
+
+        "path":
+        "content/grades/grade6/math/chapter1/memoryDemo"
     }
 ]

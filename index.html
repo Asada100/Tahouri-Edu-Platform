@@ -3,72 +3,98 @@
 
 <head>
 
-<meta charset="UTF-8">
+    <meta charset="UTF-8">
 
-<title>
-Tahouri Edu Platform
-</title>
+    <title>
+        Tahouri Edu Platform
+    </title>
 
-<link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css">
 
 </head>
 
-
 <body>
 
+    <div id="app">
 
-<div id="app">
+        در حال بارگذاری پلتفرم طهوری...
 
-در حال بارگذاری پلتفرم طهوری...
-
-</div>
-
-
-
-<!-- Core -->
-<!-- Core -->
-
-<script src="engine/core/state.js"></script>
-
-<script src="engine/core/router.js"></script>
-
-<script src="engine/core/eventManager.js"></script>
-
-<script src="engine/core/appController.js"></script>
+    </div>
 
 
 
-<!-- Navigation --><script src="engine/ui/navigation.js"></script>
+    <!-- ============================= -->
+    <!-- Core -->
+    <!-- ============================= -->
+
+    <script src="engine/core/state.js"></script>
+
+    <script src="engine/core/router.js"></script>
+
+    <script src="engine/core/eventManager.js"></script>
+
+    <script src="engine/core/appController.js"></script>
 
 
-<!-- Core Activity -->
-<script src="engine/activity/BaseActivityEngine.js"></script>
+
+    <!-- ============================= -->
+    <!-- Navigation -->
+    <!-- ============================= -->
+
+    <script src="engine/ui/navigation.js"></script>
 
 
-<!-- Score & Result Systems -->
-<script src="engine/score/scoreManager.js"></script>
 
-<script src="engine/result/resultManager.js"></script>
+    <!-- ============================= -->
+    <!-- Base Engine -->
+    <!-- ============================= -->
 
-
-<!-- Activity Engines -->
-<script src="engine/activity/quizEngine.js"></script>
-
-<script src="engine/activity/activityManager.js"></script>
+    <script src="engine/activity/BaseActivityEngine.js"></script>
 
 
-<!-- UI -->
 
-<script src="engine/ui/screen.js"></script>
+    <!-- ============================= -->
+    <!-- Score & Result -->
+    <!-- ============================= -->
 
-<script src="engine/ui/activityScreen.js"></script>
+    <script src="engine/score/scoreManager.js"></script>
 
-<script src="engine/ui/components.js"></script>
+    <script src="engine/result/resultManager.js"></script>
 
 
-<!-- Application -->
 
-<script src="app.js"></script>
+    <!-- ============================= -->
+    <!-- Activity -->
+    <!-- ============================= -->
+
+    <script src="engine/activity/quizEngine.js"></script>
+
+    <script src="engine/activity/memoryEngine.js"></script>
+
+    <script src="engine/activity/activityRegistry.js"></script>
+
+    <script src="engine/activity/activityManager.js"></script>
+
+
+
+    <!-- ============================= -->
+    <!-- UI -->
+    <!-- ============================= -->
+
+    <script src="engine/ui/screen.js"></script>
+
+    <script src="engine/ui/activityScreen.js"></script>
+
+    <script src="engine/ui/components.js"></script>
+
+
+
+    <!-- ============================= -->
+    <!-- Application -->
+    <!-- ============================= -->
+
+    <script src="app.js"></script>
+
 </body>
 
 </html>
