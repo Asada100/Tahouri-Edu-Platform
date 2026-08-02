@@ -1,0 +1,20 @@
+[
+    {
+        "id": "evenOdd",
+
+        "title": "اعداد زوج و فرد",
+
+        "grade": "grade6",
+
+        "subject": "math",
+
+        "chapter": "chapter1",
+
+        "type": "quiz",
+
+        "engine": "QuizEngine",
+
+        "path":
+        "content/grades/grade6/math/chapter1/evenOdd"
+    }
+]

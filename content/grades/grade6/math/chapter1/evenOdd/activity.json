@@ -1,0 +1,15 @@
+{
+    "id": "evenOdd",
+
+    "title": "اعداد زوج و فرد",
+
+    "type": "quiz",
+
+    "engine": "QuizEngine",
+
+    "settings": {
+        "questions": 10,
+        "minNumber": 1,
+        "maxNumber": 1000
+    }
+}
