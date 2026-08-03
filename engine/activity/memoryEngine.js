@@ -306,19 +306,21 @@ const MemoryEngine = {
 
 
 
-            if(
+           if(
 
-                this.matchedPairs ===
+    this.matchedPairs ===
 
-                this.totalPairs
+    this.totalPairs
 
-            ){
+){
 
+    setTimeout(function(){
 
-                this.finish();
+        MemoryEngine.finish();
 
+    },800);
 
-            }
+}
 
             else{
 

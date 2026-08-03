@@ -1,8 +1,8 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 3.1
+// Version 3.2
 // Screen Manager
-// Retry Button Support
+// Result Modal Integration
 // =====================================
 
 const Screen = {
@@ -134,6 +134,7 @@ const Screen = {
 
             </div>
 
+
             <div class="memoryBoard">
 
             ${
@@ -147,8 +148,10 @@ const Screen = {
 
                     ${
                         card.flipped || card.matched
-                        ? card.value
-                        : "❓"
+                        ?
+                        card.value
+                        :
+                        "❓"
                     }
 
                     </button>
@@ -170,84 +173,24 @@ const Screen = {
 
     showFinish:function(result){
 
-        const app =
-        document.getElementById("app");
 
-        app.innerHTML = `
-
-        <div class="finishScreen">
-
-            <h1>
-            🎉 فعالیت تمام شد
-            </h1>
-
-            <hr>
-
-            <h2>
-            نتیجه بازی
-            </h2>
-
-            <p>
-
-            امتیاز:
-
-            ${result.score}
-
-            </p>
-
-            <p>
-
-            جفت‌های پیدا شده:
-
-            ${result.pairs}
-
-            </p>
-
-            <p>
-
-            تعداد حرکت:
-
-            ${result.moves}
-
-            </p>
-
-            <p>
-
-            ${result.message}
-
-            </p>
-
-            <br>
-
-            <button id="retryBtn">
-
-            دوباره امتحان کن
-
-            </button>
-
-        </div>
-
-        `;
+        console.log(
+            "SHOW FINISH USING RESULT MODAL",
+            result
+        );
 
 
-        const retryBtn =
-        document.getElementById("retryBtn");
+        ResultModal.show(
+            result
+        );
 
-        if(retryBtn){
-
-            retryBtn.onclick = function(){
-
-                ActivityManager.load(
-                    MemoryEngine.activity
-                );
-
-            };
-
-        }
 
     }
 
+
 };
+
+
 
 console.log(
     "Screen Manager Ready"

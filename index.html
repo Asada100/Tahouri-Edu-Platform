@@ -13,118 +13,82 @@
 
 </head>
 
-
 <body>
 
+    <div id="app">
 
-<div id="app">
+        در حال بارگذاری پلتفرم طهوری...
 
-    در حال بارگذاری پلتفرم طهوری...
+    </div>
 
-</div>
+    <!-- ============================= -->
+    <!-- Core -->
+    <!-- ============================= -->
 
+    <script src="engine/core/state.js"></script>
+    <script src="engine/core/router.js"></script>
+    <script src="engine/core/eventManager.js"></script>
+    <script src="engine/core/dataManager.js"></script>
+    <script src="engine/core/appController.js"></script>
 
+    <!-- ============================= -->
+    <!-- Navigation -->
+    <!-- ============================= -->
 
-<!-- ============================= -->
-<!-- Core -->
-<!-- ============================= -->
+    <script src="engine/ui/navigation.js"></script>
 
+    <!-- ============================= -->
+    <!-- Base Activity -->
+    <!-- ============================= -->
 
-<script src="engine/core/state.js"></script>
+    <script src="engine/activity/BaseActivityEngine.js"></script>
 
-<script src="engine/core/router.js"></script>
+    <!-- ============================= -->
+    <!-- Managers -->
+    <!-- ============================= -->
 
-<script src="engine/core/eventManager.js"></script>
+    <script src="engine/score/scoreManager.js"></script>
+    <script src="engine/result/resultManager.js"></script>
 
-<script src="engine/core/dataManager.js"></script>
+    <!-- ============================= -->
+    <!-- Activity Engines -->
+    <!-- ============================= -->
 
-<script src="engine/core/appController.js"></script>
+    <script src="engine/activity/quizEngine.js"></script>
+    <script src="engine/activity/memoryEngine.js"></script>
+    <script src="engine/activity/matchingEngine.js"></script>
+    <script src="engine/activity/dragDropEngine.js"></script>
+    <script src="engine/activity/puzzleEngine.js"></script>
+    <script src="engine/activity/sortingEngine.js"></script>
+    <script src="engine/activity/storyEngine.js"></script>
+    <script src="engine/activity/simulationEngine.js"></script>
 
+    <!-- ============================= -->
+    <!-- Activity System -->
+    <!-- ============================= -->
 
+    <script src="engine/activity/activityRegistry.js"></script>
+    <script src="engine/activity/activityManager.js"></script>
 
-<!-- ============================= -->
-<!-- Navigation -->
-<!-- ============================= -->
+    <!-- ============================= -->
+    <!-- UI -->
+    <!-- ============================= -->
 
+    <script src="engine/ui/screen.js"></script>
+    <script src="engine/ui/activityScreen.js"></script>
+    <script src="engine/ui/components.js"></script>
 
-<script src="engine/ui/navigation.js"></script>
+    <!-- ============================= -->
+    <!-- Result Modal -->
+    <!-- ============================= -->
 
+    <script src="engine/ui/resultModal.js"></script>
 
+    <!-- ============================= -->
+    <!-- Application -->
+    <!-- ============================= -->
 
-<!-- ============================= -->
-<!-- Base Activity Engine -->
-<!-- ============================= -->
-
-
-<script src="engine/activity/BaseActivityEngine.js"></script>
-
-
-
-<!-- ============================= -->
-<!-- Score & Result -->
-<!-- ============================= -->
-
-
-<script src="engine/score/scoreManager.js"></script>
-
-<script src="engine/result/resultManager.js"></script>
-
-
-
-<!-- ============================= -->
-<!-- Activity Engines -->
-<!-- ============================= -->
-
-
-<script src="engine/activity/quizEngine.js"></script>
-
-<script src="engine/activity/memoryEngine.js"></script>
-
-<script src="engine/activity/matchingEngine.js"></script>
-
-<script src="engine/activity/dragDropEngine.js"></script>
-
-<script src="engine/activity/puzzleEngine.js"></script>
-
-<script src="engine/activity/sortingEngine.js"></script>
-
-<script src="engine/activity/storyEngine.js"></script>
-
-<script src="engine/activity/simulationEngine.js"></script>
-
-
-
-<!-- ============================= -->
-<!-- Activity System -->
-<!-- ============================= -->
-
-
-<script src="engine/activity/activityRegistry.js"></script>
-
-<script src="engine/activity/activityManager.js"></script>
-
-
-
-<!-- ============================= -->
-<!-- UI -->
-<!-- ============================= -->
-
-
-<script src="engine/ui/screen.js"></script>
-
-<script src="engine/ui/activityScreen.js"></script>
-
-<script src="engine/ui/components.js"></script>
-
-
-
-<!-- ============================= -->
-<!-- Application -->
-<!-- ============================= -->
-
-
-<script src="app.js"></script>
-
+    <script src="app.js"></script>
 
 </body>
 
