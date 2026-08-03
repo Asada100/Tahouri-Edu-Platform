@@ -1,7 +1,8 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 2.3
+// Version 3.2
 // Components Manager
+// Result Modal Integration
 // =====================================
 
 const Components = {
@@ -85,6 +86,7 @@ const Components = {
             );
 
         }
+
         else{
 
             Screen.showMessage(
@@ -125,6 +127,7 @@ const Components = {
                 Components.bindQuizButtons();
 
             }
+
             else{
 
                 const finalResult =
@@ -137,11 +140,9 @@ const Components = {
 
                 Components.isLocked = false;
 
-                Screen.showFinish(
+                ResultModal.show(
                     finalResult
                 );
-
-                Components.bindResultButtons();
 
             }
 
@@ -176,73 +177,6 @@ const Components = {
             };
 
         });
-
-    },
-
-
-
-    bindResultButtons:function(){
-
-        const retryBtn =
-        document.getElementById(
-            "retryBtn"
-        );
-
-        const backBtn =
-        document.getElementById(
-            "backActivitiesBtn"
-        );
-
-        if(retryBtn){
-
-            retryBtn.onclick = function(){
-
-                Components.isLocked = false;
-
-                const newQuestion =
-
-                QuizEngine.start({
-                    id:"evenOdd"
-                });
-
-                Screen.showQuiz({
-
-                    title:
-                    "اعداد زوج و فرد",
-
-                    score:
-                    ScoreManager.score,
-
-                    currentQuestion:
-                    QuizEngine.currentQuestion + 1,
-
-                    totalQuestions:
-                    QuizEngine.questions.length,
-
-                    question:
-                    newQuestion
-
-                });
-
-                Components.bindQuizButtons();
-
-            };
-
-        }
-
-        if(backBtn){
-
-            backBtn.onclick = function(){
-
-                Components.isLocked = false;
-
-                alert(
-                    "بازگشت به فعالیت‌ها در مرحله بعد فعال می‌شود"
-                );
-
-            };
-
-        }
 
     }
 

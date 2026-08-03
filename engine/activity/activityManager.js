@@ -1,41 +1,24 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 2.2
+// Version 3.2
 // Activity Manager
-// Registry System
+// Registry Integration
 // =====================================
 
+
 const ActivityManager = {
-
-    currentActivity:null,
-
 
 
     load:function(activity){
 
-        this.currentActivity = activity;
 
-        console.log(
-            "Loading Activity:",
-            activity
-        );
+        if(!activity){
 
-
-
-        const engine =
-
-        ActivityRegistry[
-            activity.engine
-        ];
-
-
-
-        if(!engine){
 
             console.error(
-                "Unknown Engine:",
-                activity.engine
+                "Activity Not Found"
             );
+
 
             return;
 
@@ -43,16 +26,85 @@ const ActivityManager = {
 
 
 
-        engine.start(
+        console.log(
+
+            "Loading Activity:",
+
             activity
+
         );
 
+
+
+
+
+        ActivityHistory.set(
+
+            activity
+
+        );
+
+
+
+
+
+
+
+        const engine =
+
+        ActivityRegistry[
+
+            activity.engine
+
+        ];
+
+
+
+
+
+
+
+        if(!engine){
+
+
+            console.error(
+
+                "Engine Not Found:",
+
+                activity.engine
+
+            );
+
+
+            return;
+
+
+        }
+
+
+
+
+
+
+
+        engine.start(
+
+            activity
+
+        );
+
+
+
     }
+
+
 
 };
 
 
 
 console.log(
+
     "Activity Manager Ready"
+
 );

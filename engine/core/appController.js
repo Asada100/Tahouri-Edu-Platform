@@ -1,10 +1,9 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 3.0
+// Version 3.2
 // App Controller
-// DataManager Integration
+// Unified Activity Restart
 // =====================================
-
 
 const App = {
 
@@ -55,8 +54,6 @@ const App = {
 
 
 
-
-
             this.subjects =
 
             await DataManager.loadJSON(
@@ -64,8 +61,6 @@ const App = {
                 "data/subjects.json"
 
             );
-
-
 
 
 
@@ -79,8 +74,6 @@ const App = {
 
 
 
-
-
             this.activities =
 
             await DataManager.loadJSON(
@@ -91,20 +84,10 @@ const App = {
 
 
 
-
-
-
-            // انتقال داده ها به سیستم فعلی
-
             grades = this.grades;
-
             subjects = this.subjects;
-
             chapters = this.chapters;
-
             activities = this.activities;
-
-
 
 
 
@@ -115,9 +98,7 @@ const App = {
             );
 
 
-
         }
-
 
         catch(error){
 
@@ -140,8 +121,6 @@ const App = {
 
 
 
-
-
     showGrades:function(){
 
 
@@ -149,8 +128,6 @@ const App = {
 
 
     },
-
-
 
 
 
@@ -172,8 +149,6 @@ const App = {
 
 
 
-
-
     showChapters:function(){
 
 
@@ -187,8 +162,6 @@ const App = {
 
 
     },
-
-
 
 
 
@@ -214,21 +187,13 @@ const App = {
 
 
 
-
-
     startActivity:function(activity){
 
 
-        loadActivity(
-
-            activity
-
-        );
+        loadActivity(activity);
 
 
     },
-
-
 
 
 
@@ -237,16 +202,52 @@ const App = {
     restartActivity:function(activity){
 
 
+        let activityObject = activity;
+
+
+        if(typeof activity === "string"){
+
+            activityObject =
+
+            this.activities.find(function(item){
+
+                return item.id === activity;
+
+            });
+
+        }
+
+
+        if(!activityObject){
+
+            activityObject =
+
+            this.activities.find(function(item){
+
+                return item.id === AppState.activity;
+
+            });
+
+        }
+
+
+        if(!activityObject){
+
+            console.error(
+                "Activity Not Found"
+            );
+
+            return;
+
+        }
+
+
         loadActivity(
-
-            activity
-
+            activityObject
         );
 
 
     },
-
-
 
 
 
@@ -262,8 +263,6 @@ const App = {
 
 
 };
-
-
 
 
 

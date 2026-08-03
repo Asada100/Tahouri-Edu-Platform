@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 2.3.1
+// Version 3.2
 // Activity Registry
 // =====================================
 
@@ -19,6 +19,7 @@ const ActivityRegistry = {
             QuizEngine.start(
                 activity
             );
+
 
 
             Screen.showQuiz({
@@ -47,6 +48,7 @@ const ActivityRegistry = {
             });
 
 
+
             Components.bindQuizButtons();
 
 
@@ -54,6 +56,8 @@ const ActivityRegistry = {
 
 
     },
+
+
 
 
 
@@ -68,9 +72,11 @@ const ActivityRegistry = {
             );
 
 
+
             MemoryEngine.start(
                 activity
             );
+
 
 
             setTimeout(function(){
@@ -82,13 +88,16 @@ const ActivityRegistry = {
             },100);
 
 
+
         }
 
 
     }
 
 
+
 };
+
 
 
 
