@@ -1,10 +1,13 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 2.0
+// Version 3.0
 // App Controller
+// DataManager Integration
 // =====================================
 
+
 const App = {
+
 
     grades: [],
 
@@ -18,59 +21,76 @@ const App = {
 
     init: async function(){
 
+
         console.log(
             "App Controller Started"
         );
 
+
         await this.loadData();
 
+
         this.showGrades();
+
 
     },
 
 
 
+
+
     loadData: async function(){
+
 
         try{
 
-            const gradesResponse =
-            await fetch(
-                "data/grades.json"
-            );
 
             this.grades =
-            await gradesResponse.json();
 
+            await DataManager.loadJSON(
 
+                "data/grades.json"
 
-            const subjectsResponse =
-            await fetch(
-                "data/subjects.json"
             );
+
+
+
+
 
             this.subjects =
-            await subjectsResponse.json();
 
+            await DataManager.loadJSON(
 
+                "data/subjects.json"
 
-            const chaptersResponse =
-            await fetch(
-                "data/chapters.json"
             );
+
+
+
+
 
             this.chapters =
-            await chaptersResponse.json();
 
+            await DataManager.loadJSON(
 
+                "data/chapters.json"
 
-            const activitiesResponse =
-            await fetch(
-                "data/activities.json"
             );
 
+
+
+
+
             this.activities =
-            await activitiesResponse.json();
+
+            await DataManager.loadJSON(
+
+                "data/activities.json"
+
+            );
+
+
+
 
 
 
@@ -86,92 +106,169 @@ const App = {
 
 
 
+
+
             console.log(
-                "All Data Loaded"
+
+                "All Data Loaded Through DataManager"
+
             );
 
+
+
         }
+
 
         catch(error){
 
+
             console.error(
+
                 "Loading Error:",
+
                 error
+
             );
+
 
         }
 
+
     },
+
+
+
+
 
 
 
     showGrades:function(){
 
+
         showGrades();
 
+
     },
+
+
+
+
 
 
 
     showSubjects:function(){
 
+
         showSubjects(
+
             AppState.grade
+
         );
 
+
     },
+
+
+
+
 
 
 
     showChapters:function(){
 
+
         showChapters(
+
             AppState.grade,
+
             AppState.subject
+
         );
 
+
     },
+
+
+
+
 
 
 
     showActivities:function(){
 
+
         showActivities(
+
             AppState.grade,
+
             AppState.subject,
+
             AppState.chapter
+
         );
 
+
     },
+
+
+
+
 
 
 
     startActivity:function(activity){
 
-        loadActivity(activity);
+
+        loadActivity(
+
+            activity
+
+        );
+
 
     },
+
+
+
+
 
 
 
     restartActivity:function(activity){
 
-        loadActivity(activity);
+
+        loadActivity(
+
+            activity
+
+        );
+
 
     },
 
 
 
+
+
+
+
     goHome:function(){
+
 
         this.showGrades();
 
+
     }
+
 
 };
 
 
 
+
+
 console.log(
+
     "App Controller Ready"
+
 );

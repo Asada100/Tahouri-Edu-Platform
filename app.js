@@ -651,9 +651,6 @@ function loadActivity(activity){
 
 
 
+// شروع برنامه از AppController
 
-
-
-
-
-loadData();
+App.init();
