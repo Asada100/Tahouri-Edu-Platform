@@ -1,21 +1,16 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 2.5
+// Version 3.1
 // Screen Manager
-// Quiz + Memory Result Support
+// Retry Button Support
 // =====================================
-
 
 const Screen = {
 
-
-
     showGrades:function(){
-
 
         const app =
         document.getElementById("app");
-
 
         app.innerHTML = `
 
@@ -25,54 +20,34 @@ const Screen = {
             انتخاب پایه
             </h1>
 
-
             <button id="grade6Btn">
-
             پایه ششم
-
             </button>
-
 
         </div>
 
         `;
 
-
     },
-
-
-
-
 
 
 
     showQuiz:function(data){
 
-
-
         const app =
         document.getElementById("app");
 
-
-
         app.innerHTML = `
 
-
         <div class="quizScreen">
-
 
             <h1>
             پلتفرم آموزشی طهوری
             </h1>
 
-
-            <hr>
-
-
             <h2>
             ${data.title}
             </h2>
-
 
             <div class="scoreBox">
 
@@ -81,26 +56,12 @@ const Screen = {
 
             </div>
 
-
-
-
             <div class="questionBox">
 
-            سؤال
-            ${data.currentQuestion}
-
-            از
-
-            ${data.totalQuestions}
+            سؤال ${data.currentQuestion}
+            از ${data.totalQuestions}
 
             </div>
-
-
-
-
-            <hr>
-
-
 
             <h2>
 
@@ -108,60 +69,30 @@ const Screen = {
 
             </h2>
 
-
-
-            <br>
-
-
-
             <button id="evenBtn">
-
             زوج
-
             </button>
-
-
 
             <button id="oddBtn">
-
             فرد
-
             </button>
 
-
-
-            <div id="messageBox">
-
-            </div>
-
-
+            <div id="messageBox"></div>
 
         </div>
 
-
         `;
-
 
     },
 
 
 
-
-
-
-
-
-
     showMessage:function(message,type){
 
-
         const box =
-
         document.getElementById(
             "messageBox"
         );
-
-
 
         if(!box){
 
@@ -169,151 +100,92 @@ const Screen = {
 
         }
 
-
-
         box.innerHTML = message;
-
 
         box.className = type;
 
-
-
     },
-
-
-
-
-
-
 
 
 
     showMemory:function(data){
 
-
-
         const app =
-
         document.getElementById("app");
-
-
 
         app.innerHTML = `
 
-
-
         <div class="memoryScreen">
 
-
-
             <h1>
-
             پلتفرم آموزشی طهوری
-
             </h1>
-
-
 
             <hr>
 
-
-
             <h2>
-
             ${data.title}
-
             </h2>
-
-
-
 
             <div class="scoreBox">
 
             امتیاز:
-
             ${ScoreManager.score}
 
             </div>
 
-
-
-
-
             <div class="memoryBoard">
 
+            ${
+                data.cards.map(function(card){
 
-            ${data.cards.map(function(card){
+                    return `
 
+                    <button
+                    class="memoryCard"
+                    data-id="${card.id}">
 
-                return `
+                    ${
+                        card.flipped || card.matched
+                        ? card.value
+                        : "❓"
+                    }
 
+                    </button>
 
-                <button
+                    `;
 
-                class="memoryCard"
-
-                data-id="${card.id}">
-
-
-                ${card.flipped ? card.value : "❓"}
-
-
-                </button>
-
-
-                `;
-
-
-            }).join("")}
-
-
+                }).join("")
+            }
 
             </div>
 
-
-
         </div>
 
-
-
         `;
-
 
     },
 
 
 
-
-
-
-
-
-
     showFinish:function(result){
 
-
-
         const app =
-
         document.getElementById("app");
 
+        app.innerHTML = `
 
+        <div class="finishScreen">
 
-        let content = "";
+            <h1>
+            🎉 فعالیت تمام شد
+            </h1>
 
+            <hr>
 
-
-
-
-        // نتیجه Quiz
-
-        if(result.totalQuestions){
-
-
-
-            content = `
-
-
+            <h2>
+            نتیجه بازی
+            </h2>
 
             <p>
 
@@ -322,79 +194,6 @@ const Screen = {
             ${result.score}
 
             </p>
-
-
-
-            <p>
-
-            تعداد سؤال:
-
-            ${result.totalQuestions}
-
-            </p>
-
-
-
-            <p>
-
-            پاسخ صحیح:
-
-            ${result.correctAnswers}
-
-            </p>
-
-
-
-            <p>
-
-            پاسخ اشتباه:
-
-            ${result.wrongAnswers}
-
-            </p>
-
-
-
-            <p>
-
-            درصد موفقیت:
-
-            ${result.percentage}٪
-
-            </p>
-
-
-
-            `;
-
-
-
-        }
-
-
-
-
-
-
-        // نتیجه Memory
-
-        else if(result.pairs !== undefined){
-
-
-
-            content = `
-
-
-
-            <p>
-
-            امتیاز:
-
-            ${result.score}
-
-            </p>
-
-
 
             <p>
 
@@ -404,8 +203,6 @@ const Screen = {
 
             </p>
 
-
-
             <p>
 
             تعداد حرکت:
@@ -414,65 +211,13 @@ const Screen = {
 
             </p>
 
-
-
             <p>
 
-            ${result.message || ""}
+            ${result.message}
 
             </p>
 
-
-
-            `;
-
-
-        }
-
-
-
-
-
-        app.innerHTML = `
-
-
-
-        <div class="finishScreen">
-
-
-
-            <h1>
-
-            🎉 فعالیت تمام شد
-
-            </h1>
-
-
-
-
-            <hr>
-
-
-
-
-            <h2>
-
-            نتیجه بازی
-
-            </h2>
-
-
-
-
-            ${content}
-
-
-
-
             <br>
-
-
-
 
             <button id="retryBtn">
 
@@ -480,45 +225,30 @@ const Screen = {
 
             </button>
 
-
-
-
-            <button id="backActivitiesBtn">
-
-            بازگشت به فعالیت‌ها
-
-            </button>
-
-
-
         </div>
-
-
 
         `;
 
 
+        const retryBtn =
+        document.getElementById("retryBtn");
 
-        console.log(
+        if(retryBtn){
 
-            "Finish Screen Ready"
+            retryBtn.onclick = function(){
 
-        );
+                ActivityManager.load(
+                    MemoryEngine.activity
+                );
 
+            };
 
+        }
 
     }
 
-
-
 };
 
-
-
-
-
 console.log(
-
-"Screen Manager Ready"
-
+    "Screen Manager Ready"
 );

@@ -1,40 +1,45 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 2.5
+// Version 3.0
 // Memory Engine
+// DataManager Integration
 // Score + Finish System
+// Fixed Finish Flow
 // =====================================
 
 
 const MemoryEngine = {
 
 
-    cards:[],
+    cards: [],
 
 
-    firstCard:null,
+    firstCard: null,
 
 
-    secondCard:null,
+    secondCard: null,
 
 
-    lockBoard:false,
+    lockBoard: false,
 
 
-    activity:null,
+    activity: null,
 
 
-    matchedPairs:0,
+    matchedPairs: 0,
 
 
-    moves:0,
+    moves: 0,
 
 
-    totalPairs:4,
+    totalPairs: 0,
+
+
+    finished: false,
 
 
 
-    start:function(activity){
+    start: async function(activity){
 
 
         console.log(
@@ -47,23 +52,66 @@ const MemoryEngine = {
 
         this.firstCard = null;
 
-
         this.secondCard = null;
-
 
         this.lockBoard = false;
 
-
         this.matchedPairs = 0;
 
-
         this.moves = 0;
+
+        this.finished = false;
+
+
+
+        ScoreManager.reset();
+
+
+
+        const cards =
+
+        await DataManager.getCards(
+            activity
+        );
+
+
+
+        this.cards = cards.map(function(card){
+
+
+            return {
+
+
+                id: card.id,
+
+
+                value: card.value,
+
+
+                flipped:false,
+
+
+                matched:false
+
+
+            };
+
+
+        });
+
+
+
+        this.totalPairs =
+
+        this.cards.length / 2;
 
 
 
         this.cards =
 
-        this.generateCards();
+        this.shuffle(
+            this.cards
+        );
 
 
 
@@ -78,93 +126,17 @@ const MemoryEngine = {
 
 
 
-    generateCards:function(){
-
-
-
-        const values = [
-
-
-            "🍎","🍎",
-
-            "🍌","🍌",
-
-            "🍇","🍇",
-
-            "🍓","🍓"
-
-
-        ];
-
-
-
-        const list = [];
-
-
-
-        for(
-
-            let i = 0;
-
-            i < values.length;
-
-            i++
-
-        ){
-
-
-            list.push({
-
-
-                id:i,
-
-
-                value:values[i],
-
-
-                flipped:false,
-
-
-                matched:false
-
-
-            });
-
-
-        }
-
-
-
-        return this.shuffle(list);
-
-
-
-    },
-
-
-
-
-
-
-
     shuffle:function(cards){
-
 
 
         const array = [...cards];
 
 
-
         for(
-
             let i = array.length - 1;
-
             i > 0;
-
             i--
-
         ){
-
 
 
             const j = Math.floor(
@@ -172,7 +144,6 @@ const MemoryEngine = {
                 Math.random() * (i + 1)
 
             );
-
 
 
             const temp = array[i];
@@ -184,9 +155,7 @@ const MemoryEngine = {
             array[j] = temp;
 
 
-
         }
-
 
 
         return array;
@@ -204,7 +173,10 @@ const MemoryEngine = {
 
 
 
-        if(this.lockBoard){
+        if(
+            this.lockBoard ||
+            this.finished
+        ){
 
             return;
 
@@ -236,7 +208,10 @@ const MemoryEngine = {
 
 
 
-        if(card.flipped || card.matched){
+        if(
+            card.flipped ||
+            card.matched
+        ){
 
             return;
 
@@ -250,10 +225,7 @@ const MemoryEngine = {
 
 
 
-
-
         if(!this.firstCard){
-
 
 
             this.firstCard = card;
@@ -266,7 +238,6 @@ const MemoryEngine = {
 
 
         }
-
 
 
 
@@ -330,15 +301,8 @@ const MemoryEngine = {
 
 
             console.log(
-
                 "Memory Match"
-
             );
-
-
-
-            this.resetTurn();
-
 
 
 
@@ -356,6 +320,14 @@ const MemoryEngine = {
 
             }
 
+            else{
+
+
+                this.resetTurn();
+
+
+            }
+
 
 
         }
@@ -368,10 +340,18 @@ const MemoryEngine = {
 
 
 
-                MemoryEngine.firstCard.flipped = false;
+                if(MemoryEngine.firstCard){
+
+                    MemoryEngine.firstCard.flipped = false;
+
+                }
 
 
-                MemoryEngine.secondCard.flipped = false;
+                if(MemoryEngine.secondCard){
+
+                    MemoryEngine.secondCard.flipped = false;
+
+                }
 
 
 
@@ -395,6 +375,7 @@ const MemoryEngine = {
 
 
 
+
     resetTurn:function(){
 
 
@@ -409,8 +390,11 @@ const MemoryEngine = {
 
 
 
-        this.refresh();
+        if(!this.finished){
 
+            this.refresh();
+
+        }
 
 
     },
@@ -426,8 +410,21 @@ const MemoryEngine = {
 
 
 
-        const result = {
+        this.finished = true;
 
+
+        this.lockBoard = true;
+
+
+        this.firstCard = null;
+
+
+        this.secondCard = null;
+
+
+
+
+        const result = {
 
 
             score:
@@ -435,11 +432,9 @@ const MemoryEngine = {
             ScoreManager.score,
 
 
-
             pairs:
 
             this.matchedPairs,
-
 
 
             moves:
@@ -447,11 +442,9 @@ const MemoryEngine = {
             this.moves,
 
 
-
             message:
 
             "🎉 بازی حافظه تمام شد"
-
 
 
         };
@@ -469,11 +462,18 @@ const MemoryEngine = {
 
 
         console.log(
-    "Sending Result To Screen",
-    result
-);
 
-Screen.showFinish(result);
+            "CALLING SHOW FINISH",
+
+            result
+
+        );
+
+
+
+        Screen.showFinish(
+            result
+        );
 
 
 
@@ -487,6 +487,14 @@ Screen.showFinish(result);
 
 
     refresh:function(){
+
+
+
+        if(this.finished){
+
+            return;
+
+        }
 
 
 
