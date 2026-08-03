@@ -1,7 +1,8 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 0.1
+// Version 3.3
 // Navigation Manager
+// Navigation History Integration
 // =====================================
 
 
@@ -12,6 +13,15 @@ const Navigation = {
 
 
         AppState.grade = grade;
+
+
+        NavigationHistory.push(
+
+            "grade",
+
+            grade
+
+        );
 
 
         console.log(
@@ -30,6 +40,15 @@ const Navigation = {
 
 
         AppState.subject = subject;
+
+
+        NavigationHistory.push(
+
+            "subject",
+
+            subject
+
+        );
 
 
         console.log(
@@ -51,6 +70,15 @@ const Navigation = {
         AppState.chapter = chapter;
 
 
+        NavigationHistory.push(
+
+            "chapter",
+
+            chapter
+
+        );
+
+
         console.log(
             "Selected Chapter:",
             chapter
@@ -68,6 +96,15 @@ const Navigation = {
 
 
         AppState.activity = activity;
+
+
+        NavigationHistory.push(
+
+            "activity",
+
+            activity
+
+        );
 
 
         console.log(

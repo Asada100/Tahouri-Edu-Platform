@@ -1,7 +1,8 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 3.2
+// Version 3.3
 // Result Modal
+// NavigationController Integration
 // =====================================
 
 const ResultModal = {
@@ -19,46 +20,54 @@ const ResultModal = {
 
         }
 
-       const modal =
-document.createElement("div");
 
-modal.id = "resultModal";
+        const modal =
+        document.createElement("div");
 
-modal.style.position = "fixed";
-modal.style.top = "0";
-modal.style.left = "0";
-modal.style.width = "100%";
-modal.style.height = "100%";
-modal.style.background = "rgba(0,0,0,0.5)";
-modal.style.display = "flex";
-modal.style.justifyContent = "center";
-modal.style.alignItems = "center";
-modal.style.zIndex = "9999";
+
+        modal.id = "resultModal";
+
+
+        modal.style.position = "fixed";
+        modal.style.top = "0";
+        modal.style.left = "0";
+        modal.style.width = "100%";
+        modal.style.height = "100%";
+        modal.style.background = "rgba(0,0,0,0.5)";
+        modal.style.display = "flex";
+        modal.style.justifyContent = "center";
+        modal.style.alignItems = "center";
+        modal.style.zIndex = "9999";
+
+
 
         modal.innerHTML = `
 
-       <div class="resultModalWindow"
-style="
-background:white;
-padding:30px;
-border-radius:15px;
-text-align:center;
-min-width:300px;
-">
+
+        <div class="resultModalWindow"
+        style="
+        background:white;
+        padding:30px;
+        border-radius:15px;
+        text-align:center;
+        min-width:300px;
+        ">
+
 
             <h1>
             🎉 فعالیت تمام شد
             </h1>
 
+
             <hr>
 
+
             <p>
-
             امتیاز:
-
             ${result.score}
-
             </p>
+
+
 
             ${
                 result.pairs !== undefined
@@ -73,6 +82,9 @@ min-width:300px;
                 ""
             }
 
+
+
+
             ${
                 result.moves !== undefined
                 ?
@@ -85,6 +97,9 @@ min-width:300px;
                 :
                 ""
             }
+
+
+
 
             ${
                 result.correctAnswers !== undefined
@@ -99,6 +114,9 @@ min-width:300px;
                 ""
             }
 
+
+
+
             ${
                 result.wrongAnswers !== undefined
                 ?
@@ -112,39 +130,50 @@ min-width:300px;
                 ""
             }
 
+
+
             <p>
-
             ${result.message || ""}
-
             </p>
+
+
 
             <br>
 
+
+
             <button id="retryActivityBtn">
-
             🔄 دوباره امتحان کن
-
             </button>
+
+
 
             <button id="backActivitiesBtn">
-
             📚 بازگشت به فعالیت‌ها
-
             </button>
+
+
 
             <button id="homeBtn">
-
             🏠 صفحه اصلی
-
             </button>
+
+
 
         </div>
 
+
         `;
+
+
 
         document.body.appendChild(
             modal
         );
+
+
+
+
 
         document
         .getElementById(
@@ -152,13 +181,22 @@ min-width:300px;
         )
         .onclick = function(){
 
+
             modal.remove();
+
 
             App.restartActivity(
                 AppState.activity
             );
 
+
         };
+
+
+
+
+
+
 
         document
         .getElementById(
@@ -166,11 +204,20 @@ min-width:300px;
         )
         .onclick = function(){
 
+
             modal.remove();
 
-            App.showActivities();
+
+            NavigationController.back();
+
 
         };
+
+
+
+
+
+
 
         document
         .getElementById(
@@ -178,22 +225,31 @@ min-width:300px;
         )
         .onclick = function(){
 
+
             modal.remove();
+
 
             App.goHome();
 
+
         };
+
+
 
     },
 
 
 
+
+
     hide:function(){
+
 
         const modal =
         document.getElementById(
             "resultModal"
         );
+
 
         if(modal){
 
@@ -201,9 +257,13 @@ min-width:300px;
 
         }
 
+
     }
 
+
 };
+
+
 
 console.log(
     "Result Modal Ready"
