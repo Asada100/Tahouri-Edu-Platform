@@ -1,22 +1,17 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 2.1
+// Version 2.3
 // Quiz Engine
-// ScoreManager Integration
+// Stable Event System
 // =====================================
-
 
 const QuizEngine = {
 
-
     state:{
-
 
         started:false,
 
-
         isFinished:false
-
 
     },
 
@@ -24,19 +19,15 @@ const QuizEngine = {
 
     questions:[],
 
-
     currentQuestion:0,
 
 
 
     init:function(){
 
-
         this.state.started = false;
 
-
         this.state.isFinished = false;
-
 
     },
 
@@ -46,48 +37,31 @@ const QuizEngine = {
 
     start:function(activityData){
 
-
-
         this.state.started = true;
-
 
         this.state.isFinished = false;
 
-
-
         this.questions =
-
         this.generateQuestions(10);
-
-
 
         this.currentQuestion = 0;
 
-
-
         ScoreManager.reset();
 
-
-
         console.log(
-
             "Random Quiz Started"
-
         );
-
-
 
         EventManager.emit(
-
-            "activity:start"
-
+            "activityStarted",
+            activityData
         );
 
-
+        EventManager.emit(
+            "activityPlaying"
+        );
 
         return this.getQuestion();
-
-
 
     },
 
@@ -95,15 +69,9 @@ const QuizEngine = {
 
 
 
-
-
     generateQuestions:function(count){
 
-
-
         const list = [];
-
-
 
         for(
 
@@ -115,61 +83,35 @@ const QuizEngine = {
 
         ){
 
-
-
             const number =
 
             Math.floor(
 
-                Math.random() * 1000
+                Math.random()*1000
 
             ) + 1;
 
-
-
-
-
             list.push({
 
-
-
                 text:
-
                 `عدد ${number} زوج است یا فرد؟`,
 
-
-
-
                 answer:
-
                 number % 2 === 0
-
-                ? "زوج"
-
-                : "فرد",
-
-
-
+                ?
+                "زوج"
+                :
+                "فرد",
 
                 number:number
 
-
-
             });
-
-
 
         }
 
-
-
         return list;
 
-
-
     },
-
-
 
 
 
@@ -177,19 +119,11 @@ const QuizEngine = {
 
     getQuestion:function(){
 
-
-
         return this.questions[
-
             this.currentQuestion
-
         ];
 
-
-
     },
-
-
 
 
 
@@ -197,97 +131,46 @@ const QuizEngine = {
 
     checkAnswer:function(answer){
 
-
-
         const question =
-
         this.getQuestion();
-
-
-
-
 
         if(!question){
 
-
             return false;
 
-
         }
-
-
-
-
-
-
 
         if(answer === question.answer){
 
-
-
             ScoreManager.addCorrect();
 
-
-
             console.log(
-
                 "Correct Answer"
-
             );
-
-
 
             EventManager.emit(
-
                 "answer:correct",
-
                 question
-
             );
-
-
 
             return true;
 
-
-
         }
-
-
-
-
-
-
 
         ScoreManager.addWrong();
 
-
-
         console.log(
-
             "Wrong Answer"
-
         );
-
-
 
         EventManager.emit(
-
             "answer:wrong",
-
             question
-
         );
-
-
 
         return false;
 
-
-
     },
-
-
 
 
 
@@ -295,51 +178,25 @@ const QuizEngine = {
 
     next:function(){
 
-
-
         this.currentQuestion++;
 
-
-
-
-
         if(
-
-
 
             this.currentQuestion >=
 
             this.questions.length
 
-
-
         ){
-
-
 
             this.finish();
 
-
-
             return null;
-
-
 
         }
 
-
-
-
-
-
         return this.getQuestion();
 
-
-
     },
-
-
-
 
 
 
@@ -347,39 +204,29 @@ const QuizEngine = {
 
     finish:function(){
 
-
-
         this.state.isFinished = true;
 
-
-
         console.log(
-
             "Quiz Finished"
-
         );
-
-
 
         const result =
 
-ResultManager.create(
-    this.getResult()
-);
+        ResultManager.create(
 
+            this.getResult()
 
-EventManager.emit(
-    "activity:finish",
-    result
-);
+        );
 
+        EventManager.emit(
 
+            "activityFinished",
+
+            result
+
+        );
 
     },
-
-
-
-
 
 
 
@@ -387,27 +234,15 @@ EventManager.emit(
 
     reset:function(){
 
-
-
         this.state.started = false;
-
-
 
         this.state.isFinished = false;
 
-
-
         this.questions = [];
-
-
 
         this.currentQuestion = 0;
 
-
-
         ScoreManager.reset();
-
-
 
     },
 
@@ -415,21 +250,11 @@ EventManager.emit(
 
 
 
-
-
-
-
     getResult:function(){
-
-
 
         const total =
 
         this.questions.length;
-
-
-
-
 
         const result =
 
@@ -439,61 +264,28 @@ EventManager.emit(
 
         );
 
-
-
-
-
-        return {
-
-
+        return{
 
             score:
-
             result.score,
 
-
-
-
             totalQuestions:
-
             total,
 
-
-
-
             correctAnswers:
-
             result.correct,
 
-
-
-
             wrongAnswers:
-
             result.wrong,
 
-
-
-
             percentage:
-
             result.percentage
-
-
 
         };
 
-
-
     }
 
-
-
 };
-
-
-
-
 
 
 

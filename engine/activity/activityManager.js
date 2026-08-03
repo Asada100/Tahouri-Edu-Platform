@@ -1,8 +1,8 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 3.2
+// Version 3.4
 // Activity Manager
-// Registry Integration
+// Activity State Integration
 // =====================================
 
 
@@ -37,6 +37,24 @@ const ActivityManager = {
 
 
 
+        // =========================
+        // Activity State
+        // =========================
+
+
+        ActivityState.set(
+
+            ActivityState.states.STARTED
+
+        );
+
+
+
+
+        // =========================
+        // Save History
+        // =========================
+
 
         ActivityHistory.set(
 
@@ -48,6 +66,9 @@ const ActivityManager = {
 
 
 
+        // =========================
+        // Find Engine
+        // =========================
 
 
         const engine =
@@ -57,7 +78,6 @@ const ActivityManager = {
             activity.engine
 
         ];
-
 
 
 
@@ -87,6 +107,19 @@ const ActivityManager = {
 
 
 
+        // =========================
+        // Start Engine
+        // =========================
+
+
+        ActivityState.set(
+
+            ActivityState.states.PLAYING
+
+        );
+
+
+
         engine.start(
 
             activity
@@ -96,6 +129,7 @@ const ActivityManager = {
 
 
     }
+
 
 
 
