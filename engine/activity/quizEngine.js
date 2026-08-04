@@ -294,3 +294,4 @@ console.log(
     "Quiz Engine Ready"
 
 );
+window.QuizEngine = QuizEngine;

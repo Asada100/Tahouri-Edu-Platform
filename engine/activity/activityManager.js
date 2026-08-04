@@ -1,24 +1,99 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 3.4
+// Version 4.4
 // Activity Manager
-// Activity State Integration
+// EngineManager Integration
+// Quiz Display Connection
+// ActivityHistory Fix
 // =====================================
-
 
 const ActivityManager = {
 
+    currentActivity:null,
 
-    load:function(activity){
 
 
-        if(!activity){
+    load:function(activityData){
 
+        console.log(
+            "Loading Activity:",
+            activityData
+        );
+
+
+
+        this.currentActivity = activityData;
+
+
+
+        // =============================
+        // ذخیره فعالیت جاری
+        // =============================
+
+        ActivityHistory.set(
+            activityData
+        );
+
+
+
+        ActivityState.set(
+            "started"
+        );
+
+
+
+        EventManager.emit(
+            "activityLoaded",
+            activityData
+        );
+
+
+
+        this.start(
+            activityData
+        );
+
+    },
+
+
+
+
+
+
+
+    start:function(activityData){
+
+
+
+        const engineName =
+
+        activityData.engine ||
+
+        activityData.type;
+
+
+
+        console.log(
+            "Requested Engine:",
+            engineName
+        );
+
+
+
+        const engine =
+
+        EngineManager.getEngine(
+            engineName
+        );
+
+
+
+        if(!engine){
 
             console.error(
-                "Activity Not Found"
+                "Engine Not Found:",
+                engineName
             );
-
 
             return;
 
@@ -27,118 +102,188 @@ const ActivityManager = {
 
 
         console.log(
-
-            "Loading Activity:",
-
-            activity
-
+            "Starting Engine:",
+            engineName
         );
 
-
-
-
-        // =========================
-        // Activity State
-        // =========================
 
 
         ActivityState.set(
-
-            ActivityState.states.STARTED
-
+            "playing"
         );
 
 
 
+        const result =
 
-        // =========================
-        // Save History
-        // =========================
-
-
-        ActivityHistory.set(
-
-            activity
-
+        engine.start(
+            activityData
         );
 
 
 
+        // =============================
+        // Quiz Engine Display
+        // =============================
 
+        if(
 
-        // =========================
-        // Find Engine
-        // =========================
+            engineName === "QuizEngine"
 
+            ||
 
-        const engine =
+            engineName === "quiz"
 
-        ActivityRegistry[
+        ){
 
-            activity.engine
+            if(result){
 
-        ];
+                Screen.showQuiz({
 
+                    title:
+                    activityData.title,
 
+                    score:
+                    ScoreManager.score,
 
+                    currentQuestion:
+                    engine.currentQuestion + 1,
 
+                    totalQuestions:
+                    engine.questions.length,
 
+                    question:
+                    result
 
-        if(!engine){
+                });
 
+                Components.bindQuizButtons();
 
-            console.error(
-
-                "Engine Not Found:",
-
-                activity.engine
-
-            );
-
-
-            return;
-
+            }
 
         }
 
 
 
+        // =============================
+        // Memory Engine Display
+        // =============================
+
+        if(
+
+            engineName === "MemoryEngine"
+
+            ||
+
+            engineName === "memory"
+
+        ){
+
+            if(engine.refresh){
+
+                engine.refresh();
+
+            }
+
+        }
+
+    },
 
 
 
 
-        // =========================
-        // Start Engine
-        // =========================
 
+
+
+    finish:function(result){
+
+        console.log(
+            "Activity Finished",
+            result
+        );
 
         ActivityState.set(
+            "finished"
+        );
 
-            ActivityState.states.PLAYING
+        EventManager.emit(
+            "activityFinished",
+            result
+        );
 
+    },
+
+
+
+
+
+
+
+    restart:function(){
+
+        if(!this.currentActivity){
+
+            console.warn(
+                "No Current Activity"
+            );
+
+            return;
+
+        }
+
+
+
+        console.log(
+            "Restart Activity:",
+            this.currentActivity.id
         );
 
 
 
-        engine.start(
-
-            activity
-
+        this.load(
+            this.currentActivity
         );
 
+    },
 
+
+
+
+
+
+
+    getCurrent:function(){
+
+        return this.currentActivity;
+
+    },
+
+
+
+
+
+
+
+    reset:function(){
+
+        this.currentActivity = null;
+
+        ActivityHistory.clear();
+
+        ActivityState.set(
+            "idle"
+        );
+
+        console.log(
+            "Activity Manager Reset"
+        );
 
     }
-
-
-
 
 };
 
 
 
 console.log(
-
     "Activity Manager Ready"
-
 );

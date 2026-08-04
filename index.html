@@ -26,27 +26,36 @@
 
 
 <!-- ============================= -->
-<!-- Core -->
+<!-- CORE SYSTEM -->
 <!-- ============================= -->
+
 <script src="engine/core/state.js"></script>
+
 <script src="engine/core/router.js"></script>
+
 <script src="engine/core/eventManager.js"></script>
+
 <script src="engine/core/dataManager.js"></script>
+
 <script src="engine/core/activityHistory.js"></script>
+
 <script src="engine/core/navigationHistory.js"></script>
+
 <script src="engine/core/navigationController.js"></script>
 
+
 <script src="engine/core/saveManager.js"></script>
+
 <script src="engine/core/sessionManager.js"></script>
+
 <script src="engine/core/statisticsManager.js"></script>
+
 <script src="engine/core/progressManager.js"></script>
 
-<script src="engine/core/appController.js"></script>
-
-
+<script src="engine/core/contentLockManager.js"></script>
 
 <!-- ============================= -->
-<!-- Navigation -->
+<!-- BASE UI NAVIGATION -->
 <!-- ============================= -->
 
 <script src="engine/ui/navigation.js"></script>
@@ -54,7 +63,7 @@
 
 
 <!-- ============================= -->
-<!-- Base Activity -->
+<!-- BASE ACTIVITY ENGINE -->
 <!-- ============================= -->
 
 <script src="engine/activity/BaseActivityEngine.js"></script>
@@ -62,19 +71,17 @@
 
 
 <!-- ============================= -->
-<!-- Managers -->
+<!-- SCORE & RESULT -->
 <!-- ============================= -->
 
 <script src="engine/score/scoreManager.js"></script>
-
-
 
 <script src="engine/result/resultManager.js"></script>
 
 
 
 <!-- ============================= -->
-<!-- Activity Engines -->
+<!-- ACTIVITY ENGINES -->
 <!-- ============================= -->
 
 <script src="engine/activity/quizEngine.js"></script>
@@ -96,9 +103,25 @@
 
 
 <!-- ============================= -->
-<!-- Activity System -->
+<!-- ENGINE MANAGER -->
+<!-- باید بعد از Engine ها باشد -->
 <!-- ============================= -->
 
+<script src="engine/core/engineManager.js"></script>
+
+
+
+<!-- ============================= -->
+<!-- APPLICATION CONTROLLER -->
+<!-- ============================= -->
+
+<script src="engine/core/appController.js"></script>
+
+
+
+<!-- ============================= -->
+<!-- ACTIVITY SYSTEM -->
+<!-- ============================= -->
 
 <script src="engine/activity/activityState.js"></script>
 
@@ -108,8 +131,10 @@
 
 <script src="engine/activity/activityLifecycle.js"></script>
 
+
+
 <!-- ============================= -->
-<!-- UI -->
+<!-- USER INTERFACE -->
 <!-- ============================= -->
 
 <script src="engine/ui/screen.js"></script>
@@ -121,19 +146,21 @@
 
 
 <!-- ============================= -->
-<!-- Result Modal -->
+<!-- RESULT MODAL -->
 <!-- ============================= -->
 
 <script src="engine/ui/resultModal.js"></script>
 
 
+<script src="engine/progress/progressTracker.js"></script>
+
 
 <!-- ============================= -->
-<!-- Application -->
+<!-- MAIN APP -->
 <!-- ============================= -->
+
 
 <script src="app.js"></script>
-
 
 
 </body>

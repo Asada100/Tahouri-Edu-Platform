@@ -1,6 +1,8 @@
 // =====================================
 // Tahouri Edu Platform
 // Activity Screen
+// Version 2.0
+// Content Lock Integration
 // =====================================
 
 
@@ -11,27 +13,19 @@ const ActivityScreen = {
     show:function(activityList){
 
 
-
         const app =
-
         document.getElementById("app");
-
-
 
 
 
         app.innerHTML = `
 
 
-
         <div class="screen">
 
 
-
             <h1>
-
             انتخاب فعالیت
-
             </h1>
 
 
@@ -42,22 +36,41 @@ const ActivityScreen = {
                 activityList.map(function(activity){
 
 
+                    const locked =
+
+                    ContentLockManager.isLocked(
+                        activity.id
+                    );
+
+
+
                     return `
 
 
+                    <button
 
-                    <button class="activitySelectBtn"
+                    class="activitySelectBtn"
 
-                    data-id="${activity.id}">
+                    data-id="${activity.id}"
 
+                    ${locked ? "disabled" : ""}
+
+                    >
+
+
+                    ${
+                        locked
+                        ?
+                        "🔒 "
+                        :
+                        "🔓 "
+                    }
 
 
                     ${activity.title}
 
 
-
                     </button>
-
 
 
                     `;
@@ -69,13 +82,10 @@ const ActivityScreen = {
 
 
 
-
         </div>
 
 
-
         `;
-
 
 
 
@@ -123,8 +133,27 @@ const ActivityScreen = {
 
 
 
-                AppState.activity = id;
 
+                if(
+                    !ContentLockManager.canOpen(id)
+                ){
+
+
+                    alert(
+                        "🔒 این فعالیت هنوز باز نشده است"
+                    );
+
+
+                    return;
+
+
+                }
+
+
+
+
+
+                AppState.activity = id;
 
 
 
@@ -154,5 +183,5 @@ const ActivityScreen = {
 
 
 console.log(
-"Activity Screen Ready"
+    "Activity Screen Ready"
 );

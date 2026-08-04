@@ -426,30 +426,54 @@ const MemoryEngine = {
 
 
 
-        const result = {
+       const result = {
 
 
-            score:
+    score:
 
-            ScoreManager.score,
-
-
-            pairs:
-
-            this.matchedPairs,
+    ScoreManager.score,
 
 
-            moves:
+    pairs:
 
-            this.moves,
-
-
-            message:
-
-            "🎉 بازی حافظه تمام شد"
+    this.matchedPairs,
 
 
-        };
+    totalPairs:
+
+    this.totalPairs,
+
+
+    moves:
+
+    this.moves,
+
+
+    percentage:
+
+    Math.round(
+
+        (
+
+            this.matchedPairs /
+
+            this.totalPairs
+
+        )
+
+        *
+
+        100
+
+    ),
+
+
+    message:
+
+    "🎉 بازی حافظه تمام شد"
+
+
+};
 
 
 
@@ -463,19 +487,19 @@ const MemoryEngine = {
 
 
 
-        console.log(
+       console.log(
 
-            "CALLING SHOW FINISH",
+    "CALLING ACTIVITY MANAGER",
 
-            result
+    result
 
-        );
+);
 
 
 
-        Screen.showFinish(
-            result
-        );
+ActivityManager.finish(
+    result
+);
 
 
 
@@ -559,3 +583,4 @@ console.log(
     "Memory Engine Ready"
 
 );
+window.MemoryEngine = MemoryEngine;

@@ -1,18 +1,23 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 3.3
+// Version 3.5
 // Result Modal
-// NavigationController Integration
+// Quiz + Memory Compatible
+// Navigation Buttons
 // =====================================
+
 
 const ResultModal = {
 
+
     show:function(result){
+
 
         const oldModal =
         document.getElementById(
             "resultModal"
         );
+
 
         if(oldModal){
 
@@ -21,23 +26,91 @@ const ResultModal = {
         }
 
 
+
+
+
+        const percentage =
+
+        result.percentage !== undefined
+
+        ?
+
+        result.percentage
+
+        :
+
+        0;
+
+
+
+
+
+        const stars =
+
+        Math.round(
+            percentage / 20
+        );
+
+
+
+
+
+        let starText = "";
+
+        for(
+            let i = 0;
+            i < 5;
+            i++
+        ){
+
+            starText +=
+
+            i < stars
+
+            ?
+
+            "⭐"
+
+            :
+
+            "☆";
+
+        }
+
+
+
+
+
+
+
         const modal =
-        document.createElement("div");
+
+        document.createElement(
+            "div"
+        );
 
 
-        modal.id = "resultModal";
+
+        modal.id =
+        "resultModal";
 
 
-        modal.style.position = "fixed";
-        modal.style.top = "0";
-        modal.style.left = "0";
-        modal.style.width = "100%";
-        modal.style.height = "100%";
-        modal.style.background = "rgba(0,0,0,0.5)";
-        modal.style.display = "flex";
-        modal.style.justifyContent = "center";
-        modal.style.alignItems = "center";
-        modal.style.zIndex = "9999";
+
+        modal.style.position="fixed";
+        modal.style.top="0";
+        modal.style.left="0";
+        modal.style.width="100%";
+        modal.style.height="100%";
+        modal.style.background="rgba(0,0,0,0.5)";
+        modal.style.display="flex";
+        modal.style.justifyContent="center";
+        modal.style.alignItems="center";
+        modal.style.zIndex="9999";
+
+
+
+
+
 
 
 
@@ -45,118 +118,215 @@ const ResultModal = {
 
 
         <div class="resultModalWindow"
+
         style="
         background:white;
         padding:30px;
         border-radius:15px;
         text-align:center;
-        min-width:300px;
+        min-width:320px;
         ">
 
 
-            <h1>
-            🎉 فعالیت تمام شد
-            </h1>
+        <h1>
+        🎉 نتیجه فعالیت
+        </h1>
 
 
-            <hr>
+        <hr>
 
 
+
+
+        <h2>
+        ${result.title || "فعالیت آموزشی"}
+        </h2>
+
+
+
+
+
+        <p>
+        امتیاز:
+
+        <strong>
+        ${result.score || 0}
+        </strong>
+
+        </p>
+
+
+
+
+
+
+        <p>
+
+        درصد موفقیت:
+
+        <strong>
+        ${percentage}%
+        </strong>
+
+        </p>
+
+
+
+
+
+
+        <h2>
+        ${starText}
+        </h2>
+
+
+
+
+
+
+
+        ${
+            result.correctAnswers !== undefined
+
+            ?
+
+            `
             <p>
-            امتیاز:
-            ${result.score}
+            پاسخ صحیح:
+            ${result.correctAnswers}
             </p>
+            `
 
+            :
 
+            ""
 
-            ${
-                result.pairs !== undefined
-                ?
-                `
-                <p>
-                جفت‌های پیدا شده:
-                ${result.pairs}
-                </p>
-                `
-                :
-                ""
-            }
+        }
 
 
 
 
-            ${
-                result.moves !== undefined
-                ?
-                `
-                <p>
-                تعداد حرکت:
-                ${result.moves}
-                </p>
-                `
-                :
-                ""
-            }
 
 
 
+        ${
+            result.wrongAnswers !== undefined
 
-            ${
-                result.correctAnswers !== undefined
-                ?
-                `
-                <p>
-                پاسخ صحیح:
-                ${result.correctAnswers}
-                </p>
-                `
-                :
-                ""
-            }
+            ?
 
-
-
-
-            ${
-                result.wrongAnswers !== undefined
-                ?
-                `
-                <p>
-                پاسخ غلط:
-                ${result.wrongAnswers}
-                </p>
-                `
-                :
-                ""
-            }
-
-
-
+            `
             <p>
-            ${result.message || ""}
+            پاسخ اشتباه:
+            ${result.wrongAnswers}
             </p>
+            `
+
+            :
+
+            ""
+
+        }
 
 
 
-            <br>
 
 
 
-            <button id="retryActivityBtn">
-            🔄 دوباره امتحان کن
-            </button>
+
+
+        ${
+            result.pairs !== undefined
+
+            ?
+
+            `
+            <p>
+            جفت پیدا شده:
+            ${result.pairs}
+            </p>
+            `
+
+            :
+
+            ""
+
+        }
 
 
 
-            <button id="backActivitiesBtn">
-            📚 بازگشت به فعالیت‌ها
-            </button>
 
 
 
-            <button id="homeBtn">
-            🏠 صفحه اصلی
-            </button>
+
+
+        ${
+            result.moves !== undefined
+
+            ?
+
+            `
+            <p>
+            تعداد حرکت:
+            ${result.moves}
+            </p>
+            `
+
+            :
+
+            ""
+
+        }
+
+
+
+
+
+
+
+        <p>
+
+        ${result.message || ""}
+
+        </p>
+
+
+
+
+
+
+        <br>
+
+
+
+
+
+        <button id="retryActivityBtn">
+
+        🔄 دوباره بازی کن
+
+        </button>
+
+
+
+
+
+        <button id="backActivitiesBtn">
+
+        📚 بازگشت به فعالیت‌ها
+
+        </button>
+
+
+
+
+
+        <button id="homeBtn">
+
+        🏠 صفحه اصلی
+
+        </button>
+
+
 
 
 
@@ -164,6 +334,9 @@ const ResultModal = {
 
 
         `;
+
+
+
 
 
 
@@ -175,19 +348,22 @@ const ResultModal = {
 
 
 
+
+
+
+        // دوباره بازی
+
         document
         .getElementById(
             "retryActivityBtn"
         )
-        .onclick = function(){
+        .onclick=function(){
 
 
             modal.remove();
 
 
-            App.restartActivity(
-                AppState.activity
-            );
+            ActivityManager.restart();
 
 
         };
@@ -198,11 +374,14 @@ const ResultModal = {
 
 
 
+
+        // بازگشت به فعالیت‌ها
+
         document
         .getElementById(
             "backActivitiesBtn"
         )
-        .onclick = function(){
+        .onclick=function(){
 
 
             modal.remove();
@@ -219,11 +398,14 @@ const ResultModal = {
 
 
 
+
+        // صفحه اصلی
+
         document
         .getElementById(
             "homeBtn"
         )
-        .onclick = function(){
+        .onclick=function(){
 
 
             modal.remove();
@@ -236,7 +418,10 @@ const ResultModal = {
 
 
 
+
     },
+
+
 
 
 
@@ -246,9 +431,11 @@ const ResultModal = {
 
 
         const modal =
+
         document.getElementById(
             "resultModal"
         );
+
 
 
         if(modal){
@@ -265,6 +452,8 @@ const ResultModal = {
 
 
 
+
+
 console.log(
-    "Result Modal Ready"
+"Result Modal Ready"
 );

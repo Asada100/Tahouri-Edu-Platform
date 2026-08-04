@@ -13,7 +13,7 @@
 
     "type": "quiz",
 
-    "engine": "QuizEngine",
+    "engine": "quiz",
 
     "version": "1.0",
 

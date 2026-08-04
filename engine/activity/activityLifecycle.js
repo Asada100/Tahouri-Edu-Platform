@@ -1,11 +1,12 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 3.5
+// Version 3.7
 // Activity Lifecycle
-// Session + Statistics Integration
+// Session + Statistics + Progress + Content Lock
 // =====================================
 
 const ActivityLifecycle = {
+
 
     connect:function(){
 
@@ -25,15 +26,11 @@ const ActivityLifecycle = {
                 );
 
                 ActivityState.set(
-
                     "started"
-
                 );
 
                 ActivityState.set(
-
                     "playing"
-
                 );
 
             }
@@ -68,7 +65,54 @@ const ActivityLifecycle = {
 
 
 
-                // ثبت امتیاز در Session
+                // =========================
+                // فعالیت فعلی
+                // =========================
+
+                const activity =
+
+                ActivityHistory.get();
+
+
+
+                // =========================
+                // ثبت پیشرفت
+                // =========================
+
+                ProgressTracker.update(
+
+                    activity.id,
+
+                    result
+
+                );
+
+
+
+                // =========================
+                // باز شدن فعالیت بعدی
+                // شرط 4 ستاره
+                // =========================
+
+                if(
+
+                    result.percentage >= 80
+
+                ){
+
+                    ContentLockManager.unlock(
+
+                        "memoryDemo"
+
+                    );
+
+                }
+
+
+
+                // =========================
+                // ثبت امتیاز Session
+                // =========================
 
                 SessionManager.addActivity(
 
@@ -78,13 +122,9 @@ const ActivityLifecycle = {
 
 
 
-                // ثبت آمار کلی
-
-                const activity =
-
-                ActivityHistory.get();
-
-
+                // =========================
+                // ثبت آمار
+                // =========================
 
                 StatisticsManager.addResult(
 
@@ -130,11 +170,7 @@ const ActivityLifecycle = {
 
 ActivityLifecycle.connect();
 
-
-
 SessionManager.start();
-
-
 
 console.log(
 

@@ -1,7 +1,8 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 1.2
+// Version 1.3
 // Stage Based Learning Flow
+// Content Lock Integration
 // Grade -> Subject -> Chapter -> Activity
 // =====================================
 
@@ -26,16 +27,6 @@ let subjects = [];
 let chapters = [];
 
 let activities = [];
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -390,13 +381,10 @@ subjectId
 
 
 }
-
-
-
-
-
-
-
+// =====================================
+// نمایش فعالیت‌ها
+// Content Lock Integration
+// =====================================
 
 
 function showActivities(
@@ -454,11 +442,36 @@ chapterId
             chapterActivities.map(function(activity){
 
 
+
+                const locked =
+
+                ContentLockManager.isLocked(
+                    activity.id
+                );
+
+
+
                 return `
 
 
-                <button class="activityBtn"
-                data-id="${activity.id}">
+                <button
+
+                class="activityBtn"
+
+                data-id="${activity.id}"
+
+                ${locked ? "disabled" : ""}
+
+                >
+
+
+                ${
+                    locked
+                    ?
+                    "🔒 "
+                    :
+                    "🔓 "
+                }
 
 
                 ${activity.title}
@@ -507,9 +520,36 @@ chapterId
 
 
 
+
+
+            if(
+                !ContentLockManager.canOpen(
+                    activityId
+                )
+            ){
+
+
+                alert(
+                    "🔒 این فعالیت هنوز باز نشده است"
+                );
+
+
+                return;
+
+
+            }
+
+
+
+
+
+
             Navigation.selectActivity(
                 activityId
             );
+
+
+
 
 
 
@@ -522,6 +562,7 @@ chapterId
 
 
             });
+
 
 
 
@@ -541,6 +582,7 @@ chapterId
 
 
 }
+
 
 
 
