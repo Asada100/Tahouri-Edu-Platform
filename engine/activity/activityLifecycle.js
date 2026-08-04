@@ -1,12 +1,14 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 3.1
+// Version 3.5
 // Activity Lifecycle
+// Session + Statistics Integration
 // =====================================
 
 const ActivityLifecycle = {
 
     connect:function(){
+
 
         EventManager.on(
 
@@ -27,20 +29,6 @@ const ActivityLifecycle = {
                     "started"
 
                 );
-
-            }
-
-        );
-
-
-
-
-
-        EventManager.on(
-
-            "activityPlaying",
-
-            function(activity){
 
                 ActivityState.set(
 
@@ -80,11 +68,29 @@ const ActivityLifecycle = {
 
 
 
-                // ثبت نتیجه در Session
+                // ثبت امتیاز در Session
 
                 SessionManager.addActivity(
 
-                    result.score || 0
+                    result.score
+
+                );
+
+
+
+                // ثبت آمار کلی
+
+                const activity =
+
+                ActivityHistory.get();
+
+
+
+                StatisticsManager.addResult(
+
+                    activity,
+
+                    result
 
                 );
 
@@ -93,6 +99,14 @@ const ActivityLifecycle = {
                 ActivityState.set(
 
                     "completed"
+
+                );
+
+
+
+                Screen.showFinish(
+
+                    result
 
                 );
 
@@ -108,26 +122,6 @@ const ActivityLifecycle = {
 
         );
 
-    },
-
-
-
-
-
-    startSession:function(){
-
-        SessionManager.start();
-
-    },
-
-
-
-
-
-    finishSession:function(){
-
-        SessionManager.finish();
-
     }
 
 };
@@ -136,7 +130,9 @@ const ActivityLifecycle = {
 
 ActivityLifecycle.connect();
 
-ActivityLifecycle.startSession();
+
+
+SessionManager.start();
 
 
 
