@@ -270,9 +270,7 @@ const ActivityManager = {
 
         ActivityHistory.clear();
 
-        ActivityState.set(
-            "idle"
-        );
+        ActivityState.reset();
 
         console.log(
             "Activity Manager Reset"

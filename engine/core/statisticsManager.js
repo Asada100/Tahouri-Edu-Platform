@@ -1,15 +1,19 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 1.2
+// Version 2.0
 // Statistics Manager
+// SaveManager Integration
 // =====================================
-
 
 const StatisticsManager = {
 
+    STORAGE_KEY:
+
+    "Tahouri_Statistics",
+
+
 
     statistics:{
-
 
         totalActivities:0,
 
@@ -23,38 +27,61 @@ const StatisticsManager = {
 
         totalWrong:0
 
+    },
+
+
+
+    init:function(){
+
+        const saved =
+
+        SaveManager.load(
+
+            this.STORAGE_KEY
+
+        );
+
+        if(saved){
+
+            this.statistics = saved;
+
+            console.log(
+
+                "Statistics Loaded",
+
+                this.statistics
+
+            );
+
+        }
+
+        else{
+
+            this.save();
+
+        }
 
     },
 
 
 
-
-    addResult:function(activity, result){
-
-
+    addResult:function(activity,result){
 
         if(!result){
 
-
             console.error(
+
                 "Statistics Result Missing"
+
             );
 
-
             return;
-
 
         }
 
 
 
-
-
-
         this.statistics.totalActivities++;
-
-
-
 
 
 
@@ -64,113 +91,143 @@ const StatisticsManager = {
 
 
 
-
-
-
-
         this.statistics.totalCorrect +=
 
-        result.correctAnswers || 0;
+        result.correctAnswers ||
 
+        result.correct ||
 
-
-
+        0;
 
 
 
         this.statistics.totalWrong +=
 
-        result.wrongAnswers || 0;
+        result.wrongAnswers ||
 
+        result.wrong ||
 
-
-
-
+        0;
 
 
 
         if(
 
-            result.score >
+            (result.score || 0)
+
+            >
 
             this.statistics.bestScore
 
         ){
 
-
             this.statistics.bestScore =
 
             result.score;
-
 
         }
 
 
 
-
-
-
-
-
         this.statistics.averageScore =
 
-
-        Math.floor(
-
+        Math.round(
 
             this.statistics.totalScore /
 
             this.statistics.totalActivities
 
-
         );
 
 
 
-
-
+        this.save();
 
 
 
         console.log(
 
-
             "Statistics Updated",
-
 
             this.statistics
 
-
         );
-
-
-
 
     },
 
 
 
+    save:function(){
+
+        SaveManager.save(
+
+            this.STORAGE_KEY,
+
+            this.statistics
+
+        );
+
+    },
+
+
+
+    load:function(){
+
+        const saved =
+
+        SaveManager.load(
+
+            this.STORAGE_KEY
+
+        );
+
+        if(saved){
+
+            this.statistics = saved;
+
+        }
+
+    },
 
 
 
     get:function(){
 
+        return {
 
-        return this.statistics;
+            totalActivities:
 
+            this.statistics.totalActivities,
+
+            totalScore:
+
+            this.statistics.totalScore,
+
+            averageScore:
+
+            this.statistics.averageScore,
+
+            bestScore:
+
+            this.statistics.bestScore,
+
+            totalCorrect:
+
+            this.statistics.totalCorrect,
+
+            totalWrong:
+
+            this.statistics.totalWrong
+
+        };
 
     },
 
 
 
-
-
-
     reset:function(){
 
-
-        this.statistics = {
-
+        this.statistics={
 
             totalActivities:0,
 
@@ -184,10 +241,9 @@ const StatisticsManager = {
 
             totalWrong:0
 
-
         };
 
-
+        this.save();
 
         console.log(
 
@@ -195,14 +251,79 @@ const StatisticsManager = {
 
         );
 
+    },
+
+
+
+    getAverage:function(){
+
+        return
+
+        this.statistics.averageScore;
+
+    },
+
+
+
+    getBestScore:function(){
+
+        return
+
+        this.statistics.bestScore;
+
+    },
+
+
+
+    getTotalActivities:function(){
+
+        return
+
+        this.statistics.totalActivities;
+
+    },
+
+
+
+    getTotalScore:function(){
+
+        return
+
+        this.statistics.totalScore;
+
+    },
+
+
+
+    getTotalCorrect:function(){
+
+        return
+
+        this.statistics.totalCorrect;
+
+    },
+
+
+
+    getTotalWrong:function(){
+
+        return
+
+        this.statistics.totalWrong;
 
     }
-
-
 
 };
 
 
+
+window.StatisticsManager =
+
+StatisticsManager;
+
+
+
+StatisticsManager.init();
 
 
 

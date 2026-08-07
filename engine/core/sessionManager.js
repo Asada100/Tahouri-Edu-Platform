@@ -1,104 +1,61 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 2.0
+// Version 3.0
 // Session Manager
-// SaveManager Integration
+// Standard Architecture
 // =====================================
 
 const SessionManager = {
 
-    STORAGE_KEY:"Tahouri_Session",
+    STORAGE_KEY: "Tahouri_Session",
 
+    session: {
 
-    session:{
+        startTime: null,
 
-        startTime:null,
+        endTime: null,
 
-        endTime:null,
+        duration: 0,
 
-        duration:0,
+        totalScore: 0,
 
-        totalScore:0,
+        totalActivities: 0,
 
-        totalActivities:0,
-
-        completedActivities:0
+        completedActivities: 0
 
     },
 
 
 
-    start:function(){
+    start: function () {
 
-        const saved =
-
-        SaveManager.load(
-
+        const saved = SaveManager.load(
             this.STORAGE_KEY
-
         );
 
-
-
-        if(saved){
+        if (saved) {
 
             this.session = saved;
 
             console.log(
-
                 "Session Loaded",
-
                 this.session
-
             );
 
             return;
-
         }
 
-
-
-        this.session = {
-
-            startTime:Date.now(),
-
-            endTime:null,
-
-            duration:0,
-
-            totalScore:0,
-
-            totalActivities:0,
-
-            completedActivities:0
-
-        };
-
-
-
-        SaveManager.save(
-
-            this.STORAGE_KEY,
-
-            this.session
-
-        );
-
-
+        this.reset();
 
         console.log(
-
             "Session Started"
-
         );
 
     },
 
 
 
-
-
-    addActivity:function(score){
+    addActivity: function (score) {
 
         this.session.totalActivities++;
 
@@ -109,71 +66,39 @@ const SessionManager = {
         this.save();
 
         console.log(
-
             "Session Updated",
-
             this.session
-
         );
-
-        SaveManager.save(
-    "session",
-    this.session
-);
 
     },
 
 
 
+    finish: function () {
 
+        this.session.endTime = Date.now();
 
-    finish:function(){
-
-        this.session.endTime =
-
-        Date.now();
-
-        this.session.duration =
-
-        Math.floor(
+        this.session.duration = Math.floor(
 
             (
-
-                this.session.endTime-
-
+                this.session.endTime -
                 this.session.startTime
-
-            )/1000
+            ) / 1000
 
         );
-
-
 
         this.save();
 
-
-
         console.log(
-
             "Session Finished",
-
             this.session
-
         );
 
-
-
-        SaveManager.save(
-    "session",
-    this.session
-);
     },
 
 
 
-
-
-    save:function(){
+    save: function () {
 
         SaveManager.save(
 
@@ -187,21 +112,13 @@ const SessionManager = {
 
 
 
+    load: function () {
 
-
-    load:function(){
-
-        const data =
-
-        SaveManager.load(
-
+        const data = SaveManager.load(
             this.STORAGE_KEY
-
         );
 
-
-
-        if(data){
+        if (data) {
 
             this.session = data;
 
@@ -211,45 +128,35 @@ const SessionManager = {
 
 
 
+    reset: function () {
 
+        this.session = {
 
-    reset:function(){
+            startTime: Date.now(),
 
-        this.session={
+            endTime: null,
 
-            startTime:Date.now(),
+            duration: 0,
 
-            endTime:null,
+            totalScore: 0,
 
-            duration:0,
+            totalActivities: 0,
 
-            totalScore:0,
-
-            totalActivities:0,
-
-            completedActivities:0
+            completedActivities: 0
 
         };
 
-
-
         this.save();
 
-
-
         console.log(
-
             "Session Reset"
-
         );
 
     },
 
 
 
-
-
-    get:function(){
+    get: function () {
 
         return this.session;
 
@@ -260,11 +167,5 @@ const SessionManager = {
 
 
 console.log(
-
     "Session Manager Ready"
-
-);
-SaveManager.save(
-    "session",
-    this.session
 );

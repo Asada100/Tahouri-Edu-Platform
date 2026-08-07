@@ -1,35 +1,51 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 2.3
+// Version 2.4
 // Quiz Engine
+// Activity Result Integration
 // Stable Event System
 // =====================================
 
+
 const QuizEngine = {
 
+
     state:{
+
 
         started:false,
 
         isFinished:false
 
+
     },
 
 
 
+    activity:null,
+
+
     questions:[],
+
 
     currentQuestion:0,
 
 
 
+
+
     init:function(){
+
 
         this.state.started = false;
 
         this.state.isFinished = false;
 
+
     },
+
+
+
 
 
 
@@ -37,31 +53,70 @@ const QuizEngine = {
 
     start:function(activityData){
 
+
+
+        this.activity = activityData;
+
+
+
         this.state.started = true;
+
 
         this.state.isFinished = false;
 
+
+
         this.questions =
+
         this.generateQuestions(10);
+
+
 
         this.currentQuestion = 0;
 
+
+
         ScoreManager.reset();
 
+
+
+
+
         console.log(
+
             "Random Quiz Started"
+
         );
 
+
+
+
+
         EventManager.emit(
+
             "activityStarted",
+
             activityData
+
         );
 
+
+
+
+
         EventManager.emit(
+
             "activityPlaying"
+
         );
+
+
+
+
 
         return this.getQuestion();
+
+
 
     },
 
@@ -69,9 +124,17 @@ const QuizEngine = {
 
 
 
+
+
+
+
     generateQuestions:function(count){
 
+
+
         const list = [];
+
+
 
         for(
 
@@ -83,7 +146,11 @@ const QuizEngine = {
 
         ){
 
+
+
             const number =
+
+
 
             Math.floor(
 
@@ -91,27 +158,55 @@ const QuizEngine = {
 
             ) + 1;
 
+
+
+
+
             list.push({
 
+
+
                 text:
+
                 `عدد ${number} زوج است یا فرد؟`,
 
+
+
                 answer:
+
                 number % 2 === 0
+
                 ?
+
                 "زوج"
+
                 :
+
                 "فرد",
+
+
 
                 number:number
 
+
+
             });
+
+
 
         }
 
+
+
         return list;
 
+
+
     },
+
+
+
+
 
 
 
@@ -119,11 +214,21 @@ const QuizEngine = {
 
     getQuestion:function(){
 
+
+
         return this.questions[
+
             this.currentQuestion
+
         ];
 
+
+
     },
+
+
+
+
 
 
 
@@ -131,46 +236,110 @@ const QuizEngine = {
 
     checkAnswer:function(answer){
 
+
+
         const question =
+
         this.getQuestion();
+
+
+
+
 
         if(!question){
 
+
             return false;
 
+
         }
+
+
+
+
+
+
 
         if(answer === question.answer){
 
+
+
             ScoreManager.addCorrect();
 
+
+
+
+
             console.log(
+
                 "Correct Answer"
+
             );
 
+
+
+
+
             EventManager.emit(
+
                 "answer:correct",
+
                 question
+
             );
+
+
+
+
 
             return true;
 
+
+
         }
+
+
+
+
+
 
         ScoreManager.addWrong();
 
+
+
+
+
         console.log(
+
             "Wrong Answer"
+
         );
 
+
+
+
+
         EventManager.emit(
+
             "answer:wrong",
+
             question
+
         );
+
+
+
+
 
         return false;
 
+
+
     },
+
+
+
+
 
 
 
@@ -178,55 +347,130 @@ const QuizEngine = {
 
     next:function(){
 
+
+
         this.currentQuestion++;
+
+
+
+
 
         if(
 
+
+
             this.currentQuestion >=
+
+
 
             this.questions.length
 
+
+
         ){
+
+
 
             this.finish();
 
+
+
             return null;
+
+
 
         }
 
+
+
+
+
         return this.getQuestion();
 
+
+
     },
 
 
 
 
 
-    finish:function(){
 
-        this.state.isFinished = true;
 
-        console.log(
-            "Quiz Finished"
-        );
 
-        const result =
 
-        ResultManager.create(
+   finish:function(){
 
-            this.getResult()
+    this.state.isFinished = true;
 
-        );
+    console.log(
 
-        EventManager.emit(
+        "Quiz Finished"
 
-            "activityFinished",
+    );
 
-            result
 
-        );
 
-    },
+    const rawResult =
+
+    this.getResult();
+
+
+
+    const result =
+
+    ActivityResult.create({
+
+        activityId:
+
+        this.activity
+        ?
+        this.activity.id
+        :
+        null,
+
+        score:
+        rawResult.score,
+
+        totalQuestions:
+        rawResult.totalQuestions,
+
+        correctAnswers:
+        rawResult.correctAnswers,
+
+        wrongAnswers:
+        rawResult.wrongAnswers,
+
+        // سازگاری با StatisticsManager
+        correct:
+        rawResult.correctAnswers,
+
+        wrong:
+        rawResult.wrongAnswers,
+
+        percentage:
+        rawResult.percentage,
+
+        message:
+        "🎉 آزمون تمام شد"
+
+    });
+
+
+
+    EventManager.emit(
+
+        "activityFinished",
+
+        result
+
+    );
+
+},
+
+
+
+
 
 
 
@@ -234,15 +478,31 @@ const QuizEngine = {
 
     reset:function(){
 
+
+
         this.state.started = false;
+
+
 
         this.state.isFinished = false;
 
+
+
+        this.activity = null;
+
+
+
         this.questions = [];
+
+
 
         this.currentQuestion = 0;
 
+
+
         ScoreManager.reset();
+
+
 
     },
 
@@ -250,48 +510,69 @@ const QuizEngine = {
 
 
 
-    getResult:function(){
 
-        const total =
 
-        this.questions.length;
 
-        const result =
 
-        ScoreManager.getResult(
+  getResult:function(){
 
-            total
+    const total =
 
-        );
+    this.questions.length;
 
-        return{
 
-            score:
-            result.score,
 
-            totalQuestions:
-            total,
+    const result =
 
-            correctAnswers:
-            result.correct,
+    ScoreManager.getResult(
 
-            wrongAnswers:
-            result.wrong,
+        total
 
-            percentage:
-            result.percentage
+    );
 
-        };
 
-    }
+
+    return {
+
+        score:
+        result.score || 0,
+
+        totalQuestions:
+        total,
+
+        correctAnswers:
+        result.correct || 0,
+
+        wrongAnswers:
+        result.wrong || 0,
+
+        percentage:
+        result.percentage || 0
+
+    };
+
+}
+
+
 
 };
 
 
 
+
+
+
 console.log(
+
+
 
     "Quiz Engine Ready"
 
+
+
 );
+
+
+
+
 window.QuizEngine = QuizEngine;

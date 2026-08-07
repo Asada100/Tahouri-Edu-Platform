@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 1.0
+// Version 2.0
 // Save Manager
 // =====================================
 
@@ -48,6 +48,8 @@ const SaveManager = {
 
 
 
+
+
     load:function(key){
 
         try{
@@ -66,7 +68,11 @@ const SaveManager = {
 
             }
 
-            return JSON.parse(data);
+            return JSON.parse(
+
+                data
+
+            );
 
         }
 
@@ -88,11 +94,55 @@ const SaveManager = {
 
 
 
+
+
     remove:function(key){
 
-        localStorage.removeItem(
+        try{
 
-            key
+            localStorage.removeItem(
+
+                key
+
+            );
+
+            console.log(
+
+                "Removed:",
+
+                key
+
+            );
+
+        }
+
+        catch(error){
+
+            console.error(
+
+                "Remove Error:",
+
+                error
+
+            );
+
+        }
+
+    },
+
+
+
+
+
+    exists:function(key){
+
+        return (
+
+            localStorage.getItem(
+
+                key
+
+            ) !== null
 
         );
 
@@ -100,25 +150,75 @@ const SaveManager = {
 
 
 
-    exists:function(key){
 
-        return localStorage.getItem(
 
-            key
+    clear:function(){
 
-        ) !== null;
+        try{
+
+            localStorage.clear();
+
+            console.log(
+
+                "All Local Storage Cleared"
+
+            );
+
+        }
+
+        catch(error){
+
+            console.error(
+
+                "Clear Error:",
+
+                error
+
+            );
+
+        }
 
     },
 
 
 
-    clear:function(){
 
-        localStorage.clear();
+
+    keys:function(){
+
+        return Object.keys(
+
+            localStorage
+
+        );
+
+    },
+
+
+
+
+
+    init:function(){
+
+        console.log(
+
+            "Save Manager Initialized"
+
+        );
 
     }
 
 };
+
+
+
+window.SaveManager =
+
+SaveManager;
+
+
+
+SaveManager.init();
 
 
 

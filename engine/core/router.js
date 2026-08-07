@@ -1,62 +1,35 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 0.2
+// Version 1.0
 // Router System
+// Future Navigation Support
 // =====================================
 
 
 const Router = {
 
 
-    openGrade:function(grade){
+    go:function(path){
 
-        AppState.grade = grade;
 
         console.log(
-            "Grade:",
-            grade
+
+            "Router Path:",
+
+            path
+
         );
 
-    },
-
-
-    openSubject:function(subject){
-
-        AppState.subject = subject;
-
-        console.log(
-            "Subject:",
-            subject
-        );
-
-    },
-
-
-    openChapter:function(chapter){
-
-        AppState.chapter = chapter;
-
-        console.log(
-            "Chapter:",
-            chapter
-        );
-
-    },
-
-
-    openActivity:function(activity){
-
-        AppState.activity = activity;
-
-        console.log(
-            "Activity:",
-            activity
-        );
 
     }
 
 
+
 };
+
+
+
+window.Router = Router;
 
 
 console.log(
