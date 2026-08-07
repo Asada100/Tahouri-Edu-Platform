@@ -1,10 +1,10 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 3.0
+// Version 3.1
 // Memory Engine
-// DataManager Integration
-// Score + Finish System
-// Fixed Finish Flow
+// Activity Result Integration
+// Statistics Compatible
+// Stable Event System
 // =====================================
 
 
@@ -39,6 +39,8 @@ const MemoryEngine = {
 
 
 
+
+
     start: async function(activity){
 
 
@@ -47,7 +49,9 @@ const MemoryEngine = {
         );
 
 
+
         this.activity = activity;
+
 
 
         this.firstCard = null;
@@ -68,15 +72,22 @@ const MemoryEngine = {
 
 
 
+
+
         const cards =
 
         await DataManager.getCards(
+
             activity
+
         );
 
 
 
+
+
         this.cards = cards.map(function(card){
+
 
 
             return {
@@ -97,7 +108,11 @@ const MemoryEngine = {
             };
 
 
+
         });
+
+
+
 
 
 
@@ -107,15 +122,41 @@ const MemoryEngine = {
 
 
 
+
+
         this.cards =
 
         this.shuffle(
+
             this.cards
+
         );
 
 
 
+
+
         this.refresh();
+
+
+
+
+        EventManager.emit(
+
+            "activityStarted",
+
+            activity
+
+        );
+
+
+
+        EventManager.emit(
+
+            "activityPlaying"
+
+        );
+
 
 
     },
@@ -126,24 +167,41 @@ const MemoryEngine = {
 
 
 
+
+
     shuffle:function(cards){
 
 
-        const array = [...cards];
+
+        const array = [
+
+            ...cards
+
+        ];
+
+
 
 
         for(
+
             let i = array.length - 1;
+
             i > 0;
+
             i--
+
         ){
+
 
 
             const j = Math.floor(
 
-                Math.random() * (i + 1)
+                Math.random() *
+
+                (i + 1)
 
             );
+
 
 
             const temp = array[i];
@@ -155,13 +213,18 @@ const MemoryEngine = {
             array[j] = temp;
 
 
+
         }
+
 
 
         return array;
 
 
+
     },
+
+
 
 
 
@@ -174,13 +237,19 @@ const MemoryEngine = {
 
 
         if(
+
             this.lockBoard ||
+
             this.finished
+
         ){
 
             return;
 
         }
+
+
+
 
 
 
@@ -189,7 +258,9 @@ const MemoryEngine = {
         this.cards.find(function(item){
 
 
+
             return item.id == id;
+
 
 
         });
@@ -198,24 +269,32 @@ const MemoryEngine = {
 
 
 
+
         if(!card){
+
 
             return;
 
+
         }
+
 
 
 
 
 
         if(
+
             card.flipped ||
+
             card.matched
+
         ){
 
             return;
 
         }
+
 
 
 
@@ -225,16 +304,22 @@ const MemoryEngine = {
 
 
 
+
+
         if(!this.firstCard){
+
 
 
             this.firstCard = card;
 
 
+
             this.refresh();
 
 
+
             return;
+
 
 
         }
@@ -247,31 +332,29 @@ const MemoryEngine = {
         this.secondCard = card;
 
 
+
         this.moves++;
+
 
 
 
         this.refresh();
 
 
+
         this.checkMatch();
 
 
 
+
     },
-
-
-
-
-
-
-
-
-    checkMatch:function(){
+        checkMatch:function(){
 
 
 
         this.lockBoard = true;
+
+
 
 
 
@@ -292,7 +375,9 @@ const MemoryEngine = {
 
 
 
+
             this.matchedPairs++;
+
 
 
 
@@ -300,32 +385,48 @@ const MemoryEngine = {
 
 
 
+
             console.log(
+
                 "Memory Match"
+
             );
 
 
 
-           if(
 
-    this.matchedPairs ===
 
-    this.totalPairs
 
-){
+            if(
 
-    setTimeout(function(){
+                this.matchedPairs ===
 
-        MemoryEngine.finish();
+                this.totalPairs
 
-    },800);
+            ){
 
-}
+
+
+                setTimeout(function(){
+
+
+
+                    MemoryEngine.finish();
+
+
+
+                },800);
+
+
+
+            }
 
             else{
 
 
+
                 this.resetTurn();
+
 
 
             }
@@ -338,22 +439,42 @@ const MemoryEngine = {
 
 
 
+            ScoreManager.addWrong();
+
+
+
             setTimeout(function(){
 
 
 
-                if(MemoryEngine.firstCard){
+                if(
+
+                    MemoryEngine.firstCard
+
+                ){
+
 
                     MemoryEngine.firstCard.flipped = false;
 
+
                 }
 
 
-                if(MemoryEngine.secondCard){
+
+
+                if(
+
+                    MemoryEngine.secondCard
+
+                ){
+
 
                     MemoryEngine.secondCard.flipped = false;
 
+
                 }
+
+
 
 
 
@@ -378,6 +499,7 @@ const MemoryEngine = {
 
 
 
+
     resetTurn:function(){
 
 
@@ -392,14 +514,22 @@ const MemoryEngine = {
 
 
 
+
+
         if(!this.finished){
 
+
+
             this.refresh();
+
+
 
         }
 
 
+
     },
+
 
 
 
@@ -418,62 +548,97 @@ const MemoryEngine = {
         this.lockBoard = true;
 
 
-        this.firstCard = null;
-
-
-        this.secondCard = null;
 
 
 
+        const scoreResult =
 
-       const result = {
-
-
-    score:
-
-    ScoreManager.score,
-
-
-    pairs:
-
-    this.matchedPairs,
-
-
-    totalPairs:
-
-    this.totalPairs,
-
-
-    moves:
-
-    this.moves,
-
-
-    percentage:
-
-    Math.round(
-
-        (
-
-            this.matchedPairs /
+        ScoreManager.getResult(
 
             this.totalPairs
 
-        )
-
-        *
-
-        100
-
-    ),
+        );
 
 
-    message:
-
-    "🎉 بازی حافظه تمام شد"
 
 
-};
+
+
+        const result =
+
+        ActivityResult.create({
+
+
+
+            activityId:
+
+            this.activity
+
+            ?
+
+            this.activity.id
+
+            :
+
+            null,
+
+
+
+            score:
+
+            scoreResult.score || 0,
+
+
+
+            totalQuestions:
+
+            this.totalPairs,
+
+
+
+            correctAnswers:
+
+            this.matchedPairs,
+
+
+
+            wrongAnswers:
+
+            scoreResult.wrong || 0,
+
+
+
+            percentage:
+
+            Math.round(
+
+                (
+
+                    this.matchedPairs /
+
+                    this.totalPairs
+
+                )
+
+                *
+
+                100
+
+            ),
+
+
+
+            message:
+
+            "🎉 بازی حافظه تمام شد"
+
+
+
+        });
+
+
+
+
 
 
 
@@ -487,23 +652,22 @@ const MemoryEngine = {
 
 
 
-       console.log(
-
-    "CALLING ACTIVITY MANAGER",
-
-    result
-
-);
 
 
 
-ActivityManager.finish(
-    result
-);
+
+        EventManager.emit(
+
+            "activityFinished",
+
+            result
+
+        );
 
 
 
     },
+
 
 
 
@@ -518,9 +682,16 @@ ActivityManager.finish(
 
         if(this.finished){
 
+
+
             return;
 
+
+
         }
+
+
+
 
 
 
@@ -542,11 +713,16 @@ ActivityManager.finish(
 
 
 
-            cards:this.cards
+            cards:
+
+            this.cards
 
 
 
         });
+
+
+
 
 
 
@@ -562,10 +738,14 @@ ActivityManager.finish(
 
 
 
+
+
     getCards:function(){
 
 
+
         return this.cards;
+
 
 
     }
@@ -578,9 +758,15 @@ ActivityManager.finish(
 
 
 
+
 console.log(
 
     "Memory Engine Ready"
 
 );
+
+
+
+
+
 window.MemoryEngine = MemoryEngine;
