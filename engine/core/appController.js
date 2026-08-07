@@ -120,14 +120,12 @@ const App = {
 
 
 
+showGrades:function(){
 
-    showGrades:function(){
-
-
-        showGrades();
+    showGrades();
 
 
-    },
+},
 
 
 

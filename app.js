@@ -4,127 +4,143 @@
 // Stage Based Learning Flow
 // Content Lock Integration
 // Grade -> Subject -> Chapter -> Activity
+// Dashboard Button Added
 // =====================================
 
-
 console.log(
-    "Tahouri Edu Platform Started"
+"Tahouri Edu Platform Started"
 );
-
-
 
 const app =
 document.getElementById("app");
 
 
-
-
-
 let grades = [];
-
 let subjects = [];
-
 let chapters = [];
-
 let activities = [];
-
-
-
-
-
-
 
 
 
 function showGrades(){
 
+app.innerHTML = `
 
 
-    app.innerHTML = `
+<div>
 
 
-    <div>
+    <h1>
+    انتخاب پایه
+    </h1>
 
 
-        <h1>
-        انتخاب پایه
-        </h1>
+    <button id="dashboardBtn">
 
+    📊 گزارش عملکرد من
 
-
-        ${
-            grades.map(function(grade){
-
-
-                return `
-
-
-                <button class="gradeBtn"
-                data-id="${grade.id}">
-
-                ${grade.title}
-
-                </button>
-
-
-                `;
-
-
-            }).join("")
-        }
-
-
-
-    </div>
-
-
-
-    `;
+    </button>
 
 
 
 
+    ${
+        grades.map(function(grade){
+
+
+            return `
+
+
+            <button class="gradeBtn"
+            data-id="${grade.id}">
+
+            ${grade.title}
+
+            </button>
+
+
+            `;
+
+
+        }).join("")
+    }
 
 
 
-    document
-    .querySelectorAll(".gradeBtn")
-    .forEach(function(btn){
+</div>
 
 
 
-        btn.onclick = function(){
+`;
 
 
 
-            const gradeId =
-            this.dataset.id;
+// ================================
+// Dashboard Button
+// ================================
+
+const dashboardBtn =
+
+document.getElementById(
+"dashboardBtn"
+);
 
 
 
-            Navigation.selectGrade(
-                gradeId
-            );
+if(dashboardBtn){
 
 
-
-            showSubjects(
-                gradeId
-            );
+    dashboardBtn.onclick = function(){
 
 
-
-        };
-
+        Navigation.openDashboard();
 
 
-    });
-
+    };
 
 
 }
 
 
+
+
+
+
+
+document
+.querySelectorAll(".gradeBtn")
+.forEach(function(btn){
+
+
+
+    btn.onclick = function(){
+
+
+
+        const gradeId =
+        this.dataset.id;
+
+
+
+        Navigation.selectGrade(
+            gradeId
+        );
+
+
+
+        showSubjects(
+            gradeId
+        );
+
+
+
+    };
+
+
+
+});
+
+}
 
 
 
@@ -134,120 +150,114 @@ function showGrades(){
 
 function showSubjects(gradeId){
 
+const gradeSubjects =
 
-
-    const gradeSubjects =
-
-    subjects.filter(function(subject){
+subjects.filter(function(subject){
 
 
 
-        return subject.grades.includes(
-            gradeId
+    return subject.grades.includes(
+        gradeId
+    );
+
+
+});
+
+
+
+
+
+
+
+app.innerHTML = `
+
+
+<div>
+
+
+    <h1>
+    انتخاب درس
+    </h1>
+
+
+
+
+    ${
+        gradeSubjects.map(function(subject){
+
+
+            return `
+
+
+            <button class="subjectBtn"
+            data-id="${subject.id}">
+
+
+            ${subject.title}
+
+
+            </button>
+
+
+
+            `;
+
+
+
+        }).join("")
+    }
+
+
+
+</div>
+
+
+
+`;
+
+
+
+
+
+
+
+document
+.querySelectorAll(".subjectBtn")
+.forEach(function(btn){
+
+
+
+    btn.onclick = function(){
+
+
+
+        const subjectId =
+
+        this.dataset.id;
+
+
+
+
+        Navigation.selectSubject(
+            subjectId
         );
 
 
-    });
 
+        showChapters(
+            AppState.grade,
+            subjectId
+        );
 
 
 
+    };
 
 
 
-    app.innerHTML = `
-
-
-    <div>
-
-
-        <h1>
-        انتخاب درس
-        </h1>
-
-
-
-
-        ${
-            gradeSubjects.map(function(subject){
-
-
-                return `
-
-
-                <button class="subjectBtn"
-                data-id="${subject.id}">
-
-
-                ${subject.title}
-
-
-                </button>
-
-
-
-                `;
-
-
-
-            }).join("")
-        }
-
-
-
-    </div>
-
-
-
-    `;
-
-
-
-
-
-
-
-    document
-    .querySelectorAll(".subjectBtn")
-    .forEach(function(btn){
-
-
-
-        btn.onclick = function(){
-
-
-
-            const subjectId =
-
-            this.dataset.id;
-
-
-
-
-            Navigation.selectSubject(
-                subjectId
-            );
-
-
-
-            showChapters(
-                AppState.grade,
-                subjectId
-            );
-
-
-
-        };
-
-
-
-    });
-
-
+});
 
 }
-
-
 
 
 
@@ -260,131 +270,129 @@ gradeId,
 subjectId
 ){
 
+const subjectChapters =
 
-
-    const subjectChapters =
-
-    chapters.filter(function(chapter){
+chapters.filter(function(chapter){
 
 
 
-        return (
+    return (
 
-            chapter.grade === gradeId
+        chapter.grade === gradeId
 
-            &&
+        &&
 
-            chapter.subject === subjectId
+        chapter.subject === subjectId
 
+    );
+
+
+});
+
+
+
+
+
+
+
+
+app.innerHTML = `
+
+
+<div>
+
+
+    <h1>
+    انتخاب فصل
+    </h1>
+
+
+
+
+    ${
+        subjectChapters.map(function(chapter){
+
+
+            return `
+
+
+            <button class="chapterBtn"
+            data-id="${chapter.id}">
+
+
+            ${chapter.title}
+
+
+            </button>
+
+
+
+            `;
+
+
+
+        }).join("")
+    }
+
+
+
+</div>
+
+
+
+`;
+
+
+
+
+
+
+
+
+document
+.querySelectorAll(".chapterBtn")
+.forEach(function(btn){
+
+
+
+    btn.onclick = function(){
+
+
+
+        const chapterId =
+
+        this.dataset.id;
+
+
+
+
+        Navigation.selectChapter(
+            chapterId
         );
 
 
-    });
 
+        showActivities(
+            gradeId,
+            subjectId,
+            chapterId
+        );
 
 
 
+    };
 
 
 
-
-    app.innerHTML = `
-
-
-    <div>
-
-
-        <h1>
-        انتخاب فصل
-        </h1>
-
-
-
-
-        ${
-            subjectChapters.map(function(chapter){
-
-
-                return `
-
-
-                <button class="chapterBtn"
-                data-id="${chapter.id}">
-
-
-                ${chapter.title}
-
-
-                </button>
-
-
-
-                `;
-
-
-
-            }).join("")
-        }
-
-
-
-    </div>
-
-
-
-    `;
-
-
-
-
-
-
-
-
-    document
-    .querySelectorAll(".chapterBtn")
-    .forEach(function(btn){
-
-
-
-        btn.onclick = function(){
-
-
-
-            const chapterId =
-
-            this.dataset.id;
-
-
-
-
-            Navigation.selectChapter(
-                chapterId
-            );
-
-
-
-            showActivities(
-                gradeId,
-                subjectId,
-                chapterId
-            );
-
-
-
-        };
-
-
-
-    });
-
-
+});
 
 }
-// =====================================
-// نمایش فعالیت‌ها
-// Content Lock Integration
-// =====================================
+
+
+
+
+
+
 
 
 function showActivities(
@@ -393,30 +401,28 @@ subjectId,
 chapterId
 ){
 
+const chapterActivities =
 
-
-    const chapterActivities =
-
-    activities.filter(function(activity){
+activities.filter(function(activity){
 
 
 
-        return (
+    return (
 
-            activity.grade === gradeId
+        activity.grade === gradeId
 
-            &&
+        &&
 
-            activity.subject === subjectId
+        activity.subject === subjectId
 
-            &&
+        &&
 
-            activity.chapter === chapterId
+        activity.chapter === chapterId
 
-        );
+    );
 
 
-    });
+});
 
 
 
@@ -425,166 +431,161 @@ chapterId
 
 
 
-    app.innerHTML = `
+app.innerHTML = `
 
 
-    <div>
+<div>
 
 
-        <h1>
-        انتخاب فعالیت
-        </h1>
-
-
-
-
-        ${
-            chapterActivities.map(function(activity){
+    <h1>
+    انتخاب فعالیت
+    </h1>
 
 
 
-                const locked =
 
-                ContentLockManager.isLocked(
-                    activity.id
-                );
+    ${
+        chapterActivities.map(function(activity){
 
 
 
-                return `
+            const locked =
 
-
-                <button
-
-                class="activityBtn"
-
-                data-id="${activity.id}"
-
-                ${locked ? "disabled" : ""}
-
-                >
-
-
-                ${
-                    locked
-                    ?
-                    "🔒 "
-                    :
-                    "🔓 "
-                }
-
-
-                ${activity.title}
-
-
-                </button>
+            ContentLockManager.isLocked(
+                activity.id
+            );
 
 
 
-                `;
+            return `
+
+
+            <button
+
+            class="activityBtn"
+
+            data-id="${activity.id}"
+
+            ${locked ? "disabled" : ""}
+
+            >
+
+
+            ${
+                locked
+                ?
+                "🔒 "
+                :
+                "🔓 "
+            }
+
+
+            ${activity.title}
+
+
+            </button>
 
 
 
-            }).join("")
+            `;
+
+
+
+        }).join("")
+    }
+
+
+
+</div>
+
+
+
+`;
+
+
+
+
+
+
+
+
+document
+.querySelectorAll(".activityBtn")
+.forEach(function(btn){
+
+
+
+    btn.onclick = function(){
+
+
+
+        const activityId =
+
+        this.dataset.id;
+
+
+
+
+
+
+        if(
+            !ContentLockManager.canOpen(
+                activityId
+            )
+        ){
+
+
+            alert(
+                "🔒 این فعالیت هنوز باز نشده است"
+            );
+
+
+            return;
+
+
         }
 
 
 
-    </div>
 
 
 
-    `;
-
-
-
-
-
-
-
-
-    document
-    .querySelectorAll(".activityBtn")
-    .forEach(function(btn){
-
-
-
-        btn.onclick = function(){
-
-
-
-            const activityId =
-
-            this.dataset.id;
+        Navigation.selectActivity(
+            activityId
+        );
 
 
 
 
 
 
-            if(
-                !ContentLockManager.canOpen(
-                    activityId
-                )
-            ){
+        const activity =
+
+        activities.find(function(item){
 
 
-                alert(
-                    "🔒 این فعالیت هنوز باز نشده است"
-                );
+            return item.id === activityId;
 
 
-                return;
-
-
-            }
+        });
 
 
 
 
 
-
-            Navigation.selectActivity(
-                activityId
-            );
-
+        loadActivity(
+            activity
+        );
 
 
 
-
-
-            const activity =
-
-            activities.find(function(item){
-
-
-                return item.id === activityId;
-
-
-            });
+    };
 
 
 
-
-
-            loadActivity(
-                activity
-            );
-
-
-
-        };
-
-
-
-    });
-
-
+});
 
 }
-
-
-
 
 
 
@@ -593,13 +594,13 @@ chapterId
 
 function loadActivity(activity){
 
-
-    ActivityManager.load(
-        activity
-    );
-
+ActivityManager.load(
+    activity
+);
 
 }
+
+
 
 
 

@@ -7,28 +7,49 @@
 
 const Screen = {
 
-    showGrades:function(){
+   showGrades:function(){
 
-        const app =
-        document.getElementById("app");
+    const app =
+    document.getElementById("app");
 
-        app.innerHTML = `
+    app.innerHTML = `
 
-        <div class="screen">
+    <div class="screen">
 
-            <h1>
-            انتخاب پایه
-            </h1>
 
-            <button id="grade6Btn">
-            پایه ششم
-            </button>
+        <h1>
+        انتخاب پایه
+        </h1>
 
-        </div>
 
-        `;
 
-    },
+        <button id="grade6Btn">
+        پایه ششم
+        </button>
+
+
+
+        <br><br>
+
+
+
+        <button id="dashboardBtn">
+
+        📊 گزارش عملکرد من
+
+        </button>
+
+
+
+    </div>
+
+    `;
+
+
+    Components.bindDashboardButton();
+
+
+},
 
 
 

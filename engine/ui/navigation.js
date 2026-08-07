@@ -1,8 +1,8 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 4.0
+// Version 4.1
 // Navigation Manager
-// State + History Control
+// State + History + Dashboard Control
 // =====================================
 
 
@@ -10,44 +10,44 @@ const Navigation = {
 
 
 
-    selectGrade:function(grade){
+selectGrade:function(grade){
 
 
-        AppState.grade = grade;
+    AppState.grade = grade;
 
 
-        AppState.subject = null;
+    AppState.subject = null;
 
-        AppState.chapter = null;
+    AppState.chapter = null;
 
-        AppState.activity = null;
+    AppState.activity = null;
 
 
 
-        NavigationHistory.clear();
+    NavigationHistory.clear();
 
 
 
-        NavigationHistory.push(
+    NavigationHistory.push(
 
-            "grade",
+        "grade",
 
-            grade
+        grade
 
-        );
+    );
 
 
-        console.log(
 
-            "Selected Grade:",
+    console.log(
 
-            grade
+        "Selected Grade:",
 
-        );
+        grade
 
+    );
 
-    },
 
+},
 
 
 
@@ -55,38 +55,38 @@ const Navigation = {
 
 
 
-    selectSubject:function(subject){
+selectSubject:function(subject){
 
 
-        AppState.subject = subject;
+    AppState.subject = subject;
 
 
-        AppState.chapter = null;
+    AppState.chapter = null;
 
-        AppState.activity = null;
+    AppState.activity = null;
 
 
 
-        NavigationHistory.push(
+    NavigationHistory.push(
 
-            "subject",
+        "subject",
 
-            subject
+        subject
 
-        );
+    );
 
 
-        console.log(
 
-            "Selected Subject:",
+    console.log(
 
-            subject
+        "Selected Subject:",
 
-        );
+        subject
 
+    );
 
-    },
 
+},
 
 
 
@@ -94,36 +94,36 @@ const Navigation = {
 
 
 
-    selectChapter:function(chapter){
+selectChapter:function(chapter){
 
 
-        AppState.chapter = chapter;
+    AppState.chapter = chapter;
 
 
-        AppState.activity = null;
+    AppState.activity = null;
 
 
 
-        NavigationHistory.push(
+    NavigationHistory.push(
 
-            "chapter",
+        "chapter",
 
-            chapter
+        chapter
 
-        );
+    );
 
 
-        console.log(
 
-            "Selected Chapter:",
+    console.log(
 
-            chapter
+        "Selected Chapter:",
 
-        );
+        chapter
 
+    );
 
-    },
 
+},
 
 
 
@@ -131,36 +131,76 @@ const Navigation = {
 
 
 
-    selectActivity:function(activity){
+selectActivity:function(activity){
 
 
-        AppState.activity = activity;
+    AppState.activity = activity;
 
 
 
-        NavigationHistory.push(
+    NavigationHistory.push(
 
-            "activity",
+        "activity",
 
-            activity
+        activity
 
-        );
+    );
 
 
-        console.log(
 
-            "Selected Activity:",
+    console.log(
 
-            activity
+        "Selected Activity:",
 
-        );
+        activity
 
+    );
 
-    }
+
+},
+
+
+
+
+
+
+
+// =====================================
+// Dashboard Navigation
+// =====================================
+
+
+openDashboard:function(){
+
+
+    NavigationHistory.push(
+
+        "dashboard",
+
+        null
+
+    );
+
+
+
+    console.log(
+
+        "Opening Dashboard"
+
+    );
+
+
+
+    DashboardController.open();
+
+
+}
 
 
 
 };
+
+
 
 
 
@@ -171,5 +211,7 @@ window.Navigation = Navigation;
 
 
 console.log(
-"Navigation System Ready"
+
+    "Navigation System Ready"
+
 );

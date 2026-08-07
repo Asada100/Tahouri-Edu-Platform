@@ -332,12 +332,13 @@ const ProgressTracker = {
 
     },
 
+getAll:function(){
 
 
+    return this.progress;
 
 
-
-
+},
 
 
     getStars:function(activityId){

@@ -1,116 +1,129 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 3.3
+// Version 3.4
 // Navigation Controller
-// Back System
+// Back System + Dashboard
 // =====================================
 
 
 const NavigationController = {
 
 
-
-    back:function(){
-
-
-        const previous =
-
-        NavigationHistory.back();
+back:function(){
 
 
+    const previous =
 
-        if(!previous){
-
-
-            console.log(
-                "No Previous Page"
-            );
+    NavigationHistory.back();
 
 
-            return;
 
-
-        }
-
-
+    if(!previous){
 
 
         console.log(
 
-            "Navigate Back:",
-
-            previous
+            "No Previous Page"
 
         );
 
 
-
-
-
-        switch(previous.page){
-
-
-
-            case "grade":
-
-
-                App.showGrades();
-
-
-                break;
-
-
-
-
-            case "subject":
-
-
-                App.showSubjects();
-
-
-                break;
-
-
-
-
-            case "chapter":
-
-
-                App.showChapters();
-
-
-                break;
-
-
-
-
-            case "activity":
-
-
-                App.showActivities();
-
-
-                break;
-
-
-
-            default:
-
-
-                console.log(
-
-                    "Unknown Page:",
-
-                    previous.page
-
-                );
-
-
-        }
-
+        return;
 
 
     }
+
+
+
+
+    console.log(
+
+        "Navigate Back:",
+
+        previous
+
+    );
+
+
+
+
+
+    switch(previous.page){
+
+
+
+        case "grade":
+
+
+            App.showGrades();
+
+
+            break;
+
+
+
+
+        case "subject":
+
+
+            App.showSubjects();
+
+
+            break;
+
+
+
+
+        case "chapter":
+
+
+            App.showChapters();
+
+
+            break;
+
+
+
+
+        case "activity":
+
+
+            App.showActivities();
+
+
+            break;
+
+
+
+
+        case "dashboard":
+
+
+            App.start();
+
+
+            break;
+
+
+
+
+        default:
+
+
+            console.log(
+
+                "Unknown Page:",
+
+                previous.page
+
+            );
+
+
+    }
+
+
+
+}
 
 
 
@@ -119,6 +132,9 @@ const NavigationController = {
 
 
 
+
 console.log(
-    "Navigation Controller Ready"
+
+"Navigation Controller Ready"
+
 );
