@@ -1,218 +1,266 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 3.2
+// Version 3.5
 // Screen Manager
 // Result Modal Integration
+// Grade Navigation
 // =====================================
 
 const Screen = {
 
-   showGrades:function(){
+
+// =====================================
+// نمایش پایه‌ها
+// =====================================
+showGrades:function(){
 
     const app =
     document.getElementById("app");
+
 
     app.innerHTML = `
 
     <div class="screen">
 
-
         <h1>
-        انتخاب پایه
+        پلتفرم آموزشی طهوری
         </h1>
 
+        <h2>
+        انتخاب پایه
+        </h2>
 
+        <div id="gradesContainer">
 
-        <button id="grade6Btn">
-        پایه ششم
-        </button>
+        ${
+            grades.map(function(grade){
 
+                return `
 
+                <button
+                class="gradeBtn"
+                data-id="${grade.id}">
 
-        <br><br>
+                ${grade.title}
 
+                </button>
 
+                `;
 
-        <button id="dashboardBtn">
+            }).join("")
+        }
 
-        📊 گزارش عملکرد من
-
-        </button>
-
-
+        </div>
 
     </div>
 
     `;
 
 
-    Components.bindDashboardButton();
+    // =====================================
+    // اتصال دکمه‌های پایه
+    // =====================================
 
+    document
+    .querySelectorAll(".gradeBtn")
+    .forEach(function(btn){
+
+        btn.onclick = function(){
+
+            const gradeId =
+            this.dataset.id;
+
+
+            Navigation.selectGrade(
+                gradeId
+            );
+
+
+            showSubjects(
+                gradeId
+            );
+
+        };
+
+    });
+
+
+    console.log(
+        "Grades Displayed:",
+        grades.length
+    );
 
 },
 
 
+// =====================================
+// نمایش آزمون
+// =====================================
+showQuiz:function(data){
 
-    showQuiz:function(data){
+    const app =
+    document.getElementById("app");
 
-        const app =
-        document.getElementById("app");
 
-        app.innerHTML = `
+    app.innerHTML = `
 
-        <div class="quizScreen">
+    <div class="quizScreen">
 
-            <h1>
-            پلتفرم آموزشی طهوری
-            </h1>
+        <h1>
+        پلتفرم آموزشی طهوری
+        </h1>
 
-            <h2>
-            ${data.title}
-            </h2>
+        <h2>
+        ${data.title}
+        </h2>
 
-            <div class="scoreBox">
+        <div class="scoreBox">
 
-            امتیاز:
-            ${data.score}
-
-            </div>
-
-            <div class="questionBox">
-
-            سؤال ${data.currentQuestion}
-            از ${data.totalQuestions}
-
-            </div>
-
-            <h2>
-
-            ${data.question.text}
-
-            </h2>
-
-            <button id="evenBtn">
-            زوج
-            </button>
-
-            <button id="oddBtn">
-            فرد
-            </button>
-
-            <div id="messageBox"></div>
+        امتیاز:
+        ${data.score}
 
         </div>
 
-        `;
+        <div class="questionBox">
 
-    },
-
-
-
-    showMessage:function(message,type){
-
-        const box =
-        document.getElementById(
-            "messageBox"
-        );
-
-        if(!box){
-
-            return;
-
-        }
-
-        box.innerHTML = message;
-
-        box.className = type;
-
-    },
-
-
-
-    showMemory:function(data){
-
-        const app =
-        document.getElementById("app");
-
-        app.innerHTML = `
-
-        <div class="memoryScreen">
-
-            <h1>
-            پلتفرم آموزشی طهوری
-            </h1>
-
-            <hr>
-
-            <h2>
-            ${data.title}
-            </h2>
-
-            <div class="scoreBox">
-
-            امتیاز:
-            ${ScoreManager.score}
-
-            </div>
-
-
-            <div class="memoryBoard">
-
-            ${
-                data.cards.map(function(card){
-
-                    return `
-
-                    <button
-                    class="memoryCard"
-                    data-id="${card.id}">
-
-                    ${
-                        card.flipped || card.matched
-                        ?
-                        card.value
-                        :
-                        "❓"
-                    }
-
-                    </button>
-
-                    `;
-
-                }).join("")
-            }
-
-            </div>
+        سؤال ${data.currentQuestion}
+        از ${data.totalQuestions}
 
         </div>
 
-        `;
+        <h2>
 
-    },
+        ${data.question.text}
+
+        </h2>
+
+        <button id="evenBtn">
+        زوج
+        </button>
+
+        <button id="oddBtn">
+        فرد
+        </button>
+
+        <div id="messageBox"></div>
+
+    </div>
+
+    `;
+
+},
 
 
+// =====================================
+// پیام پاسخ
+// =====================================
+showMessage:function(message,type){
 
-    showFinish:function(result){
+    const box =
+    document.getElementById(
+        "messageBox"
+    );
 
 
-        console.log(
-            "SHOW FINISH USING RESULT MODAL",
-            result
-        );
+    if(!box){
 
-
-        ResultModal.show(
-            result
-        );
-
+        return;
 
     }
 
 
+    box.innerHTML = message;
+
+    box.className = type;
+
+},
+
+
+// =====================================
+// نمایش بازی حافظه
+// =====================================
+showMemory:function(data){
+
+    const app =
+    document.getElementById("app");
+
+
+    app.innerHTML = `
+
+    <div class="memoryScreen">
+
+        <h1>
+        پلتفرم آموزشی طهوری
+        </h1>
+
+        <hr>
+
+        <h2>
+        ${data.title}
+        </h2>
+
+        <div class="scoreBox">
+
+        امتیاز:
+        ${ScoreManager.score}
+
+        </div>
+
+        <div class="memoryBoard">
+
+        ${
+            data.cards.map(function(card){
+
+                return `
+
+                <button
+                class="memoryCard"
+                data-id="${card.id}">
+
+                ${
+                    card.flipped || card.matched
+                    ?
+                    card.value
+                    :
+                    "❓"
+                }
+
+                </button>
+
+                `;
+
+            }).join("")
+        }
+
+        </div>
+
+    </div>
+
+    `;
+
+},
+
+
+// =====================================
+// نمایش نتیجه
+// =====================================
+showFinish:function(result){
+
+    console.log(
+        "SHOW FINISH USING RESULT MODAL",
+        result
+    );
+
+
+    ResultModal.show(
+        result
+    );
+
+}
+
 };
 
 
-
 console.log(
-    "Screen Manager Ready"
+"Screen Manager Ready"
 );

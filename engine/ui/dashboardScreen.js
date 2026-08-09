@@ -1,204 +1,282 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 1.0
+// Version 3.1
 // Dashboard Screen
-// Statistics Display
+// خلاصه عملکرد + ورود به گزارش مستقل
 // =====================================
-
 
 const DashboardScreen = {
 
+    // =====================================
+    // نمایش داشبورد
+    // =====================================
 
-    show:function(){
+    show: function () {
 
-
-        const stats =
-
-        StatisticsManager.get();
-
-
+        // ================================
+        // بررسی App Container
+        // ================================
 
         const app =
+            document.getElementById("app");
 
-        document.getElementById(
-
-            "app"
-
-        );
-
-
-
-        if(!app){
+        if (!app) {
 
             console.error(
-
                 "Dashboard App Container Missing"
-
             );
 
             return;
+        }
+
+
+        // ================================
+        // دریافت آمار کلی
+        // ================================
+
+        let overall = {};
+
+        if (
+            typeof StatisticsManager !== "undefined" &&
+            typeof StatisticsManager.get === "function"
+        ) {
+
+            overall =
+                StatisticsManager.get() || {};
+
+        } else {
+
+            console.error(
+                "StatisticsManager.get Not Found"
+            );
 
         }
 
 
-
-
-
+        // ================================
+        // نمایش داشبورد
+        // ================================
 
         app.innerHTML = `
 
+            <div class="dashboard-container">
 
-        <div class="dashboard-container">
+                <!-- ====================== -->
+                <!-- عنوان -->
+                <!-- ====================== -->
 
-
-            <h1>
-
-                📊 گزارش عملکرد من
-
-            </h1>
-
-
-
-            <div class="dashboard-cards">
-
-
-
-                <div class="dashboard-card">
-
-                    <h3>
-                    تعداد فعالیت‌ها
-                    </h3>
-
-                    <p>
-                    ${stats.totalActivities}
-                    </p>
-
-                </div>
-
-
-
-
-
-                <div class="dashboard-card">
-
-                    <h3>
-                    امتیاز کل
-                    </h3>
-
-                    <p>
-                    ${stats.totalScore}
-                    </p>
-
-                </div>
-
-
-
-
-
-                <div class="dashboard-card">
-
-                    <h3>
-                    میانگین امتیاز
-                    </h3>
-
-                    <p>
-                    ${stats.averageScore}
-                    </p>
-
-                </div>
-
-
-
-
-
-                <div class="dashboard-card">
-
-                    <h3>
-                    بهترین امتیاز
-                    </h3>
-
-                    <p>
-                    ${stats.bestScore}
-                    </p>
-
-                </div>
-
-
-
-            </div>
-
-
-
-
-
-            <div class="dashboard-detail">
-
-
-                <h2>
-                آمار پاسخ‌ها
-                </h2>
-
-
+                <h1>
+                    📊 داشبورد عملکرد
+                </h1>
 
                 <p>
-
-                ✅ پاسخ صحیح:
-
-                ${stats.totalCorrect}
-
+                    خلاصه‌ای از عملکرد آموزشی شما
                 </p>
 
 
+                <!-- ====================== -->
+                <!-- خلاصه عملکرد -->
+                <!-- ====================== -->
+
+                <section class="dashboard-section">
+
+                    <h2>
+                        📈 خلاصه عملکرد
+                    </h2>
 
 
-                <p>
+                    <div class="dashboard-cards">
 
-                ❌ پاسخ اشتباه:
 
-                ${stats.totalWrong}
+                        <!-- فعالیت‌ها -->
 
-                </p>
+                        <div class="dashboard-card">
 
+                            <h3>
+                                🎯 فعالیت‌ها
+                            </h3>
+
+                            <p>
+                                ${overall.totalActivities || 0}
+                            </p>
+
+                        </div>
+
+
+                        <!-- امتیاز کل -->
+
+                        <div class="dashboard-card">
+
+                            <h3>
+                                ⭐ امتیاز کل
+                            </h3>
+
+                            <p>
+                                ${overall.totalScore || 0}
+                            </p>
+
+                        </div>
+
+
+                        <!-- میانگین -->
+
+                        <div class="dashboard-card">
+
+                            <h3>
+                                📈 میانگین
+                            </h3>
+
+                            <p>
+                                ${overall.averageScore || 0}
+                            </p>
+
+                        </div>
+
+
+                        <!-- بهترین امتیاز -->
+
+                        <div class="dashboard-card">
+
+                            <h3>
+                                🏆 بهترین امتیاز
+                            </h3>
+
+                            <p>
+                                ${overall.bestScore || 0}
+                            </p>
+
+                        </div>
+
+
+                    </div>
+
+
+                    <!-- ====================== -->
+                    <!-- خلاصه پاسخ‌ها -->
+                    <!-- ====================== -->
+
+                    <div class="dashboard-detail">
+
+                        <h3>
+                            📊 خلاصه پاسخ‌ها
+                        </h3>
+
+                        <p>
+                            ✅ پاسخ صحیح:
+                            ${overall.totalCorrect || 0}
+                        </p>
+
+                        <p>
+                            ❌ پاسخ اشتباه:
+                            ${overall.totalWrong || 0}
+                        </p>
+
+                    </div>
+
+
+                </section>
+
+
+                <!-- ====================== -->
+                <!-- ورود به گزارش کامل -->
+                <!-- ====================== -->
+
+                <section class="dashboard-section">
+
+                    <h2>
+                        📋 گزارش عملکرد
+                    </h2>
+
+                    <p>
+                        برای مشاهده جزئیات کامل عملکرد،
+                        گزارش آموزشی خود را مشاهده کنید.
+                    </p>
+
+
+                    <button
+                        id="dashboardReportsBtn"
+                        type="button"
+                    >
+
+                        📊 مشاهده گزارش کامل
+
+                    </button>
+
+                </section>
 
 
             </div>
-
-
-
-        </div>
-
 
         `;
 
 
+        // ================================
+        // دکمه گزارش کامل
+        // ================================
+
+        const reportsBtn =
+            document.getElementById(
+                "dashboardReportsBtn"
+            );
+
+
+        if (reportsBtn) {
+
+            reportsBtn.onclick = function () {
+
+                console.log(
+                    "Opening Independent Reports"
+                );
+
+
+                if (
+                    typeof ReportsController !== "undefined" &&
+                    typeof ReportsController.open === "function"
+                ) {
+
+                    ReportsController.open();
+
+                } else {
+
+                    console.error(
+                        "ReportsController.open Not Found"
+                    );
+
+                }
+
+            };
+
+        }
+
+
+        // ================================
+        // Console
+        // ================================
 
         console.log(
-
             "Dashboard Displayed",
-
-            stats
-
+            {
+                overall: overall
+            }
         );
 
-
     }
-
-
-
-
 
 };
 
 
+// =====================================
+// دسترسی سراسری
+// =====================================
 
 window.DashboardScreen =
+    DashboardScreen;
 
-DashboardScreen;
 
-
+// =====================================
+// آماده بودن Dashboard Screen
+// =====================================
 
 console.log(
-
     "Dashboard Screen Ready"
-
 );

@@ -1,16 +1,13 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 1.0
 // Dashboard Controller
-// Statistics + Progress Integration
+// Version 3.0
+// Overall + Subject + Activity Reports
 // =====================================
-
 
 const DashboardController = {
 
-
-    open:function(){
-
+    open: function(){
 
         console.log(
             "Dashboard Controller Opening"
@@ -30,51 +27,61 @@ const DashboardController = {
         }
 
 
+        // ================================
+        // دریافت آمار کلی
+        // ================================
 
-        const statistics =
+        const overall =
 
-        StatisticsManager.get();
-
-
-
-        const progress =
-
-        ProgressTracker.getAll();
+            StatisticsManager.get();
 
 
+        // ================================
+        // دریافت آمار درس‌ها
+        // ================================
+
+        const subjects =
+
+            StatisticsManager.getSubjects();
+
+
+        // ================================
+        // دریافت آمار فعالیت‌ها
+        // ================================
+
+        const activities =
+
+            StatisticsManager.getActivities();
+
+
+        // ================================
+        // نمایش داشبورد
+        // ================================
 
         DashboardScreen.show({
 
-            statistics:
+            overall: overall,
 
-            statistics,
+            subjects: subjects,
 
-
-            progress:
-
-            progress
-
+            activities: activities
 
         });
 
 
-
         console.log(
-            "Dashboard Controller Ready"
+            "Dashboard Displayed With Latest Statistics"
         );
 
-
     }
-
-
 
 };
 
 
-
-window.DashboardController = DashboardController;
+window.DashboardController =
+    DashboardController;
 
 
 console.log(
-    "Dashboard Controller Loaded"
+    "Dashboard Controller Ready"
 );

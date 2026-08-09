@@ -1,57 +1,107 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 2.0
 // Statistics Manager
-// SaveManager Integration
+// Version 3.0
+// Overall + Subject + Activity Statistics
 // =====================================
 
 const StatisticsManager = {
 
+    // =====================================
+    // Storage
+    // =====================================
+
     STORAGE_KEY:
-
-    "Tahouri_Statistics",
-
+        "Tahouri_Statistics",
 
 
-    statistics:{
+    // =====================================
+    // ساختار اصلی آمار
+    // =====================================
 
-        totalActivities:0,
+    statistics: {
 
-        totalScore:0,
+        // ---------------------------------
+        // آمار کلی
+        // ---------------------------------
 
-        averageScore:0,
+        overall: {
 
-        bestScore:0,
+            totalActivities: 0,
 
-        totalCorrect:0,
+            totalScore: 0,
 
-        totalWrong:0
+            averageScore: 0,
+
+            bestScore: 0,
+
+            totalCorrect: 0,
+
+            totalWrong: 0
+
+        },
+
+
+        // ---------------------------------
+        // آمار بر اساس درس
+        // ---------------------------------
+
+        subjects: {},
+
+
+        // ---------------------------------
+        // آمار بر اساس فعالیت
+        // ---------------------------------
+
+        activities: {}
 
     },
 
 
+    // =====================================
+    // INIT
+    // =====================================
 
-    init:function(){
+    init: function(){
 
         const saved =
 
-        SaveManager.load(
+            SaveManager.load(
+                this.STORAGE_KEY
+            );
 
-            this.STORAGE_KEY
-
-        );
 
         if(saved){
 
-            this.statistics = saved;
+            // ---------------------------------
+            // پشتیبانی از ساختار جدید
+            // ---------------------------------
 
-            console.log(
+            if(
+                saved.overall &&
+                saved.subjects &&
+                saved.activities
+            ){
 
-                "Statistics Loaded",
+                this.statistics = saved;
 
-                this.statistics
+            }
 
-            );
+            else{
+
+                // ---------------------------------
+                // اگر داده قدیمی وجود داشته باشد
+                // آن را پاک نمی‌کنیم.
+                // ساختار جدید از صفر شروع می‌شود.
+                // ---------------------------------
+
+                console.log(
+                    "Old Statistics Structure Detected"
+                );
+
+                this.reset();
+
+            }
 
         }
 
@@ -61,18 +111,25 @@ const StatisticsManager = {
 
         }
 
+
+        console.log(
+            "Statistics Loaded",
+            this.statistics
+        );
+
     },
 
 
+    // =====================================
+    // ثبت نتیجه فعالیت
+    // =====================================
 
-    addResult:function(activity,result){
+    addResult: function(activity, result){
 
-        if(!result){
+        if(!activity){
 
             console.error(
-
-                "Statistics Result Missing"
-
+                "Statistics Activity Missing"
             );
 
             return;
@@ -80,84 +137,424 @@ const StatisticsManager = {
         }
 
 
+        if(!result){
 
-        this.statistics.totalActivities++;
+            console.error(
+                "Statistics Result Missing"
+            );
 
-
-
-        this.statistics.totalScore +=
-
-        result.score || 0;
-
-
-
-        this.statistics.totalCorrect +=
-
-        result.correctAnswers ||
-
-        result.correct ||
-
-        0;
-
-
-
-        this.statistics.totalWrong +=
-
-        result.wrongAnswers ||
-
-        result.wrong ||
-
-        0;
-
-
-
-        if(
-
-            (result.score || 0)
-
-            >
-
-            this.statistics.bestScore
-
-        ){
-
-            this.statistics.bestScore =
-
-            result.score;
+            return;
 
         }
 
 
+        // =================================
+        // اطلاعات پایه فعالیت
+        // =================================
 
-        this.statistics.averageScore =
+        const activityId =
 
-        Math.round(
+            activity.id ||
+            result.activityId ||
+            "unknown";
 
-            this.statistics.totalScore /
 
-            this.statistics.totalActivities
+        const subjectId =
+
+            activity.subject ||
+            "unknown";
+
+
+        const gradeId =
+
+            activity.grade ||
+            "unknown";
+
+
+        const chapterId =
+
+            activity.chapter ||
+            "unknown";
+
+
+        const score =
+
+            Number(
+                result.score || 0
+            );
+
+
+        const correct =
+
+            Number(
+                result.correctAnswers ||
+                result.correct ||
+                0
+            );
+
+
+        const wrong =
+
+            Number(
+                result.wrongAnswers ||
+                result.wrong ||
+                0
+            );
+
+
+        const percentage =
+
+            Number(
+                result.percentage || 0
+            );
+
+
+        // =================================
+        // 1
+        // ثبت آمار کلی
+        // =================================
+
+        this.updateOverall({
+
+            score: score,
+
+            correct: correct,
+
+            wrong: wrong
+
+        });
+
+
+        // =================================
+        // 2
+        // ثبت آمار درس
+        // =================================
+
+        this.updateSubject(
+
+            subjectId,
+
+            gradeId,
+
+            {
+
+                score: score,
+
+                correct: correct,
+
+                wrong: wrong,
+
+                percentage: percentage
+
+            }
 
         );
 
 
+        // =================================
+        // 3
+        // ثبت آمار فعالیت
+        // =================================
+
+        this.updateActivity(
+
+            activityId,
+
+            subjectId,
+
+            gradeId,
+
+            chapterId,
+
+            {
+
+                score: score,
+
+                correct: correct,
+
+                wrong: wrong,
+
+                percentage: percentage
+
+            }
+
+        );
+
+
+        // =================================
+        // ذخیره
+        // =================================
 
         this.save();
 
 
-
         console.log(
 
-            "Statistics Updated",
+            "Statistics Updated:",
 
-            this.statistics
+            activityId,
+
+            this.getActivity(activityId)
 
         );
 
     },
 
 
+    // =====================================
+    // UPDATE OVERALL
+    // =====================================
 
-    save:function(){
+    updateOverall: function(data){
+
+        const overall =
+
+            this.statistics.overall;
+
+
+        overall.totalActivities++;
+
+
+        overall.totalScore +=
+
+            data.score;
+
+
+        overall.totalCorrect +=
+
+            data.correct;
+
+
+        overall.totalWrong +=
+
+            data.wrong;
+
+
+        if(
+            data.score >
+            overall.bestScore
+        ){
+
+            overall.bestScore =
+                data.score;
+
+        }
+
+
+        overall.averageScore =
+
+            Math.round(
+
+                overall.totalScore /
+                overall.totalActivities
+
+            );
+
+    },
+
+
+    // =====================================
+    // UPDATE SUBJECT
+    // =====================================
+
+    updateSubject: function(
+        subjectId,
+        gradeId,
+        data
+    ){
+
+        if(
+            !this.statistics.subjects[
+                subjectId
+            ]
+        ){
+
+            this.statistics.subjects[
+                subjectId
+            ] = {
+
+                subjectId:
+                    subjectId,
+
+                gradeId:
+                    gradeId,
+
+                totalActivities: 0,
+
+                totalScore: 0,
+
+                averageScore: 0,
+
+                bestScore: 0,
+
+                totalCorrect: 0,
+
+                totalWrong: 0
+
+            };
+
+        }
+
+
+        const subject =
+
+            this.statistics.subjects[
+                subjectId
+            ];
+
+
+        subject.totalActivities++;
+
+
+        subject.totalScore +=
+            data.score;
+
+
+        subject.totalCorrect +=
+            data.correct;
+
+
+        subject.totalWrong +=
+            data.wrong;
+
+
+        if(
+            data.score >
+            subject.bestScore
+        ){
+
+            subject.bestScore =
+                data.score;
+
+        }
+
+
+        subject.averageScore =
+
+            Math.round(
+
+                subject.totalScore /
+                subject.totalActivities
+
+            );
+
+    },
+
+
+    // =====================================
+    // UPDATE ACTIVITY
+    // =====================================
+
+    updateActivity: function(
+        activityId,
+        subjectId,
+        gradeId,
+        chapterId,
+        data
+    ){
+
+        if(
+            !this.statistics.activities[
+                activityId
+            ]
+        ){
+
+            this.statistics.activities[
+                activityId
+            ] = {
+
+                activityId:
+                    activityId,
+
+                subjectId:
+                    subjectId,
+
+                gradeId:
+                    gradeId,
+
+                chapterId:
+                    chapterId,
+
+                totalActivities: 0,
+
+                totalScore: 0,
+
+                averageScore: 0,
+
+                bestScore: 0,
+
+                totalCorrect: 0,
+
+                totalWrong: 0,
+
+                bestPercentage: 0
+
+            };
+
+        }
+
+
+        const activity =
+
+            this.statistics.activities[
+                activityId
+            ];
+
+
+        activity.totalActivities++;
+
+
+        activity.totalScore +=
+            data.score;
+
+
+        activity.totalCorrect +=
+            data.correct;
+
+
+        activity.totalWrong +=
+            data.wrong;
+
+
+        if(
+            data.score >
+            activity.bestScore
+        ){
+
+            activity.bestScore =
+                data.score;
+
+        }
+
+
+        if(
+            data.percentage >
+            activity.bestPercentage
+        ){
+
+            activity.bestPercentage =
+                data.percentage;
+
+        }
+
+
+        activity.averageScore =
+
+            Math.round(
+
+                activity.totalScore /
+                activity.totalActivities
+
+            );
+
+    },
+
+
+    // =====================================
+    // SAVE
+    // =====================================
+
+    save: function(){
 
         SaveManager.save(
 
@@ -170,165 +567,284 @@ const StatisticsManager = {
     },
 
 
+    // =====================================
+    // LOAD
+    // =====================================
 
-    load:function(){
+    load: function(){
 
         const saved =
 
-        SaveManager.load(
+            SaveManager.load(
+                this.STORAGE_KEY
+            );
 
-            this.STORAGE_KEY
-
-        );
 
         if(saved){
 
-            this.statistics = saved;
+            this.statistics =
+                saved;
 
         }
 
     },
 
 
+    // =====================================
+    // GET OVERALL
+    // =====================================
 
-    get:function(){
+    get: function(){
 
         return {
 
-            totalActivities:
-
-            this.statistics.totalActivities,
-
-            totalScore:
-
-            this.statistics.totalScore,
-
-            averageScore:
-
-            this.statistics.averageScore,
-
-            bestScore:
-
-            this.statistics.bestScore,
-
-            totalCorrect:
-
-            this.statistics.totalCorrect,
-
-            totalWrong:
-
-            this.statistics.totalWrong
+            ...this.statistics.overall
 
         };
 
     },
 
 
+    // =====================================
+    // GET SUBJECT
+    // =====================================
 
-    reset:function(){
+    getSubject: function(subjectId){
 
-        this.statistics={
+        if(
+            !this.statistics.subjects[
+                subjectId
+            ]
+        ){
 
-            totalActivities:0,
+            return {
 
-            totalScore:0,
+                subjectId:
+                    subjectId,
 
-            averageScore:0,
+                totalActivities: 0,
 
-            bestScore:0,
+                totalScore: 0,
 
-            totalCorrect:0,
+                averageScore: 0,
 
-            totalWrong:0
+                bestScore: 0,
+
+                totalCorrect: 0,
+
+                totalWrong: 0
+
+            };
+
+        }
+
+
+        return {
+
+            ...this.statistics.subjects[
+                subjectId
+            ]
 
         };
 
+    },
+
+
+    // =====================================
+    // GET ALL SUBJECTS
+    // =====================================
+
+    getSubjects: function(){
+
+        return {
+
+            ...this.statistics.subjects
+
+        };
+
+    },
+
+
+    // =====================================
+    // GET ACTIVITY
+    // =====================================
+
+    getActivity: function(activityId){
+
+        if(
+            !this.statistics.activities[
+                activityId
+            ]
+        ){
+
+            return {
+
+                activityId:
+                    activityId,
+
+                totalActivities: 0,
+
+                totalScore: 0,
+
+                averageScore: 0,
+
+                bestScore: 0,
+
+                totalCorrect: 0,
+
+                totalWrong: 0,
+
+                bestPercentage: 0
+
+            };
+
+        }
+
+
+        return {
+
+            ...this.statistics.activities[
+                activityId
+            ]
+
+        };
+
+    },
+
+
+    // =====================================
+    // GET ALL ACTIVITIES
+    // =====================================
+
+    getActivities: function(){
+
+        return {
+
+            ...this.statistics.activities
+
+        };
+
+    },
+
+
+    // =====================================
+    // RESET ALL
+    // =====================================
+
+    reset: function(){
+
+        this.statistics = {
+
+            overall: {
+
+                totalActivities: 0,
+
+                totalScore: 0,
+
+                averageScore: 0,
+
+                bestScore: 0,
+
+                totalCorrect: 0,
+
+                totalWrong: 0
+
+            },
+
+
+            subjects: {},
+
+
+            activities: {}
+
+        };
+
+
         this.save();
 
+
         console.log(
-
             "Statistics Reset"
-
         );
 
     },
 
 
+    // =====================================
+    // توابع کمکی
+    // =====================================
 
-    getAverage:function(){
+    getAverage: function(){
 
-        return
-
-        this.statistics.averageScore;
-
-    },
-
-
-
-    getBestScore:function(){
-
-        return
-
-        this.statistics.bestScore;
+        return this.statistics
+            .overall
+            .averageScore;
 
     },
 
 
+    getBestScore: function(){
 
-    getTotalActivities:function(){
-
-        return
-
-        this.statistics.totalActivities;
-
-    },
-
-
-
-    getTotalScore:function(){
-
-        return
-
-        this.statistics.totalScore;
+        return this.statistics
+            .overall
+            .bestScore;
 
     },
 
 
+    getTotalActivities: function(){
 
-    getTotalCorrect:function(){
-
-        return
-
-        this.statistics.totalCorrect;
+        return this.statistics
+            .overall
+            .totalActivities;
 
     },
 
 
+    getTotalScore: function(){
 
-    getTotalWrong:function(){
+        return this.statistics
+            .overall
+            .totalScore;
 
-        return
+    },
 
-        this.statistics.totalWrong;
+
+    getTotalCorrect: function(){
+
+        return this.statistics
+            .overall
+            .totalCorrect;
+
+    },
+
+
+    getTotalWrong: function(){
+
+        return this.statistics
+            .overall
+            .totalWrong;
 
     }
 
 };
 
 
+// =====================================
+// Global
+// =====================================
 
 window.StatisticsManager =
+    StatisticsManager;
 
-StatisticsManager;
 
-
+// =====================================
+// Initialize
+// =====================================
 
 StatisticsManager.init();
 
 
-
 console.log(
-
     "Statistics Manager Ready"
-
 );

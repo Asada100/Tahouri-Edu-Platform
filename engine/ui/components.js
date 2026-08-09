@@ -282,7 +282,7 @@ answer:function(answer){
 
             Components.bindQuizButtons();
 
-
+            Components.bindHomeButton();
 
         }
 
@@ -396,7 +396,31 @@ bindMemoryCards:function(){
 
 window.Components = Components;
 
+// =====================================
+// Home Button
+// =====================================
 
+Components.bindHomeButton = function(){
+
+    const homeBtn =
+
+    document.getElementById(
+        "homeBtn"
+    );
+
+    if(!homeBtn){
+
+        return;
+
+    }
+
+    homeBtn.onclick = function(){
+
+        App.goHome();
+
+    };
+
+};
 
 console.log(
 

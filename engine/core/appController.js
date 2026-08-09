@@ -7,7 +7,6 @@
 
 const App = {
 
-
     grades: [],
 
     subjects: [],
@@ -17,9 +16,7 @@ const App = {
     activities: [],
 
 
-
     init: async function(){
-
 
         console.log(
             "App Controller Started"
@@ -31,57 +28,35 @@ const App = {
 
         this.showGrades();
 
-
     },
-
-
-
 
 
     loadData: async function(){
 
-
         try{
 
-
             this.grades =
-
             await DataManager.loadJSON(
-
                 "data/grades.json"
-
             );
-
 
 
             this.subjects =
-
             await DataManager.loadJSON(
-
                 "data/subjects.json"
-
             );
-
 
 
             this.chapters =
-
             await DataManager.loadJSON(
-
                 "data/chapters.json"
-
             );
-
 
 
             this.activities =
-
             await DataManager.loadJSON(
-
                 "data/activities.json"
-
             );
-
 
 
             grades = this.grades;
@@ -90,115 +65,69 @@ const App = {
             activities = this.activities;
 
 
-
             console.log(
-
                 "All Data Loaded Through DataManager"
-
             );
-
 
         }
 
         catch(error){
 
-
             console.error(
-
                 "Loading Error:",
-
                 error
-
             );
-
 
         }
 
+    },
+
+
+    showGrades: function(){
+
+        Screen.showGrades();
 
     },
 
 
-
-
-showGrades:function(){
-
-    showGrades();
-
-
-},
-
-
-
-
-
-    showSubjects:function(){
-
+    showSubjects: function(){
 
         showSubjects(
-
             AppState.grade
-
         );
-
 
     },
 
 
-
-
-
-    showChapters:function(){
-
+    showChapters: function(){
 
         showChapters(
-
             AppState.grade,
-
             AppState.subject
-
         );
-
 
     },
 
 
-
-
-
-    showActivities:function(){
-
+    showActivities: function(){
 
         showActivities(
-
             AppState.grade,
-
             AppState.subject,
-
             AppState.chapter
-
         );
-
 
     },
 
 
-
-
-
-    startActivity:function(activity){
-
+    startActivity: function(activity){
 
         loadActivity(activity);
 
-
     },
 
 
-
-
-
-    restartActivity:function(activity){
-
+    restartActivity: function(activity){
 
         let activityObject = activity;
 
@@ -206,7 +135,6 @@ showGrades:function(){
         if(typeof activity === "string"){
 
             activityObject =
-
             this.activities.find(function(item){
 
                 return item.id === activity;
@@ -219,7 +147,6 @@ showGrades:function(){
         if(!activityObject){
 
             activityObject =
-
             this.activities.find(function(item){
 
                 return item.id === AppState.activity;
@@ -244,28 +171,18 @@ showGrades:function(){
             activityObject
         );
 
-
     },
 
 
-
-
-
-    goHome:function(){
-
+    goHome: function(){
 
         this.showGrades();
 
-
     }
-
 
 };
 
 
-
 console.log(
-
     "App Controller Ready"
-
 );

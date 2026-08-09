@@ -4,14 +4,12 @@
 // Result Modal
 // Quiz + Memory Compatible
 // Navigation Buttons
+// Dashboard Button
 // =====================================
-
 
 const ResultModal = {
 
-
-    show:function(result){
-
+    show: function(result){
 
         const oldModal =
         document.getElementById(
@@ -24,9 +22,6 @@ const ResultModal = {
             oldModal.remove();
 
         }
-
-
-
 
 
         const percentage =
@@ -42,17 +37,11 @@ const ResultModal = {
         0;
 
 
-
-
-
         const stars =
 
         Math.round(
             percentage / 20
         );
-
-
-
 
 
         let starText = "";
@@ -78,11 +67,6 @@ const ResultModal = {
         }
 
 
-
-
-
-
-
         const modal =
 
         document.createElement(
@@ -90,10 +74,8 @@ const ResultModal = {
         );
 
 
-
         modal.id =
         "resultModal";
-
 
 
         modal.style.position="fixed";
@@ -108,14 +90,7 @@ const ResultModal = {
         modal.style.zIndex="9999";
 
 
-
-
-
-
-
-
         modal.innerHTML = `
-
 
         <div class="resultModalWindow"
 
@@ -136,14 +111,9 @@ const ResultModal = {
         <hr>
 
 
-
-
         <h2>
         ${result.title || "فعالیت آموزشی"}
         </h2>
-
-
-
 
 
         <p>
@@ -154,10 +124,6 @@ const ResultModal = {
         </strong>
 
         </p>
-
-
-
-
 
 
         <p>
@@ -171,18 +137,9 @@ const ResultModal = {
         </p>
 
 
-
-
-
-
         <h2>
         ${starText}
         </h2>
-
-
-
-
-
 
 
         ${
@@ -204,11 +161,6 @@ const ResultModal = {
         }
 
 
-
-
-
-
-
         ${
             result.wrongAnswers !== undefined
 
@@ -226,12 +178,6 @@ const ResultModal = {
             ""
 
         }
-
-
-
-
-
-
 
 
         ${
@@ -253,12 +199,6 @@ const ResultModal = {
         }
 
 
-
-
-
-
-
-
         ${
             result.moves !== undefined
 
@@ -278,11 +218,6 @@ const ResultModal = {
         }
 
 
-
-
-
-
-
         <p>
 
         ${result.message || ""}
@@ -290,14 +225,7 @@ const ResultModal = {
         </p>
 
 
-
-
-
-
         <br>
-
-
-
 
 
         <button id="retryActivityBtn">
@@ -307,9 +235,6 @@ const ResultModal = {
         </button>
 
 
-
-
-
         <button id="backActivitiesBtn">
 
         📚 بازگشت به فعالیت‌ها
@@ -317,7 +242,11 @@ const ResultModal = {
         </button>
 
 
+        <button id="dashboardBtn">
 
+        📊 گزارش عملکرد من
+
+        </button>
 
 
         <button id="homeBtn">
@@ -327,17 +256,9 @@ const ResultModal = {
         </button>
 
 
-
-
-
         </div>
 
-
         `;
-
-
-
-
 
 
         document.body.appendChild(
@@ -345,13 +266,9 @@ const ResultModal = {
         );
 
 
-
-
-
-
-
-
+        // =====================================
         // دوباره بازی
+        // =====================================
 
         document
         .getElementById(
@@ -359,23 +276,16 @@ const ResultModal = {
         )
         .onclick=function(){
 
-
             modal.remove();
 
-
             ActivityManager.restart();
-
 
         };
 
 
-
-
-
-
-
-
+        // =====================================
         // بازگشت به فعالیت‌ها
+        // =====================================
 
         document
         .getElementById(
@@ -383,23 +293,33 @@ const ResultModal = {
         )
         .onclick=function(){
 
-
             modal.remove();
 
-
             NavigationController.back();
-
 
         };
 
 
+        // =====================================
+        // گزارش عملکرد
+        // =====================================
+
+        document
+        .getElementById(
+            "dashboardBtn"
+        )
+        .onclick=function(){
+
+            modal.remove();
+
+            Navigation.openDashboard();
+
+        };
 
 
-
-
-
-
+        // =====================================
         // صفحه اصلی
+        // =====================================
 
         document
         .getElementById(
@@ -407,28 +327,16 @@ const ResultModal = {
         )
         .onclick=function(){
 
-
             modal.remove();
-
 
             App.goHome();
 
-
         };
-
-
-
 
     },
 
 
-
-
-
-
-
-    hide:function(){
-
+    hide: function(){
 
         const modal =
 
@@ -437,23 +345,17 @@ const ResultModal = {
         );
 
 
-
         if(modal){
 
             modal.remove();
 
         }
 
-
     }
-
 
 };
 
 
-
-
-
 console.log(
-"Result Modal Ready"
+    "Result Modal Ready"
 );
