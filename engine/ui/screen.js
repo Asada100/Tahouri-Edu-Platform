@@ -1,12 +1,13 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 4.0
+// Version 4.1
 // Screen Manager
-// Part 1
-// Home + Grades
+// Home + Grades + Profile
 // =====================================
 
+
 const Screen = {
+
 
     // =====================================
     // Home Screen
@@ -14,22 +15,29 @@ const Screen = {
 
     showHome: function () {
 
+
         const app =
             document.getElementById("app");
 
+
         if (!app) {
+
 
             console.error(
                 "App Container Not Found"
             );
 
+
             return;
 
         }
 
+
         app.innerHTML = `
 
+
 <div class="screen">
+
 
     <h1>
 
@@ -37,15 +45,19 @@ const Screen = {
 
     </h1>
 
+
     <p>
 
         به مرکز کنترل پلتفرم خوش آمدید
 
     </p>
 
+
     <hr>
 
+
     <div class="home-buttons">
+
 
         <button
             id="continueLearningBtn">
@@ -54,12 +66,22 @@ const Screen = {
 
         </button>
 
+
         <button
             id="gradesBtn">
 
             🎓 انتخاب پایه
 
         </button>
+
+
+        <button
+            id="profileBtn">
+
+            👤 پروفایل من
+
+        </button>
+
 
         <button
             id="dashboardBtn">
@@ -68,12 +90,14 @@ const Screen = {
 
         </button>
 
+
         <button
             id="reportsBtn">
 
             📈 گزارش‌ها
 
         </button>
+
 
         <button
             id="achievementBtn">
@@ -82,6 +106,7 @@ const Screen = {
 
         </button>
 
+
         <button
             id="settingsBtn">
 
@@ -89,102 +114,184 @@ const Screen = {
 
         </button>
 
+
     </div>
+
 
 </div>
 
+
         `;
+
 
         // ============================
         // Grades
         // ============================
 
+
         document
             .getElementById("gradesBtn")
             .onclick = function () {
 
+
                 Screen.showGrades();
 
+
             };
+
+
+        // ============================
+        // Profile
+        // ============================
+
+
+        document
+            .getElementById("profileBtn")
+            .onclick = function () {
+
+
+                Screen.showProfile();
+
+
+            };
+
 
         // ============================
         // Dashboard
         // ============================
 
+
         document
             .getElementById("dashboardBtn")
             .onclick = function () {
 
+
                 Navigation.openDashboard();
 
+
             };
+
 
         // ============================
         // Reports
         // ============================
 
+
         document
             .getElementById("reportsBtn")
             .onclick = function () {
+
 
                 if (
                     typeof ReportsController !==
                     "undefined"
                 ) {
 
+
                     ReportsController.open();
+
 
                 }
 
+
             };
+
 
         // ============================
         // Continue
         // ============================
 
+
         document
             .getElementById("continueLearningBtn")
             .onclick = function () {
+
 
                 alert(
                     "در نسخه بعدی فعال می‌شود."
                 );
 
+
             };
+
 
         // ============================
         // Achievement
         // ============================
 
+
         document
             .getElementById("achievementBtn")
             .onclick = function () {
+
 
                 alert(
                     "در نسخه بعدی فعال می‌شود."
                 );
 
+
             };
+
 
         // ============================
         // Settings
         // ============================
 
+
         document
             .getElementById("settingsBtn")
             .onclick = function () {
+
 
                 alert(
                     "در نسخه بعدی فعال می‌شود."
                 );
 
+
             };
+
 
         console.log(
             "Home Screen Displayed"
         );
 
+
     },
+
+
+    // =====================================
+    // Profile Screen
+    // =====================================
+
+    showProfile: function () {
+
+
+        if (
+            typeof ProfileScreen ===
+            "undefined"
+        ) {
+
+
+            console.error(
+                "ProfileScreen Not Found"
+            );
+
+
+            return;
+
+        }
+
+
+        ProfileScreen.show();
+
+
+        console.log(
+            "Profile Screen Opened"
+        );
+
+
+    },
+
 
     // =====================================
     // Grades Screen
@@ -192,80 +299,114 @@ const Screen = {
 
     showGrades: function () {
 
+
         const app =
             document.getElementById("app");
 
+
         app.innerHTML = `
+
 
 <div class="screen">
 
+
 <h1>
+
 
 پلتفرم آموزشی طهوری
 
+
 </h1>
+
 
 <h2>
 
+
 انتخاب پایه
+
 
 </h2>
 
+
 <div id="gradesContainer">
+
 
 ${grades.map(function (grade) {
 
+
 return `
+
 
 <button
 
+
 class="gradeBtn"
+
 
 data-id="${grade.id}">
 
+
 ${grade.title}
+
 
 </button>
 
+
 `;
+
 
 }).join("")}
 
+
 </div>
 
+
 <br>
+
 
 <button
 id="backHomeBtn">
 
+
 🏠 بازگشت به خانه
+
 
 </button>
 
+
 </div>
 
+
 `;
+
 
         document
             .querySelectorAll(".gradeBtn")
             .forEach(function (btn) {
 
+
                 btn.onclick = function () {
+
 
                     const gradeId =
                         this.dataset.id;
+
 
                     Navigation.selectGrade(
                         gradeId
                     );
 
+
                     showSubjects(
                         gradeId
                     );
 
+
                 };
 
+
             });
+
 
         document
             .getElementById(
@@ -273,100 +414,140 @@ id="backHomeBtn">
             )
             .onclick = function () {
 
+
                 Screen.showHome();
 
+
             };
+
 
         console.log(
             "Grades Displayed",
             grades.length
         );
 
+
     },
-        // =====================================
+
+
+    // =====================================
     // Subjects Screen
     // =====================================
 
     showSubjects: function (gradeId) {
 
+
         const app =
             document.getElementById("app");
 
+
         const gradeSubjects =
             subjects.filter(function (subject) {
+
 
                 return subject.grades.includes(
                     gradeId
                 );
 
+
             });
+
 
         app.innerHTML = `
 
+
 <div class="screen">
+
 
 <h1>
 
+
 انتخاب درس
+
 
 </h1>
 
+
 <div id="subjectsContainer">
+
 
 ${gradeSubjects.map(function(subject){
 
+
 return `
+
 
 <button
 
+
 class="subjectBtn"
+
 
 data-id="${subject.id}">
 
+
 ${subject.title}
+
 
 </button>
 
+
 `;
+
 
 }).join("")}
 
+
 </div>
 
+
 <br>
+
 
 <button
 id="backGradesBtn">
 
+
 ⬅ بازگشت به پایه‌ها
+
 
 </button>
 
+
 </div>
 
+
 `;
+
 
         document
             .querySelectorAll(".subjectBtn")
             .forEach(function (btn) {
 
+
                 btn.onclick = function () {
+
 
                     const subjectId =
                         this.dataset.id;
 
+
                     Navigation.selectSubject(
                         subjectId
                     );
+
 
                     Screen.showChapters(
                         gradeId,
                         subjectId
                     );
 
+
                 };
 
+
             });
+
 
         document
             .getElementById(
@@ -374,11 +555,15 @@ id="backGradesBtn">
             )
             .onclick = function () {
 
+
                 Screen.showGrades();
+
 
             };
 
+
     },
+
 
     // =====================================
     // Chapters Screen
@@ -389,79 +574,113 @@ id="backGradesBtn">
         subjectId
     ) {
 
+
         const app =
             document.getElementById("app");
+
 
         const subjectChapters =
             chapters.filter(function (chapter) {
 
+
                 return (
+
 
                     chapter.grade === gradeId &&
 
+
                     chapter.subject === subjectId
+
 
                 );
 
+
             });
+
 
         app.innerHTML = `
 
+
 <div class="screen">
+
 
 <h1>
 
+
 انتخاب فصل
+
 
 </h1>
 
+
 <div id="chaptersContainer">
+
 
 ${subjectChapters.map(function(chapter){
 
+
 return `
+
 
 <button
 
+
 class="chapterBtn"
+
 
 data-id="${chapter.id}">
 
+
 ${chapter.title}
+
 
 </button>
 
+
 `;
+
 
 }).join("")}
 
+
 </div>
 
+
 <br>
+
 
 <button
 id="backSubjectsBtn">
 
+
 ⬅ بازگشت به درس‌ها
+
 
 </button>
 
+
 </div>
 
+
 `;
+
 
         document
             .querySelectorAll(".chapterBtn")
             .forEach(function (btn) {
 
+
                 btn.onclick = function () {
+
 
                     const chapterId =
                         this.dataset.id;
 
+
                     Navigation.selectChapter(
                         chapterId
                     );
+
 
                     Screen.showActivities(
                         gradeId,
@@ -469,9 +688,12 @@ id="backSubjectsBtn">
                         chapterId
                     );
 
+
                 };
 
+
             });
+
 
         document
             .getElementById(
@@ -479,13 +701,17 @@ id="backSubjectsBtn">
             )
             .onclick = function () {
 
+
                 Screen.showSubjects(
                     gradeId
                 );
 
+
             };
 
+
     },
+
 
     // =====================================
     // Activities Screen
@@ -501,208 +727,297 @@ id="backSubjectsBtn">
 
     ) {
 
+
         const app =
             document.getElementById("app");
+
 
         const chapterActivities =
             activities.filter(function(activity){
 
+
                 return (
 
-                    activity.grade===gradeId &&
 
-                    activity.subject===subjectId &&
+                    activity.grade === gradeId &&
 
-                    activity.chapter===chapterId
+
+                    activity.subject === subjectId &&
+
+
+                    activity.chapter === chapterId
+
 
                 );
 
+
             });
+
 
         app.innerHTML = `
 
+
 <div class="screen">
+
 
 <h1>
 
+
 انتخاب فعالیت
+
 
 </h1>
 
+
 <div id="activitiesContainer">
+
 
 ${chapterActivities.map(function(activity){
 
-const locked=
+
+const locked =
+
 
 ContentLockManager.isLocked(
-activity.id
+    activity.id
 );
 
-return`
+
+return `
+
 
 <button
 
+
 class="activityBtn"
+
 
 data-id="${activity.id}"
 
-${locked?"disabled":""}>
 
-${locked?"🔒":"🎮"}
+${locked ? "disabled" : ""}>
+
+
+${locked ? "🔒" : "🎮"}
+
 
 ${activity.title}
 
+
 </button>
+
 
 `;
 
+
 }).join("")}
+
 
 </div>
 
+
 <br>
+
 
 <button
 id="backChaptersBtn">
 
+
 ⬅ بازگشت به فصل‌ها
+
 
 </button>
 
+
 </div>
 
+
 `;
+
 
         document
             .querySelectorAll(".activityBtn")
             .forEach(function(btn){
 
-                btn.onclick=function(){
 
-                    const activityId=
+                btn.onclick = function(){
+
+
+                    const activityId =
                         this.dataset.id;
 
+
                     if(
+
 
                         !ContentLockManager.canOpen(
                             activityId
                         )
 
+
                     ){
+
 
                         alert(
                             "این فعالیت هنوز قفل است."
                         );
 
+
                         return;
 
+
                     }
+
 
                     Navigation.selectActivity(
                         activityId
                     );
 
-                    const activity=
+
+                    const activity =
+
 
                     activities.find(function(item){
 
-                        return item.id===activityId;
+
+                        return item.id === activityId;
+
 
                     });
+
 
                     ActivityManager.load(
                         activity
                     );
 
+
                 };
 
+
             });
+
 
         document
             .getElementById(
                 "backChaptersBtn"
             )
-            .onclick=function(){
+            .onclick = function(){
+
 
                 Screen.showChapters(
 
+
                     gradeId,
+
 
                     subjectId
 
+
                 );
+
 
             };
 
+
     },
-        // =====================================
+
+
+    // =====================================
     // Quiz Screen
     // =====================================
 
-    showQuiz:function(data){
+    showQuiz: function(data){
+
 
         const app =
-        document.getElementById("app");
+            document.getElementById("app");
 
 
         app.innerHTML = `
 
+
 <div class="quizScreen">
+
 
     <h1>
 
+
         پلتفرم آموزشی طهوری
+
 
     </h1>
 
+
     <h2>
+
 
         ${data.title}
 
+
     </h2>
 
+
     <div class="scoreBox">
+
 
         امتیاز:
         ${data.score}
 
+
     </div>
 
+
     <div class="questionBox">
+
 
         سؤال
         ${data.currentQuestion}
 
+
         از
+
 
         ${data.totalQuestions}
 
+
     </div>
+
 
     <h2>
 
+
         ${data.question.text}
+
 
     </h2>
 
+
     <button id="evenBtn">
+
 
         زوج
 
+
     </button>
+
 
     <button id="oddBtn">
 
+
         فرد
+
 
     </button>
 
+
     <div id="messageBox"></div>
+
 
 </div>
 
+
         `;
+
 
     },
 
@@ -711,77 +1026,111 @@ id="backChaptersBtn">
     // Memory Screen
     // =====================================
 
-    showMemory:function(data){
+    showMemory: function(data){
+
 
         const app =
-        document.getElementById("app");
+            document.getElementById("app");
 
 
         app.innerHTML = `
 
+
 <div class="memoryScreen">
+
 
 <h1>
 
+
 پلتفرم آموزشی طهوری
+
 
 </h1>
 
+
 <hr>
+
 
 <h2>
 
+
 ${data.title}
+
 
 </h2>
 
+
 <div class="scoreBox">
+
 
 امتیاز:
 
+
 ${ScoreManager.score}
 
+
 </div>
+
 
 <div class="memoryBoard">
 
+
 ${data.cards.map(function(card){
 
-return`
+
+return `
+
 
 <button
 
+
 class="memoryCard"
+
 
 data-id="${card.id}">
 
+
 ${
+
 
 card.flipped ||
 
+
 card.matched
+
 
 ?
 
+
 card.value
+
 
 :
 
+
 "❓"
+
 
 }
 
+
 </button>
 
+
 `;
+
 
 }).join("")}
 
-</div>
 
 </div>
+
+
+</div>
+
 
 `;
+
 
     },
 
@@ -790,9 +1139,11 @@ card.value
     // Dashboard Screen
     // =====================================
 
-    showDashboard:function(){
+    showDashboard: function(){
+
 
         Navigation.openDashboard();
+
 
     },
 
@@ -801,18 +1152,24 @@ card.value
     // Reports Screen
     // =====================================
 
-    showReports:function(){
+    showReports: function(){
+
 
         if(
+
 
             typeof ReportsController !==
             "undefined"
 
+
         ){
+
 
             ReportsController.open();
 
+
         }
+
 
     },
 
@@ -821,35 +1178,46 @@ card.value
     // Message
     // =====================================
 
-    showMessage:function(
+    showMessage: function(
+
 
         message,
 
+
         type
+
 
     ){
 
+
         const box =
 
-        document.getElementById(
 
-            "messageBox"
+            document.getElementById(
 
-        );
+
+                "messageBox"
+
+
+            );
 
 
         if(!box){
 
+
             return;
+
 
         }
 
 
         box.innerHTML =
-        message;
+            message;
+
 
         box.className =
-        type;
+            type;
+
 
     },
 
@@ -858,24 +1226,32 @@ card.value
     // Finish Screen
     // =====================================
 
-    showFinish:function(result){
+    showFinish: function(result){
+
 
         console.log(
 
+
             "SHOW FINISH",
 
+
             result
+
 
         );
 
 
         ResultModal.show(
 
+
             result
+
 
         );
 
+
     }
+
 
 };
 
@@ -885,7 +1261,7 @@ card.value
 // =====================================
 
 window.Screen =
-Screen;
+    Screen;
 
 
 // =====================================
@@ -894,6 +1270,8 @@ Screen;
 
 console.log(
 
-"Screen Manager Ready"
+
+    "Screen Manager Ready"
+
 
 );
