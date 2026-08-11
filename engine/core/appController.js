@@ -1,80 +1,78 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 3.2
+// Version 4.0
 // App Controller
-// Unified Activity Restart
+// Unified Platform Controller
 // =====================================
 
 const App = {
 
     grades: [],
-
     subjects: [],
-
     chapters: [],
-
     activities: [],
 
+    // =====================================
+    // Start Application
+    // =====================================
 
-    init: async function(){
+    init: async function () {
 
         console.log(
             "App Controller Started"
         );
 
-
         await this.loadData();
 
-
-        this.showGrades();
+        Screen.showHome();
 
     },
 
+    // =====================================
+    // Load Data
+    // =====================================
 
-    loadData: async function(){
+    loadData: async function () {
 
-        try{
+        try {
 
             this.grades =
-            await DataManager.loadJSON(
-                "data/grades.json"
-            );
-
+                await DataManager.loadJSON(
+                    "data/grades.json"
+                );
 
             this.subjects =
-            await DataManager.loadJSON(
-                "data/subjects.json"
-            );
-
+                await DataManager.loadJSON(
+                    "data/subjects.json"
+                );
 
             this.chapters =
-            await DataManager.loadJSON(
-                "data/chapters.json"
-            );
-
+                await DataManager.loadJSON(
+                    "data/chapters.json"
+                );
 
             this.activities =
-            await DataManager.loadJSON(
-                "data/activities.json"
-            );
+                await DataManager.loadJSON(
+                    "data/activities.json"
+                );
 
+            // انتقال به متغیرهای سراسری
 
             grades = this.grades;
             subjects = this.subjects;
             chapters = this.chapters;
             activities = this.activities;
 
-
             console.log(
-                "All Data Loaded Through DataManager"
+                "All Data Loaded"
             );
 
         }
 
-        catch(error){
+        catch (error) {
 
             console.error(
-                "Loading Error:",
+                "Loading Error",
                 error
             );
 
@@ -82,36 +80,42 @@ const App = {
 
     },
 
+    // =====================================
+    // Navigation
+    // =====================================
 
-    showGrades: function(){
+    showHome: function () {
+
+        Screen.showHome();
+
+    },
+
+    showGrades: function () {
 
         Screen.showGrades();
 
     },
 
+    showSubjects: function () {
 
-    showSubjects: function(){
-
-        showSubjects(
+        Screen.showSubjects(
             AppState.grade
         );
 
     },
 
+    showChapters: function () {
 
-    showChapters: function(){
-
-        showChapters(
+        Screen.showChapters(
             AppState.grade,
             AppState.subject
         );
 
     },
 
+    showActivities: function () {
 
-    showActivities: function(){
-
-        showActivities(
+        Screen.showActivities(
             AppState.grade,
             AppState.subject,
             AppState.chapter
@@ -119,44 +123,58 @@ const App = {
 
     },
 
+    // =====================================
+    // Activity
+    // =====================================
 
-    startActivity: function(activity){
+    startActivity: function (
+        activity
+    ) {
 
-        loadActivity(activity);
+        if (!activity) {
+
+            console.error(
+                "Activity Missing"
+            );
+
+            return;
+
+        }
+
+        ActivityManager.load(
+            activity
+        );
 
     },
 
+    restartActivity: function () {
 
-    restartActivity: function(activity){
+        if (
+            !AppState.activity
+        ) {
 
-        let activityObject = activity;
+            console.error(
+                "No Current Activity"
+            );
 
-
-        if(typeof activity === "string"){
-
-            activityObject =
-            this.activities.find(function(item){
-
-                return item.id === activity;
-
-            });
+            return;
 
         }
 
+        const activity =
 
-        if(!activityObject){
+            this.activities.find(
+                function (item) {
 
-            activityObject =
-            this.activities.find(function(item){
+                    return (
+                        item.id ===
+                        AppState.activity
+                    );
 
-                return item.id === AppState.activity;
+                }
+            );
 
-            });
-
-        }
-
-
-        if(!activityObject){
+        if (!activity) {
 
             console.error(
                 "Activity Not Found"
@@ -166,22 +184,53 @@ const App = {
 
         }
 
-
-        loadActivity(
-            activityObject
+        ActivityManager.load(
+            activity
         );
 
     },
 
+    // =====================================
+    // Dashboard
+    // =====================================
 
-    goHome: function(){
+    openDashboard: function () {
 
-        this.showGrades();
+        Navigation.openDashboard();
+
+    },
+
+    // =====================================
+    // Reports
+    // =====================================
+
+    openReports: function () {
+
+        Screen.showReports();
+
+    },
+
+    // =====================================
+    // Home
+    // =====================================
+
+    goHome: function () {
+
+        Screen.showHome();
 
     }
 
 };
 
+// =====================================
+// Global Access
+// =====================================
+
+window.App = App;
+
+// =====================================
+// Ready
+// =====================================
 
 console.log(
     "App Controller Ready"
