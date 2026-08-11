@@ -397,7 +397,7 @@ id="backHomeBtn">
                     );
 
 
-                    showSubjects(
+                    Screen.showSubjects(
                         gradeId
                     );
 

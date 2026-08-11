@@ -1,7 +1,8 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 4.0
+// Version 4.2
 // Dashboard Screen
+// Profile Integration
 // =====================================
 
 const DashboardScreen = {
@@ -22,8 +23,37 @@ const DashboardScreen = {
             );
 
             return;
+        }
+
+
+        // =====================================
+        // Profile
+        // =====================================
+
+        let profile = {
+            name: "",
+            grade: null
+        };
+
+
+        if (
+            typeof ProfileManager !==
+            "undefined"
+            &&
+            typeof ProfileManager.get ===
+            "function"
+        ) {
+
+            profile =
+                ProfileManager.get() ||
+                profile;
 
         }
+
+
+        // =====================================
+        // Overall Statistics
+        // =====================================
 
         let overall = {
 
@@ -36,16 +66,13 @@ const DashboardScreen = {
 
         };
 
-        if (
 
+        if (
             typeof StatisticsManager !==
             "undefined"
-
             &&
-
             typeof StatisticsManager.get ===
             "function"
-
         ) {
 
             overall =
@@ -54,144 +81,273 @@ const DashboardScreen = {
 
         }
 
+
+        // =====================================
+        // Grade Title
+        // =====================================
+
+        let gradeTitle =
+            "انتخاب نشده";
+
+
+        if (
+            profile.grade &&
+            typeof grades !==
+            "undefined"
+        ) {
+
+            const selectedGrade =
+                grades.find(function (grade) {
+
+                    return (
+                        grade.id ===
+                        profile.grade
+                    );
+
+                });
+
+
+            if (selectedGrade) {
+
+                gradeTitle =
+                    selectedGrade.title;
+
+            }
+
+        }
+
+
+        // =====================================
+        // Profile Name
+        // =====================================
+
+        const profileName =
+            profile.name &&
+            profile.name.trim() !== ""
+                ?
+                profile.name
+                :
+                "دانش‌آموز";
+
+
+        // =====================================
+        // Dashboard UI
+        // =====================================
+
         app.innerHTML = `
 
 <div class="screen">
 
-<h1>
+    <h1>
 
-📊 داشبورد
+        📊 داشبورد
 
-</h1>
+    </h1>
 
-<p>
 
-مرکز کنترل عملکرد آموزشی
+    <p>
 
-</p>
+        مرکز کنترل عملکرد آموزشی
 
-<hr>
+    </p>
 
-<div class="dashboard-cards">
 
-<div class="dashboard-card">
+    <hr>
 
-<h3>
 
-🎯 فعالیت‌ها
+    <!-- ============================= -->
+    <!-- PROFILE SUMMARY -->
+    <!-- ============================= -->
 
-</h3>
+    <div class="dashboard-profile">
 
-<p>
+        <h2>
 
-${overall.totalActivities}
+            👤 ${profileName}
 
-</p>
+        </h2>
 
-</div>
+        <p>
 
-<div class="dashboard-card">
+            🎓 پایه:
+            ${gradeTitle}
 
-<h3>
+        </p>
 
-⭐ امتیاز
+        <button
+            id="dashboardProfileBtn">
 
-</h3>
+            👤 مشاهده پروفایل
 
-<p>
+        </button>
 
-${overall.totalScore}
+    </div>
 
-</p>
 
-</div>
+    <hr>
 
-<div class="dashboard-card">
 
-<h3>
+    <!-- ============================= -->
+    <!-- STATISTICS CARDS -->
+    <!-- ============================= -->
 
-📈 میانگین
+    <div class="dashboard-cards">
 
-</h3>
 
-<p>
+        <div class="dashboard-card">
 
-${overall.averageScore}
+            <h3>
 
-</p>
+                🎯 فعالیت‌ها
 
-</div>
+            </h3>
 
-<div class="dashboard-card">
+            <p>
 
-<h3>
+                ${overall.totalActivities}
 
-🏆 بهترین
+            </p>
 
-</h3>
+        </div>
 
-<p>
 
-${overall.bestScore}
+        <div class="dashboard-card">
 
-</p>
+            <h3>
 
-</div>
+                ⭐ امتیاز
 
-</div>
+            </h3>
 
-<hr>
+            <p>
 
-<div class="dashboard-summary">
+                ${overall.totalScore}
 
-<p>
+            </p>
 
-✅ پاسخ صحیح :
+        </div>
 
-${overall.totalCorrect}
 
-</p>
+        <div class="dashboard-card">
 
-<p>
+            <h3>
 
-❌ پاسخ اشتباه :
+                📈 میانگین
 
-${overall.totalWrong}
+            </h3>
 
-</p>
+            <p>
 
-</div>
+                ${overall.averageScore}
 
-<hr>
+            </p>
 
-<button
-id="dashboardReportsBtn">
+        </div>
 
-📈 گزارش کامل
 
-</button>
+        <div class="dashboard-card">
 
-<button
-id="dashboardHomeBtn">
+            <h3>
 
-🏠 صفحه اصلی
+                🏆 بهترین
 
-</button>
+            </h3>
 
-<button
-id="dashboardGradesBtn">
+            <p>
 
-🎓 انتخاب پایه
+                ${overall.bestScore}
 
-</button>
+            </p>
+
+        </div>
+
+
+    </div>
+
+
+    <hr>
+
+
+    <!-- ============================= -->
+    <!-- ANSWER SUMMARY -->
+    <!-- ============================= -->
+
+    <div class="dashboard-summary">
+
+        <p>
+
+            ✅ پاسخ صحیح:
+
+            ${overall.totalCorrect}
+
+        </p>
+
+
+        <p>
+
+            ❌ پاسخ اشتباه:
+
+            ${overall.totalWrong}
+
+        </p>
+
+    </div>
+
+
+    <hr>
+
+
+    <!-- ============================= -->
+    <!-- NAVIGATION -->
+    <!-- ============================= -->
+
+    <button
+        id="dashboardReportsBtn">
+
+        📈 گزارش کامل
+
+    </button>
+
+
+    <button
+        id="dashboardGradesBtn">
+
+        🎓 انتخاب پایه
+
+    </button>
+
+
+    <button
+        id="dashboardHomeBtn">
+
+        🏠 صفحه اصلی
+
+    </button>
+
 
 </div>
 
 `;
 
-        // ============================
+
+        // =====================================
+        // Profile
+        // =====================================
+
+        document
+            .getElementById(
+                "dashboardProfileBtn"
+            )
+            .onclick = function () {
+
+                Screen.showProfile();
+
+            };
+
+
+        // =====================================
         // Reports
-        // ============================
+        // =====================================
 
         document
             .getElementById(
@@ -200,10 +356,8 @@ id="dashboardGradesBtn">
             .onclick = function () {
 
                 if (
-
                     typeof ReportsController !==
                     "undefined"
-
                 ) {
 
                     ReportsController.open();
@@ -212,23 +366,10 @@ id="dashboardGradesBtn">
 
             };
 
-        // ============================
-        // Home
-        // ============================
 
-        document
-            .getElementById(
-                "dashboardHomeBtn"
-            )
-            .onclick = function () {
-
-                Screen.showHome();
-
-            };
-
-        // ============================
+        // =====================================
         // Grades
-        // ============================
+        // =====================================
 
         document
             .getElementById(
@@ -240,20 +381,43 @@ id="dashboardGradesBtn">
 
             };
 
+
+        // =====================================
+        // Home
+        // =====================================
+
+        document
+            .getElementById(
+                "dashboardHomeBtn"
+            )
+            .onclick = function () {
+
+                Screen.showHome();
+
+            };
+
+
         console.log(
             "Dashboard Displayed"
+        );
+
+        console.log(
+            "Dashboard Profile:",
+            profile
         );
 
     }
 
 };
 
+
 // =====================================
 // Global
 // =====================================
 
 window.DashboardScreen =
-DashboardScreen;
+    DashboardScreen;
+
 
 // =====================================
 // Ready
