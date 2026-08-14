@@ -1,8 +1,8 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 4.0
+// Version 5.0
 // App Controller
-// Unified Platform Controller
+// Activity Config Loader
 // =====================================
 
 const App = {
@@ -56,8 +56,6 @@ const App = {
                     "data/activities.json"
                 );
 
-            // انتقال به متغیرهای سراسری
-
             grades = this.grades;
             subjects = this.subjects;
             chapters = this.chapters;
@@ -84,19 +82,19 @@ const App = {
     // Navigation
     // =====================================
 
-    showHome: function () {
+    showHome:function(){
 
         Screen.showHome();
 
     },
 
-    showGrades: function () {
+    showGrades:function(){
 
         Screen.showGrades();
 
     },
 
-    showSubjects: function () {
+    showSubjects:function(){
 
         Screen.showSubjects(
             AppState.grade
@@ -104,7 +102,7 @@ const App = {
 
     },
 
-    showChapters: function () {
+    showChapters:function(){
 
         Screen.showChapters(
             AppState.grade,
@@ -113,7 +111,7 @@ const App = {
 
     },
 
-    showActivities: function () {
+    showActivities:function(){
 
         Screen.showActivities(
             AppState.grade,
@@ -124,14 +122,12 @@ const App = {
     },
 
     // =====================================
-    // Activity
+    // Start Activity
     // =====================================
 
-    startActivity: function (
-        activity
-    ) {
+    startActivity: async function(activity){
 
-        if (!activity) {
+        if(!activity){
 
             console.error(
                 "Activity Missing"
@@ -141,17 +137,50 @@ const App = {
 
         }
 
+        try{
+
+            const config =
+                await DataManager.loadJSON(
+
+                    activity.path +
+                    "/activity.json"
+
+                );
+
+            activity.config = config;
+
+            console.log(
+                "Activity Config Loaded",
+                config
+            );
+
+        }
+
+        catch(error){
+
+            console.warn(
+                "Activity Config Not Found"
+            );
+
+            activity.config = null;
+
+        }
+
         ActivityManager.load(
             activity
         );
 
     },
 
-    restartActivity: function () {
+    // =====================================
+    // Restart Activity
+    // =====================================
 
-        if (
+    restartActivity: async function(){
+
+        if(
             !AppState.activity
-        ) {
+        ){
 
             console.error(
                 "No Current Activity"
@@ -163,18 +192,22 @@ const App = {
 
         const activity =
 
-            this.activities.find(
-                function (item) {
+        this.activities.find(
 
-                    return (
-                        item.id ===
-                        AppState.activity
-                    );
+            function(item){
 
-                }
-            );
+                return(
 
-        if (!activity) {
+                    item.id ===
+                    AppState.activity
+
+                );
+
+            }
+
+        );
+
+        if(!activity){
 
             console.error(
                 "Activity Not Found"
@@ -184,7 +217,7 @@ const App = {
 
         }
 
-        ActivityManager.load(
+        await this.startActivity(
             activity
         );
 
@@ -194,7 +227,7 @@ const App = {
     // Dashboard
     // =====================================
 
-    openDashboard: function () {
+    openDashboard:function(){
 
         Navigation.openDashboard();
 
@@ -204,7 +237,7 @@ const App = {
     // Reports
     // =====================================
 
-    openReports: function () {
+    openReports:function(){
 
         Screen.showReports();
 
@@ -214,7 +247,7 @@ const App = {
     // Home
     // =====================================
 
-    goHome: function () {
+    goHome:function(){
 
         Screen.showHome();
 
@@ -222,15 +255,7 @@ const App = {
 
 };
 
-// =====================================
-// Global Access
-// =====================================
-
 window.App = App;
-
-// =====================================
-// Ready
-// =====================================
 
 console.log(
     "App Controller Ready"

@@ -1,86 +1,86 @@
 // =====================================
 // Tahouri Edu Platform
 // Dashboard Controller
-// Version 3.0
-// Overall + Subject + Activity Reports
+// Version 3.2
 // =====================================
 
 const DashboardController = {
 
-    open: function(){
+    // ================================
+    // باز کردن داشبورد
+    // ================================
+
+    open: function () {
 
         console.log(
-            "Dashboard Controller Opening"
+            "Opening Dashboard..."
         );
 
+        const data =
+            this.getDashboardData();
 
-        if(
-            typeof DashboardScreen === "undefined"
-        ){
+        DashboardScreen.show(
+            data
+        );
 
-            console.error(
-                "DashboardScreen Not Found"
-            );
+    },
 
-            return;
+    // ================================
+    // آماده سازی اطلاعات داشبورد
+    // ================================
+
+    getDashboardData: function () {
+
+        let overall = {};
+
+        if (
+            typeof StatisticsManager !== "undefined" &&
+            typeof StatisticsManager.get === "function"
+        ) {
+
+            overall =
+                StatisticsManager.get() || {};
 
         }
 
+        return {
 
-        // ================================
-        // دریافت آمار کلی
-        // ================================
+            user: {
 
-        const overall =
+                name: "دانش آموز",
+                avatar: "👤"
 
-            StatisticsManager.get();
-
-
-        // ================================
-        // دریافت آمار درس‌ها
-        // ================================
-
-        const subjects =
-
-            StatisticsManager.getSubjects();
-
-
-        // ================================
-        // دریافت آمار فعالیت‌ها
-        // ================================
-
-        const activities =
-
-            StatisticsManager.getActivities();
-
-
-        // ================================
-        // نمایش داشبورد
-        // ================================
-
-        DashboardScreen.show({
+            },
 
             overall: overall,
 
-            subjects: subjects,
+            continueLearning: {
 
-            activities: activities
+                grade: "پایه ششم",
 
-        });
+                subject: "ریاضی",
 
+                chapter: "فصل اول",
 
-        console.log(
-            "Dashboard Displayed With Latest Statistics"
-        );
+                activity: "آخرین فعالیت"
+
+            },
+
+            lastAchievement: {
+
+                title:
+                    "هنوز دستاوردی ثبت نشده است."
+
+            }
+
+        };
 
     }
 
 };
 
-
 window.DashboardController =
-    DashboardController;
-
+DashboardController;
 
 console.log(
     "Dashboard Controller Ready"

@@ -1,48 +1,125 @@
 [
     {
         "id": "evenOdd",
-
         "title": "اعداد زوج و فرد",
-
         "grade": "grade6",
-
         "subject": "math",
-
         "chapter": "chapter1",
-
         "type": "quiz",
-
         "engine": "QuizEngine",
-
         "locked": false,
-
         "requires": null,
-
-        "path":
-        "content/grades/grade6/math/chapter1/evenOdd"
+        "path": "content/grades/grade6/math/chapter1/evenOdd"
     },
 
+    {
+        "id": "divisibleBy2",
+        "title": "بخش‌پذیری بر ۲",
+        "grade": "grade6",
+        "subject": "math",
+        "chapter": "chapter1",
+        "type": "quiz",
+        "engine": "QuizEngine",
+        "group": "divisibility",
+        "locked": true,
+        "requires": "evenOdd",
+        "path": "content/grades/grade6/math/chapter1/divisibility/divisibleBy2"
+    },
+
+    {
+        "id": "divisibleBy3",
+        "title": "بخش‌پذیری بر ۳",
+        "grade": "grade6",
+        "subject": "math",
+        "chapter": "chapter1",
+        "type": "quiz",
+        "engine": "QuizEngine",
+        "group": "divisibility",
+        "locked": true,
+        "requires": "divisibleBy2",
+        "path": "content/grades/grade6/math/chapter1/divisibility/divisibleBy3"
+    },
+
+    {
+        "id": "divisibleBy5",
+        "title": "بخش‌پذیری بر ۵",
+        "grade": "grade6",
+        "subject": "math",
+        "chapter": "chapter1",
+        "type": "quiz",
+        "engine": "QuizEngine",
+        "group": "divisibility",
+        "locked": true,
+        "requires": "divisibleBy3",
+        "path": "content/grades/grade6/math/chapter1/divisibility/divisibleBy5"
+    },
+
+    {
+        "id": "divisibleBy6",
+        "title": "بخش‌پذیری بر ۶",
+        "grade": "grade6",
+        "subject": "math",
+        "chapter": "chapter1",
+        "type": "quiz",
+        "engine": "QuizEngine",
+        "group": "divisibility",
+        "locked": true,
+        "requires": "divisibleBy5",
+        "path": "content/grades/grade6/math/chapter1/divisibility/divisibleBy6"
+    },
+
+    {
+        "id": "divisibleBy9",
+        "title": "بخش‌پذیری بر ۹",
+        "grade": "grade6",
+        "subject": "math",
+        "chapter": "chapter1",
+        "type": "quiz",
+        "engine": "QuizEngine",
+        "group": "divisibility",
+        "locked": true,
+        "requires": "divisibleBy6",
+        "path": "content/grades/grade6/math/chapter1/divisibility/divisibleBy9"
+    },
+
+    {
+        "id": "divisibleBy10",
+        "title": "بخش‌پذیری بر ۱۰",
+        "grade": "grade6",
+        "subject": "math",
+        "chapter": "chapter1",
+        "type": "quiz",
+        "engine": "QuizEngine",
+        "group": "divisibility",
+        "locked": true,
+        "requires": "divisibleBy9",
+        "path": "content/grades/grade6/math/chapter1/divisibility/divisibleBy10"
+    },
+
+    {
+        "id": "divisibleBy100",
+        "title": "بخش‌پذیری بر ۱۰۰",
+        "grade": "grade6",
+        "subject": "math",
+        "chapter": "chapter1",
+        "type": "quiz",
+        "engine": "QuizEngine",
+        "group": "divisibility",
+        "locked": true,
+        "requires": "divisibleBy10",
+        "path": "content/grades/grade6/math/chapter1/divisibility/divisibleBy100"
+    },
 
     {
         "id": "memoryDemo",
-
         "title": "حافظه تصویری",
-
         "grade": "grade6",
-
         "subject": "math",
-
         "chapter": "chapter1",
-
         "type": "memory",
-
         "engine": "MemoryEngine",
-
         "locked": true,
-
         "requires": "evenOdd",
-
-        "path":
-        "content/grades/grade6/math/chapter1/memoryDemo"
+        "path": "content/grades/grade6/math/chapter1/memoryDemo"
     }
 ]

@@ -1,609 +1,247 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 1.3
-// Stage Based Learning Flow
-// Content Lock Integration
-// Grade -> Subject -> Chapter -> Activity
-// Dashboard Button Added
+// Version 4.0
+// app.js
+// Part 1
 // =====================================
 
 console.log(
-"Tahouri Edu Platform Started"
+    "Tahouri Edu Platform Started"
 );
 
 const app =
-document.getElementById("app");
+document.getElementById(
+    "app"
+);
 
+// =====================================
+// Global Data
+// =====================================
 
 let grades = [];
+
 let subjects = [];
+
 let chapters = [];
+
 let activities = [];
 
-
+// =====================================
+// Grades
+// =====================================
 
 function showGrades(){
 
-app.innerHTML = `
-
-
-<div>
-
-
-    <h1>
-    انتخاب پایه
-    </h1>
-
-
-    <button id="dashboardBtn">
-
-    📊 گزارش عملکرد من
-
-    </button>
-
-
-
-
-    ${
-        grades.map(function(grade){
-
-
-            return `
-
-
-            <button class="gradeBtn"
-            data-id="${grade.id}">
-
-            ${grade.title}
-
-            </button>
-
-
-            `;
-
-
-        }).join("")
-    }
-
-
-
-</div>
-
-
-
-`;
-
-
-
-// ================================
-// Dashboard Button
-// ================================
-
-const dashboardBtn =
-
-document.getElementById(
-"dashboardBtn"
-);
-
-
-
-if(dashboardBtn){
-
-
-    dashboardBtn.onclick = function(){
-
-
-        Navigation.openDashboard();
-
-
-    };
-
+    Screen.showGrades();
 
 }
 
+// =====================================
+// Subjects
+// =====================================
 
+function showSubjects(
+    gradeId
+){
 
-
-
-
-
-document
-.querySelectorAll(".gradeBtn")
-.forEach(function(btn){
-
-
-
-    btn.onclick = function(){
-
-
-
-        const gradeId =
-        this.dataset.id;
-
-
-
-        Navigation.selectGrade(
-            gradeId
-        );
-
-
-
-        showSubjects(
-            gradeId
-        );
-
-
-
-    };
-
-
-
-});
-
-}
-
-
-
-
-
-
-
-function showSubjects(gradeId){
-
-const gradeSubjects =
-
-subjects.filter(function(subject){
-
-
-
-    return subject.grades.includes(
+    Screen.showSubjects(
         gradeId
     );
 
-
-});
-
-
-
-
-
-
-
-app.innerHTML = `
-
-
-<div>
-
-
-    <h1>
-    انتخاب درس
-    </h1>
-
-
-
-
-    ${
-        gradeSubjects.map(function(subject){
-
-
-            return `
-
-
-            <button class="subjectBtn"
-            data-id="${subject.id}">
-
-
-            ${subject.title}
-
-
-            </button>
-
-
-
-            `;
-
-
-
-        }).join("")
-    }
-
-
-
-</div>
-
-
-
-`;
-
-
-
-
-
-
-
-document
-.querySelectorAll(".subjectBtn")
-.forEach(function(btn){
-
-
-
-    btn.onclick = function(){
-
-
-
-        const subjectId =
-
-        this.dataset.id;
-
-
-
-
-        Navigation.selectSubject(
-            subjectId
-        );
-
-
-
-        showChapters(
-            AppState.grade,
-            subjectId
-        );
-
-
-
-    };
-
-
-
-});
-
 }
 
-
-
-
-
-
+// =====================================
+// Chapters
+// =====================================
 
 function showChapters(
-gradeId,
-subjectId
+
+    gradeId,
+
+    subjectId
+
 ){
 
-const subjectChapters =
+    Screen.showChapters(
 
-chapters.filter(function(chapter){
+        gradeId,
 
-
-
-    return (
-
-        chapter.grade === gradeId
-
-        &&
-
-        chapter.subject === subjectId
+        subjectId
 
     );
 
-
-});
-
-
-
-
-
-
-
-
-app.innerHTML = `
-
-
-<div>
-
-
-    <h1>
-    انتخاب فصل
-    </h1>
-
-
-
-
-    ${
-        subjectChapters.map(function(chapter){
-
-
-            return `
-
-
-            <button class="chapterBtn"
-            data-id="${chapter.id}">
-
-
-            ${chapter.title}
-
-
-            </button>
-
-
-
-            `;
-
-
-
-        }).join("")
-    }
-
-
-
-</div>
-
-
-
-`;
-
-
-
-
-
-
-
-
-document
-.querySelectorAll(".chapterBtn")
-.forEach(function(btn){
-
-
-
-    btn.onclick = function(){
-
-
-
-        const chapterId =
-
-        this.dataset.id;
-
-
-
-
-        Navigation.selectChapter(
-            chapterId
-        );
-
-
-
-        showActivities(
-            gradeId,
-            subjectId,
-            chapterId
-        );
-
-
-
-    };
-
-
-
-});
-
 }
 
-
-
-
-
-
-
+// =====================================
+// Activities
+// =====================================
 
 function showActivities(
-gradeId,
-subjectId,
-chapterId
+
+    gradeId,
+
+    subjectId,
+
+    chapterId
+
 ){
 
-const chapterActivities =
+    Screen.showActivities(
 
-activities.filter(function(activity){
+        gradeId,
 
+        subjectId,
 
-
-    return (
-
-        activity.grade === gradeId
-
-        &&
-
-        activity.subject === subjectId
-
-        &&
-
-        activity.chapter === chapterId
+        chapterId
 
     );
 
+}
+// =====================================
+// Load Activity
+// =====================================
 
-});
+function loadActivity(
+    activity
+){
 
+    if(
+        !activity
+    ){
 
+        console.error(
+            "Activity Not Found"
+        );
 
+        return;
 
-
-
-
-
-app.innerHTML = `
-
-
-<div>
-
-
-    <h1>
-    انتخاب فعالیت
-    </h1>
-
-
-
-
-    ${
-        chapterActivities.map(function(activity){
-
-
-
-            const locked =
-
-            ContentLockManager.isLocked(
-                activity.id
-            );
-
-
-
-            return `
-
-
-            <button
-
-            class="activityBtn"
-
-            data-id="${activity.id}"
-
-            ${locked ? "disabled" : ""}
-
-            >
-
-
-            ${
-                locked
-                ?
-                "🔒 "
-                :
-                "🔓 "
-            }
-
-
-            ${activity.title}
-
-
-            </button>
-
-
-
-            `;
-
-
-
-        }).join("")
     }
 
+    ActivityManager.load(
+        activity
+    );
 
+}
 
-</div>
+// =====================================
+// Find Activity
+// =====================================
 
+function getActivityById(
+    activityId
+){
 
+    return activities.find(
+        function(item){
 
-`;
-
-
-
-
-
-
-
-
-document
-.querySelectorAll(".activityBtn")
-.forEach(function(btn){
-
-
-
-    btn.onclick = function(){
-
-
-
-        const activityId =
-
-        this.dataset.id;
-
-
-
-
-
-
-        if(
-            !ContentLockManager.canOpen(
-                activityId
-            )
-        ){
-
-
-            alert(
-                "🔒 این فعالیت هنوز باز نشده است"
+            return (
+                item.id === activityId
             );
 
-
-            return;
-
-
         }
-
-
-
-
-
-
-        Navigation.selectActivity(
-            activityId
-        );
-
-
-
-
-
-
-        const activity =
-
-        activities.find(function(item){
-
-
-            return item.id === activityId;
-
-
-        });
-
-
-
-
-
-        loadActivity(
-            activity
-        );
-
-
-
-    };
-
-
-
-});
+    );
 
 }
 
+// =====================================
+// Start Activity
+// =====================================
 
+function startActivity(
+    activityId
+){
 
+    const activity =
+    getActivityById(
+        activityId
+    );
 
+    if(
+        !activity
+    ){
 
+        console.error(
+            "Activity Missing"
+        );
 
-function loadActivity(activity){
+        return;
 
-ActivityManager.load(
-    activity
+    }
+
+    Navigation.selectActivity(
+        activityId
+    );
+
+    loadActivity(
+        activity
+    );
+
+}
+
+// =====================================
+// Restart Activity
+// =====================================
+
+function restartActivity(){
+
+    if(
+        !AppState.activity
+    ){
+
+        console.error(
+            "No Activity Selected"
+        );
+
+        return;
+
+    }
+
+    startActivity(
+        AppState.activity
+    );
+
+}
+
+// =====================================
+// Home
+// =====================================
+
+function goHome(){
+
+    Screen.showHome();
+
+}
+
+// =====================================
+// Dashboard
+// =====================================
+
+function openDashboard(){
+
+    Navigation.openDashboard();
+
+}
+
+// =====================================
+// Reports
+// =====================================
+
+function openReports(){
+
+    Screen.showReports();
+
+}
+
+// =====================================
+// Platform Ready
+// =====================================
+
+console.log(
+    "App.js Ready"
 );
 
-}
-
-
-
-
-
-// شروع برنامه از AppController
+// =====================================
+// Start Application
+// =====================================
 
 App.init();

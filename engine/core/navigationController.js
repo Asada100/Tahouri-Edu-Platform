@@ -1,140 +1,122 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 3.4
+// Version 4.5
 // Navigation Controller
-// Back System + Dashboard
+// Back System + Dashboard + Home
 // =====================================
-
 
 const NavigationController = {
 
+    back: function() {
 
-back:function(){
-
-
-    const previous =
-
-    NavigationHistory.back();
+        const previous =
+            NavigationHistory.back();
 
 
+        if(!previous) {
 
-    if(!previous){
+            console.log(
+                "No Previous Page"
+            );
+
+            return;
+
+        }
 
 
         console.log(
-
-            "No Previous Page"
-
+            "Navigate Back:",
+            previous
         );
 
 
-        return;
+        switch(previous.page) {
 
 
-    }
+            // =============================
+            // Home
+            // =============================
+
+            case "home":
+
+                Screen.showHome();
+
+                break;
 
 
+            // =============================
+            // Grade
+            // =============================
+
+            case "grade":
+
+                App.showGrades();
+
+                break;
 
 
-    console.log(
+            // =============================
+            // Subject
+            // =============================
 
-        "Navigate Back:",
+            case "subject":
 
-        previous
+                App.showSubjects();
 
-    );
-
-
-
-
-
-    switch(previous.page){
+                break;
 
 
+            // =============================
+            // Chapter
+            // =============================
 
-        case "grade":
+            case "chapter":
 
+                App.showChapters();
 
-            App.showGrades();
-
-
-            break;
-
-
-
-
-        case "subject":
+                break;
 
 
-            App.showSubjects();
+            // =============================
+            // Activity
+            // =============================
+
+            case "activity":
+
+                App.showActivities();
+
+                break;
 
 
-            break;
+            // =============================
+            // Dashboard
+            // =============================
+
+            case "dashboard":
+
+                App.start();
+
+                break;
 
 
+            // =============================
+            // Unknown
+            // =============================
 
+            default:
 
-        case "chapter":
+                console.log(
+                    "Unknown Page:",
+                    previous.page
+                );
 
-
-            App.showChapters();
-
-
-            break;
-
-
-
-
-        case "activity":
-
-
-            App.showActivities();
-
-
-            break;
-
-
-
-
-        case "dashboard":
-
-
-            App.start();
-
-
-            break;
-
-
-
-
-        default:
-
-
-            console.log(
-
-                "Unknown Page:",
-
-                previous.page
-
-            );
-
+        }
 
     }
-
-
-
-}
-
-
 
 };
 
 
-
-
-
 console.log(
-
-"Navigation Controller Ready"
-
+    "Navigation Controller Ready"
 );

@@ -1,10 +1,38 @@
 [
     {
-        "id":"evenOdd",
-        "locked":false
+        "id": "evenOdd",
+        "locked": false
     },
     {
-        "id":"memoryDemo",
-        "locked":true
+        "id": "divisibleBy2",
+        "locked": true
+    },
+    {
+        "id": "divisibleBy3",
+        "locked": true
+    },
+    {
+        "id": "divisibleBy5",
+        "locked": true
+    },
+    {
+        "id": "divisibleBy6",
+        "locked": true
+    },
+    {
+        "id": "divisibleBy9",
+        "locked": true
+    },
+    {
+        "id": "divisibleBy10",
+        "locked": true
+    },
+    {
+        "id": "divisibleBy100",
+        "locked": true
+    },
+    {
+        "id": "memoryDemo",
+        "locked": true
     }
 ]

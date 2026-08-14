@@ -1,43 +1,46 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 3.3
+// Version 4.5
 // Navigation History
+// Persistent Stack
 // =====================================
 
-
 const NavigationHistory = {
-
 
     stack: [],
 
 
+    // =====================================
+    // Push
+    // =====================================
 
-    push:function(page,data){
-
+    push: function(page, data) {
 
         this.stack.push({
 
-            page:page,
+            page: page,
 
-            data:data
+            data: data
 
         });
 
 
         console.log(
             "History Added:",
-            page
+            page,
+            data
         );
-
 
     },
 
 
+    // =====================================
+    // Back
+    // =====================================
 
-    back:function(){
+    back: function() {
 
-
-        if(this.stack.length <= 1){
+        if(this.stack.length <= 1) {
 
             return null;
 
@@ -48,10 +51,9 @@ const NavigationHistory = {
 
 
         const previous =
-
-        this.stack[
-            this.stack.length - 1
-        ];
+            this.stack[
+                this.stack.length - 1
+            ];
 
 
         console.log(
@@ -62,13 +64,34 @@ const NavigationHistory = {
 
         return previous;
 
+    },
+
+
+    // =====================================
+    // Current
+    // =====================================
+
+    current: function() {
+
+        if(this.stack.length === 0) {
+
+            return null;
+
+        }
+
+
+        return this.stack[
+            this.stack.length - 1
+        ];
 
     },
 
 
+    // =====================================
+    // Clear
+    // =====================================
 
-    clear:function(){
-
+    clear: function() {
 
         this.stack = [];
 
@@ -77,13 +100,36 @@ const NavigationHistory = {
             "Navigation History Cleared"
         );
 
+    },
+
+
+    // =====================================
+    // Debug
+    // =====================================
+
+    debug: function() {
+
+        console.log(
+            "Navigation History:",
+            this.stack
+        );
 
     }
-
 
 };
 
 
+// =====================================
+// Global Access
+// =====================================
+
+window.NavigationHistory =
+    NavigationHistory;
+
+
+// =====================================
+// Ready
+// =====================================
 
 console.log(
     "Navigation History Ready"

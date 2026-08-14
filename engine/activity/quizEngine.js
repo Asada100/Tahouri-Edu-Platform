@@ -1,578 +1,447 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 2.4
+// Version 5.0
 // Quiz Engine
-// Activity Result Integration
-// Stable Event System
+// Execution Only
+// Question Provider Integration
 // =====================================
 
 
 const QuizEngine = {
 
 
-    state:{
+    // =====================================
+    // State
+    // =====================================
 
+    state: {
 
-        started:false,
+        started: false,
 
-        isFinished:false
-
-
-    },
-
-
-
-    activity:null,
-
-
-    questions:[],
-
-
-    currentQuestion:0,
-
-
-
-
-
-    init:function(){
-
-
-        this.state.started = false;
-
-        this.state.isFinished = false;
-
+        isFinished: false
 
     },
 
 
+    // =====================================
+    // Current Activity
+    // =====================================
+
+    activity: null,
 
 
+    // =====================================
+    // Questions
+    // =====================================
+
+    questions: [],
 
 
+    currentQuestion: 0,
 
 
-    start:function(activityData){
+    // =====================================
+    // Init
+    // =====================================
+
+    init: function(){
+
+        this.state.started =
+            false;
 
 
+        this.state.isFinished =
+            false;
 
-        this.activity = activityData;
-
-
-
-        this.state.started = true;
+    },
 
 
-        this.state.isFinished = false;
+    // =====================================
+    // Start
+    // =====================================
 
+    start: async function(activityData){
+
+        console.log(
+            "Activity Data:",
+            activityData
+        );
+
+
+        console.log(
+            "Activity Settings:",
+            activityData.settings
+        );
+
+
+        this.activity =
+            activityData;
+
+
+        this.state.started =
+            true;
+
+
+        this.state.isFinished =
+            false;
+
+
+        // =====================================
+        // Get Questions
+        // =====================================
+
+        if(
+            typeof QuestionProvider ===
+            "undefined"
+        ){
+
+            console.error(
+                "QuestionProvider Not Available"
+            );
+
+
+            this.state.started =
+                false;
+
+
+            return null;
+
+        }
 
 
         this.questions =
+            await QuestionProvider.getQuestions(
+                activityData
+            );
 
-        this.generateQuestions(10);
+
+        // =====================================
+        // Validate Questions
+        // =====================================
+
+        if(
+
+            !Array.isArray(
+                this.questions
+            )
+
+            ||
+
+            this.questions.length === 0
+
+        ){
+
+            console.error(
+                "QuizEngine: No Questions Available"
+            );
 
 
+            this.state.started =
+                false;
 
-        this.currentQuestion = 0;
 
+            return null;
+
+        }
+
+
+        console.log(
+            "Quiz Questions Ready:",
+            this.questions.length
+        );
+
+
+        // =====================================
+        // Start Position
+        // =====================================
+
+        this.currentQuestion =
+            0;
 
 
         ScoreManager.reset();
 
 
-
-
-
         console.log(
-
-            "Random Quiz Started"
-
+            "Quiz Started:",
+            activityData.id
         );
 
 
-
-
+        // =====================================
+        // Events
+        // =====================================
 
         EventManager.emit(
-
             "activityStarted",
-
             activityData
-
         );
-
-
-
 
 
         EventManager.emit(
-
             "activityPlaying"
-
         );
 
 
-
-
+        // =====================================
+        // First Question
+        // =====================================
 
         return this.getQuestion();
 
-
-
     },
 
 
-
-
-
-
-
-
-
-    generateQuestions:function(count){
-
-
-
-        const list = [];
-
-
-
-        for(
-
-            let i = 0;
-
-            i < count;
-
-            i++
-
-        ){
-
-
-
-            const number =
-
-
-
-            Math.floor(
-
-                Math.random()*1000
-
-            ) + 1;
-
-
-
-
-
-            list.push({
-
-
-
-                text:
-
-                `عدد ${number} زوج است یا فرد؟`,
-
-
-
-                answer:
-
-                number % 2 === 0
-
-                ?
-
-                "زوج"
-
-                :
-
-                "فرد",
-
-
-
-                number:number
-
-
-
-            });
-
-
-
-        }
-
-
-
-        return list;
-
-
-
-    },
-
-
-
-
-
-
-
-
-
-    getQuestion:function(){
-
-
+    // =====================================
+    // Get Question
+    // =====================================
+
+    getQuestion: function(){
 
         return this.questions[
-
             this.currentQuestion
-
         ];
-
-
 
     },
 
 
+    // =====================================
+    // Check Answer
+    // =====================================
 
-
-
-
-
-
-
-    checkAnswer:function(answer){
-
-
+    checkAnswer: function(answer){
 
         const question =
-
-        this.getQuestion();
-
-
-
+            this.getQuestion();
 
 
         if(!question){
 
-
             return false;
-
 
         }
 
 
-
-
-
-
-
-        if(answer === question.answer){
-
-
+        if(
+            answer ===
+            question.answer
+        ){
 
             ScoreManager.addCorrect();
 
 
-
-
-
             console.log(
-
                 "Correct Answer"
-
             );
-
-
-
 
 
             EventManager.emit(
-
                 "answer:correct",
-
                 question
-
             );
-
-
-
 
 
             return true;
 
-
-
         }
-
-
-
-
 
 
         ScoreManager.addWrong();
 
 
-
-
-
         console.log(
-
             "Wrong Answer"
-
         );
-
-
-
 
 
         EventManager.emit(
-
             "answer:wrong",
-
             question
-
         );
-
-
-
 
 
         return false;
 
-
-
     },
 
 
+    // =====================================
+    // Next Question
+    // =====================================
 
-
-
-
-
-
-
-    next:function(){
-
-
+    next: function(){
 
         this.currentQuestion++;
 
 
-
-
-
         if(
 
-
-
             this.currentQuestion >=
-
-
-
             this.questions.length
 
-
-
         ){
-
-
 
             this.finish();
 
 
-
             return null;
-
-
 
         }
 
 
-
-
-
         return this.getQuestion();
-
-
 
     },
 
 
+    // =====================================
+    // Finish
+    // =====================================
+
+    finish: function(){
+
+        this.state.isFinished =
+            true;
 
 
+        console.log(
+            "Quiz Finished"
+        );
 
 
+        const rawResult =
+            this.getResult();
 
 
+        const result =
+            ActivityResult.create({
 
-   finish:function(){
+                activityId:
 
-    this.state.isFinished = true;
+                    this.activity
+                    ?
+                    this.activity.id
+                    :
+                    null,
 
-    console.log(
+                score:
+                    rawResult.score,
 
-        "Quiz Finished"
+                totalQuestions:
+                    rawResult.totalQuestions,
 
-    );
+                correctAnswers:
+                    rawResult.correctAnswers,
 
+                wrongAnswers:
+                    rawResult.wrongAnswers,
 
+                correct:
+                    rawResult.correctAnswers,
 
-    const rawResult =
+                wrong:
+                    rawResult.wrongAnswers,
 
-    this.getResult();
+                percentage:
+                    rawResult.percentage,
 
+                message:
+                    "🎉 آزمون تمام شد"
 
-
-    const result =
-
-    ActivityResult.create({
-
-        activityId:
-
-        this.activity
-        ?
-        this.activity.id
-        :
-        null,
-
-        score:
-        rawResult.score,
-
-        totalQuestions:
-        rawResult.totalQuestions,
-
-        correctAnswers:
-        rawResult.correctAnswers,
-
-        wrongAnswers:
-        rawResult.wrongAnswers,
-
-        // سازگاری با StatisticsManager
-        correct:
-        rawResult.correctAnswers,
-
-        wrong:
-        rawResult.wrongAnswers,
-
-        percentage:
-        rawResult.percentage,
-
-        message:
-        "🎉 آزمون تمام شد"
-
-    });
+            });
 
 
+        EventManager.emit(
+            "activityFinished",
+            result
+        );
 
-    EventManager.emit(
-
-        "activityFinished",
-
-        result
-
-    );
-
-},
+    },
 
 
+    // =====================================
+    // Reset
+    // =====================================
+
+    reset: function(){
+
+        this.state.started =
+            false;
 
 
+        this.state.isFinished =
+            false;
 
 
+        this.activity =
+            null;
 
 
-
-    reset:function(){
-
-
-
-        this.state.started = false;
+        this.questions =
+            [];
 
 
-
-        this.state.isFinished = false;
-
-
-
-        this.activity = null;
-
-
-
-        this.questions = [];
-
-
-
-        this.currentQuestion = 0;
-
+        this.currentQuestion =
+            0;
 
 
         ScoreManager.reset();
 
-
-
     },
 
 
+    // =====================================
+    // Result
+    // =====================================
+
+    getResult: function(){
+
+        const total =
+            this.questions.length;
 
 
+        const result =
+            ScoreManager.getResult(
+                total
+            );
 
 
+        return {
 
+            score:
+                result.score || 0,
 
+            totalQuestions:
+                total,
 
-  getResult:function(){
+            correctAnswers:
+                result.correct || 0,
 
-    const total =
+            wrongAnswers:
+                result.wrong || 0,
 
-    this.questions.length;
+            percentage:
+                result.percentage || 0
 
+        };
 
-
-    const result =
-
-    ScoreManager.getResult(
-
-        total
-
-    );
-
-
-
-    return {
-
-        score:
-        result.score || 0,
-
-        totalQuestions:
-        total,
-
-        correctAnswers:
-        result.correct || 0,
-
-        wrongAnswers:
-        result.wrong || 0,
-
-        percentage:
-        result.percentage || 0
-
-    };
-
-}
-
-
+    }
 
 };
 
 
+// =====================================
+// Global Access
+// =====================================
+
+window.QuizEngine =
+    QuizEngine;
 
 
-
+// =====================================
+// Ready
+// =====================================
 
 console.log(
-
-
-
     "Quiz Engine Ready"
-
-
-
 );
-
-
-
-
-window.QuizEngine = QuizEngine;
