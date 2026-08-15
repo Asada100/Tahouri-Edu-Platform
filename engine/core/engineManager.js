@@ -1,44 +1,44 @@
 // =====================================
 // Tahouri Edu Platform
 // Engine Manager
-// Version 1.3
+// Version 1.4
 // Engine Name Resolver
+// Quiz + Memory + Puzzle
 // =====================================
 
 
 const EngineManager = {
 
 
-    engines:{},
+    engines: {},
 
 
+    // =====================================
+    // Register Engine
+    // =====================================
 
-    register:function(id, engine){
-
+    register: function(id, engine) {
 
         if(engine){
 
-
-            this.engines[id] = engine;
-
+            this.engines[id] =
+                engine;
 
             console.log(
                 "Engine Registered:",
                 id
             );
 
-
         }
-
 
     },
 
 
+    // =====================================
+    // Get Engine
+    // =====================================
 
-
-
-    getEngine:function(id){
-
+    getEngine: function(id) {
 
         if(!id){
 
@@ -47,107 +47,138 @@ const EngineManager = {
         }
 
 
+        // =================================
+        // Direct Name
+        // =================================
 
-        // نام مستقیم
-
-        if(this.engines[id]){
+        if(
+            this.engines[id]
+        ){
 
             return this.engines[id];
 
         }
 
 
-
-
-
-        // تبدیل نام کلاس به نام ثبت شده
+        // =================================
+        // Normalize Engine Name
+        // =================================
 
         const normalized =
 
-        id
-        .replace("Engine","")
-        .toLowerCase();
+            id
+            .replace("Engine", "")
+            .toLowerCase();
 
 
+        if(
+            this.engines[normalized]
+        ){
 
-
-
-        if(this.engines[normalized]){
-
-
-            return this.engines[normalized];
-
+            return this.engines[
+                normalized
+            ];
 
         }
-
 
 
         return null;
 
-
     },
 
 
+    // =====================================
+    // Initialize
+    // =====================================
+
+    init: function() {
 
 
+        // =================================
+        // Quiz Engine
+        // =================================
 
-    init:function(){
-
-
-
-        if(window.QuizEngine){
-
+        if(
+            window.QuizEngine
+        ){
 
             this.register(
+
                 "quiz",
-                window.QuizEngine
-            );
 
+                window.QuizEngine
+
+            );
 
         }
 
 
+        // =================================
+        // Memory Engine
+        // =================================
 
-
-
-        if(window.MemoryEngine){
-
+        if(
+            window.MemoryEngine
+        ){
 
             this.register(
-                "memory",
-                window.MemoryEngine
-            );
 
+                "memory",
+
+                window.MemoryEngine
+
+            );
 
         }
 
 
+        // =================================
+        // Puzzle Engine
+        // =================================
 
+        if(
+            window.PuzzleEngine
+        ){
+
+            this.register(
+
+                "puzzle",
+
+                window.PuzzleEngine
+
+            );
+
+        }
 
 
         console.log(
             "Engine Manager Initialized"
         );
 
-
-
     }
-
 
 };
 
 
+// =====================================
+// Global Access
+// =====================================
+
+window.EngineManager =
+    EngineManager;
 
 
-
-window.EngineManager = EngineManager;
-
-
+// =====================================
+// Ready
+// =====================================
 
 console.log(
     "Engine Manager Ready"
 );
 
 
+// =====================================
+// Initialize
+// =====================================
 
 EngineManager.init();

@@ -1849,3 +1849,28 @@ console.log(
 
 
 );
+// =====================================
+// Puzzle Screen Bridge
+// =====================================
+
+Screen.showPuzzle = function (state) {
+
+    if (
+        typeof PuzzleScreen !==
+        "undefined"
+    ) {
+
+        PuzzleScreen.show(
+            state
+        );
+
+    }
+    else {
+
+        console.error(
+            "PuzzleScreen Not Available"
+        );
+
+    }
+
+};

@@ -1,9 +1,9 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 5.3
+// Version 5.4
 // Activity Manager
 // Dynamic Activity Configuration
-// Async Quiz Support
+// Async Quiz + Memory + Puzzle Support
 // Difficulty Preservation
 // =====================================
 
@@ -36,10 +36,6 @@ const ActivityManager = {
         }
 
 
-        // =====================================
-        // Keep Selected Difficulty
-        // =====================================
-
         const selectedDifficulty =
 
             activityData.settings &&
@@ -54,10 +50,6 @@ const ActivityManager = {
 
             null;
 
-
-        // =====================================
-        // Temporary Current Activity
-        // =====================================
 
         this.currentActivity =
             activityData;
@@ -91,15 +83,8 @@ const ActivityManager = {
         selectedDifficulty = null
     ) {
 
-
-        // =====================================
-        // Initial Activity
-        // =====================================
-
         let fullActivity = {
-
             ...activityData
-
         };
 
 
@@ -119,12 +104,9 @@ const ActivityManager = {
 
 
                 const activityConfig =
-
                     await DataManager.loadJSON(
-
                         activityData.path +
                         "/activity.json"
-
                     );
 
 
@@ -135,13 +117,13 @@ const ActivityManager = {
 
 
                 // =================================
-                // Base Settings
+                // Settings Merge
                 // =================================
 
                 const baseSettings = {
 
                     ...(activityConfig &&
-                       activityConfig.settings
+                    activityConfig.settings
                         ?
                         activityConfig.settings
                         :
@@ -150,20 +132,12 @@ const ActivityManager = {
                 };
 
 
-                // =================================
-                // Activity Settings
-                // =================================
-
                 const activitySettings = {
 
                     ...(activityData.settings || {})
 
                 };
 
-
-                // =================================
-                // Merge Settings
-                // =================================
 
                 const mergedSettings = {
 
@@ -183,14 +157,13 @@ const ActivityManager = {
                 ) {
 
                     mergedSettings.difficulty =
-
                         selectedDifficulty;
 
                 }
 
 
                 // =================================
-                // Build Full Activity
+                // Full Activity
                 // =================================
 
                 fullActivity = {
@@ -228,7 +201,6 @@ const ActivityManager = {
 
             }
 
-
             catch (error) {
 
                 console.warn(
@@ -241,10 +213,6 @@ const ActivityManager = {
                     error
                 );
 
-
-                // =================================
-                // Fallback Difficulty
-                // =================================
 
                 if (
                     selectedDifficulty
@@ -267,16 +235,12 @@ const ActivityManager = {
 
 
         // =====================================
-        // Current Full Activity
+        // Current Activity
         // =====================================
 
         this.currentActivity =
             fullActivity;
 
-
-        // =====================================
-        // Save Final Activity History
-        // =====================================
 
         ActivityHistory.set(
             fullActivity
@@ -284,7 +248,7 @@ const ActivityManager = {
 
 
         // =====================================
-        // Engine
+        // Engine Name
         // =====================================
 
         const engineName =
@@ -334,8 +298,6 @@ const ActivityManager = {
 
         // =====================================
         // Start Engine
-        // IMPORTANT:
-        // engine.start may be async
         // =====================================
 
         const result =
@@ -346,7 +308,7 @@ const ActivityManager = {
 
 
         // =====================================
-        // Quiz Engine
+        // QUIZ
         // =====================================
 
         if (
@@ -397,7 +359,7 @@ const ActivityManager = {
 
 
         // =====================================
-        // Memory Engine
+        // MEMORY
         // =====================================
 
         if (
@@ -415,6 +377,63 @@ const ActivityManager = {
             ) {
 
                 engine.refresh();
+
+            }
+
+        }
+
+
+        // =====================================
+        // PUZZLE
+        // =====================================
+
+        if (
+
+            engineName === "PuzzleEngine"
+
+            ||
+
+            engineName === "puzzle"
+
+        ) {
+
+            if (!result) {
+
+                console.error(
+                    "Puzzle Engine Returned No Puzzle"
+                );
+
+                return;
+
+            }
+
+
+            console.log(
+                "Puzzle Activity Ready:",
+                result
+            );
+
+
+            // =================================
+            // Temporary Puzzle Screen
+            // =================================
+
+            if (
+                typeof Screen.showPuzzle ===
+                "function"
+            ) {
+
+                Screen.showPuzzle(
+                    result
+                );
+
+            }
+
+            else {
+
+                console.warn(
+                    "Screen.showPuzzle Not Available"
+                );
 
             }
 
@@ -503,6 +522,17 @@ const ActivityManager = {
 
 
         ActivityState.reset();
+
+
+        if (
+            window.PuzzleEngine &&
+            typeof PuzzleEngine.reset ===
+            "function"
+        ) {
+
+            PuzzleEngine.reset();
+
+        }
 
 
         console.log(
