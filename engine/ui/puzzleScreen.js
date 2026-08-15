@@ -1,29 +1,23 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 1.2
+// Version 1.4
 // Puzzle Screen
-// Ordering + Sequence
+//
+// Supported:
+// - Ordering
+// - Sequence
+// - Image Ordering
+// - Visual Math
 // =====================================
 
 
 const PuzzleScreen = {
 
-    // =====================================
-    // Local Order
-    // =====================================
-
     currentOrder: [],
 
 
     // =====================================
-    // Sequence Answer
-    // =====================================
-
-    sequenceAnswer: null,
-
-
-    // =====================================
-    // Show
+    // SHOW
     // =====================================
 
     show: function(state) {
@@ -40,7 +34,7 @@ const PuzzleScreen = {
 
 
         // =================================
-        // Ordering
+        // ORDERING
         // =================================
 
         if (
@@ -57,7 +51,7 @@ const PuzzleScreen = {
 
 
         // =================================
-        // Sequence
+        // SEQUENCE
         // =================================
 
         if (
@@ -65,6 +59,23 @@ const PuzzleScreen = {
         ) {
 
             this.showSequence(
+                state
+            );
+
+            return;
+
+        }
+
+
+        // =================================
+        // VISUAL MATH
+        // =================================
+
+        if (
+            state.type === "visualMath"
+        ) {
+
+            this.showVisualMath(
                 state
             );
 
@@ -82,7 +93,7 @@ const PuzzleScreen = {
 
 
     // =====================================
-    // Ordering Screen
+    // ORDERING
     // =====================================
 
     showOrdering: function(state) {
@@ -113,6 +124,38 @@ const PuzzleScreen = {
                 .map(
                     function(item, index) {
 
+                        // -------------------------
+                        // IMAGE
+                        // -------------------------
+
+                        if (
+                            state.dataType ===
+                            "image"
+                        ) {
+
+                            return `
+
+                                <button
+                                    class="puzzleItem puzzleImageItem"
+                                    data-index="${index}"
+                                    data-value="${String(item)}">
+
+                                    <img
+                                        src="${item}"
+                                        alt="پازل"
+                                        draggable="false">
+
+                                </button>
+
+                            `;
+
+                        }
+
+
+                        // -------------------------
+                        // TEXT / NUMBER
+                        // -------------------------
+
                         return `
 
                             <button
@@ -141,8 +184,8 @@ const PuzzleScreen = {
                     پازل مرتب‌سازی
                 </h1>
 
-                <p
-                    class="puzzleInstruction">
+
+                <p class="puzzleInstruction">
 
                     ${state.instruction}
 
@@ -159,8 +202,7 @@ const PuzzleScreen = {
                 </div>
 
 
-                <div
-                    class="puzzleControls">
+                <div class="puzzleControls">
 
                     <button
                         id="puzzleCheckBtn">
@@ -186,12 +228,13 @@ const PuzzleScreen = {
                 </div>
 
 
-                <div
-                    class="puzzleMoves">
+                <div class="puzzleMoves">
 
                     حرکت‌ها:
                     <span id="puzzleMoveCount">
+
                         ${state.moves}
+
                     </span>
 
                 </div>
@@ -207,7 +250,7 @@ const PuzzleScreen = {
 
 
     // =====================================
-    // Sequence Screen
+    // SEQUENCE
     // =====================================
 
     showSequence: function(state) {
@@ -227,9 +270,6 @@ const PuzzleScreen = {
             return;
 
         }
-
-
-        this.sequenceAnswer = null;
 
 
         const itemsHTML =
@@ -279,12 +319,11 @@ const PuzzleScreen = {
                 dir="rtl">
 
                 <h1>
-                    دنباله عددی
+                    دنباله
                 </h1>
 
 
-                <p
-                    class="puzzleInstruction">
+                <p class="puzzleInstruction">
 
                     ${state.instruction}
 
@@ -292,7 +331,6 @@ const PuzzleScreen = {
 
 
                 <div
-                    id="sequenceItems"
                     class="sequenceItems"
                     dir="ltr">
 
@@ -308,10 +346,8 @@ const PuzzleScreen = {
                         id="sequenceAnswerInput"
                         type="number"
                         inputmode="numeric"
-                        placeholder="عدد بعدی"
-                        autocomplete="off"
-                    />
-
+                        placeholder="پاسخ"
+                        autocomplete="off">
 
                     <button
                         id="sequenceCheckBtn">
@@ -326,17 +362,6 @@ const PuzzleScreen = {
                 <div
                     id="puzzleMessage"
                     class="puzzleMessage">
-                </div>
-
-
-                <div
-                    class="puzzleMoves">
-
-                    تلاش:
-                    <span id="puzzleMoveCount">
-                        ${state.moves}
-                    </span>
-
                 </div>
 
 
@@ -358,7 +383,255 @@ const PuzzleScreen = {
 
 
     // =====================================
-    // Ordering Events
+    // VISUAL MATH
+    // =====================================
+
+    showVisualMath: function(state) {
+
+        const app =
+            document.getElementById(
+                "app"
+            );
+
+
+        if (!app) {
+
+            console.error(
+                "Puzzle Screen: App Container Not Found"
+            );
+
+            return;
+
+        }
+
+
+        // =================================
+        // Only Addition For Now
+        // =================================
+
+        if (
+            state.operation !==
+            "addition"
+        ) {
+
+            console.warn(
+                "Puzzle Screen: Unsupported Visual Math Operation:",
+                state.operation
+            );
+
+            return;
+
+        }
+
+
+        const groups =
+            Array.isArray(
+                state.items
+            )
+                ? state.items
+                : [];
+
+
+        if (
+            groups.length !== 2
+        ) {
+
+            console.error(
+                "Puzzle Screen: Visual Math Requires Two Groups"
+            );
+
+            return;
+
+        }
+
+
+        const firstGroup =
+            this.renderVisualGroup(
+                groups[0]
+            );
+
+
+        const secondGroup =
+            this.renderVisualGroup(
+                groups[1]
+            );
+
+
+        app.innerHTML = `
+
+            <div
+                class="screen puzzleScreen visualMathScreen"
+                dir="rtl">
+
+                <h1>
+                    پازل تصویری ریاضی
+                </h1>
+
+
+                <p class="puzzleInstruction">
+
+                    ${state.instruction}
+
+                </p>
+
+
+                <div
+                    class="visualMathEquation"
+                    dir="ltr">
+
+                    <div
+                        class="visualMathGroup">
+
+                        ${firstGroup}
+
+                    </div>
+
+
+                    <div
+                        class="visualMathOperator">
+
+                        +
+
+                    </div>
+
+
+                    <div
+                        class="visualMathGroup">
+
+                        ${secondGroup}
+
+                    </div>
+
+
+                    <div
+                        class="visualMathOperator">
+
+                        =
+
+                    </div>
+
+
+                    <div
+                        class="visualMathQuestion">
+
+                        ؟
+
+                    </div>
+
+                </div>
+
+
+                <div
+                    class="visualMathAnswerArea">
+
+                    <input
+                        id="visualMathAnswerInput"
+                        type="number"
+                        inputmode="numeric"
+                        min="0"
+                        placeholder="پاسخ"
+                        autocomplete="off">
+
+
+                    <button
+                        id="visualMathCheckBtn">
+
+                        بررسی پاسخ
+
+                    </button>
+
+                </div>
+
+
+                <div
+                    id="puzzleMessage"
+                    class="puzzleMessage">
+                </div>
+
+
+                <div class="puzzleControls">
+
+                    <button
+                        id="puzzleResetBtn">
+
+                        شروع دوباره
+
+                    </button>
+
+                </div>
+
+
+                <div class="puzzleMoves">
+
+                    تلاش:
+                    <span id="puzzleMoveCount">
+
+                        ${state.moves}
+
+                    </span>
+
+                </div>
+
+            </div>
+
+        `;
+
+
+        this.bindVisualMathEvents();
+
+    },
+
+
+    // =====================================
+    // RENDER VISUAL GROUP
+    // =====================================
+
+    renderVisualGroup: function(group) {
+
+        if (!group) {
+
+            return "";
+
+        }
+
+
+        const image =
+            group.image;
+
+
+        const count =
+            Number(group.count) || 0;
+
+
+        let html = "";
+
+
+        for (
+            let i = 0;
+            i < count;
+            i++
+        ) {
+
+            html += `
+
+                <img
+                    class="visualMathImage"
+                    src="${image}"
+                    alt="شکل"
+                    draggable="false">
+
+            `;
+
+        }
+
+
+        return html;
+
+    },
+
+
+    // =====================================
+    // ORDERING EVENTS
     // =====================================
 
     bindOrderingEvents: function() {
@@ -396,6 +669,10 @@ const PuzzleScreen = {
                                 );
 
 
+                            // ====================
+                            // First Selection
+                            // ====================
+
                             if (
                                 selectedIndex ===
                                 null
@@ -415,6 +692,10 @@ const PuzzleScreen = {
                             }
 
 
+                            // ====================
+                            // Same Item
+                            // ====================
+
                             if (
                                 selectedIndex ===
                                 index
@@ -433,6 +714,10 @@ const PuzzleScreen = {
 
                             }
 
+
+                            // ====================
+                            // Swap
+                            // ====================
 
                             const temp =
                                 PuzzleScreen
@@ -461,8 +746,10 @@ const PuzzleScreen = {
 
 
                             PuzzleEngine.setOrder(
+
                                 PuzzleScreen
                                     .currentOrder
+
                             );
 
 
@@ -518,7 +805,7 @@ const PuzzleScreen = {
 
 
     // =====================================
-    // Sequence Events
+    // SEQUENCE EVENTS
     // =====================================
 
     bindSequenceEvents: function() {
@@ -543,20 +830,13 @@ const PuzzleScreen = {
             checkBtn.onclick =
                 function() {
 
-                    const value =
-                        Number(
-                            input.value
-                        );
-
-
                     if (
                         input.value === ""
                     ) {
 
-                        PuzzleScreen
-                            .showMessage(
-                                "لطفاً پاسخ را وارد کن."
-                            );
+                        PuzzleScreen.showMessage(
+                            "لطفاً پاسخ را وارد کن."
+                        );
 
                         return;
 
@@ -565,6 +845,104 @@ const PuzzleScreen = {
 
                     PuzzleEngine
                         .setSequenceAnswer(
+                            Number(
+                                input.value
+                            )
+                        );
+
+
+                    PuzzleScreen
+                        .checkPuzzle();
+
+                };
+
+
+            input.onkeydown =
+                function(event) {
+
+                    if (
+                        event.key ===
+                        "Enter"
+                    ) {
+
+                        checkBtn.click();
+
+                    }
+
+                };
+
+        }
+
+
+        const resetBtn =
+            document.getElementById(
+                "puzzleResetBtn"
+            );
+
+
+        if (resetBtn) {
+
+            resetBtn.onclick =
+                function() {
+
+                    PuzzleScreen.resetPuzzle();
+
+                };
+
+        }
+
+    },
+
+
+    // =====================================
+    // VISUAL MATH EVENTS
+    // =====================================
+
+    bindVisualMathEvents: function() {
+
+        const input =
+            document.getElementById(
+                "visualMathAnswerInput"
+            );
+
+
+        const checkBtn =
+            document.getElementById(
+                "visualMathCheckBtn"
+            );
+
+
+        if (
+            input &&
+            checkBtn
+        ) {
+
+            checkBtn.onclick =
+                function() {
+
+                    if (
+                        input.value === ""
+                    ) {
+
+                        PuzzleScreen.showMessage(
+                            "لطفاً پاسخ را وارد کن."
+                        );
+
+                        input.focus();
+
+                        return;
+
+                    }
+
+
+                    const value =
+                        Number(
+                            input.value
+                        );
+
+
+                    PuzzleEngine
+                        .setVisualMathAnswer(
                             value
                         );
 
@@ -613,7 +991,7 @@ const PuzzleScreen = {
 
 
     // =====================================
-    // Check Puzzle
+    // CHECK
     // =====================================
 
     checkPuzzle: function() {
@@ -641,7 +1019,7 @@ const PuzzleScreen = {
 
 
     // =====================================
-    // Reset Puzzle
+    // RESET
     // =====================================
 
     resetPuzzle: function() {
@@ -675,7 +1053,7 @@ const PuzzleScreen = {
 
 
     // =====================================
-    // Render State
+    // RENDER
     // =====================================
 
     renderState: function() {
@@ -692,12 +1070,10 @@ const PuzzleScreen = {
 
 
     // =====================================
-    // Show Message
+    // MESSAGE
     // =====================================
 
-    showMessage: function(
-        message
-    ) {
+    showMessage: function(message) {
 
         const element =
             document.getElementById(
@@ -716,18 +1092,20 @@ const PuzzleScreen = {
 
 
     // =====================================
-    // Styles
+    // STYLES
     // =====================================
 
     injectStyles: function() {
 
-        if (
+        const oldStyle =
             document.getElementById(
                 "puzzleScreenStyles"
-            )
-        ) {
+            );
 
-            return;
+
+        if (oldStyle) {
+
+            oldStyle.remove();
 
         }
 
@@ -743,6 +1121,10 @@ const PuzzleScreen = {
 
 
         style.textContent = `
+
+            /* ============================= */
+            /* BASE */
+            /* ============================= */
 
             .puzzleScreen {
 
@@ -763,6 +1145,10 @@ const PuzzleScreen = {
             }
 
 
+            /* ============================= */
+            /* ORDERING */
+            /* ============================= */
+
             .puzzleItems {
 
                 display:
@@ -774,14 +1160,14 @@ const PuzzleScreen = {
                 justify-content:
                     center;
 
+                align-items:
+                    center;
+
                 gap:
-                    12px;
+                    14px;
 
                 margin:
-                    25px 0;
-
-                direction:
-                    ltr;
+                    30px 0;
 
             }
 
@@ -791,8 +1177,11 @@ const PuzzleScreen = {
                 min-width:
                     80px;
 
+                min-height:
+                    80px;
+
                 padding:
-                    16px 20px;
+                    12px;
 
                 border:
                     2px solid #ddd;
@@ -823,6 +1212,51 @@ const PuzzleScreen = {
             }
 
 
+            /* ============================= */
+            /* IMAGE ORDERING */
+            /* ============================= */
+
+            .puzzleImageItem {
+
+                width:
+                    150px;
+
+                height:
+                    150px;
+
+                padding:
+                    8px;
+
+                overflow:
+                    hidden;
+
+            }
+
+
+            .puzzleImageItem img {
+
+                width:
+                    100%;
+
+                height:
+                    100%;
+
+                object-fit:
+                    contain;
+
+                display:
+                    block;
+
+                pointer-events:
+                    none;
+
+            }
+
+
+            /* ============================= */
+            /* BUTTONS */
+            /* ============================= */
+
             .puzzleControls {
 
                 display:
@@ -842,7 +1276,8 @@ const PuzzleScreen = {
 
             .puzzleControls button,
             #puzzleResetBtn,
-            #sequenceCheckBtn {
+            #sequenceCheckBtn,
+            #visualMathCheckBtn {
 
                 padding:
                     12px 22px;
@@ -861,6 +1296,10 @@ const PuzzleScreen = {
 
             }
 
+
+            /* ============================= */
+            /* MESSAGE */
+            /* ============================= */
 
             .puzzleMessage {
 
@@ -888,7 +1327,7 @@ const PuzzleScreen = {
 
 
             /* ============================= */
-            /* Sequence */
+            /* SEQUENCE */
             /* ============================= */
 
             .sequenceItems {
@@ -908,9 +1347,6 @@ const PuzzleScreen = {
                 margin:
                     30px 0;
 
-                direction:
-                    ltr;
-
                 font-size:
                     28px;
 
@@ -926,11 +1362,11 @@ const PuzzleScreen = {
                 padding:
                     14px 18px;
 
-                border-radius:
-                    14px;
-
                 border:
                     2px solid #ddd;
+
+                border-radius:
+                    14px;
 
             }
 
@@ -988,6 +1424,165 @@ const PuzzleScreen = {
 
             }
 
+
+            /* ============================= */
+            /* VISUAL MATH */
+            /* ============================= */
+
+            .visualMathEquation {
+
+                display:
+                    flex;
+
+                justify-content:
+                    center;
+
+                align-items:
+                    center;
+
+                gap:
+                    22px;
+
+                margin:
+                    35px auto;
+
+                direction:
+                    ltr;
+
+                flex-wrap:
+                    wrap;
+
+            }
+
+
+            .visualMathGroup {
+
+                display:
+                    flex;
+
+                flex-wrap:
+                    wrap;
+
+                justify-content:
+                    center;
+
+                align-items:
+                    center;
+
+                gap:
+                    8px;
+
+                max-width:
+                    220px;
+
+            }
+
+
+            .visualMathImage {
+
+                width:
+                    65px;
+
+                height:
+                    65px;
+
+                object-fit:
+                    contain;
+
+                display:
+                    block;
+
+                border-radius:
+                    10px;
+
+            }
+
+
+            .visualMathOperator {
+
+                font-size:
+                    36px;
+
+                font-weight:
+                    bold;
+
+            }
+
+
+            .visualMathQuestion {
+
+                width:
+                    70px;
+
+                height:
+                    70px;
+
+                display:
+                    flex;
+
+                justify-content:
+                    center;
+
+                align-items:
+                    center;
+
+                border:
+                    2px dashed #999;
+
+                border-radius:
+                    12px;
+
+                font-size:
+                    32px;
+
+                font-weight:
+                    bold;
+
+            }
+
+
+            .visualMathAnswerArea {
+
+                display:
+                    flex;
+
+                justify-content:
+                    center;
+
+                align-items:
+                    center;
+
+                gap:
+                    12px;
+
+                margin:
+                    25px 0;
+
+            }
+
+
+            #visualMathAnswerInput {
+
+                width:
+                    120px;
+
+                padding:
+                    12px;
+
+                border:
+                    2px solid #ddd;
+
+                border-radius:
+                    10px;
+
+                font-size:
+                    22px;
+
+                text-align:
+                    center;
+
+            }
+
         `;
 
 
@@ -1001,7 +1596,7 @@ const PuzzleScreen = {
 
 
 // =====================================
-// Global
+// GLOBAL
 // =====================================
 
 window.PuzzleScreen =
@@ -1009,7 +1604,7 @@ window.PuzzleScreen =
 
 
 // =====================================
-// Initialize
+// INITIALIZE
 // =====================================
 
 PuzzleScreen.injectStyles();

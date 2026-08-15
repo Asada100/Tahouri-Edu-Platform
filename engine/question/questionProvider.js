@@ -1,21 +1,38 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 3.3
 // Question Provider
-// Smart Math Generator
-// Controlled Answer Distribution
-// Anti-Pattern Ordering
-// No Duplicate Numbers
-// Difficulty Support
-// Mixed Question Fix
+// Version 4.0
+//
+// Central Educational Content Provider
+//
+// Supports:
+// - Quiz
+//   - evenOdd
+//   - divisibility
+//
+// - Puzzle
+//   - ordering
+//   - sequence
+//   - visualMath
+//
+// - Memory
+//   - cards
+//   - pairs
+//
+// Sources:
+// - file
+// - generated
+// - mixed
+//
+// Existing Quiz API preserved:
+// QuestionProvider.getQuestions()
 // =====================================
 
 
 const QuestionProvider = {
 
-
     // =====================================
-    // State
+    // STATE
     // =====================================
 
     lastSource: null,
@@ -24,12 +41,16 @@ const QuestionProvider = {
 
 
     // =====================================
-    // Main Entry
+    // MAIN QUIZ ENTRY
     // =====================================
 
-    getQuestions: async function(activityData){
+    getQuestions: async function(
+        activityData
+    ){
 
-        if(!activityData){
+        if(
+            !activityData
+        ){
 
             console.error(
                 "QuestionProvider: Activity Data Missing"
@@ -55,11 +76,13 @@ const QuestionProvider = {
         );
 
 
-        // =====================================
+        // =================================
         // FILE
-        // =====================================
+        // =================================
 
-        if(source === "file"){
+        if(
+            source === "file"
+        ){
 
             const questions =
                 await this.loadFromFile(
@@ -70,6 +93,7 @@ const QuestionProvider = {
             this.lastSource =
                 "file";
 
+
             this.lastQuestions =
                 questions;
 
@@ -79,11 +103,13 @@ const QuestionProvider = {
         }
 
 
-        // =====================================
+        // =================================
         // GENERATED
-        // =====================================
+        // =================================
 
-        if(source === "generated"){
+        if(
+            source === "generated"
+        ){
 
             const questions =
                 this.generateQuestions(
@@ -94,6 +120,7 @@ const QuestionProvider = {
             this.lastSource =
                 "generated";
 
+
             this.lastQuestions =
                 questions;
 
@@ -103,11 +130,13 @@ const QuestionProvider = {
         }
 
 
-        // =====================================
+        // =================================
         // MIXED
-        // =====================================
+        // =================================
 
-        if(source === "mixed"){
+        if(
+            source === "mixed"
+        ){
 
             const questions =
                 await this.getMixedQuestions(
@@ -117,6 +146,7 @@ const QuestionProvider = {
 
             this.lastSource =
                 "mixed";
+
 
             this.lastQuestions =
                 questions;
@@ -139,10 +169,12 @@ const QuestionProvider = {
 
 
     // =====================================
-    // Load From File
+    // LOAD QUIZ QUESTIONS FROM FILE
     // =====================================
 
-    loadFromFile: async function(activityData){
+    loadFromFile: async function(
+        activityData
+    ){
 
         try{
 
@@ -153,7 +185,9 @@ const QuestionProvider = {
 
 
             if(
-                !Array.isArray(questions)
+                !Array.isArray(
+                    questions
+                )
             ){
 
                 console.error(
@@ -204,7 +238,7 @@ const QuestionProvider = {
 
 
     // =====================================
-    // Normalize File Questions
+    // NORMALIZE QUIZ QUESTIONS
     // =====================================
 
     normalizeQuestions: function(
@@ -251,8 +285,10 @@ const QuestionProvider = {
                 ){
 
                     normalized.options = [
+
                         "بله",
                         "خیر"
+
                     ];
 
 
@@ -266,8 +302,10 @@ const QuestionProvider = {
                 ){
 
                     normalized.options = [
+
                         "زوج",
                         "فرد"
+
                     ];
 
 
@@ -277,8 +315,10 @@ const QuestionProvider = {
 
 
                 normalized.options = [
+
                     "بله",
                     "خیر"
+
                 ];
 
 
@@ -291,10 +331,12 @@ const QuestionProvider = {
 
 
     // =====================================
-    // Smart Question Generator
+    // QUIZ GENERATOR
     // =====================================
 
-    generateQuestions: function(activityData){
+    generateQuestions: function(
+        activityData
+    ){
 
         const settings =
             activityData.settings || {};
@@ -303,7 +345,9 @@ const QuestionProvider = {
         const count =
             Math.max(
                 0,
-                Number(settings.questions) || 10
+                Number(
+                    settings.questions
+                ) || 10
             );
 
 
@@ -357,7 +401,7 @@ const QuestionProvider = {
 
 
     // =====================================
-    // Even / Odd Generator
+    // EVEN / ODD
     // =====================================
 
     generateEvenOddQuestions: function(
@@ -371,28 +415,26 @@ const QuestionProvider = {
 
         const min =
             settings.minNumber !== undefined
-            ?
-            settings.minNumber
-            :
-            1;
+                ? settings.minNumber
+                : 1;
 
 
         const max =
             settings.maxNumber !== undefined
-            ?
-            settings.maxNumber
-            :
-            1000;
+                ? settings.maxNumber
+                : 1000;
 
 
         const usedNumbers =
             new Set();
 
 
-        const questions = [];
+        const questions =
+            [];
 
 
-        let attempts = 0;
+        let attempts =
+            0;
 
 
         const maxAttempts =
@@ -423,7 +465,9 @@ const QuestionProvider = {
 
 
             if(
-                usedNumbers.has(number)
+                usedNumbers.has(
+                    number
+                )
             ){
 
                 continue;
@@ -431,21 +475,26 @@ const QuestionProvider = {
             }
 
 
-            usedNumbers.add(number);
+            usedNumbers.add(
+                number
+            );
 
 
             questions.push({
 
+                type:
+                    "quiz",
+
+                mode:
+                    "evenOdd",
+
                 text:
-                `عدد ${number} زوج است یا فرد؟`,
+                    `عدد ${number} زوج است یا فرد؟`,
 
                 answer:
-
-                number % 2 === 0
-                ?
-                "زوج"
-                :
-                "فرد",
+                    number % 2 === 0
+                        ? "زوج"
+                        : "فرد",
 
                 options: [
 
@@ -455,7 +504,7 @@ const QuestionProvider = {
                 ],
 
                 number:
-                number
+                    number
 
             });
 
@@ -470,7 +519,7 @@ const QuestionProvider = {
 
 
     // =====================================
-    // Divisibility Generator
+    // DIVISIBILITY
     // =====================================
 
     generateDivisibilityQuestions: function(
@@ -483,12 +532,10 @@ const QuestionProvider = {
 
 
         const divisor =
-            Number(settings.divisor) || 2;
+            Number(
+                settings.divisor
+            ) || 2;
 
-
-        // =====================================
-        // Difficulty
-        // =====================================
 
         const difficulty =
             settings.difficulty ||
@@ -523,10 +570,6 @@ const QuestionProvider = {
         );
 
 
-        // =====================================
-        // Safe Correct Distribution
-        // =====================================
-
         const distribution =
             this.getSafeCorrectDistribution(
                 count,
@@ -554,10 +597,6 @@ const QuestionProvider = {
         );
 
 
-        // =====================================
-        // Answer Pattern
-        // =====================================
-
         const answerPattern =
             this.buildAnswerPattern(
                 correctTarget,
@@ -572,20 +611,13 @@ const QuestionProvider = {
         );
 
 
-        // =====================================
-        // Used Numbers
-        // =====================================
-
         const usedNumbers =
             new Set();
 
 
-        const questions = [];
+        const questions =
+            [];
 
-
-        // =====================================
-        // Build Questions
-        // =====================================
 
         for(
 
@@ -598,7 +630,8 @@ const QuestionProvider = {
         ){
 
             const shouldBeDivisible =
-                answerPattern[i] === "بله";
+                answerPattern[i] ===
+                "بله";
 
 
             const number =
@@ -631,15 +664,19 @@ const QuestionProvider = {
 
             questions.push({
 
+                type:
+                    "quiz",
+
+                mode:
+                    "divisibility",
+
                 text:
-                `آیا عدد ${number} بر ${divisor} بخش‌پذیر است؟`,
+                    `آیا عدد ${number} بر ${divisor} بخش‌پذیر است؟`,
 
                 answer:
-                shouldBeDivisible
-                ?
-                "بله"
-                :
-                "خیر",
+                    shouldBeDivisible
+                        ? "بله"
+                        : "خیر",
 
                 options: [
 
@@ -649,13 +686,13 @@ const QuestionProvider = {
                 ],
 
                 number:
-                number,
+                    number,
 
                 divisor:
-                divisor,
+                    divisor,
 
                 difficulty:
-                difficulty
+                    difficulty
 
             });
 
@@ -674,7 +711,7 @@ const QuestionProvider = {
 
 
     // =====================================
-    // Safe Correct Distribution
+    // SAFE CORRECT DISTRIBUTION
     // =====================================
 
     getSafeCorrectDistribution: function(
@@ -704,47 +741,45 @@ const QuestionProvider = {
         }
 
 
-        // =====================================
-        // User Settings
-        // =====================================
-
         let correctMin =
             settings.correctMin !== undefined
-            ?
-            Number(settings.correctMin)
-            :
-            6;
+                ? Number(
+                    settings.correctMin
+                )
+                : 6;
 
 
         let correctMax =
             settings.correctMax !== undefined
-            ?
-            Number(settings.correctMax)
-            :
-            8;
+                ? Number(
+                    settings.correctMax
+                )
+                : 8;
 
 
         if(
-            !Number.isFinite(correctMin)
+            !Number.isFinite(
+                correctMin
+            )
         ){
 
-            correctMin = 6;
+            correctMin =
+                6;
 
         }
 
 
         if(
-            !Number.isFinite(correctMax)
+            !Number.isFinite(
+                correctMax
+            )
         ){
 
-            correctMax = 8;
+            correctMax =
+                8;
 
         }
 
-
-        // =====================================
-        // Clamp To Count
-        // =====================================
 
         correctMin =
             Math.max(
@@ -767,24 +802,23 @@ const QuestionProvider = {
 
 
         if(
-            correctMin > correctMax
+            correctMin >
+            correctMax
         ){
 
             const temp =
                 correctMin;
 
+
             correctMin =
                 correctMax;
+
 
             correctMax =
                 temp;
 
         }
 
-
-        // =====================================
-        // Normal 10 Question Quiz
-        // =====================================
 
         if(
             total >= 10
@@ -809,19 +843,6 @@ const QuestionProvider = {
 
         }
 
-
-        // =====================================
-        // Smaller Generated Set
-        // =====================================
-        //
-        // Example:
-        // 5 generated questions
-        // → 3 or 4 correct
-        //
-        // This prevents:
-        // correct = 6
-        // wrong = -1
-        //
 
         const smallMin =
             Math.max(
@@ -876,7 +897,7 @@ const QuestionProvider = {
 
 
     // =====================================
-    // Difficulty Range
+    // DIFFICULTY RANGE
     // =====================================
 
     getDifficultyRange: function(
@@ -886,57 +907,43 @@ const QuestionProvider = {
 
         const configuredMin =
             settings.minNumber !== undefined
-            ?
-            settings.minNumber
-            :
-            1;
+                ? settings.minNumber
+                : 1;
 
 
         const configuredMax =
             settings.maxNumber !== undefined
-            ?
-            settings.maxNumber
-            :
-            10000;
+                ? settings.maxNumber
+                : 10000;
 
-
-        // =====================================
-        // EASY
-        // =====================================
 
         if(
-            difficulty === "easy"
+            difficulty ===
+            "easy"
         ){
-
-            const easyMax =
-                Math.min(
-                    configuredMax,
-                    Math.max(
-                        configuredMin,
-                        999
-                    )
-                );
-
 
             return {
 
                 min:
-                configuredMin,
+                    configuredMin,
 
                 max:
-                easyMax
+                    Math.min(
+                        configuredMax,
+                        Math.max(
+                            configuredMin,
+                            999
+                        )
+                    )
 
             };
 
         }
 
 
-        // =====================================
-        // MEDIUM
-        // =====================================
-
         if(
-            difficulty === "medium"
+            difficulty ===
+            "medium"
         ){
 
             const mediumMin =
@@ -954,16 +961,17 @@ const QuestionProvider = {
 
 
             if(
-                mediumMin <= mediumMax
+                mediumMin <=
+                mediumMax
             ){
 
                 return {
 
                     min:
-                    mediumMin,
+                        mediumMin,
 
                     max:
-                    mediumMax
+                        mediumMax
 
                 };
 
@@ -972,12 +980,9 @@ const QuestionProvider = {
         }
 
 
-        // =====================================
-        // HARD
-        // =====================================
-
         if(
-            difficulty === "hard"
+            difficulty ===
+            "hard"
         ){
 
             const hardMin =
@@ -988,16 +993,17 @@ const QuestionProvider = {
 
 
             if(
-                hardMin <= configuredMax
+                hardMin <=
+                configuredMax
             ){
 
                 return {
 
                     min:
-                    hardMin,
+                        hardMin,
 
                     max:
-                    configuredMax
+                        configuredMax
 
                 };
 
@@ -1006,17 +1012,13 @@ const QuestionProvider = {
         }
 
 
-        // =====================================
-        // FALLBACK
-        // =====================================
-
         return {
 
             min:
-            configuredMin,
+                configuredMin,
 
             max:
-            configuredMax
+                configuredMax
 
         };
 
@@ -1024,7 +1026,7 @@ const QuestionProvider = {
 
 
     // =====================================
-    // Controlled Answer Pattern
+    // ANSWER PATTERN
     // =====================================
 
     buildAnswerPattern: function(
@@ -1035,16 +1037,17 @@ const QuestionProvider = {
 
         const limit =
             maxSameAnswers !== undefined
-            ?
-            Math.max(
-                1,
-                Number(maxSameAnswers)
-            )
-            :
-            3;
+                ? Math.max(
+                    1,
+                    Number(
+                        maxSameAnswers
+                    )
+                )
+                : 3;
 
 
-        let bestPattern = [];
+        let bestPattern =
+            [];
 
 
         let bestScore =
@@ -1083,7 +1086,8 @@ const QuestionProvider = {
 
 
             if(
-                score < bestScore
+                score <
+                bestScore
             ){
 
                 bestScore =
@@ -1112,7 +1116,7 @@ const QuestionProvider = {
 
 
     // =====================================
-    // Random Answer Pattern
+    // RANDOM ANSWER PATTERN
     // =====================================
 
     randomAnswerPattern: function(
@@ -1120,7 +1124,8 @@ const QuestionProvider = {
         wrongCount
     ){
 
-        const pattern = [];
+        const pattern =
+            [];
 
 
         for(
@@ -1165,7 +1170,7 @@ const QuestionProvider = {
 
 
     // =====================================
-    // Pattern Score
+    // PATTERN SCORE
     // =====================================
 
     patternScore: function(
@@ -1174,7 +1179,8 @@ const QuestionProvider = {
         limit
     ){
 
-        let score = 0;
+        let score =
+            0;
 
 
         if(
@@ -1205,7 +1211,7 @@ const QuestionProvider = {
                 pattern[i - 1]
             ){
 
-                score += 1;
+                score++;
 
             }
 
@@ -1228,7 +1234,7 @@ const QuestionProvider = {
 
 
     // =====================================
-    // Maximum Same Run
+    // MAX SAME RUN
     // =====================================
 
     getMaxSameRun: function(
@@ -1244,9 +1250,12 @@ const QuestionProvider = {
         }
 
 
-        let currentRun = 1;
+        let currentRun =
+            1;
 
-        let maxRun = 1;
+
+        let maxRun =
+            1;
 
 
         for(
@@ -1269,13 +1278,15 @@ const QuestionProvider = {
             }
             else{
 
-                currentRun = 1;
+                currentRun =
+                    1;
 
             }
 
 
             if(
-                currentRun > maxRun
+                currentRun >
+                maxRun
             ){
 
                 maxRun =
@@ -1292,7 +1303,7 @@ const QuestionProvider = {
 
 
     // =====================================
-    // Unique Divisibility Number
+    // DIVISIBLE NUMBER
     // =====================================
 
     getUniqueDivisibilityNumber: function(
@@ -1317,7 +1328,7 @@ const QuestionProvider = {
 
                 shouldBeDivisible
 
-                ?
+                    ?
 
                 this.randomDivisibleNumber(
                     divisor,
@@ -1325,7 +1336,7 @@ const QuestionProvider = {
                     max
                 )
 
-                :
+                    :
 
                 this.randomNonDivisibleNumber(
                     divisor,
@@ -1344,7 +1355,9 @@ const QuestionProvider = {
 
 
             if(
-                !usedNumbers.has(number)
+                !usedNumbers.has(
+                    number
+                )
             ){
 
                 return number;
@@ -1360,7 +1373,7 @@ const QuestionProvider = {
 
 
     // =====================================
-    // Random Divisible Number
+    // RANDOM DIVISIBLE
     // =====================================
 
     randomDivisibleNumber: function(
@@ -1401,17 +1414,15 @@ const QuestionProvider = {
 
 
         return (
-
             multiplier *
             divisor
-
         );
 
     },
 
 
     // =====================================
-    // Random Non-Divisible Number
+    // RANDOM NON DIVISIBLE
     // =====================================
 
     randomNonDivisibleNumber: function(
@@ -1447,7 +1458,9 @@ const QuestionProvider = {
 
 
             if(
-                number % divisor !== 0
+                number %
+                divisor !==
+                0
             ){
 
                 return number;
@@ -1463,171 +1476,943 @@ const QuestionProvider = {
 
 
     // =====================================
-    // Random Number
+    // PUZZLE ENTRY
     // =====================================
 
-    randomNumber: function(
-        min,
-        max
-    ){
-
-        return this.randomInteger(
-            min,
-            max
-        );
-
-    },
-
-
-    // =====================================
-    // Random Integer
-    // =====================================
-
-    randomInteger: function(
-        min,
-        max
-    ){
-
-        if(
-            min > max
-        ){
-
-            const temp =
-                min;
-
-            min =
-                max;
-
-            max =
-                temp;
-
-        }
-
-
-        return Math.floor(
-
-            Math.random() *
-
-            (
-                max -
-                min +
-                1
-            )
-
-        ) + min;
-
-    },
-
-
-    // =====================================
-    // Mixed Questions
-    // =====================================
-
-    getMixedQuestions: async function(
+    getPuzzleQuestions: async function(
         activityData
     ){
 
-        const settings =
-            activityData.settings || {};
-
-
-        const total =
-            Math.max(
-                0,
-                Number(settings.questions) || 10
-            );
-
-
         if(
-            total === 0
+            !activityData
         ){
+
+            console.error(
+                "QuestionProvider: Puzzle Activity Missing"
+            );
 
             return [];
 
         }
 
 
-        // =====================================
-        // Bank Count
-        // =====================================
+        const puzzle =
+            activityData.puzzle ||
+            {};
 
-        let bankCount =
-            settings.bankQuestions !== undefined
-            ?
-            Number(settings.bankQuestions)
-            :
-            Math.floor(
-                total / 2
+
+        const source =
+            puzzle.source ||
+            activityData.settings?.questionSource ||
+            "generated";
+
+
+        console.log(
+            "Puzzle Question Source:",
+            source
+        );
+
+
+        // =================================
+        // FILE
+        // =================================
+
+        if(
+            source === "file"
+        ){
+
+            const result =
+                await this.loadPuzzleFromFile(
+                    activityData
+                );
+
+
+            this.lastSource =
+                "file";
+
+
+            this.lastQuestions =
+                result;
+
+
+            return result;
+
+        }
+
+
+        // =================================
+        // GENERATED
+        // =================================
+
+        if(
+            source === "generated"
+        ){
+
+            const result =
+                this.generatePuzzleQuestions(
+                    activityData
+                );
+
+
+            this.lastSource =
+                "generated";
+
+
+            this.lastQuestions =
+                result;
+
+
+            return result;
+
+        }
+
+
+        // =================================
+        // MIXED
+        // =================================
+
+        if(
+            source === "mixed"
+        ){
+
+            const result =
+                await this.getMixedPuzzleQuestions(
+                    activityData
+                );
+
+
+            this.lastSource =
+                "mixed";
+
+
+            this.lastQuestions =
+                result;
+
+
+            return result;
+
+        }
+
+
+        console.warn(
+            "QuestionProvider: Unknown Puzzle Source:",
+            source
+        );
+
+
+        return [];
+
+    },
+
+
+    // =====================================
+    // PUZZLE FILE
+    // =====================================
+
+    loadPuzzleFromFile: async function(
+        activityData
+    ){
+
+        try{
+
+            const puzzle =
+                activityData.puzzle ||
+                {};
+
+
+            if(
+                Object.keys(
+                    puzzle
+                ).length
+                > 0
+            ){
+
+                return [
+
+                    this.normalizePuzzle(
+                        puzzle
+                    )
+
+                ];
+
+            }
+
+
+            return [];
+
+        }
+
+        catch(error){
+
+            console.error(
+                "QuestionProvider: Puzzle File Error:",
+                error
             );
 
 
-        // =====================================
-        // Generated Count
-        // =====================================
+            return [];
 
-        let generatedCount =
-            settings.generatedQuestions !== undefined
-            ?
-            Number(settings.generatedQuestions)
-            :
-            total - bankCount;
+        }
+
+    },
 
 
-        bankCount =
+    // =====================================
+    // PUZZLE GENERATOR
+    // =====================================
+
+    generatePuzzleQuestions: function(
+        activityData
+    ){
+
+        const puzzle =
+            activityData.puzzle ||
+            {};
+
+
+        const settings =
+            activityData.settings ||
+            {};
+
+
+        const type =
+            puzzle.type ||
+            settings.puzzleType ||
+            "sequence";
+
+
+        const count =
+            Math.max(
+                1,
+                Number(
+                    settings.questions
+                ) || 1
+            );
+
+
+        if(
+            type === "sequence"
+        ){
+
+            return this.generatePuzzleSequences(
+                activityData,
+                count
+            );
+
+        }
+
+
+        if(
+            type === "ordering"
+        ){
+
+            return this.generatePuzzleOrdering(
+                activityData,
+                count
+            );
+
+        }
+
+
+        if(
+            type === "visualMath"
+        ){
+
+            return this.generateVisualMathQuestions(
+                activityData,
+                count
+            );
+
+        }
+
+
+        console.warn(
+            "QuestionProvider: Unknown Puzzle Type:",
+            type
+        );
+
+
+        return [];
+
+    },
+
+
+    // =====================================
+    // PUZZLE NORMALIZE
+    // =====================================
+
+    normalizePuzzle: function(
+        puzzle
+    ){
+
+        const normalized = {
+            ...puzzle
+        };
+
+
+        if(
+            normalized.type ===
+            "ordering"
+        ){
+
+            normalized.dataType =
+                normalized.dataType ||
+                this.detectDataType(
+                    normalized.items || []
+                );
+
+        }
+
+
+        if(
+            normalized.type ===
+            "sequence"
+        ){
+
+            normalized.dataType =
+                normalized.dataType ||
+                this.detectDataType(
+                    normalized.items || []
+                );
+
+        }
+
+
+        if(
+            normalized.type ===
+            "visualMath"
+        ){
+
+            normalized.dataType =
+                "image";
+
+        }
+
+
+        return normalized;
+
+    },
+
+
+    // =====================================
+    // PUZZLE SEQUENCE GENERATOR
+    // =====================================
+
+    generatePuzzleSequences: function(
+        activityData,
+        count
+    ){
+
+        const puzzle =
+            activityData.puzzle ||
+            {};
+
+
+        const settings =
+            activityData.settings ||
+            {};
+
+
+        const result =
+            [];
+
+
+        for(
+
+            let i = 0;
+
+            i < count;
+
+            i++
+
+        ){
+
+            const generated =
+                this.generateSequencePuzzle(
+                    puzzle,
+                    settings
+                );
+
+
+            if(
+                generated
+            ){
+
+                result.push(
+                    generated
+                );
+
+            }
+
+        }
+
+
+        console.log(
+            "Generated Puzzle Sequences:",
+            result.length
+        );
+
+
+        return result;
+
+    },
+
+
+    // =====================================
+    // SEQUENCE PUZZLE
+    // =====================================
+
+    generateSequencePuzzle: function(
+        puzzle,
+        settings
+    ){
+
+        const length =
+            Math.max(
+                3,
+                Number(
+                    puzzle.length ||
+                    settings.length
+                ) || 4
+            );
+
+
+        const pattern =
+            puzzle.pattern ||
+            this.randomSequencePattern();
+
+
+        let start =
+            puzzle.start !== undefined
+                ? Number(
+                    puzzle.start
+                )
+                : this.randomInteger(
+                    Number(
+                        puzzle.startMin
+                    ) || 1,
+                    Number(
+                        puzzle.startMax
+                    ) || 20
+                );
+
+
+        if(
+            !Number.isFinite(
+                start
+            )
+        ){
+
+            start =
+                1;
+
+        }
+
+
+        let step =
+            puzzle.step !== undefined
+                ? Number(
+                    puzzle.step
+                )
+                : this.randomInteger(
+
+                    this.safeMin(
+                        puzzle.stepMin,
+                        1
+                    ),
+
+                    this.safeMax(
+                        puzzle.stepMax,
+                        10
+                    )
+
+                );
+
+
+        if(
+            !Number.isFinite(
+                step
+            ) ||
+            step <= 0
+        ){
+
+            step =
+                1;
+
+        }
+
+
+        let multiplier =
+            puzzle.multiplier !== undefined
+                ? Number(
+                    puzzle.multiplier
+                )
+                : this.randomInteger(
+
+                    this.safeMin(
+                        puzzle.multiplierMin,
+                        2
+                    ),
+
+                    this.safeMax(
+                        puzzle.multiplierMax,
+                        4
+                    )
+
+                );
+
+
+        if(
+            !Number.isFinite(
+                multiplier
+            ) ||
+            multiplier < 2
+        ){
+
+            multiplier =
+                2;
+
+        }
+
+
+        const items =
+            [start];
+
+
+        for(
+
+            let i = 1;
+
+            i < length;
+
+            i++
+
+        ){
+
+            const previous =
+                items[
+                    i - 1
+                ];
+
+
+            if(
+                pattern ===
+                "add"
+            ){
+
+                items.push(
+                    previous +
+                    step
+                );
+
+                continue;
+
+            }
+
+
+            if(
+                pattern ===
+                "subtract"
+            ){
+
+                items.push(
+                    previous -
+                    step
+                );
+
+                continue;
+
+            }
+
+
+            if(
+                pattern ===
+                "multiply"
+            ){
+
+                items.push(
+                    previous *
+                    multiplier
+                );
+
+                continue;
+
+            }
+
+
+            console.warn(
+                "QuestionProvider: Unknown Sequence Pattern:",
+                pattern
+            );
+
+
+            return null;
+
+        }
+
+
+        return {
+
+            type:
+                "sequence",
+
+            source:
+                "generated",
+
+            dataType:
+                "number",
+
+            instruction:
+                puzzle.instruction ||
+                "عضو بعدی الگو را پیدا کن",
+
+            items:
+                items,
+
+            missingIndex:
+                items.length -
+                1,
+
+            answer:
+                items[
+                    items.length -
+                    1
+                ],
+
+            pattern:
+                pattern,
+
+            step:
+                pattern ===
+                "multiply"
+                    ? null
+                    : step,
+
+            multiplier:
+                pattern ===
+                "multiply"
+                    ? multiplier
+                    : null
+
+        };
+
+    },
+
+
+    // =====================================
+    // ORDERING GENERATOR
+    // =====================================
+
+    generatePuzzleOrdering: function(
+        activityData,
+        count
+    ){
+
+        const puzzle =
+            activityData.puzzle ||
+            {};
+
+
+        const items =
+            Array.isArray(
+                puzzle.items
+            )
+                ? [...puzzle.items]
+                : [];
+
+
+        if(
+            !items.length
+        ){
+
+            console.warn(
+                "QuestionProvider: Ordering Items Missing"
+            );
+
+
+            return [];
+
+        }
+
+
+        const result =
+            [];
+
+
+        for(
+
+            let i = 0;
+
+            i < count;
+
+            i++
+
+        ){
+
+            const shuffled =
+                this.shuffle(
+                    items
+                );
+
+
+            const correctOrder =
+                Array.isArray(
+                    puzzle.correctOrder
+                )
+                    ? [...puzzle.correctOrder]
+                    : this.buildCorrectOrder(
+                        items,
+                        puzzle.order
+                    );
+
+
+            result.push({
+
+                type:
+                    "ordering",
+
+                source:
+                    "generated",
+
+                dataType:
+                    puzzle.dataType ||
+                    this.detectDataType(
+                        items
+                    ),
+
+                instruction:
+                    puzzle.instruction ||
+                    "موارد را به ترتیب درست قرار بده",
+
+                items:
+                    shuffled,
+
+                correctOrder:
+                    correctOrder
+
+            });
+
+        }
+
+
+        console.log(
+            "Generated Puzzle Ordering:",
+            result.length
+        );
+
+
+        return result;
+
+    },
+
+
+    // =====================================
+    // VISUAL MATH GENERATOR
+    // =====================================
+
+    generateVisualMathQuestions: function(
+        activityData,
+        count
+    ){
+
+        const puzzle =
+            activityData.puzzle ||
+            {};
+
+
+        const settings =
+            activityData.settings ||
+            {};
+
+
+        const operation =
+            puzzle.operation ||
+            settings.operation ||
+            "addition";
+
+
+        if(
+            operation !==
+            "addition"
+        ){
+
+            console.warn(
+                "QuestionProvider: Unsupported Visual Math Operation:",
+                operation
+            );
+
+
+            return [];
+
+        }
+
+
+        const image =
+            puzzle.image ||
+            settings.image ||
+            "assets/images/green_frog.jpg";
+
+
+        const minCount =
+            Math.max(
+                1,
+                Number(
+                    puzzle.minCount
+                ) ||
+                1
+            );
+
+
+        const maxCount =
+            Math.max(
+                minCount,
+                Number(
+                    puzzle.maxCount
+                ) ||
+                5
+            );
+
+
+        const result =
+            [];
+
+
+        for(
+
+            let i = 0;
+
+            i < count;
+
+            i++
+
+        ){
+
+            const firstCount =
+                this.randomInteger(
+                    minCount,
+                    maxCount
+                );
+
+
+            const secondCount =
+                this.randomInteger(
+                    minCount,
+                    maxCount
+                );
+
+
+            result.push({
+
+                type:
+                    "visualMath",
+
+                source:
+                    "generated",
+
+                dataType:
+                    "image",
+
+                operation:
+                    "addition",
+
+                instruction:
+                    puzzle.instruction ||
+                    "شکل‌ها را بشمار و پاسخ را پیدا کن",
+
+                items: [
+
+                    {
+
+                        image:
+                            image,
+
+                        count:
+                            firstCount
+
+                    },
+
+                    {
+
+                        image:
+                            image,
+
+                        count:
+                            secondCount
+
+                    }
+
+                ],
+
+                answer:
+                    firstCount +
+                    secondCount
+
+            });
+
+        }
+
+
+        console.log(
+            "Generated Visual Math Questions:",
+            result.length
+        );
+
+
+        return result;
+
+    },
+
+
+    // =====================================
+    // MIXED PUZZLE
+    // =====================================
+
+    getMixedPuzzleQuestions: async function(
+        activityData
+    ){
+
+        const settings =
+            activityData.settings ||
+            {};
+
+
+        const total =
+            Math.max(
+                1,
+                Number(
+                    settings.questions
+                ) || 1
+            );
+
+
+        const bankCount =
             Math.max(
                 0,
                 Math.min(
-                    bankCount,
+
+                    Number(
+                        settings.bankQuestions
+                    ) ||
+                    Math.floor(
+                        total / 2
+                    ),
+
                     total
+
                 )
             );
 
 
-        generatedCount =
+        const generatedCount =
             Math.max(
                 0,
-                Math.min(
-                    generatedCount,
-                    total - bankCount
-                )
+                total -
+                bankCount
             );
 
 
-        // =====================================
-        // Correct Total
-        // =====================================
-
-        const targetTotal =
-            total;
-
-
-        // =====================================
-        // Log Distribution
-        // =====================================
-
-        console.log(
-            "Mixed Questions Target:",
-            targetTotal
-        );
-
-
-        console.log(
-            "Mixed Bank Questions Target:",
-            bankCount
-        );
-
-
-        console.log(
-            "Mixed Generated Questions Target:",
-            generatedCount
-        );
-
-
-        // =====================================
-        // Load Bank
-        // =====================================
-
-        let bankQuestions = [];
+        let bankQuestions =
+            [];
 
 
         if(
@@ -1635,25 +2420,22 @@ const QuestionProvider = {
         ){
 
             bankQuestions =
-                await this.loadFromFile(
+                await this.loadPuzzleFromFile(
                     activityData
+                );
+
+
+            bankQuestions =
+                this.takeRandomUnique(
+                    bankQuestions,
+                    bankCount
                 );
 
         }
 
 
-        bankQuestions =
-            this.takeRandomUnique(
-                bankQuestions,
-                bankCount
-            );
-
-
-        // =====================================
-        // Generated Questions
-        // =====================================
-
-        let generatedQuestions = [];
+        let generatedQuestions =
+            [];
 
 
         if(
@@ -1661,7 +2443,7 @@ const QuestionProvider = {
         ){
 
             generatedQuestions =
-                this.generateQuestions({
+                this.generatePuzzleQuestions({
 
                     ...activityData,
 
@@ -1679,85 +2461,25 @@ const QuestionProvider = {
         }
 
 
-        // =====================================
-        // Combine
-        // =====================================
+        const combined =
+            this.shuffle([
 
-        let combined = [
+                ...bankQuestions,
 
-            ...bankQuestions,
+                ...generatedQuestions
 
-            ...generatedQuestions
+            ]).slice(
 
-        ];
+                0,
+                total
 
-
-        // =====================================
-        // Safety Trim
-        // =====================================
-
-        if(
-            combined.length > targetTotal
-        ){
-
-            combined =
-                combined.slice(
-                    0,
-                    targetTotal
-                );
-
-        }
-
-
-        // =====================================
-        // Final Shuffle
-        // =====================================
-
-        combined =
-            this.shuffle(
-                combined
             );
 
 
         console.log(
-            "Mixed Questions Bank:",
-            bankQuestions.length
-        );
-
-
-        console.log(
-            "Mixed Questions Generated:",
-            generatedQuestions.length
-        );
-
-
-        console.log(
-            "Mixed Questions Final:",
+            "Mixed Puzzle Questions:",
             combined.length
         );
-
-
-        // =====================================
-        // Final Count Check
-        // =====================================
-
-        if(
-            combined.length !==
-            targetTotal
-        ){
-
-            console.warn(
-                "QuestionProvider: Mixed Question Count Mismatch",
-                {
-                    expected:
-                        targetTotal,
-
-                    actual:
-                        combined.length
-                }
-            );
-
-        }
 
 
         return combined;
@@ -1766,7 +2488,493 @@ const QuestionProvider = {
 
 
     // =====================================
-    // Take Random Unique
+    // MEMORY ENTRY
+    // =====================================
+
+    getMemoryCards: async function(
+        activityData
+    ){
+
+        if(
+            !activityData
+        ){
+
+            console.error(
+                "QuestionProvider: Memory Activity Missing"
+            );
+
+            return [];
+
+        }
+
+
+        const settings =
+            activityData.settings ||
+            {};
+
+
+        const source =
+            settings.cardSource ||
+            settings.questionSource ||
+            "file";
+
+
+        console.log(
+            "Memory Content Source:",
+            source
+        );
+
+
+        if(
+            source === "file"
+        ){
+
+            return this.loadMemoryCards(
+                activityData
+            );
+
+        }
+
+
+        if(
+            source === "generated"
+        ){
+
+            return this.generateMemoryCards(
+                activityData
+            );
+
+        }
+
+
+        if(
+            source === "mixed"
+        ){
+
+            const bank =
+                await this.loadMemoryCards(
+                    activityData
+                );
+
+
+            const generated =
+                this.generateMemoryCards(
+                    activityData
+                );
+
+
+            return this.shuffle([
+
+                ...bank,
+
+                ...generated
+
+            ]);
+
+        }
+
+
+        console.warn(
+            "QuestionProvider: Unknown Memory Source:",
+            source
+        );
+
+
+        return [];
+
+    },
+
+
+    // =====================================
+    // LOAD MEMORY CARDS
+    // =====================================
+
+    loadMemoryCards: async function(
+        activityData
+    ){
+
+        try{
+
+            if(
+                typeof DataManager ===
+                "undefined"
+            ){
+
+                console.error(
+                    "QuestionProvider: DataManager Not Available"
+                );
+
+                return [];
+
+            }
+
+
+            const cards =
+                await DataManager.getCards(
+                    activityData
+                );
+
+
+            if(
+                !Array.isArray(
+                    cards
+                )
+            ){
+
+                console.error(
+                    "QuestionProvider: Invalid Memory Cards"
+                );
+
+                return [];
+
+            }
+
+
+            const normalized =
+                cards.map(
+                    function(card, index){
+
+                        return {
+
+                            id:
+                                card.id !==
+                                undefined
+                                    ? card.id
+                                    : `card_${index}`,
+
+                            value:
+                                card.value,
+
+                            pairId:
+                                card.pairId !==
+                                undefined
+                                    ? card.pairId
+                                    : card.value,
+
+                            dataType:
+                                card.dataType ||
+                                "text"
+
+                        };
+
+                    }
+                );
+
+
+            return this.shuffle(
+                normalized
+            );
+
+        }
+
+        catch(error){
+
+            console.error(
+                "QuestionProvider: Memory Card Load Error:",
+                error
+            );
+
+
+            return [];
+
+        }
+
+    },
+
+
+    // =====================================
+    // MEMORY GENERATOR
+    // =====================================
+
+    generateMemoryCards: function(
+        activityData
+    ){
+
+        const settings =
+            activityData.settings ||
+            {};
+
+
+        const pairs =
+            Math.max(
+                1,
+                Number(
+                    settings.pairs
+                ) || 4
+            );
+
+
+        const values =
+            Array.isArray(
+                settings.values
+            )
+                ? [...settings.values]
+                : [];
+
+
+        if(
+            values.length <
+            pairs
+        ){
+
+            console.warn(
+                "QuestionProvider: Memory Generated Values Missing"
+            );
+
+            return [];
+
+        }
+
+
+        const cards =
+            [];
+
+
+        for(
+
+            let i = 0;
+
+            i < pairs;
+
+            i++
+
+        ){
+
+            const value =
+                values[i];
+
+
+            cards.push({
+
+                id:
+                    `memory_${i}_a`,
+
+                value:
+                    value,
+
+                pairId:
+                    `pair_${i}`,
+
+                dataType:
+                    this.detectDataType([
+                        value
+                    ])
+
+            });
+
+
+            cards.push({
+
+                id:
+                    `memory_${i}_b`,
+
+                value:
+                    value,
+
+                pairId:
+                    `pair_${i}`,
+
+                dataType:
+                    this.detectDataType([
+                        value
+                    ])
+
+            });
+
+        }
+
+
+        return this.shuffle(
+            cards
+        );
+
+    },
+
+
+    // =====================================
+    // MEMORY MIXED
+    // =====================================
+
+    getMixedMemoryCards: async function(
+        activityData
+    ){
+
+        const settings =
+            activityData.settings ||
+            {};
+
+
+        const totalPairs =
+            Math.max(
+                1,
+                Number(
+                    settings.pairs
+                ) || 4
+            );
+
+
+        const bank =
+            await this.loadMemoryCards(
+                activityData
+            );
+
+
+        const generated =
+            this.generateMemoryCards(
+                activityData
+            );
+
+
+        return this.shuffle([
+
+            ...bank,
+
+            ...generated
+
+        ]);
+
+    },
+
+
+    // =====================================
+    // ORDER BUILD
+    // =====================================
+
+    buildCorrectOrder: function(
+        items,
+        order
+    ){
+
+        const copy =
+            [...items];
+
+
+        if(
+            order ===
+            "descending"
+        ){
+
+            return copy.sort(
+                function(a, b){
+
+                    return b - a;
+
+                }
+            );
+
+        }
+
+
+        if(
+            this.detectDataType(
+                copy
+            ) ===
+            "number"
+        ){
+
+            return copy.sort(
+                function(a, b){
+
+                    return a - b;
+
+                }
+            );
+
+        }
+
+
+        return copy.sort();
+
+    },
+
+
+    // =====================================
+    // DATA TYPE
+    // =====================================
+
+    detectDataType: function(
+        items
+    ){
+
+        if(
+            !Array.isArray(
+                items
+            )
+        ){
+
+            return "text";
+
+        }
+
+
+        if(
+            items.length === 0
+        ){
+
+            return "text";
+
+        }
+
+
+        if(
+            items.every(
+                function(item){
+
+                    return (
+
+                        typeof item ===
+                        "string"
+
+                        &&
+
+                        (
+                            /\.(png|jpg|jpeg|gif|webp|svg)$/i
+                                .test(item)
+
+                            ||
+
+                            item.startsWith(
+                                "data:image/"
+                            )
+
+                        )
+
+                    );
+
+                }
+            )
+        ){
+
+            return "image";
+
+        }
+
+
+        if(
+            items.every(
+                function(item){
+
+                    return (
+                        typeof item ===
+                        "number"
+                    );
+
+                }
+            )
+        ){
+
+            return "number";
+
+        }
+
+
+        return "text";
+
+    },
+
+
+    // =====================================
+    // TAKE RANDOM UNIQUE
     // =====================================
 
     takeRandomUnique: function(
@@ -1775,7 +2983,9 @@ const QuestionProvider = {
     ){
 
         if(
-            !Array.isArray(array)
+            !Array.isArray(
+                array
+            )
         ){
 
             return [];
@@ -1804,7 +3014,132 @@ const QuestionProvider = {
 
 
     // =====================================
-    // Shuffle
+    // RANDOM NUMBER
+    // =====================================
+
+    randomNumber: function(
+        min,
+        max
+    ){
+
+        return this.randomInteger(
+            min,
+            max
+        );
+
+    },
+
+
+    // =====================================
+    // RANDOM INTEGER
+    // =====================================
+
+    randomInteger: function(
+        min,
+        max
+    ){
+
+        min =
+            Math.ceil(
+                Number(min)
+            );
+
+
+        max =
+            Math.floor(
+                Number(max)
+            );
+
+
+        if(
+            !Number.isFinite(min) ||
+            !Number.isFinite(max)
+        ){
+
+            return 1;
+
+        }
+
+
+        if(
+            min >
+            max
+        ){
+
+            const temp =
+                min;
+
+
+            min =
+                max;
+
+
+            max =
+                temp;
+
+        }
+
+
+        return Math.floor(
+
+            Math.random() *
+            (
+                max -
+                min +
+                1
+            )
+
+        ) + min;
+
+    },
+
+
+    // =====================================
+    // SAFE MIN
+    // =====================================
+
+    safeMin: function(
+        value,
+        fallback
+    ){
+
+        const number =
+            Number(value);
+
+
+        return Number.isFinite(
+            number
+        )
+            ? number
+            : fallback;
+
+    },
+
+
+    // =====================================
+    // SAFE MAX
+    // =====================================
+
+    safeMax: function(
+        value,
+        fallback
+    ){
+
+        const number =
+            Number(value);
+
+
+        return Number.isFinite(
+            number
+        )
+            ? number
+            : fallback;
+
+    },
+
+
+    // =====================================
+    // SHUFFLE
     // =====================================
 
     shuffle: function(
@@ -1812,7 +3147,9 @@ const QuestionProvider = {
     ){
 
         if(
-            !Array.isArray(array)
+            !Array.isArray(
+                array
+            )
         ){
 
             return [];
@@ -1837,12 +3174,10 @@ const QuestionProvider = {
 
             const j =
                 Math.floor(
-
                     Math.random() *
                     (
                         i + 1
                     )
-
                 );
 
 
@@ -1864,9 +3199,157 @@ const QuestionProvider = {
 
     },
 
+    // =====================================
+    // UNIFIED CONTENT API
+    // Version 4.1
+    // Compatibility Layer
+    // =====================================
+
+    getContent: async function(
+        activityData
+    ){
+
+        if(
+            !activityData
+        ){
+
+            console.error(
+                "QuestionProvider: Activity Data Missing"
+            );
+
+            return [];
+
+        }
+
+
+        const settings =
+            activityData.settings || {};
+
+        const puzzle =
+            activityData.puzzle || {};
+
+        const engine =
+            activityData.engine ||
+            activityData.type ||
+            "";
+
+
+        // =================================
+        // QUIZ
+        // =================================
+
+        if(
+            engine === "quiz" ||
+            engine === "QuizEngine"
+        ){
+
+            return this.getQuestions(
+                activityData
+            );
+
+        }
+
+
+        // =================================
+        // PUZZLE
+        // =================================
+
+        if(
+            engine === "puzzle" ||
+            engine === "PuzzleEngine"
+        ){
+
+            return this.getPuzzleQuestions(
+                activityData
+            );
+
+        }
+
+
+        // =================================
+        // MEMORY
+        // =================================
+
+        if(
+            engine === "memory" ||
+            engine === "MemoryEngine"
+        ){
+
+            const cards =
+                await this.getMemoryCards(
+                    activityData
+                );
+
+
+            return [
+
+                {
+
+                    type:
+                        "memory",
+
+                    dataType:
+                        cards.length > 0
+                            ? (
+                                cards[0].dataType ||
+                                "text"
+                            )
+                            : "text",
+
+                    source:
+                        settings.cardSource ||
+                        settings.questionSource ||
+                        "file",
+
+                    cards:
+                        cards
+
+                }
+
+            ];
+
+        }
+
+
+        // =================================
+        // AUTO DETECTION
+        // =================================
+
+        if(
+            puzzle.type
+        ){
+
+            return this.getPuzzleQuestions(
+                activityData
+            );
+
+        }
+
+
+        if(
+            settings.mode
+        ){
+
+            return this.getQuestions(
+                activityData
+            );
+
+        }
+
+
+        console.warn(
+            "QuestionProvider: Cannot Detect Content Type",
+            activityData
+        );
+
+
+        return [];
+
+    },
+
 
     // =====================================
-    // Last Source
+    // LAST SOURCE
     // =====================================
 
     getLastSource: function(){
@@ -1877,7 +3360,7 @@ const QuestionProvider = {
 
 
     // =====================================
-    // Last Questions
+    // LAST QUESTIONS
     // =====================================
 
     getLastQuestions: function(){
@@ -1888,7 +3371,7 @@ const QuestionProvider = {
 
 
     // =====================================
-    // Reset
+    // RESET
     // =====================================
 
     reset: function(){
@@ -1906,7 +3389,7 @@ const QuestionProvider = {
 
 
 // =====================================
-// Global Access
+// GLOBAL
 // =====================================
 
 window.QuestionProvider =
@@ -1914,9 +3397,9 @@ window.QuestionProvider =
 
 
 // =====================================
-// Ready
+// READY
 // =====================================
 
 console.log(
-    "Question Provider Ready"
+    "Question Provider v4.1 Ready"
 );

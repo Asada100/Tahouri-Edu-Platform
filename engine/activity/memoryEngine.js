@@ -1,772 +1,715 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 3.1
+// Version 3.2
 // Memory Engine
-// Activity Result Integration
+// QuestionProvider Integration
+// Activity Result Compatible
 // Statistics Compatible
-// Stable Event System
 // =====================================
 
 
 const MemoryEngine = {
 
+    // =====================================
+    // STATE
+    // =====================================
 
     cards: [],
 
-
     firstCard: null,
-
 
     secondCard: null,
 
-
     lockBoard: false,
-
 
     activity: null,
 
-
     matchedPairs: 0,
-
 
     moves: 0,
 
-
     totalPairs: 0,
-
 
     finished: false,
 
 
+    // =====================================
+    // START
+    // =====================================
 
-
-
-    start: async function(activity){
-
+    start: async function(activity) {
 
         console.log(
             "Memory Engine Started"
         );
 
 
+        this.activity =
+            activity;
 
-        this.activity = activity;
 
+        this.firstCard =
+            null;
 
+        this.secondCard =
+            null;
 
-        this.firstCard = null;
+        this.lockBoard =
+            false;
 
-        this.secondCard = null;
+        this.matchedPairs =
+            0;
 
-        this.lockBoard = false;
+        this.moves =
+            0;
 
-        this.matchedPairs = 0;
-
-        this.moves = 0;
-
-        this.finished = false;
-
+        this.finished =
+            false;
 
 
         ScoreManager.reset();
 
 
+        // =================================
+        // QuestionProvider Check
+        // =================================
+
+        if (
+            typeof QuestionProvider ===
+            "undefined"
+        ) {
+
+            console.error(
+                "Memory Engine: QuestionProvider Not Available"
+            );
+
+            return;
+
+        }
 
 
+        // =================================
+        // Get Memory Cards
+        // =================================
 
-        const cards =
-
-        await DataManager.getCards(
-
-            activity
-
-        );
+        let cards = [];
 
 
+        try {
+
+            cards =
+                await QuestionProvider.getMemoryCards(
+                    activity
+                );
+
+        }
+
+        catch (error) {
+
+            console.error(
+                "Memory Engine: QuestionProvider Error:",
+                error
+            );
+
+            return;
+
+        }
 
 
+        // =================================
+        // Validate Cards
+        // =================================
 
-        this.cards = cards.map(function(card){
+        if (
+            !Array.isArray(cards) ||
+            cards.length === 0
+        ) {
 
+            console.error(
+                "Memory Engine: No Memory Cards Available"
+            );
 
+            return;
 
-            return {
-
-
-                id: card.id,
-
-
-                value: card.value,
-
-
-                flipped:false,
-
-
-                matched:false
+        }
 
 
-            };
+        if (
+            cards.length % 2 !== 0
+        ) {
+
+            console.error(
+                "Memory Engine: Card Count Must Be Even"
+            );
+
+            return;
+
+        }
 
 
+        // =================================
+        // Normalize Cards
+        // =================================
 
-        });
+        this.cards =
+            cards.map(
+                function(card, index) {
 
+                    return {
 
+                        id:
+                            card.id !== undefined
+                                ? card.id
+                                : `memory_card_${index}`,
 
+                        value:
+                            card.value,
 
+                        pairId:
+                            card.pairId !== undefined
+                                ? card.pairId
+                                : card.value,
+
+                        dataType:
+                            card.dataType ||
+                            "text",
+
+                        flipped:
+                            false,
+
+                        matched:
+                            false
+
+                    };
+
+                }
+            );
 
 
         this.totalPairs =
-
-        this.cards.length / 2;
-
+            this.cards.length / 2;
 
 
-
+        // =================================
+        // Shuffle
+        // =================================
 
         this.cards =
+            this.shuffle(
+                this.cards
+            );
 
-        this.shuffle(
 
-            this.cards
-
+        console.log(
+            "Memory Cards Ready:",
+            this.cards.length
         );
 
 
+        console.log(
+            "Memory Pairs:",
+            this.totalPairs
+        );
 
 
+        // =================================
+        // Display
+        // =================================
 
         this.refresh();
 
 
-
+        // =================================
+        // Events
+        // =================================
 
         EventManager.emit(
-
             "activityStarted",
-
             activity
-
         );
-
 
 
         EventManager.emit(
-
             "activityPlaying"
-
         );
-
-
 
     },
 
 
+    // =====================================
+    // SHUFFLE
+    // =====================================
+
+    shuffle: function(cards) {
+
+        const array =
+            [
+                ...cards
+            ];
 
 
-
-
-
-
-
-    shuffle:function(cards){
-
-
-
-        const array = [
-
-            ...cards
-
-        ];
-
-
-
-
-        for(
-
-            let i = array.length - 1;
+        for (
+            let i =
+                array.length - 1;
 
             i > 0;
 
             i--
+        ) {
 
-        ){
-
-
-
-            const j = Math.floor(
-
-                Math.random() *
-
-                (i + 1)
-
-            );
+            const j =
+                Math.floor(
+                    Math.random()
+                    *
+                    (
+                        i + 1
+                    )
+                );
 
 
-
-            const temp = array[i];
-
-
-            array[i] = array[j];
+            const temp =
+                array[i];
 
 
-            array[j] = temp;
+            array[i] =
+                array[j];
 
 
+            array[j] =
+                temp;
 
         }
-
 
 
         return array;
 
-
-
     },
 
 
+    // =====================================
+    // FLIP CARD
+    // =====================================
 
+    flipCard: function(id) {
 
-
-
-
-
-
-    flipCard:function(id){
-
-
-
-        if(
-
+        if (
             this.lockBoard ||
-
             this.finished
-
-        ){
+        ) {
 
             return;
 
         }
-
-
-
-
 
 
         const card =
+            this.cards.find(
+                function(item) {
 
-        this.cards.find(function(item){
+                    return (
+                        item.id == id
+                    );
 
-
-
-            return item.id == id;
-
-
-
-        });
-
+                }
+            );
 
 
-
-
-
-        if(!card){
-
+        if (!card) {
 
             return;
-
 
         }
 
 
-
-
-
-
-        if(
-
+        if (
             card.flipped ||
-
             card.matched
-
-        ){
+        ) {
 
             return;
 
         }
 
 
+        card.flipped =
+            true;
 
 
+        // =================================
+        // First Card
+        // =================================
 
+        if (
+            !this.firstCard
+        ) {
 
-        card.flipped = true;
-
-
-
-
-
-        if(!this.firstCard){
-
-
-
-            this.firstCard = card;
-
+            this.firstCard =
+                card;
 
 
             this.refresh();
 
 
-
             return;
-
-
 
         }
 
 
+        // =================================
+        // Second Card
+        // =================================
 
-
-
-
-        this.secondCard = card;
-
+        this.secondCard =
+            card;
 
 
         this.moves++;
 
 
-
-
         this.refresh();
-
 
 
         this.checkMatch();
 
-
-
-
     },
-        checkMatch:function(){
 
 
+    // =====================================
+    // CHECK MATCH
+    // =====================================
 
-        this.lockBoard = true;
+    checkMatch: function() {
 
-
-
-
-
-        if(
-
-            this.firstCard.value ===
-
-            this.secondCard.value
-
-        ){
+        this.lockBoard =
+            true;
 
 
+        const firstPair =
+            this.getPairValue(
+                this.firstCard
+            );
 
-            this.firstCard.matched = true;
+
+        const secondPair =
+            this.getPairValue(
+                this.secondCard
+            );
 
 
-            this.secondCard.matched = true;
+        if (
+            firstPair ===
+            secondPair
+        ) {
+
+            this.firstCard.matched =
+                true;
 
 
+            this.secondCard.matched =
+                true;
 
 
             this.matchedPairs++;
 
 
-
-
             ScoreManager.addCorrect();
 
 
-
-
             console.log(
-
                 "Memory Match"
-
             );
 
 
-
-
-
-
-            if(
-
+            if (
                 this.matchedPairs ===
-
                 this.totalPairs
+            ) {
 
-            ){
+                setTimeout(
+                    function() {
 
+                        MemoryEngine.finish();
 
-
-                setTimeout(function(){
-
-
-
-                    MemoryEngine.finish();
-
-
-
-                },800);
-
-
+                    },
+                    800
+                );
 
             }
 
-            else{
-
-
+            else {
 
                 this.resetTurn();
 
-
-
             }
 
-
+            return;
 
         }
 
-        else{
+
+        // =================================
+        // Wrong Match
+        // =================================
+
+        ScoreManager.addWrong();
 
 
-
-            ScoreManager.addWrong();
-
-
-
-            setTimeout(function(){
+        console.log(
+            "Memory Wrong"
+        );
 
 
+        setTimeout(
+            function() {
 
-                if(
-
+                if (
                     MemoryEngine.firstCard
+                ) {
 
-                ){
-
-
-                    MemoryEngine.firstCard.flipped = false;
-
+                    MemoryEngine
+                        .firstCard
+                        .flipped =
+                        false;
 
                 }
 
 
-
-
-                if(
-
+                if (
                     MemoryEngine.secondCard
+                ) {
 
-                ){
-
-
-                    MemoryEngine.secondCard.flipped = false;
-
+                    MemoryEngine
+                        .secondCard
+                        .flipped =
+                        false;
 
                 }
-
-
-
 
 
                 MemoryEngine.resetTurn();
 
-
-
-            },1000);
-
-
-
-        }
-
-
+            },
+            1000
+        );
 
     },
 
 
+    // =====================================
+    // GET PAIR VALUE
+    // =====================================
+
+    getPairValue: function(card) {
+
+        if (!card) {
+
+            return null;
+
+        }
 
 
+        if (
+            card.pairId !== undefined &&
+            card.pairId !== null
+        ) {
+
+            return String(
+                card.pairId
+            );
+
+        }
 
 
+        return String(
+            card.value
+        );
+
+    },
 
 
+    // =====================================
+    // RESET TURN
+    // =====================================
 
-    resetTurn:function(){
+    resetTurn: function() {
 
-
-
-        this.firstCard = null;
-
-
-        this.secondCard = null;
-
-
-        this.lockBoard = false;
+        this.firstCard =
+            null;
 
 
+        this.secondCard =
+            null;
 
 
+        this.lockBoard =
+            false;
 
-        if(!this.finished){
 
-
+        if (
+            !this.finished
+        ) {
 
             this.refresh();
 
-
-
         }
 
-
-
     },
 
 
-
-
-
-
-
-
-
-    finish:function(){
-
-
-
-        this.finished = true;
-
-
-        this.lockBoard = true;
-
-
-
-
-
-        const scoreResult =
-
-        ScoreManager.getResult(
-
-            this.totalPairs
-
-        );
-
-
-
-
-
-
-        const result =
-
-        ActivityResult.create({
-
-
-
-            activityId:
-
-            this.activity
-
-            ?
-
-            this.activity.id
-
-            :
-
-            null,
-
-
-
-            score:
-
-            scoreResult.score || 0,
-
-
-
-            totalQuestions:
-
-            this.totalPairs,
-
-
-
-            correctAnswers:
-
-            this.matchedPairs,
-
-
-
-            wrongAnswers:
-
-            scoreResult.wrong || 0,
-
-
-
-            percentage:
-
-            Math.round(
-
-                (
-
-                    this.matchedPairs /
-
-                    this.totalPairs
-
-                )
-
-                *
-
-                100
-
-            ),
-
-
-
-            message:
-
-            "🎉 بازی حافظه تمام شد"
-
-
-
-        });
-
-
-
-
-
-
-
-        console.log(
-
-            "Memory Finished",
-
-            result
-
-        );
-
-
-
-
-
-
-
-        EventManager.emit(
-
-            "activityFinished",
-
-            result
-
-        );
-
-
-
-    },
-
-
-
-
-
-
-
-
-
-    refresh:function(){
-
-
-
-        if(this.finished){
-
-
+    // =====================================
+    // FINISH
+    // =====================================
+
+    finish: function() {
+
+        if (
+            this.finished
+        ) {
 
             return;
 
-
-
         }
 
 
+        this.finished =
+            true;
 
 
+        this.lockBoard =
+            true;
+
+
+        const scoreResult =
+            ScoreManager.getResult(
+                this.totalPairs
+            );
+
+
+        const percentage =
+
+            this.totalPairs > 0
+
+                ?
+
+                Math.round(
+
+                    (
+                        this.matchedPairs /
+                        this.totalPairs
+                    )
+                    *
+                    100
+
+                )
+
+                :
+
+                0;
+
+
+        const result =
+            ActivityResult.create({
+
+                activityId:
+
+                    this.activity
+                        ? this.activity.id
+                        : null,
+
+                score:
+                    scoreResult.score || 0,
+
+                totalQuestions:
+                    this.totalPairs,
+
+                correctAnswers:
+                    this.matchedPairs,
+
+                wrongAnswers:
+                    scoreResult.wrong || 0,
+
+                percentage:
+                    percentage,
+
+                message:
+                    "🎉 بازی حافظه تمام شد"
+
+            });
+
+
+        console.log(
+            "Memory Finished",
+            result
+        );
+
+
+        EventManager.emit(
+            "activityFinished",
+            result
+        );
+
+    },
+
+
+    // =====================================
+    // REFRESH
+    // =====================================
+
+    refresh: function() {
+
+        if (
+            this.finished
+        ) {
+
+            return;
+
+        }
 
 
         Screen.showMemory({
 
-
-
             title:
 
-            this.activity
-
-            ?
-
-            this.activity.title
-
-            :
-
-            "بازی حافظه",
-
-
+                this.activity
+                    ? this.activity.title
+                    : "بازی حافظه",
 
             cards:
-
-            this.cards
-
-
+                this.cards
 
         });
 
 
-
-
-
-
         Components.bindMemoryCards();
-
-
 
     },
 
 
+    // =====================================
+    // GET CARDS
+    // =====================================
 
-
-
-
-
-
-
-    getCards:function(){
-
-
+    getCards: function() {
 
         return this.cards;
 
-
-
     }
-
-
 
 };
 
 
+// =====================================
+// GLOBAL
+// =====================================
+
+window.MemoryEngine =
+    MemoryEngine;
 
 
-
+// =====================================
+// READY
+// =====================================
 
 console.log(
-
-    "Memory Engine Ready"
-
+    "Memory Engine v3.2 Ready"
 );
-
-
-
-
-
-window.MemoryEngine = MemoryEngine;
