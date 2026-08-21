@@ -1,21 +1,46 @@
 // =====================================
 // Tahouri Edu Platform
 // Puzzle Engine
-// Version 1.5
-// Execution Only
-// QuestionProvider Integration
+// Version 2.3
 //
-// Supports:
+// Responsibilities:
+// - Puzzle Core
+// - Provider Bridge
+// - Type Routing
+// - Unified State
+// - Generic Answers
+// - Type-specific Answers
+// - Check Routing
+// - Finish
+// - Result
+// - Shared Utilities
+//
+// Supported Types:
 // - ordering
 // - sequence
 // - visualMath
+// - inputOutput
+// - sentence
+// - grid
+// - wordGrid
+// - crossGrid
 //
-// Content generation is handled by:
-// QuestionProvider v4.0
+// Architecture:
+//
+// PuzzleProvider
+//      ↓
+// PuzzleEngine
+//      ↓
+// PuzzleTypeRegistry
+//      ↓
+// Puzzle Type Handler
+//      ↓
+// PuzzleScreen
 // =====================================
 
 
 const PuzzleEngine = {
+
 
     // =====================================
     // STATE
@@ -23,9 +48,11 @@ const PuzzleEngine = {
 
     state: {
 
-        started: false,
+        started:
+            false,
 
-        isFinished: false
+        isFinished:
+            false
 
     },
 
@@ -34,44 +61,53 @@ const PuzzleEngine = {
     // CURRENT ACTIVITY
     // =====================================
 
-    activity: null,
+    activity:
+        null,
 
 
     // =====================================
     // CURRENT PUZZLE
     // =====================================
 
-    puzzle: null,
+    puzzle:
+        null,
 
 
     // =====================================
     // CURRENT ITEMS
     // =====================================
 
-    items: [],
+    items:
+        [],
 
 
     // =====================================
     // USER ANSWER
     // =====================================
 
-    userAnswer: null,
+    userAnswer:
+        null,
 
 
     // =====================================
     // MOVES
     // =====================================
 
-    moves: 0,
+    moves:
+        0,
 
 
     // =====================================
     // START
     // =====================================
 
-    start: async function(activityData) {
+    start: async function (
+        activityData
+    ) {
 
-        if (!activityData) {
+        if (
+            !activityData
+        ) {
 
             console.error(
                 "Puzzle Engine: Activity Data Missing"
@@ -83,26 +119,32 @@ const PuzzleEngine = {
 
 
         // =================================
-        // Reset Current Puzzle State
+        // RESET CURRENT RUN
         // =================================
 
         this.activity =
             activityData;
 
+
         this.state.started =
             true;
+
 
         this.state.isFinished =
             false;
 
+
         this.puzzle =
             null;
+
 
         this.items =
             [];
 
+
         this.userAnswer =
             null;
+
 
         this.moves =
             0;
@@ -115,7 +157,7 @@ const PuzzleEngine = {
 
 
         // =================================
-        // QuestionProvider Check
+        // QUESTION PROVIDER
         // =================================
 
         if (
@@ -127,8 +169,10 @@ const PuzzleEngine = {
                 "Puzzle Engine: QuestionProvider Not Available"
             );
 
+
             this.state.started =
                 false;
+
 
             return null;
 
@@ -136,12 +180,30 @@ const PuzzleEngine = {
 
 
         // =================================
-        // Prepare Activity
+        // TYPE REGISTRY
         // =================================
-        //
-        // Backward compatibility:
-        // If puzzle contains fixed data but
-        // has no source, treat it as file.
+
+        if (
+            typeof PuzzleTypeRegistry ===
+            "undefined"
+        ) {
+
+            console.error(
+                "Puzzle Engine: PuzzleTypeRegistry Not Available"
+            );
+
+
+            this.state.started =
+                false;
+
+
+            return null;
+
+        }
+
+
+        // =================================
+        // PREPARE PROVIDER ACTIVITY
         // =================================
 
         const providerActivity =
@@ -151,10 +213,11 @@ const PuzzleEngine = {
 
 
         // =================================
-        // Get Puzzle Content
+        // LOAD CONTENT
         // =================================
 
-        let puzzleQuestions = [];
+        let puzzleQuestions =
+            [];
 
 
         try {
@@ -166,15 +229,19 @@ const PuzzleEngine = {
 
         }
 
-        catch (error) {
+        catch (
+            error
+        ) {
 
             console.error(
                 "Puzzle Engine: QuestionProvider Error:",
                 error
             );
 
+
             this.state.started =
                 false;
+
 
             return null;
 
@@ -184,40 +251,42 @@ const PuzzleEngine = {
         if (
             !Array.isArray(
                 puzzleQuestions
-            ) ||
-
-            puzzleQuestions.length === 0
-
+            )
+            ||
+            puzzleQuestions.length ===
+            0
         ) {
 
             console.error(
                 "Puzzle Engine: No Puzzle Content Available"
             );
 
+
             this.state.started =
                 false;
+
 
             return null;
 
         }
 
 
-        // =================================
-        // Current Puzzle
-        // =================================
-
         const puzzle =
             puzzleQuestions[0];
 
 
-        if (!puzzle) {
+        if (
+            !puzzle
+        ) {
 
             console.error(
                 "Puzzle Engine: Invalid Puzzle Content"
             );
 
+
             this.state.started =
                 false;
+
 
             return null;
 
@@ -231,65 +300,73 @@ const PuzzleEngine = {
 
 
         // =================================
-        // Select Puzzle Type
+        // ROUTER
         // =================================
 
+        const handler =
+            PuzzleTypeRegistry.get(
+                puzzle.type
+            );
+
+
         if (
-            puzzle.type ===
-            "ordering"
+            !handler
         ) {
 
-            return this.startOrdering(
-                puzzle
+            console.error(
+                "Puzzle Engine: Unsupported Puzzle Type:",
+                puzzle.type
             );
+
+
+            this.state.started =
+                false;
+
+
+            return null;
 
         }
 
 
         if (
-            puzzle.type ===
-            "sequence"
+            typeof handler.start !==
+            "function"
         ) {
 
-            return this.startSequence(
-                puzzle
+            console.error(
+                "Puzzle Engine: Invalid Puzzle Handler:",
+                puzzle.type
             );
+
+
+            this.state.started =
+                false;
+
+
+            return null;
 
         }
 
 
-        if (
-            puzzle.type ===
-            "visualMath"
-        ) {
-
-            return this.startVisualMath(
-                puzzle
-            );
-
-        }
-
-
-        console.error(
-            "Puzzle Engine: Unsupported Puzzle Type:",
+        console.log(
+            "Puzzle Engine Routing:",
             puzzle.type
         );
 
 
-        this.state.started =
-            false;
-
-
-        return null;
+        return handler.start(
+            this,
+            puzzle
+        );
 
     },
 
 
     // =====================================
-    // PREPARE PROVIDER ACTIVITY
+    // PROVIDER PREPARATION
     // =====================================
 
-    prepareProviderActivity: function(
+    prepareProviderActivity: function (
         activityData
     ) {
 
@@ -297,20 +374,22 @@ const PuzzleEngine = {
             activityData.puzzle ||
             {};
 
+
         const settings =
             activityData.settings ||
             {};
 
 
         const hasExplicitSource =
-            puzzle.source !== undefined ||
 
-            settings.questionSource !== undefined;
+            puzzle.source !==
+            undefined
 
+            ||
 
-        // ---------------------------------
-        // Already Explicit
-        // ---------------------------------
+            settings.questionSource !==
+            undefined;
+
 
         if (
             hasExplicitSource
@@ -321,14 +400,9 @@ const PuzzleEngine = {
         }
 
 
-        // ---------------------------------
-        // Fixed Puzzle Data
-        // ---------------------------------
-        //
-        // Existing activities often have
-        // items directly inside puzzle.
-        // Preserve their old behavior.
-        // ---------------------------------
+        // =================================
+        // FIXED DATA DETECTION
+        // =================================
 
         const hasFixedData =
 
@@ -346,6 +420,30 @@ const PuzzleEngine = {
 
             Array.isArray(
                 puzzle.options
+            )
+
+            ||
+
+            Array.isArray(
+                puzzle.words
+            )
+
+            ||
+
+            Array.isArray(
+                puzzle.cells
+            )
+
+            ||
+
+            Array.isArray(
+                puzzle.inputs
+            )
+
+            ||
+
+            Array.isArray(
+                puzzle.outputs
             );
 
 
@@ -380,9 +478,9 @@ const PuzzleEngine = {
         }
 
 
-        // ---------------------------------
-        // Generated Puzzle
-        // ---------------------------------
+        // =================================
+        // GENERATED
+        // =================================
 
         return {
 
@@ -412,442 +510,14 @@ const PuzzleEngine = {
 
 
     // =====================================
-    // ORDERING
+    // GET STATE
     // =====================================
 
-    startOrdering: function(
-        puzzleData
-    ) {
-
-        const items =
-            Array.isArray(
-                puzzleData.items
-            )
-                ? [...puzzleData.items]
-                : [];
-
-
-        if (
-            items.length === 0
-        ) {
-
-            console.error(
-                "Puzzle Engine: Ordering Items Missing"
-            );
-
-            return null;
-
-        }
-
-
-        const correctOrder =
-            Array.isArray(
-                puzzleData.correctOrder
-            )
-                ? [...puzzleData.correctOrder]
-                : this.buildCorrectOrder(
-                    items,
-                    puzzleData.order
-                );
-
-
-        if (
-            correctOrder.length === 0
-        ) {
-
-            console.error(
-                "Puzzle Engine: Correct Order Missing"
-            );
-
-            return null;
-
-        }
-
-
-        this.puzzle = {
-
-            type:
-                "ordering",
-
-            dataType:
-                puzzleData.dataType ||
-                this.detectDataType(
-                    items
-                ),
-
-            source:
-                puzzleData.source ||
-                "file",
-
-            instruction:
-                puzzleData.instruction ||
-                "موارد را به ترتیب درست قرار بده",
-
-            items:
-                [...items],
-
-            correctOrder:
-                [...correctOrder]
-
-        };
-
-
-        this.items =
-            this.shuffle(
-                items
-            );
-
-
-        this.logOrdering();
-
-
-        this.emitStarted();
-
-
-        return this.getState();
-
-    },
-
-
-    // =====================================
-    // SEQUENCE
-    // =====================================
-
-    startSequence: function(
-        puzzleData
-    ) {
-
-        const items =
-            Array.isArray(
-                puzzleData.items
-            )
-                ? [...puzzleData.items]
-                : [];
-
-
-        const missingIndex =
-            Number.isInteger(
-                puzzleData.missingIndex
-            )
-                ? puzzleData.missingIndex
-                : -1;
-
-
-        const answer =
-            puzzleData.answer;
-
-
-        if (
-            items.length === 0
-        ) {
-
-            console.error(
-                "Puzzle Engine: Sequence Items Missing"
-            );
-
-            return null;
-
-        }
-
-
-        if (
-            missingIndex < 0 ||
-
-            missingIndex >=
-            items.length
-
-        ) {
-
-            console.error(
-                "Puzzle Engine: Invalid Missing Index"
-            );
-
-            return null;
-
-        }
-
-
-        if (
-            answer === undefined ||
-
-            answer === null
-
-        ) {
-
-            console.error(
-                "Puzzle Engine: Sequence Answer Missing"
-            );
-
-            return null;
-
-        }
-
-
-        this.puzzle = {
-
-            type:
-                "sequence",
-
-            dataType:
-                puzzleData.dataType ||
-                this.detectDataType(
-                    items
-                ),
-
-            source:
-                puzzleData.source ||
-                "file",
-
-            instruction:
-                puzzleData.instruction ||
-                "عضو بعدی الگو را پیدا کن",
-
-            items:
-                [...items],
-
-            missingIndex:
-                missingIndex,
-
-            answer:
-                answer,
-
-            pattern:
-                puzzleData.pattern ||
-                null,
-
-            step:
-                puzzleData.step !== undefined
-                    ? puzzleData.step
-                    : null,
-
-            multiplier:
-                puzzleData.multiplier !== undefined
-                    ? puzzleData.multiplier
-                    : null
-
-        };
-
-
-        this.items =
-            [...items];
-
-
-        this.items[
-            missingIndex
-        ] = null;
-
-
-        this.logSequence();
-
-
-        this.emitStarted();
-
-
-        return this.getState();
-
-    },
-
-
-    // =====================================
-    // VISUAL MATH
-    // =====================================
-
-    startVisualMath: function(
-        puzzleData
-    ) {
-
-        const operation =
-            puzzleData.operation ||
-            "addition";
-
-
-        if (
-            operation !==
-            "addition"
-        ) {
-
-            console.error(
-                "Puzzle Engine: Unsupported Visual Math Operation:",
-                operation
-            );
-
-            return null;
-
-        }
-
-
-        const items =
-            Array.isArray(
-                puzzleData.items
-            )
-                ? puzzleData.items
-                : [];
-
-
-        if (
-            items.length !== 2
-        ) {
-
-            console.error(
-                "Puzzle Engine: Visual Math Requires Two Groups"
-            );
-
-            return null;
-
-        }
-
-
-        const normalizedItems =
-            items.map(
-                function(item) {
-
-                    return {
-
-                        image:
-                            item.image,
-
-                        count:
-                            Number(
-                                item.count
-                            )
-
-                    };
-
-                }
-            );
-
-
-        const validItems =
-            normalizedItems.every(
-                function(item) {
-
-                    return (
-
-                        typeof item.image ===
-                        "string"
-
-                        &&
-
-                        Number.isInteger(
-                            item.count
-                        )
-
-                        &&
-
-                        item.count > 0
-
-                    );
-
-                }
-            );
-
-
-        if (
-            !validItems
-        ) {
-
-            console.error(
-                "Puzzle Engine: Invalid Visual Math Items"
-            );
-
-            return null;
-
-        }
-
-
-        this.puzzle = {
-
-            type:
-                "visualMath",
-
-            dataType:
-                "image",
-
-            source:
-                puzzleData.source ||
-                "file",
-
-            instruction:
-                puzzleData.instruction ||
-                "با شمردن شکل‌ها پاسخ را پیدا کن",
-
-            operation:
-                operation,
-
-            items:
-                normalizedItems,
-
-            answer:
-                Number(
-                    puzzleData.answer
-                )
-
-        };
-
-
-        if (
-            !Number.isFinite(
-                this.puzzle.answer
-            )
-        ) {
-
-            console.error(
-                "Puzzle Engine: Visual Math Answer Missing"
-            );
-
-            return null;
-
-        }
-
-
-        this.items =
-            normalizedItems.map(
-                function(item) {
-
-                    return {
-
-                        image:
-                            item.image,
-
-                        count:
-                            item.count
-
-                    };
-
-                }
-            );
-
-
-        console.log(
-            "Visual Math Operation:",
-            this.puzzle.operation
-        );
-
-
-        console.log(
-            "Visual Math Items:",
-            this.puzzle.items
-        );
-
-
-        console.log(
-            "Visual Math Answer Ready"
-        );
-
-
-        this.emitStarted();
-
-
-        return this.getState();
-
-    },
-
-
-    // =====================================
-    // STATE
-    // =====================================
-
-    getState: function() {
+    getState: function () {
+
+        // =================================
+        // EMPTY STATE
+        // =================================
 
         if (
             !this.puzzle
@@ -876,8 +546,14 @@ const PuzzleEngine = {
                 missingIndex:
                     null,
 
+                missingIndices:
+                    [],
+
                 answer:
                     null,
+
+                answers:
+                    [],
 
                 pattern:
                     null,
@@ -891,92 +567,62 @@ const PuzzleEngine = {
                 operation:
                     null,
 
-                moves:
-                    this.moves,
+                comparison:
+                    null,
 
-                finished:
-                    this.state.isFinished
+                inputs:
+                    [],
 
-            };
+                outputs:
+                    [],
 
-        }
+                rule:
+                    null,
 
+                words:
+                    [],
 
-        if (
-            this.puzzle.type ===
-            "sequence"
-        ) {
+                correctWords:
+                    [],
 
-            return {
+                grammar:
+                    null,
 
-                type:
-                    "sequence",
+                mode:
+                    null,
 
-                dataType:
-                    this.puzzle.dataType,
+                rows:
+                    null,
 
-                source:
-                    this.puzzle.source,
+                cols:
+                    null,
 
-                instruction:
-                    this.puzzle.instruction,
+                cells:
+                    [],
 
-                items:
-                    [...this.items],
+                horizontalPaths:
+                    [],
 
-                missingIndex:
-                    this.puzzle.missingIndex,
+                verticalPaths:
+                    [],
 
-                answer:
-                    this.puzzle.answer,
+                paths:
+                    [],
 
-                pattern:
-                    this.puzzle.pattern,
+                rules:
+                    [],
 
-                step:
-                    this.puzzle.step,
+                relation:
+                    null,
 
-                multiplier:
-                    this.puzzle.multiplier,
+                relationType:
+                    null,
 
-                moves:
-                    this.moves,
+                targets:
+                    [],
 
-                finished:
-                    this.state.isFinished
-
-            };
-
-        }
-
-
-        if (
-            this.puzzle.type ===
-            "visualMath"
-        ) {
-
-            return {
-
-                type:
-                    "visualMath",
-
-                dataType:
-                    "image",
-
-                source:
-                    this.puzzle.source,
-
-                instruction:
-                    this.puzzle.instruction,
-
-                operation:
-                    this.puzzle.operation,
-
-                items:
-                    [...this.items],
-
-                answer:
-                    this.puzzle.answer,
+                userAnswer:
+                    this.userAnswer,
 
                 moves:
                     this.moves,
@@ -989,25 +635,38 @@ const PuzzleEngine = {
         }
 
 
-        return {
+        // =================================
+        // COMMON STATE
+        // =================================
+
+        const state = {
 
             type:
                 this.puzzle.type,
 
             dataType:
-                this.puzzle.dataType,
+                this.puzzle.dataType ||
+                null,
 
             source:
-                this.puzzle.source,
+                this.puzzle.source ||
+                null,
 
             instruction:
-                this.puzzle.instruction,
+                this.puzzle.instruction ||
+                "",
 
             items:
-                [...this.items],
+                Array.isArray(
+                    this.items
+                )
+                    ? [
+                        ...this.items
+                    ]
+                    : [],
 
-            correctOrder:
-                [...this.puzzle.correctOrder],
+            userAnswer:
+                this.userAnswer,
 
             moves:
                 this.moves,
@@ -1017,14 +676,474 @@ const PuzzleEngine = {
 
         };
 
+
+        // =================================
+        // ORDERING
+        // =================================
+
+        if (
+            this.puzzle.type ===
+            "ordering"
+        ) {
+
+            state.correctOrder =
+
+                Array.isArray(
+                    this.puzzle.correctOrder
+                )
+
+                    ? [
+                        ...this.puzzle.correctOrder
+                    ]
+
+                    : [];
+
+        }
+
+
+        // =================================
+        // SEQUENCE
+        // =================================
+
+        if (
+            this.puzzle.type ===
+            "sequence"
+        ) {
+
+            state.missingIndex =
+                this.puzzle.missingIndex;
+
+
+            state.answer =
+                this.puzzle.answer;
+
+
+            state.pattern =
+                this.puzzle.pattern;
+
+
+            state.step =
+                this.puzzle.step;
+
+
+            state.multiplier =
+                this.puzzle.multiplier;
+
+        }
+
+
+        // =================================
+        // VISUAL MATH
+        // =================================
+
+        if (
+            this.puzzle.type ===
+            "visualMath"
+        ) {
+
+            state.operation =
+                this.puzzle.operation;
+
+
+            state.comparison =
+                this.puzzle.comparison;
+
+
+            state.answer =
+                this.puzzle.answer;
+
+        }
+
+
+        // =================================
+        // INPUT / OUTPUT
+        // =================================
+
+        if (
+            this.puzzle.type ===
+            "inputOutput"
+        ) {
+
+            state.inputs =
+
+                Array.isArray(
+                    this.puzzle.inputs
+                )
+
+                    ? [
+                        ...this.puzzle.inputs
+                    ]
+
+                    : [];
+
+
+            state.outputs =
+
+                Array.isArray(
+                    this.items
+                )
+
+                    ? [
+                        ...this.items
+                    ]
+
+                    : [];
+
+
+            state.missingIndex =
+                this.puzzle.missingIndex;
+
+
+            state.rule =
+                this.puzzle.rule;
+
+
+            state.answer =
+                this.puzzle.answer;
+
+        }
+
+
+        // =================================
+        // SENTENCE
+        // =================================
+
+        if (
+            this.puzzle.type ===
+            "sentence"
+        ) {
+
+            state.mode =
+                this.puzzle.mode;
+
+
+            state.words =
+
+                Array.isArray(
+                    this.puzzle.words
+                )
+
+                    ? [
+                        ...this.puzzle.words
+                    ]
+
+                    : [];
+
+
+            state.correctWords =
+
+                Array.isArray(
+                    this.puzzle.correctOrder
+                )
+
+                    ? [
+                        ...this.puzzle.correctOrder
+                    ]
+
+                    : [];
+
+
+            state.grammar =
+                this.puzzle.grammar;
+
+
+            state.targets =
+
+                Array.isArray(
+                    this.puzzle.targets
+                )
+
+                    ? [
+                        ...this.puzzle.targets
+                    ]
+
+                    : [];
+
+
+            state.answers =
+
+                Array.isArray(
+                    this.puzzle.answers
+                )
+
+                    ? [
+                        ...this.puzzle.answers
+                    ]
+
+                    : [];
+
+        }
+
+
+        // =================================
+        // GRID
+        // =================================
+
+        if (
+            this.puzzle.type ===
+            "grid"
+        ) {
+
+            state.rows =
+                this.puzzle.rows;
+
+
+            state.cols =
+                this.puzzle.cols;
+
+
+            state.cells =
+
+                Array.isArray(
+                    this.puzzle.cells
+                )
+
+                    ? [
+                        ...this.puzzle.cells
+                    ]
+
+                    : [];
+
+
+            state.missingIndices =
+
+                Array.isArray(
+                    this.puzzle.missingIndices
+                )
+
+                    ? [
+                        ...this.puzzle.missingIndices
+                    ]
+
+                    : [];
+
+
+            state.answers =
+
+                Array.isArray(
+                    this.puzzle.answers
+                )
+
+                    ? [
+                        ...this.puzzle.answers
+                    ]
+
+                    : [];
+
+
+            state.rules =
+
+                Array.isArray(
+                    this.puzzle.rules
+                )
+
+                    ? [
+                        ...this.puzzle.rules
+                    ]
+
+                    : [];
+
+
+            state.answer =
+                this.puzzle.answer;
+
+        }
+
+
+        // =================================
+        // WORD GRID
+        // =================================
+
+        if (
+            this.puzzle.type ===
+            "wordGrid"
+        ) {
+
+            state.rows =
+                this.puzzle.rows;
+
+
+            state.cols =
+                this.puzzle.cols;
+
+
+            state.cells =
+
+                Array.isArray(
+                    this.puzzle.cells
+                )
+
+                    ? [
+                        ...this.puzzle.cells
+                    ]
+
+                    : [];
+
+
+            state.missingIndices =
+
+                Array.isArray(
+                    this.puzzle.missingIndices
+                )
+
+                    ? [
+                        ...this.puzzle.missingIndices
+                    ]
+
+                    : [];
+
+
+            state.answers =
+
+                Array.isArray(
+                    this.puzzle.answers
+                )
+
+                    ? [
+                        ...this.puzzle.answers
+                    ]
+
+                    : [];
+
+
+            state.relation =
+                this.puzzle.relation;
+
+
+            state.relationType =
+                this.puzzle.relationType;
+
+
+            state.answer =
+                this.puzzle.answer;
+
+        }
+
+
+        // =================================
+        // CROSS GRID
+        // =================================
+
+        if (
+            this.puzzle.type ===
+            "crossGrid"
+        ) {
+
+            state.rows =
+                this.puzzle.rows;
+
+
+            state.cols =
+                this.puzzle.cols;
+
+
+            state.cells =
+
+                Array.isArray(
+                    this.puzzle.cells
+                )
+
+                    ? [
+                        ...this.puzzle.cells
+                    ]
+
+                    : [];
+
+
+            state.missingIndices =
+
+                Array.isArray(
+                    this.puzzle.missingIndices
+                )
+
+                    ? [
+                        ...this.puzzle.missingIndices
+                    ]
+
+                    : [];
+
+
+            state.horizontalPaths =
+
+                Array.isArray(
+                    this.puzzle.horizontalPaths
+                )
+
+                    ? [
+                        ...this.puzzle.horizontalPaths
+                    ]
+
+                    : [];
+
+
+            state.verticalPaths =
+
+                Array.isArray(
+                    this.puzzle.verticalPaths
+                )
+
+                    ? [
+                        ...this.puzzle.verticalPaths
+                    ]
+
+                    : [];
+
+
+            state.paths =
+
+                Array.isArray(
+                    this.puzzle.paths
+                )
+
+                    ? [
+                        ...this.puzzle.paths
+                    ]
+
+                    : [];
+
+
+            state.rules =
+
+                Array.isArray(
+                    this.puzzle.rules
+                )
+
+                    ? [
+                        ...this.puzzle.rules
+                    ]
+
+                    : [];
+
+
+            state.answers =
+
+                Array.isArray(
+                    this.puzzle.answers
+                )
+
+                    ? [
+                        ...this.puzzle.answers
+                    ]
+
+                    : [];
+
+
+            state.answer =
+                this.puzzle.answer;
+
+        }
+
+
+        return state;
+
     },
 
 
     // =====================================
-    // ORDER UPDATE
+    // ORDER
     // =====================================
 
-    setOrder: function(
+    setOrder: function (
         newOrder
     ) {
 
@@ -1044,7 +1163,9 @@ const PuzzleEngine = {
 
 
         this.items =
-            [...newOrder];
+            [
+                ...newOrder
+            ];
 
 
         this.moves++;
@@ -1065,13 +1186,14 @@ const PuzzleEngine = {
     // SEQUENCE ANSWER
     // =====================================
 
-    setSequenceAnswer: function(
+    setSequenceAnswer: function (
         value
     ) {
 
         if (
-            !this.puzzle ||
 
+            !this.puzzle
+            ||
             this.puzzle.type !==
             "sequence"
 
@@ -1110,13 +1232,14 @@ const PuzzleEngine = {
     // VISUAL MATH ANSWER
     // =====================================
 
-    setVisualMathAnswer: function(
+    setVisualMathAnswer: function (
         value
     ) {
 
         if (
-            !this.puzzle ||
 
+            !this.puzzle
+            ||
             this.puzzle.type !==
             "visualMath"
 
@@ -1127,6 +1250,48 @@ const PuzzleEngine = {
             );
 
             return false;
+
+        }
+
+
+        if (
+            this.puzzle.operation ===
+            "comparison"
+        ) {
+
+            if (
+
+                value !== "left"
+                &&
+                value !== "right"
+                &&
+                value !== "equal"
+
+            ) {
+
+                console.error(
+                    "Puzzle Engine: Invalid Comparison Answer"
+                );
+
+                return false;
+
+            }
+
+
+            this.userAnswer =
+                value;
+
+
+            this.moves++;
+
+
+            EventManager.emit(
+                "puzzleChanged",
+                this.getState()
+            );
+
+
+            return true;
 
         }
 
@@ -1171,10 +1336,12 @@ const PuzzleEngine = {
 
 
     // =====================================
-    // CHECK
+    // GENERIC ANSWER
     // =====================================
 
-    check: function() {
+    setGenericAnswer: function (
+        value
+    ) {
 
         if (
             !this.puzzle
@@ -1189,190 +1356,374 @@ const PuzzleEngine = {
         }
 
 
+        this.userAnswer =
+            value;
+
+
+        // =================================
+        // INPUT / OUTPUT
+        // =================================
+
         if (
             this.puzzle.type ===
-            "ordering"
+            "inputOutput"
         ) {
 
-            return this.checkOrdering();
+            const missingIndex =
+                this.puzzle.missingIndex;
+
+
+            if (
+                Number.isInteger(
+                    missingIndex
+                )
+            ) {
+
+                this.items[
+                    missingIndex
+                ] =
+                    value;
+
+            }
 
         }
 
 
+        // =================================
+        // SENTENCE GRAMMAR
+        // =================================
+
         if (
             this.puzzle.type ===
-            "sequence"
+            "sentence"
         ) {
 
-            return this.checkSequence();
+            if (
+                this.puzzle.mode ===
+                "sentenceGrammar"
+            ) {
+
+                this.userAnswer =
+                    Array.isArray(
+                        value
+                    )
+                        ? [
+                            ...value
+                        ]
+                        :
+                        value;
+
+            }
 
         }
 
 
-        if (
-            this.puzzle.type ===
-            "visualMath"
-        ) {
-
-            return this.checkVisualMath();
-
-        }
+        this.moves++;
 
 
-        return false;
+        EventManager.emit(
+            "puzzleChanged",
+            this.getState()
+        );
+
+
+        return true;
 
     },
 
 
     // =====================================
-    // CHECK ORDERING
+    // SET TYPE ANSWER
+    // =====================================
+    //
+    // Used by:
+    // - sentence
+    // - grid
+    // - wordGrid
+    // - crossGrid
+    //
+    // The actual validation remains
+    // inside the type handler.
     // =====================================
 
-    checkOrdering: function() {
-
-        const correct =
-            this.areArraysEqual(
-
-                this.items,
-
-                this.puzzle.correctOrder
-
-            );
-
+    setTypeAnswer: function (
+        value
+    ) {
 
         if (
-            correct
+            !this.puzzle
         ) {
 
-            console.log(
-                "Puzzle Correct"
+            console.error(
+                "Puzzle Engine: No Active Puzzle"
             );
 
-
-            this.finish();
-
-
-            return true;
+            return false;
 
         }
 
 
-        console.log(
-            "Puzzle Wrong"
+        const handler =
+            PuzzleTypeRegistry.get(
+                this.puzzle.type
+            );
+
+
+        if (
+            !handler
+        ) {
+
+            console.error(
+                "Puzzle Engine: Handler Not Found:",
+                this.puzzle.type
+            );
+
+            return false;
+
+        }
+
+
+        if (
+            typeof handler.setAnswer ===
+            "function"
+        ) {
+
+            const result =
+                handler.setAnswer(
+                    this,
+                    value
+                );
+
+
+            return result;
+
+        }
+
+
+        this.userAnswer =
+            value;
+
+
+        this.moves++;
+
+
+        EventManager.emit(
+            "puzzleChanged",
+            this.getState()
         );
 
+
+        return true;
+
+    },
+
+
+    // =====================================
+    // SET CELL
+    // =====================================
+
+    setCell: function (
+        index,
+        value
+    ) {
+
+        if (
+            !this.puzzle
+        ) {
+
+            console.error(
+                "Puzzle Engine: No Active Puzzle"
+            );
+
+            return false;
+
+        }
+
+
+        const handler =
+            PuzzleTypeRegistry.get(
+                this.puzzle.type
+            );
+
+
+        if (
+            !handler
+        ) {
+
+            return false;
+
+        }
+
+
+        if (
+            typeof handler.setCell !==
+            "function"
+        ) {
+
+            console.error(
+                "Puzzle Engine: Cell API Not Available:",
+                this.puzzle.type
+            );
+
+            return false;
+
+        }
+
+
+        return handler.setCell(
+            this,
+            index,
+            value
+        );
+
+    },
+
+
+    // =====================================
+    // SET CELLS
+    // =====================================
+
+    setCells: function (
+        values
+    ) {
+
+        if (
+            !this.puzzle
+        ) {
+
+            return false;
+
+        }
+
+
+        const handler =
+            PuzzleTypeRegistry.get(
+                this.puzzle.type
+            );
+
+
+        if (
+            !handler
+        ) {
+
+            return false;
+
+        }
+
+
+        if (
+            typeof handler.setCells !==
+            "function"
+        ) {
+
+            console.error(
+                "Puzzle Engine: Multiple Cell API Not Available:",
+                this.puzzle.type
+            );
+
+            return false;
+
+        }
+
+
+        return handler.setCells(
+            this,
+            values
+        );
+
+    },
+
+
+    // =====================================
+    // CHECK
+    // =====================================
+
+    check: function () {
+
+        if (
+            !this.puzzle
+        ) {
+
+            console.error(
+                "Puzzle Engine: No Active Puzzle"
+            );
+
+            return false;
+
+        }
+
+
+        const handler =
+            PuzzleTypeRegistry.get(
+                this.puzzle.type
+            );
+
+
+        if (
+            !handler
+        ) {
+
+            console.error(
+                "Puzzle Engine: Check Handler Not Found:",
+                this.puzzle.type
+            );
+
+            return false;
+
+        }
+
+
+        if (
+            typeof handler.check !==
+            "function"
+        ) {
+
+            console.error(
+                "Puzzle Engine: Invalid Check Handler:",
+                this.puzzle.type
+            );
+
+            return false;
+
+        }
+
+
+        return handler.check(
+            this
+        );
+
+    },
+
+
+    // =====================================
+    // WRONG ANSWER
+    // =====================================
+
+    emitWrong: function () {
 
         EventManager.emit(
             "puzzleWrong",
             this.getState()
         );
 
-
-        return false;
-
     },
 
 
     // =====================================
-    // CHECK SEQUENCE
+    // STARTED
     // =====================================
 
-    checkSequence: function() {
+    emitStarted: function () {
 
-        const value =
-            this.items[
-                this.puzzle.missingIndex
-            ];
-
-
-        const correct =
-            this.valuesEqual(
-
-                value,
-
-                this.puzzle.answer
-
-            );
-
-
-        if (
-            correct
-        ) {
-
-            console.log(
-                "Sequence Correct"
-            );
-
-
-            this.finish();
-
-
-            return true;
-
-        }
-
-
-        console.log(
-            "Sequence Wrong"
+        EventManager.emit(
+            "puzzleStarted",
+            this.puzzle
         );
 
 
         EventManager.emit(
-            "puzzleWrong",
-            this.getState()
+            "activityPlaying"
         );
-
-
-        return false;
-
-    },
-
-
-    // =====================================
-    // CHECK VISUAL MATH
-    // =====================================
-
-    checkVisualMath: function() {
-
-        const correct =
-            this.valuesEqual(
-
-                this.userAnswer,
-
-                this.puzzle.answer
-
-            );
-
-
-        if (
-            correct
-        ) {
-
-            console.log(
-                "Visual Math Correct"
-            );
-
-
-            this.finish();
-
-
-            return true;
-
-        }
-
-
-        console.log(
-            "Visual Math Wrong"
-        );
-
-
-        EventManager.emit(
-            "puzzleWrong",
-            this.getState()
-        );
-
-
-        return false;
 
     },
 
@@ -1381,7 +1732,7 @@ const PuzzleEngine = {
     // FINISH
     // =====================================
 
-    finish: function() {
+    finish: function () {
 
         if (
             this.state.isFinished
@@ -1424,15 +1775,21 @@ const PuzzleEngine = {
     // RESULT
     // =====================================
 
-    buildResult: function() {
+    buildResult: function () {
 
         const settings =
-            this.activity &&
+
+            this.activity
+            &&
             this.activity.settings
 
-                ? this.activity.settings
+                ?
 
-                : {};
+                this.activity.settings
+
+                :
+
+                {};
 
 
         const scorePerCorrect =
@@ -1447,38 +1804,27 @@ const PuzzleEngine = {
         return {
 
             activityId:
-
                 this.activity
-
                     ? this.activity.id
-
                     : null,
 
-
             score:
-
                 completed
                     ? scorePerCorrect
                     : 0,
 
-
             percentage:
-
                 completed
                     ? 100
                     : 0,
 
-
             stars:
-
                 completed
                     ? 5
                     : 0,
 
-
             completed:
                 completed,
-
 
             moves:
                 this.moves
@@ -1492,7 +1838,7 @@ const PuzzleEngine = {
     // RESET
     // =====================================
 
-    reset: function() {
+    reset: function () {
 
         this.state.started =
             false;
@@ -1530,16 +1876,22 @@ const PuzzleEngine = {
 
 
     // =====================================
-    // UTILITIES
+    // BUILD CORRECT ORDER
     // =====================================
 
-    buildCorrectOrder: function(
+    buildCorrectOrder: function (
         items,
         order
     ) {
 
         const copy =
-            [...items];
+            Array.isArray(
+                items
+            )
+                ? [
+                    ...items
+                ]
+                : [];
 
 
         if (
@@ -1548,7 +1900,10 @@ const PuzzleEngine = {
         ) {
 
             return copy.sort(
-                function(a, b) {
+                function (
+                    a,
+                    b
+                ) {
 
                     return b - a;
 
@@ -1566,7 +1921,10 @@ const PuzzleEngine = {
         ) {
 
             return copy.sort(
-                function(a, b) {
+                function (
+                    a,
+                    b
+                ) {
 
                     return a - b;
 
@@ -1581,7 +1939,11 @@ const PuzzleEngine = {
     },
 
 
-    detectDataType: function(
+    // =====================================
+    // DATA TYPE
+    // =====================================
+
+    detectDataType: function (
         items
     ) {
 
@@ -1597,7 +1959,8 @@ const PuzzleEngine = {
 
 
         if (
-            items.length === 0
+            items.length ===
+            0
         ) {
 
             return "text";
@@ -1607,7 +1970,9 @@ const PuzzleEngine = {
 
         if (
             items.every(
-                function(item) {
+                function (
+                    item
+                ) {
 
                     return (
 
@@ -1617,8 +1982,11 @@ const PuzzleEngine = {
                         &&
 
                         (
+
                             /\.(png|jpg|jpeg|gif|webp|svg)$/i
-                                .test(item)
+                                .test(
+                                    item
+                                )
 
                             ||
 
@@ -1641,7 +2009,9 @@ const PuzzleEngine = {
 
         if (
             items.every(
-                function(item) {
+                function (
+                    item
+                ) {
 
                     return (
                         typeof item ===
@@ -1662,16 +2032,25 @@ const PuzzleEngine = {
     },
 
 
-    valuesEqual: function(
+    // =====================================
+    // VALUES EQUAL
+    // =====================================
+
+    valuesEqual: function (
         a,
         b
     ) {
 
         if (
-            a === null ||
-            a === undefined ||
-            b === null ||
+
+            a === null
+            ||
+            a === undefined
+            ||
+            b === null
+            ||
             b === undefined
+
         ) {
 
             return (
@@ -1682,20 +2061,23 @@ const PuzzleEngine = {
 
 
         const numberA =
-            Number(a);
+            Number(
+                a
+            );
 
 
         const numberB =
-            Number(b);
+            Number(
+                b
+            );
 
 
         if (
+
             !Number.isNaN(
                 numberA
             )
-
             &&
-
             !Number.isNaN(
                 numberB
             )
@@ -1718,16 +2100,19 @@ const PuzzleEngine = {
     },
 
 
-    areArraysEqual: function(
+    // =====================================
+    // ARRAYS EQUAL
+    // =====================================
+
+    areArraysEqual: function (
         a,
         b
     ) {
 
         if (
-            !Array.isArray(a) ||
-
+            !Array.isArray(a)
+            ||
             !Array.isArray(b)
-
         ) {
 
             return false;
@@ -1751,7 +2136,6 @@ const PuzzleEngine = {
             i < a.length;
 
             i++
-
         ) {
 
             if (
@@ -1773,7 +2157,83 @@ const PuzzleEngine = {
     },
 
 
-    logOrdering: function() {
+    // =====================================
+    // SHUFFLE
+    // =====================================
+
+    shuffle: function (
+        array
+    ) {
+
+        if (
+            !Array.isArray(
+                array
+            )
+        ) {
+
+            return [];
+
+        }
+
+
+        const list =
+            [
+                ...array
+            ];
+
+
+        for (
+            let i =
+                list.length - 1;
+
+            i > 0;
+
+            i--
+        ) {
+
+            const j =
+                Math.floor(
+                    Math.random()
+                    *
+                    (
+                        i + 1
+                    )
+                );
+
+
+            const temp =
+                list[i];
+
+
+            list[i] =
+                list[j];
+
+
+            list[j] =
+                temp;
+
+        }
+
+
+        return list;
+
+    },
+
+
+    // =====================================
+    // LOG ORDERING
+    // =====================================
+
+    logOrdering: function () {
+
+        if (
+            !this.puzzle
+        ) {
+
+            return;
+
+        }
+
 
         console.log(
             "Puzzle Data Type:",
@@ -1795,7 +2255,20 @@ const PuzzleEngine = {
     },
 
 
-    logSequence: function() {
+    // =====================================
+    // LOG SEQUENCE
+    // =====================================
+
+    logSequence: function () {
+
+        if (
+            !this.puzzle
+        ) {
+
+            return;
+
+        }
+
 
         console.log(
             "Sequence Data Type:",
@@ -1846,87 +2319,6 @@ const PuzzleEngine = {
 
         }
 
-    },
-
-
-    emitStarted: function() {
-
-        EventManager.emit(
-            "puzzleStarted",
-            this.puzzle
-        );
-
-
-        EventManager.emit(
-            "activityPlaying"
-        );
-
-    },
-
-
-    // =====================================
-    // SHUFFLE
-    // =====================================
-
-    shuffle: function(
-        array
-    ) {
-
-        if (
-            !Array.isArray(
-                array
-            )
-        ) {
-
-            return [];
-
-        }
-
-
-        const list =
-            [...array];
-
-
-        for (
-            let i =
-                list.length - 1;
-
-            i > 0;
-
-            i--
-
-        ) {
-
-            const j =
-                Math.floor(
-
-                    Math.random()
-                    * (
-                        i + 1
-                    )
-
-                );
-
-
-            [
-
-                list[i],
-
-                list[j]
-
-            ] = [
-
-                list[j],
-
-                list[i]
-
-            ];
-
-        }
-
-
-        return list;
-
     }
 
 };
@@ -1945,5 +2337,5 @@ window.PuzzleEngine =
 // =====================================
 
 console.log(
-    "Puzzle Engine v1.5 Ready"
+    "Puzzle Engine v2.3 Ready"
 );

@@ -9,7 +9,10 @@
         Tahouri Edu Platform
     </title>
 
-    <link rel="stylesheet" href="style.css">
+    <link
+        rel="stylesheet"
+        href="style.css"
+    >
 
 </head>
 
@@ -85,15 +88,51 @@
 
 
 <!-- ============================= -->
+<!-- QUESTION PROVIDERS -->
+<!-- ============================= -->
+
+<script src="engine/question/quizProvider.js"></script>
+
+<script src="engine/question/memoryProvider.js"></script>
+
+<script src="engine/question/puzzleProvider.js"></script>
+
+<script src="engine/question/questionProvider.js"></script>
+
+
+<!-- ============================= -->
+<!-- PUZZLE TYPE SYSTEM -->
+<!-- ============================= -->
+
+<script src="engine/activity/puzzleTypes/puzzleTypeRegistry.js"></script>
+
+<script src="engine/activity/puzzleTypes/sequencePuzzle.js"></script>
+
+<script src="engine/activity/puzzleTypes/orderingPuzzle.js"></script>
+
+<script src="engine/activity/puzzleTypes/visualMathPuzzle.js"></script>
+
+<script src="engine/activity/puzzleTypes/inputOutputPuzzle.js"></script>
+
+<script src="engine/activity/puzzleTypes/sentencePuzzle.js"></script>
+
+<script src="engine/activity/puzzleTypes/gridPuzzle.js"></script>
+
+<script src="engine/activity/puzzleTypes/wordGridPuzzle.js"></script>
+
+<script src="engine/activity/puzzleTypes/crossGridPuzzle.js"></script>
+
+
+<!-- ============================= -->
 <!-- ACTIVITY ENGINES -->
 <!-- ============================= -->
-<script src="engine/question/questionProvider.js"></script>
+
+<script src="engine/activity/puzzleEngine.js"></script>
 
 <script src="engine/activity/quizEngine.js"></script>
 
 <script src="engine/activity/memoryEngine.js"></script>
 
-<script src="engine/activity/puzzleEngine.js"></script>
 
 <!-- ============================= -->
 <!-- ENGINE MANAGER -->
@@ -125,9 +164,12 @@
 <!-- ============================= -->
 <!-- USER INTERFACE -->
 <!-- ============================= -->
+
 <script src="engine/ui/difficultyModal.js"></script>
 
 <script src="engine/ui/puzzleScreen.js"></script>
+
+<script src="engine/ui/quizScreen.js"></script>
 
 <script src="engine/ui/screen.js"></script>
 
@@ -138,6 +180,8 @@
 <script src="engine/ui/activityScreen.js"></script>
 
 <script src="engine/ui/components.js"></script>
+
+<script src="engine/ui/memoryScreen.js"></script>
 
 
 <!-- ============================= -->
