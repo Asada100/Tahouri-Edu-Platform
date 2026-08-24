@@ -1,365 +1,260 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 4.5
+// Version 5.1
 // Screen Manager
-// Home + Grades + Profile
-// Continue Learning Navigation Fix
+//
+// Responsibilities:
+// - Home
+// - Grades
+// - Subjects
+// - Chapters
+// - Activity List Bridge
+// - Dashboard Bridge
+// - Reports Bridge
+// - Finish Bridge
+// - Profile Bridge
+//
+// Activity rendering is handled by
+// Activity-specific Screens.
 // =====================================
-
 
 
 const Screen = {
 
 
-
     // =====================================
-    // Home Screen
+    // HOME SCREEN
     // =====================================
-
 
     showHome: function () {
 
-
-
         const app =
-            document.getElementById("app");
-
+            document.getElementById(
+                "app"
+            );
 
 
         if (!app) {
-
-
 
             console.error(
                 "App Container Not Found"
             );
 
-
-
             return;
-
 
         }
 
 
-
         app.innerHTML = `
 
+            <div class="screen">
 
+                <h1>
+                    پلتفرم آموزشی طهوری
+                </h1>
 
-<div class="screen">
 
+                <p>
+                    به مرکز کنترل پلتفرم خوش آمدید
+                </p>
 
 
-    <h1>
+                <hr>
 
 
-        پلتفرم آموزشی طهوری
+                <div class="home-buttons">
 
+                    <button
+                        id="continueLearningBtn">
 
-    </h1>
+                        ▶ ادامه یادگیری
 
+                    </button>
 
 
-    <p>
+                    <button
+                        id="gradesBtn">
 
+                        🎓 انتخاب پایه
 
-        به مرکز کنترل پلتفرم خوش آمدید
+                    </button>
 
 
-    </p>
+                    <button
+                        id="profileBtn">
 
+                        👤 پروفایل من
 
+                    </button>
 
-    <hr>
 
+                    <button
+                        id="dashboardBtn">
 
+                        📊 داشبورد
 
-    <div class="home-buttons">
+                    </button>
 
 
+                    <button
+                        id="reportsBtn">
 
-        <button
-            id="continueLearningBtn">
+                        📈 گزارش‌ها
 
+                    </button>
 
-            ▶ ادامه یادگیری
 
+                    <button
+                        id="achievementBtn">
 
-        </button>
+                        🏆 دستاوردها
 
+                    </button>
 
 
-        <button
-            id="gradesBtn">
+                    <button
+                        id="settingsBtn">
 
+                        ⚙ تنظیمات
 
-            🎓 انتخاب پایه
+                    </button>
 
+                </div>
 
-        </button>
-
-
-
-        <button
-            id="profileBtn">
-
-
-            👤 پروفایل من
-
-
-        </button>
-
-
-
-        <button
-            id="dashboardBtn">
-
-
-            📊 داشبورد
-
-
-        </button>
-
-
-
-        <button
-            id="reportsBtn">
-
-
-            📈 گزارش‌ها
-
-
-        </button>
-
-
-
-        <button
-            id="achievementBtn">
-
-
-            🏆 دستاوردها
-
-
-        </button>
-
-
-
-        <button
-            id="settingsBtn">
-
-
-            ⚙ تنظیمات
-
-
-        </button>
-
-
-
-    </div>
-
-
-
-</div>
-
-
+            </div>
 
         `;
 
 
-
-        // ============================
-        // Grades
-        // ============================
-
+        // =================================
+        // GRADES
+        // =================================
 
         document
-            .getElementById("gradesBtn")
-            .onclick = function () {
+            .getElementById(
+                "gradesBtn"
+            )
+            .onclick =
+                function () {
+
+                    Screen.showGrades();
+
+                };
 
 
-
-                Screen.showGrades();
-
-
-
-            };
-
-
-
-        // ============================
-        // Profile
-        // ============================
-
+        // =================================
+        // PROFILE
+        // =================================
 
         document
-            .getElementById("profileBtn")
-            .onclick = function () {
+            .getElementById(
+                "profileBtn"
+            )
+            .onclick =
+                function () {
+
+                    Screen.showProfile();
+
+                };
 
 
-
-                Screen.showProfile();
-
-
-
-            };
-
-
-
-        // ============================
-        // Dashboard
-        // ============================
-
+        // =================================
+        // DASHBOARD
+        // =================================
 
         document
-            .getElementById("dashboardBtn")
-            .onclick = function () {
+            .getElementById(
+                "dashboardBtn"
+            )
+            .onclick =
+                function () {
+
+                    Navigation.openDashboard();
+
+                };
 
 
-
-                Navigation.openDashboard();
-
-
-
-            };
-
-
-
-        // ============================
-        // Reports
-        // ============================
-
+        // =================================
+        // REPORTS
+        // =================================
 
         document
-            .getElementById("reportsBtn")
-            .onclick = function () {
+            .getElementById(
+                "reportsBtn"
+            )
+            .onclick =
+                function () {
+
+                    if (
+                        typeof ReportsController !==
+                        "undefined"
+                    ) {
+
+                        ReportsController.open();
+
+                    }
+
+                };
 
 
-
-                if (
-                    typeof ReportsController !==
-                    "undefined"
-                ) {
-
-
-
-                    ReportsController.open();
-
-
-
-                }
-
-
-
-            };
-
-
-
-        // ============================
-        // Continue Learning
-        // ============================
-
+        // =================================
+        // CONTINUE LEARNING
+        // =================================
 
         document
-            .getElementById("continueLearningBtn")
-            .onclick = function () {
+            .getElementById(
+                "continueLearningBtn"
+            )
+            .onclick =
+                function () {
+
+                    if (
+                        typeof ActivityHistory ===
+                        "undefined"
+                    ) {
+
+                        alert(
+                            "سیستم سابقه فعالیت در دسترس نیست."
+                        );
+
+                        return;
+
+                    }
 
 
-
-                // ============================
-                // Check Activity History
-                // ============================
+                    const activity =
+                        ActivityHistory.get();
 
 
-                if (
-                    typeof ActivityHistory ===
-                    "undefined"
-                ) {
+                    if (!activity) {
+
+                        alert(
+                            "هنوز فعالیتی برای ادامه وجود ندارد."
+                        );
+
+                        return;
+
+                    }
 
 
+                    if (
+                        typeof ContentLockManager !==
+                        "undefined"
 
-                    alert(
-                        "سیستم سابقه فعالیت در دسترس نیست."
-                    );
+                        &&
 
+                        !ContentLockManager.canOpen(
+                            activity.id
+                        )
+                    ) {
 
+                        alert(
+                            "این فعالیت در حال حاضر قفل است."
+                        );
 
-                    return;
+                        return;
 
-
-                }
-
-
-
-                const activity =
-                    ActivityHistory.get();
-
-
-
-                // ============================
-                // No Activity
-                // ============================
-
-
-                if (!activity) {
-
-
-
-                    alert(
-                        "هنوز فعالیتی برای ادامه وجود ندارد."
-                    );
-
-
-
-                    return;
-
-
-                }
-
-
-
-                // ============================
-                // Check Content Lock
-                // ============================
-
-
-                if (
-                    typeof ContentLockManager !==
-                    "undefined"
-                    &&
-                    !ContentLockManager.canOpen(
-                        activity.id
-                    )
-                ) {
-
-
-
-                    alert(
-                        "این فعالیت در حال حاضر قفل است."
-                    );
-
-
-
-                    return;
-
-
-                }
-
-
-
-                // ============================
-                // Activity Manager
-                // ============================
-
-
-                if (
-                    typeof ActivityManager !==
-                    "undefined"
-                    &&
-                    typeof ActivityManager.load ===
-                    "function"
-                ) {
-
+                    }
 
 
                     console.log(
@@ -368,372 +263,276 @@ const Screen = {
                     );
 
 
-
                     // =================================
-                    // Restore Full Navigation History
+                    // RESTORE NAVIGATION
                     // =================================
-                    //
-                    // مسیر واقعی فعالیت را دوباره
-                    // در Navigation ایجاد می‌کنیم:
-                    //
-                    // Grade
-                    //   ↓
-                    // Subject
-                    //   ↓
-                    // Chapter
-                    //   ↓
-                    // Activity
-                    //
-                    // این باعث می‌شود بعد از پایان
-                    // فعالیت، دکمه بازگشت کار کند.
-                    // =================================
-
 
                     if (
                         typeof Navigation !==
                         "undefined"
                     ) {
 
-
-
-                        if (activity.grade) {
-
-
+                        if (
+                            activity.grade
+                        ) {
 
                             Navigation.selectGrade(
                                 activity.grade
                             );
 
-
-
                         }
 
 
-
-                        if (activity.subject) {
-
-
+                        if (
+                            activity.subject
+                        ) {
 
                             Navigation.selectSubject(
                                 activity.subject
                             );
 
-
-
                         }
 
 
-
-                        if (activity.chapter) {
-
-
+                        if (
+                            activity.chapter
+                        ) {
 
                             Navigation.selectChapter(
                                 activity.chapter
                             );
 
-
-
                         }
-
 
 
                         Navigation.selectActivity(
                             activity.id
                         );
 
+                    }
 
+
+                    // =================================
+                    // START ACTIVITY
+                    // =================================
+
+                    if (
+                        typeof App !==
+                        "undefined"
+
+                        &&
+
+                        typeof App.startActivity ===
+                        "function"
+                    ) {
+
+                        App.startActivity(
+                            activity
+                        );
+
+                        return;
 
                     }
 
 
-
-                    // ============================
-                    // Load Activity
-                    // ============================
-
-
-                    ActivityManager.load(
-                        activity
+                    console.error(
+                        "App.startActivity Not Available"
                     );
 
+                };
 
 
-                    return;
-
-
-                }
-
-
-
-                console.error(
-                    "ActivityManager Not Available"
-                );
-
-
-            };
-
-
-
-        // ============================
-        // Achievement
-        // ============================
-
+        // =================================
+        // ACHIEVEMENTS
+        // =================================
 
         document
-            .getElementById("achievementBtn")
-            .onclick = function () {
+            .getElementById(
+                "achievementBtn"
+            )
+            .onclick =
+                function () {
+
+                    alert(
+                        "در نسخه بعدی فعال می‌شود."
+                    );
+
+                };
 
 
-
-                alert(
-                    "در نسخه بعدی فعال می‌شود."
-                );
-
-
-
-            };
-
-
-
-        // ============================
-        // Settings
-        // ============================
-
+        // =================================
+        // SETTINGS
+        // =================================
 
         document
-            .getElementById("settingsBtn")
-            .onclick = function () {
+            .getElementById(
+                "settingsBtn"
+            )
+            .onclick =
+                function () {
 
+                    alert(
+                        "در نسخه بعدی فعال می‌شود."
+                    );
 
-
-                alert(
-                    "در نسخه بعدی فعال می‌شود."
-                );
-
-
-
-            };
-
+                };
 
 
         console.log(
             "Home Screen Displayed"
         );
 
-
-
     },
 
 
-
     // =====================================
-    // Profile Screen
+    // PROFILE SCREEN
     // =====================================
-
 
     showProfile: function () {
-
-
 
         if (
             typeof ProfileScreen ===
             "undefined"
         ) {
 
-
-
             console.error(
                 "ProfileScreen Not Found"
             );
 
-
-
             return;
-
 
         }
 
 
-
         ProfileScreen.show();
-
 
 
         console.log(
             "Profile Screen Opened"
         );
 
-
-
     },
 
 
-
     // =====================================
-    // Grades Screen
+    // GRADES SCREEN
     // =====================================
-
 
     showGrades: function () {
 
-
-
         const app =
-            document.getElementById("app");
+            document.getElementById(
+                "app"
+            );
 
+
+        if (!app) {
+
+            console.error(
+                "App Container Not Found"
+            );
+
+            return;
+
+        }
 
 
         app.innerHTML = `
 
+            <div class="screen">
 
+                <h1>
+                    پلتفرم آموزشی طهوری
+                </h1>
 
-<div class="screen">
 
+                <h2>
+                    انتخاب پایه
+                </h2>
 
 
-<h1>
+                <div id="gradesContainer">
 
+                    ${
+                        grades
+                            .map(
+                                function (grade) {
 
+                                    return `
 
-پلتفرم آموزشی طهوری
+                                        <button
+                                            class="gradeBtn"
+                                            data-id="${grade.id}">
 
+                                            ${grade.title}
 
+                                        </button>
 
-</h1>
+                                    `;
 
+                                }
+                            )
+                            .join("")
+                    }
 
+                </div>
 
-<h2>
 
+                <br>
 
 
-انتخاب پایه
+                <button
+                    id="backHomeBtn">
 
+                    🏠 بازگشت به خانه
 
+                </button>
 
-</h2>
+            </div>
 
-
-
-<div id="gradesContainer">
-
-
-
-${grades.map(function (grade) {
-
-
-
-return `
-
-
-
-<button
-
-
-
-class="gradeBtn"
-
-
-
-data-id="${grade.id}">
-
-
-
-${grade.title}
-
-
-
-</button>
-
-
-
-`;
-
-
-
-}).join("")}
-
-
-
-</div>
-
-
-
-<br>
-
-
-
-<button
-id="backHomeBtn">
-
-
-
-🏠 بازگشت به خانه
-
-
-
-</button>
-
-
-
-</div>
-
-
-
-`;
-
+        `;
 
 
         document
-            .querySelectorAll(".gradeBtn")
-            .forEach(function (btn) {
+            .querySelectorAll(
+                ".gradeBtn"
+            )
+            .forEach(
+                function (btn) {
+
+                    btn.onclick =
+                        function () {
+
+                            const gradeId =
+                                this.dataset.id;
 
 
-
-                btn.onclick = function () {
-
-
-
-                    const gradeId =
-                        this.dataset.id;
+                            Navigation.selectGrade(
+                                gradeId
+                            );
 
 
+                            Screen.showSubjects(
+                                gradeId
+                            );
 
-                    Navigation.selectGrade(
-                        gradeId
-                    );
+                        };
 
-
-
-                    Screen.showSubjects(
-                        gradeId
-                    );
-
-
-
-                };
-
-
-
-            });
-
+                }
+            );
 
 
         document
             .getElementById(
                 "backHomeBtn"
             )
-            .onclick = function () {
+            .onclick =
+                function () {
 
+                    Screen.showHome();
 
-
-                Screen.showHome();
-
-
-
-            };
-
+                };
 
 
         console.log(
@@ -741,1136 +540,428 @@ id="backHomeBtn">
             grades.length
         );
 
-
-
     },
 
 
-
     // =====================================
-    // Subjects Screen
+    // SUBJECTS SCREEN
     // =====================================
 
-
-    showSubjects: function (gradeId) {
-
-
+    showSubjects: function (
+        gradeId
+    ) {
 
         const app =
-            document.getElementById("app");
+            document.getElementById(
+                "app"
+            );
 
+
+        if (!app) {
+
+            console.error(
+                "App Container Not Found"
+            );
+
+            return;
+
+        }
 
 
         const gradeSubjects =
-            subjects.filter(function (subject) {
+            subjects.filter(
+                function (subject) {
 
+                    return (
+                        subject.grades.includes(
+                            gradeId
+                        )
+                    );
 
-
-                return subject.grades.includes(
-                    gradeId
-                );
-
-
-
-            });
-
+                }
+            );
 
 
         app.innerHTML = `
 
+            <div class="screen">
+
+                <h1>
+                    انتخاب درس
+                </h1>
 
 
-<div class="screen">
+                <div id="subjectsContainer">
+
+                    ${
+                        gradeSubjects
+                            .map(
+                                function (subject) {
+
+                                    return `
+
+                                        <button
+                                            class="subjectBtn"
+                                            data-id="${subject.id}">
+
+                                            ${subject.title}
+
+                                        </button>
+
+                                    `;
+
+                                }
+                            )
+                            .join("")
+                    }
+
+                </div>
 
 
-
-<h1>
-
+                <br>
 
 
-انتخاب درس
+                <button
+                    id="backGradesBtn">
 
+                    ⬅ بازگشت به پایه‌ها
 
+                </button>
 
-</h1>
+            </div>
 
-
-
-<div id="subjectsContainer">
-
-
-
-${gradeSubjects.map(function(subject){
-
-
-
-return `
-
-
-
-<button
-
-
-
-class="subjectBtn"
-
-
-
-data-id="${subject.id}">
-
-
-
-${subject.title}
-
-
-
-</button>
-
-
-
-`;
-
-
-
-}).join("")}
-
-
-
-</div>
-
-
-
-<br>
-
-
-
-<button
-id="backGradesBtn">
-
-
-
-⬅ بازگشت به پایه‌ها
-
-
-
-</button>
-
-
-
-</div>
-
-
-
-`;
-
+        `;
 
 
         document
-            .querySelectorAll(".subjectBtn")
-            .forEach(function (btn) {
+            .querySelectorAll(
+                ".subjectBtn"
+            )
+            .forEach(
+                function (btn) {
+
+                    btn.onclick =
+                        function () {
+
+                            const subjectId =
+                                this.dataset.id;
 
 
-
-                btn.onclick = function () {
-
-
-
-                    const subjectId =
-                        this.dataset.id;
+                            Navigation.selectSubject(
+                                subjectId
+                            );
 
 
+                            Screen.showChapters(
+                                gradeId,
+                                subjectId
+                            );
 
-                    Navigation.selectSubject(
-                        subjectId
-                    );
+                        };
 
-
-
-                    Screen.showChapters(
-                        gradeId,
-                        subjectId
-                    );
-
-
-
-                };
-
-
-
-            });
-
+                }
+            );
 
 
         document
             .getElementById(
                 "backGradesBtn"
             )
-            .onclick = function () {
+            .onclick =
+                function () {
 
+                    Screen.showGrades();
 
-
-                Screen.showGrades();
-
-
-
-            };
-
-
+                };
 
     },
 
 
-
     // =====================================
-    // Chapters Screen
+    // CHAPTERS SCREEN
     // =====================================
-
 
     showChapters: function (
         gradeId,
         subjectId
     ) {
 
-
-
         const app =
-            document.getElementById("app");
+            document.getElementById(
+                "app"
+            );
 
+
+        if (!app) {
+
+            console.error(
+                "App Container Not Found"
+            );
+
+            return;
+
+        }
 
 
         const subjectChapters =
-            chapters.filter(function (chapter) {
+            chapters.filter(
+                function (chapter) {
 
+                    return (
 
+                        chapter.grade ===
+                        gradeId
 
-                return (
+                        &&
 
+                        chapter.subject ===
+                        subjectId
 
+                    );
 
-                    chapter.grade === gradeId &&
-
-
-
-                    chapter.subject === subjectId
-
-
-
-                );
-
-
-
-            });
-
+                }
+            );
 
 
         app.innerHTML = `
 
+            <div class="screen">
+
+                <h1>
+                    انتخاب فصل
+                </h1>
 
 
-<div class="screen">
+                <div id="chaptersContainer">
+
+                    ${
+                        subjectChapters
+                            .map(
+                                function (chapter) {
+
+                                    return `
+
+                                        <button
+                                            class="chapterBtn"
+                                            data-id="${chapter.id}">
+
+                                            ${chapter.title}
+
+                                        </button>
+
+                                    `;
+
+                                }
+                            )
+                            .join("")
+                    }
+
+                </div>
 
 
-
-<h1>
-
+                <br>
 
 
-انتخاب فصل
+                <button
+                    id="backSubjectsBtn">
 
+                    ⬅ بازگشت به درس‌ها
 
+                </button>
 
-</h1>
+            </div>
 
-
-
-<div id="chaptersContainer">
-
-
-
-${subjectChapters.map(function(chapter){
-
-
-
-return `
-
-
-
-<button
-
-
-
-class="chapterBtn"
-
-
-
-data-id="${chapter.id}">
-
-
-
-${chapter.title}
-
-
-
-</button>
-
-
-
-`;
-
-
-
-}).join("")}
-
-
-
-</div>
-
-
-
-<br>
-
-
-
-<button
-id="backSubjectsBtn">
-
-
-
-⬅ بازگشت به درس‌ها
-
-
-
-</button>
-
-
-
-</div>
-
-
-
-`;
-
+        `;
 
 
         document
-            .querySelectorAll(".chapterBtn")
-            .forEach(function (btn) {
+            .querySelectorAll(
+                ".chapterBtn"
+            )
+            .forEach(
+                function (btn) {
+
+                    btn.onclick =
+                        function () {
+
+                            const chapterId =
+                                this.dataset.id;
 
 
-
-                btn.onclick = function () {
-
-
-
-                    const chapterId =
-                        this.dataset.id;
+                            Navigation.selectChapter(
+                                chapterId
+                            );
 
 
+                            Screen.showActivities(
+                                gradeId,
+                                subjectId,
+                                chapterId
+                            );
 
-                    Navigation.selectChapter(
-                        chapterId
-                    );
+                        };
 
-
-
-                    Screen.showActivities(
-                        gradeId,
-                        subjectId,
-                        chapterId
-                    );
-
-
-
-                };
-
-
-
-            });
-
+                }
+            );
 
 
         document
             .getElementById(
                 "backSubjectsBtn"
             )
-            .onclick = function () {
-
-
-
-                Screen.showSubjects(
-                    gradeId
-                );
-
-
-
-            };
-
-
-
-    },
-
-
-
-    // =====================================
-    // Activities Screen
-    // =====================================
-
-
-    showActivities: function (
-
-
-        gradeId,
-
-
-        subjectId,
-
-
-        chapterId
-
-
-    ) {
-
-
-
-        const app =
-            document.getElementById("app");
-
-
-
-        const chapterActivities =
-            activities.filter(function(activity){
-
-
-
-                return (
-
-
-
-                    activity.grade === gradeId &&
-
-
-
-                    activity.subject === subjectId &&
-
-
-
-                    activity.chapter === chapterId
-
-
-
-                );
-
-
-
-            });
-
-
-
-        app.innerHTML = `
-
-
-
-<div class="screen">
-
-
-
-<h1>
-
-
-
-انتخاب فعالیت
-
-
-
-</h1>
-
-
-
-<div id="activitiesContainer">
-
-
-
-${chapterActivities.map(function(activity){
-
-
-
-const locked =
-
-
-
-ContentLockManager.isLocked(
-    activity.id
-);
-
-
-
-return `
-
-
-
-<button
-
-
-
-class="activityBtn"
-
-
-
-data-id="${activity.id}"
-
-
-
-${locked ? "disabled" : ""}>
-
-
-
-${locked ? "🔒" : "🎮"}
-
-
-
-${activity.title}
-
-
-
-</button>
-
-
-
-`;
-
-
-
-}).join("")}
-
-
-
-</div>
-
-
-
-<br>
-
-
-
-<button
-id="backChaptersBtn">
-
-
-
-⬅ بازگشت به فصل‌ها
-
-
-
-</button>
-
-
-
-</div>
-
-
-
-`;
-
-
-
-        document
-            .querySelectorAll(".activityBtn")
-            .forEach(function(btn){
-
-
-
-                btn.onclick = function(){
-
-
-
-                    const activityId =
-                        this.dataset.id;
-
-
-
-                    if(
-
-
-
-                        !ContentLockManager.canOpen(
-                            activityId
-                        )
-
-
-
-                    ){
-
-
-
-                        alert(
-                            "این فعالیت هنوز قفل است."
-                        );
-
-
-
-                        return;
-
-
-
-                    }
-
-
-
-                    Navigation.selectActivity(
-                        activityId
+            .onclick =
+                function () {
+
+                    Screen.showSubjects(
+                        gradeId
                     );
-
-
-
-                    const activity =
-
-
-
-                    activities.find(function(item){
-
-
-
-                        return item.id === activityId;
-
-
-
-                    });
-
-
-
-                    ActivityManager.load(
-                        activity
-                    );
-
-
 
                 };
 
-
-
-            });
-
-
-
-        document
-            .getElementById(
-                "backChaptersBtn"
-            )
-            .onclick = function(){
-
-
-
-                Screen.showChapters(
-
-
-
-                    gradeId,
-
-
-
-                    subjectId
-
-
-
-                );
-
-
-
-            };
-
-
-
     },
 
 
-
     // =====================================
-    // Quiz Screen
-    // =====================================
-
-
-    showQuiz: function(data){
-
-
-
-        const app =
-            document.getElementById("app");
-
-
-
-        app.innerHTML = `
-
-
-
-<div class="quizScreen">
-
-
-
-    <h1>
-
-
-
-        پلتفرم آموزشی طهوری
-
-
-
-    </h1>
-
-
-
-    <h2>
-
-
-
-        ${data.title}
-
-
-
-    </h2>
-
-
-
-    <div class="scoreBox">
-
-
-
-        امتیاز:
-        ${data.score}
-
-
-
-    </div>
-
-
-
-    <div class="questionBox">
-
-
-
-        سؤال
-        ${data.currentQuestion}
-
-
-
-        از
-
-
-
-        ${data.totalQuestions}
-
-
-
-    </div>
-
-
-
-    <h2>
-
-
-
-        ${data.question.text}
-
-
-
-    </h2>
-
-
-
-    <button id="evenBtn">
-
-
-
-        زوج
-
-
-
-    </button>
-
-
-
-    <button id="oddBtn">
-
-
-
-        فرد
-
-
-
-    </button>
-
-
-
-    <div id="messageBox"></div>
-
-
-
-</div>
-
-
-
-        `;
-
-
-
-    },
-
-
-
-    // =====================================
-    // Memory Screen
+    // ACTIVITIES SCREEN BRIDGE
     // =====================================
 
-
-    showMemory: function(data){
-
-
-
-        const app =
-            document.getElementById("app");
-
-
-
-        app.innerHTML = `
-
-
-
-<div class="memoryScreen">
-
-
-
-<h1>
-
-
-
-پلتفرم آموزشی طهوری
-
-
-
-</h1>
-
-
-
-<hr>
-
-
-
-<h2>
-
-
-
-${data.title}
-
-
-
-</h2>
-
-
-
-<div class="scoreBox">
-
-
-
-امتیاز:
-
-
-
-${ScoreManager.score}
-
-
-
-</div>
-
-
-
-<div class="memoryBoard">
-
-
-
-${data.cards.map(function(card){
-
-
-
-return `
-
-
-
-<button
-
-
-
-class="memoryCard"
-
-
-
-data-id="${card.id}">
-
-
-
-${
-
-
-
-card.flipped ||
-
-
-
-card.matched
-
-
-
-?
-
-
-
-card.value
-
-
-
-:
-
-
-
-"❓"
-
-
-
-}
-
-
-
-</button>
-
-
-
-`;
-
-
-
-}).join("")}
-
-
-
-</div>
-
-
-
-</div>
-
-
-
-`;
-
-
-
-    },
-
-
-
-    // =====================================
-    // Dashboard Screen
-    // =====================================
-
-
-    showDashboard: function(){
-
-
-
-        Navigation.openDashboard();
-
-
-
-    },
-
-
-
-    // =====================================
-    // Reports Screen
-    // =====================================
-
-
-    showReports: function(){
-
-
-
-        if(
-
-
-
-            typeof ReportsController !==
+    showActivities: function (
+        gradeId,
+        subjectId,
+        chapterId
+    ) {
+
+        if (
+            typeof ActivityScreen ===
             "undefined"
+        ) {
 
-
-
-        ){
-
-
-
-            ReportsController.open();
-
-
-
-        }
-
-
-
-    },
-
-
-
-    // =====================================
-    // Message
-    // =====================================
-
-
-    showMessage: function(
-
-
-
-        message,
-
-
-
-        type
-
-
-
-    ){
-
-
-
-        const box =
-
-
-
-            document.getElementById(
-
-
-
-                "messageBox"
-
-
-
+            console.error(
+                "ActivityScreen Not Available"
             );
-
-
-
-        if(!box){
-
-
 
             return;
 
-
-
         }
 
 
+        const chapterActivities =
+            activities.filter(
+                function (activity) {
 
-        box.innerHTML =
-            message;
+                    return (
+
+                        activity.grade ===
+                        gradeId
+
+                        &&
+
+                        activity.subject ===
+                        subjectId
+
+                        &&
+
+                        activity.chapter ===
+                        chapterId
+
+                    );
+
+                }
+            );
 
 
+        console.log(
+            "Screen Activity Bridge:",
+            chapterActivities.length
+        );
 
-        box.className =
-            type;
 
-
+        ActivityScreen.show(
+            chapterActivities
+        );
 
     },
 
 
+    // =====================================
+    // DASHBOARD BRIDGE
+    // =====================================
+
+    showDashboard: function () {
+
+        Navigation.openDashboard();
+
+    },
+
 
     // =====================================
-    // Finish Screen
+    // REPORTS BRIDGE
     // =====================================
 
+    showReports: function () {
 
-    showFinish: function(result){
+        if (
+            typeof ReportsController !==
+            "undefined"
+        ) {
+
+            ReportsController.open();
+
+        }
+
+    },
 
 
+    // =====================================
+    // FINISH BRIDGE
+    // =====================================
+
+    showFinish: function (
+        result
+    ) {
 
         console.log(
-
-
-
             "SHOW FINISH",
-
-
-
             result
-
-
-
         );
 
 
+        if (
+            typeof ResultModal !==
+            "undefined"
+        ) {
 
-        ResultModal.show(
+            ResultModal.show(
+                result
+            );
 
+        }
 
+        else {
 
-            result
+            console.error(
+                "ResultModal Not Available"
+            );
 
-
-
-        );
-
-
+        }
 
     }
-
-
 
 };
 
 
-
 // =====================================
-// Global Access
+// GLOBAL ACCESS
 // =====================================
-
 
 window.Screen =
     Screen;
 
 
-
 // =====================================
-// Ready
+// READY
 // =====================================
-
 
 console.log(
-
-
-
-    "Screen Manager Ready"
-
-
-
+    "Screen Manager v5.1 Ready"
 );
-// =====================================
-// Puzzle Screen Bridge
-// =====================================
-
-Screen.showPuzzle = function (state) {
-
-    if (
-        typeof PuzzleScreen !==
-        "undefined"
-    ) {
-
-        PuzzleScreen.show(
-            state
-        );
-
-    }
-    else {
-
-        console.error(
-            "PuzzleScreen Not Available"
-        );
-
-    }
-
-};

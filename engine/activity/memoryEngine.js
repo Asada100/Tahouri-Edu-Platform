@@ -1,10 +1,14 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 3.2
+// Version 3.3
 // Memory Engine
 // QuestionProvider Integration
 // Activity Result Compatible
 // Statistics Compatible
+// MemoryScreen Integration
+//
+// UI Rendering:
+// MemoryEngine -> MemoryScreen
 // =====================================
 
 
@@ -83,7 +87,7 @@ const MemoryEngine = {
                 "Memory Engine: QuestionProvider Not Available"
             );
 
-            return;
+            return null;
 
         }
 
@@ -111,7 +115,7 @@ const MemoryEngine = {
                 error
             );
 
-            return;
+            return null;
 
         }
 
@@ -129,7 +133,7 @@ const MemoryEngine = {
                 "Memory Engine: No Memory Cards Available"
             );
 
-            return;
+            return null;
 
         }
 
@@ -142,7 +146,7 @@ const MemoryEngine = {
                 "Memory Engine: Card Count Must Be Even"
             );
 
-            return;
+            return null;
 
         }
 
@@ -232,6 +236,9 @@ const MemoryEngine = {
         EventManager.emit(
             "activityPlaying"
         );
+
+
+        return this.getCards();
 
     },
 
@@ -442,6 +449,7 @@ const MemoryEngine = {
 
             }
 
+
             return;
 
         }
@@ -648,6 +656,7 @@ const MemoryEngine = {
             result
         );
 
+
     },
 
 
@@ -666,7 +675,21 @@ const MemoryEngine = {
         }
 
 
-        Screen.showMemory({
+        if (
+            typeof MemoryScreen ===
+            "undefined"
+        ) {
+
+            console.error(
+                "Memory Engine: MemoryScreen Not Available"
+            );
+
+            return;
+
+        }
+
+
+        MemoryScreen.show({
 
             title:
 
@@ -678,9 +701,6 @@ const MemoryEngine = {
                 this.cards
 
         });
-
-
-        Components.bindMemoryCards();
 
     },
 
@@ -711,5 +731,5 @@ window.MemoryEngine =
 // =====================================
 
 console.log(
-    "Memory Engine v3.2 Ready"
+    "Memory Engine v3.3 Ready"
 );

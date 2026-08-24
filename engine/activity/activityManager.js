@@ -1,10 +1,41 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 5.4
+// Version 6.0
 // Activity Manager
-// Dynamic Activity Configuration
-// Async Quiz + Memory + Puzzle Support
-// Difficulty Preservation
+//
+// Responsibilities:
+// - Activity Loading
+// - Activity Config Loading
+// - Settings Merge
+// - Difficulty Preservation
+// - Engine Resolution
+// - Engine Start
+// - Activity Lifecycle
+// - Activity Ready Event
+//
+// Architecture:
+// UI is no longer rendered here.
+//
+// Flow:
+// UI
+// ↓
+// App.startActivity()
+// ↓
+// ActivityManager.load()
+// ↓
+// EngineManager
+// ↓
+// Engine
+// ↓
+// activityReady
+// ↓
+// UI Screen
+//
+// Stage 2:
+// Quiz UI separated ✅
+// Puzzle UI separated ✅
+// Memory UI independent ✅
+//
 // =====================================
 
 
@@ -14,10 +45,12 @@ const ActivityManager = {
 
 
     // =====================================
-    // Load Activity
+    // LOAD ACTIVITY
     // =====================================
 
-    load: async function(activityData) {
+    load: async function (
+        activityData
+    ) {
 
         console.log(
             "Loading Activity:",
@@ -31,7 +64,7 @@ const ActivityManager = {
                 "Activity Data Missing"
             );
 
-            return;
+            return null;
 
         }
 
@@ -42,13 +75,13 @@ const ActivityManager = {
 
             activityData.settings.difficulty
 
-            ?
+                ?
 
-            activityData.settings.difficulty
+                activityData.settings.difficulty
 
-            :
+                :
 
-            null;
+                null;
 
 
         this.currentActivity =
@@ -66,7 +99,7 @@ const ActivityManager = {
         );
 
 
-        await this.start(
+        return await this.start(
             activityData,
             selectedDifficulty
         );
@@ -75,168 +108,35 @@ const ActivityManager = {
 
 
     // =====================================
-    // Start Activity
+    // START ACTIVITY
     // =====================================
 
-    start: async function(
+    start: async function (
         activityData,
         selectedDifficulty = null
     ) {
 
-        let fullActivity = {
-            ...activityData
-        };
+        const fullActivity =
+            await this.loadActivityConfig(
+                activityData,
+                selectedDifficulty
+            );
 
 
-        // =====================================
-        // Load activity.json
-        // =====================================
+        if (!fullActivity) {
 
-        if (activityData.path) {
+            console.error(
+                "ActivityManager: Full Activity Could Not Be Prepared"
+            );
 
-            try {
-
-                console.log(
-                    "Loading From:",
-                    activityData.path +
-                    "/activity.json"
-                );
-
-
-                const activityConfig =
-                    await DataManager.loadJSON(
-                        activityData.path +
-                        "/activity.json"
-                    );
-
-
-                console.log(
-                    "Activity Config:",
-                    activityConfig
-                );
-
-
-                // =================================
-                // Settings Merge
-                // =================================
-
-                const baseSettings = {
-
-                    ...(activityConfig &&
-                    activityConfig.settings
-                        ?
-                        activityConfig.settings
-                        :
-                        {})
-
-                };
-
-
-                const activitySettings = {
-
-                    ...(activityData.settings || {})
-
-                };
-
-
-                const mergedSettings = {
-
-                    ...baseSettings,
-
-                    ...activitySettings
-
-                };
-
-
-                // =================================
-                // Preserve Difficulty
-                // =================================
-
-                if (
-                    selectedDifficulty
-                ) {
-
-                    mergedSettings.difficulty =
-                        selectedDifficulty;
-
-                }
-
-
-                // =================================
-                // Full Activity
-                // =================================
-
-                fullActivity = {
-
-                    ...activityConfig,
-
-                    ...activityData,
-
-                    settings:
-                        mergedSettings
-
-                };
-
-
-                console.log(
-                    "Full Activity:",
-                    fullActivity
-                );
-
-
-                console.log(
-                    "Settings:",
-                    fullActivity.settings
-                );
-
-
-                console.log(
-                    "Selected Difficulty:",
-                    fullActivity
-                        .settings
-                        .difficulty
-                        ||
-                        "Not Selected"
-                );
-
-            }
-
-            catch (error) {
-
-                console.warn(
-                    "activity.json Not Found:",
-                    activityData.id
-                );
-
-
-                console.error(
-                    error
-                );
-
-
-                if (
-                    selectedDifficulty
-                ) {
-
-                    fullActivity.settings = {
-
-                        ...(fullActivity.settings || {}),
-
-                        difficulty:
-                            selectedDifficulty
-
-                    };
-
-                }
-
-            }
+            return null;
 
         }
 
 
-        // =====================================
-        // Current Activity
-        // =====================================
+        // =================================
+        // CURRENT ACTIVITY
+        // =================================
 
         this.currentActivity =
             fullActivity;
@@ -247,16 +147,12 @@ const ActivityManager = {
         );
 
 
-        // =====================================
-        // Engine Name
-        // =====================================
+        // =================================
+        // RESOLVE ENGINE
+        // =================================
 
         const engineName =
-
-            fullActivity.engine
-
-            ||
-
+            fullActivity.engine ||
             fullActivity.type;
 
 
@@ -267,8 +163,7 @@ const ActivityManager = {
 
 
         const engine =
-
-            EngineManager.getEngine(
+            this.resolveEngine(
                 engineName
             );
 
@@ -280,7 +175,13 @@ const ActivityManager = {
                 engineName
             );
 
-            return;
+
+            ActivityState.set(
+                "error"
+            );
+
+
+            return null;
 
         }
 
@@ -296,157 +197,338 @@ const ActivityManager = {
         );
 
 
-        // =====================================
-        // Start Engine
-        // =====================================
+        // =================================
+        // START ENGINE
+        // =================================
 
-        const result =
+        let result;
 
-            await engine.start(
-                fullActivity
+
+        try {
+
+            result =
+                await engine.start(
+                    fullActivity
+                );
+
+        }
+
+        catch (error) {
+
+            console.error(
+                "ActivityManager: Engine Start Error:",
+                error
             );
 
 
-        // =====================================
-        // QUIZ
-        // =====================================
-
-        if (
-
-            engineName === "QuizEngine"
-
-            ||
-
-            engineName === "quiz"
-
-        ) {
-
-            if (result) {
-
-                Screen.showQuiz({
-
-                    title:
-                        fullActivity.title,
-
-                    score:
-                        ScoreManager.score,
-
-                    currentQuestion:
-                        engine.currentQuestion + 1,
-
-                    totalQuestions:
-                        engine.questions.length,
-
-                    question:
-                        result
-
-                });
-
-
-                Components.bindQuizButtons();
-
-            }
-
-            else {
-
-                console.error(
-                    "Quiz Engine Returned No Question"
-                );
-
-            }
-
-        }
-
-
-        // =====================================
-        // MEMORY
-        // =====================================
-
-        if (
-
-            engineName === "MemoryEngine"
-
-            ||
-
-            engineName === "memory"
-
-        ) {
-
-            if (
-                engine.refresh
-            ) {
-
-                engine.refresh();
-
-            }
-
-        }
-
-
-        // =====================================
-        // PUZZLE
-        // =====================================
-
-        if (
-
-            engineName === "PuzzleEngine"
-
-            ||
-
-            engineName === "puzzle"
-
-        ) {
-
-            if (!result) {
-
-                console.error(
-                    "Puzzle Engine Returned No Puzzle"
-                );
-
-                return;
-
-            }
-
-
-            console.log(
-                "Puzzle Activity Ready:",
-                result
+            ActivityState.set(
+                "error"
             );
 
 
-            // =================================
-            // Temporary Puzzle Screen
-            // =================================
-
-            if (
-                typeof Screen.showPuzzle ===
-                "function"
-            ) {
-
-                Screen.showPuzzle(
-                    result
-                );
-
-            }
-
-            else {
-
-                console.warn(
-                    "Screen.showPuzzle Not Available"
-                );
-
-            }
+            return null;
 
         }
+
+
+        // =================================
+        // ACTIVITY READY
+        // =================================
+        //
+        // ActivityManager announces that
+        // the Engine prepared the Activity.
+        //
+        // UI decides what to render.
+        // =================================
+
+        this.publishActivityReady(
+            engineName,
+            engine,
+            result,
+            fullActivity
+        );
+
+
+        return result;
 
     },
 
 
     // =====================================
-    // Finish
+    // LOAD ACTIVITY CONFIG
     // =====================================
 
-    finish: function(result) {
+    loadActivityConfig: async function (
+        activityData,
+        selectedDifficulty = null
+    ) {
+
+        let fullActivity = {
+
+            ...activityData
+
+        };
+
+
+        // =================================
+        // NO EXTERNAL CONFIG
+        // =================================
+
+        if (!activityData.path) {
+
+            if (selectedDifficulty) {
+
+                fullActivity.settings = {
+
+                    ...(fullActivity.settings || {}),
+
+                    difficulty:
+                        selectedDifficulty
+
+                };
+
+            }
+
+
+            return fullActivity;
+
+        }
+
+
+        // =================================
+        // LOAD ACTIVITY.JSON
+        // =================================
+
+        try {
+
+            const configPath =
+                activityData.path +
+                "/activity.json";
+
+
+            console.log(
+                "Loading From:",
+                configPath
+            );
+
+
+            const activityConfig =
+                await DataManager.loadJSON(
+                    configPath
+                );
+
+
+            console.log(
+                "Activity Config:",
+                activityConfig
+            );
+
+
+            // =================================
+            // SETTINGS MERGE
+            // =================================
+
+            const baseSettings =
+
+                activityConfig &&
+                activityConfig.settings
+
+                    ?
+
+                    {
+                        ...activityConfig.settings
+                    }
+
+                    :
+
+                    {};
+
+
+            const activitySettings = {
+
+                ...(activityData.settings || {})
+
+            };
+
+
+            const mergedSettings = {
+
+                ...baseSettings,
+
+                ...activitySettings
+
+            };
+
+
+            // =================================
+            // PRESERVE DIFFICULTY
+            // =================================
+
+            if (
+                selectedDifficulty
+            ) {
+
+                mergedSettings.difficulty =
+                    selectedDifficulty;
+
+            }
+
+
+            // =================================
+            // BUILD FULL ACTIVITY
+            // =================================
+
+            fullActivity = {
+
+                ...activityConfig,
+
+                ...activityData,
+
+                settings:
+                    mergedSettings
+
+            };
+
+
+            console.log(
+                "Full Activity:",
+                fullActivity
+            );
+
+
+            console.log(
+                "Settings:",
+                fullActivity.settings
+            );
+
+
+            console.log(
+                "Selected Difficulty:",
+                fullActivity
+                    .settings
+                    .difficulty
+                    ||
+                    "Not Selected"
+            );
+
+        }
+
+        catch (error) {
+
+            console.warn(
+                "activity.json Not Found:",
+                activityData.id
+            );
+
+
+            console.error(
+                error
+            );
+
+
+            if (
+                selectedDifficulty
+            ) {
+
+                fullActivity.settings = {
+
+                    ...(fullActivity.settings || {}),
+
+                    difficulty:
+                        selectedDifficulty
+
+                };
+
+            }
+
+        }
+
+
+        return fullActivity;
+
+    },
+
+
+    // =====================================
+    // RESOLVE ENGINE
+    // =====================================
+
+    resolveEngine: function (
+        engineName
+    ) {
+
+        if (
+            typeof EngineManager ===
+            "undefined"
+        ) {
+
+            console.error(
+                "EngineManager Not Available"
+            );
+
+            return null;
+
+        }
+
+
+        return EngineManager.getEngine(
+            engineName
+        );
+
+    },
+
+
+    // =====================================
+    // PUBLISH ACTIVITY READY
+    // =====================================
+
+    publishActivityReady: function (
+        engineName,
+        engine,
+        result,
+        activity
+    ) {
+
+        const payload = {
+
+            activity:
+                activity,
+
+            engine:
+                engine,
+
+            engineName:
+                engineName,
+
+            result:
+                result
+
+        };
+
+
+        console.log(
+            "Activity Ready:",
+            activity
+                ? activity.id
+                : null
+        );
+
+
+        EventManager.emit(
+            "activityReady",
+            payload
+        );
+
+    },
+
+
+    // =====================================
+    // FINISH
+    // =====================================
+
+    finish: function (
+        result
+    ) {
 
         console.log(
             "Activity Finished",
@@ -468,12 +550,14 @@ const ActivityManager = {
 
 
     // =====================================
-    // Restart
+    // RESTART
     // =====================================
 
-    restart: function() {
+    restart: function () {
 
-        if (!this.currentActivity) {
+        if (
+            !this.currentActivity
+        ) {
 
             console.warn(
                 "No Current Activity"
@@ -490,7 +574,7 @@ const ActivityManager = {
         );
 
 
-        this.load(
+        return this.load(
             this.currentActivity
         );
 
@@ -498,10 +582,10 @@ const ActivityManager = {
 
 
     // =====================================
-    // Current Activity
+    // CURRENT ACTIVITY
     // =====================================
 
-    getCurrent: function() {
+    getCurrent: function () {
 
         return this.currentActivity;
 
@@ -509,10 +593,10 @@ const ActivityManager = {
 
 
     // =====================================
-    // Reset
+    // RESET
     // =====================================
 
-    reset: function() {
+    reset: function () {
 
         this.currentActivity =
             null;
@@ -525,12 +609,29 @@ const ActivityManager = {
 
 
         if (
-            window.PuzzleEngine &&
+            window.PuzzleEngine
+
+            &&
+
             typeof PuzzleEngine.reset ===
             "function"
         ) {
 
             PuzzleEngine.reset();
+
+        }
+
+
+        if (
+            window.QuizScreen
+
+            &&
+
+            typeof QuizScreen.reset ===
+            "function"
+        ) {
+
+            QuizScreen.reset();
 
         }
 
@@ -544,6 +645,18 @@ const ActivityManager = {
 };
 
 
+// =====================================
+// GLOBAL
+// =====================================
+
+window.ActivityManager =
+    ActivityManager;
+
+
+// =====================================
+// READY
+// =====================================
+
 console.log(
-    "Activity Manager Ready"
+    "Activity Manager v6.0 Ready"
 );

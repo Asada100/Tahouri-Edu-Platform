@@ -1,21 +1,42 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 4.0
+// Version 5.1
 // app.js
-// Part 1
+//
+// Compatibility Shell
+//
+// Responsibilities:
+// - Platform startup
+// - Legacy navigation wrappers
+//
+// Main Application Controller:
+// engine/core/appController.js
 // =====================================
+
 
 console.log(
     "Tahouri Edu Platform Started"
 );
 
-const app =
-document.getElementById(
-    "app"
-);
 
 // =====================================
-// Global Data
+// APP CONTAINER
+// =====================================
+
+const app =
+    document.getElementById(
+        "app"
+    );
+
+
+// =====================================
+// GLOBAL DATA
+// =====================================
+//
+// These globals are still preserved because
+// existing Screen / Activity code uses them.
+//
+// Real data loading remains in App.loadData().
 // =====================================
 
 let grades = [];
@@ -26,23 +47,21 @@ let chapters = [];
 
 let activities = [];
 
+
 // =====================================
-// Grades
+// LEGACY NAVIGATION WRAPPERS
 // =====================================
 
-function showGrades(){
+function showGrades() {
 
     Screen.showGrades();
 
 }
 
-// =====================================
-// Subjects
-// =====================================
 
 function showSubjects(
     gradeId
-){
+) {
 
     Screen.showSubjects(
         gradeId
@@ -50,64 +69,53 @@ function showSubjects(
 
 }
 
-// =====================================
-// Chapters
-// =====================================
 
 function showChapters(
-
     gradeId,
-
     subjectId
-
-){
+) {
 
     Screen.showChapters(
-
         gradeId,
-
         subjectId
-
     );
 
 }
 
-// =====================================
-// Activities
-// =====================================
 
 function showActivities(
-
     gradeId,
-
     subjectId,
-
     chapterId
-
-){
+) {
 
     Screen.showActivities(
-
         gradeId,
-
         subjectId,
-
         chapterId
-
     );
 
 }
+
+
 // =====================================
-// Load Activity
+// LEGACY ACTIVITY LOADER
+// =====================================
+//
+// Kept temporarily for compatibility.
+//
+// New UI must use:
+// App.startActivity(activity)
+//
+// This function is NOT the official
+// Activity entry point anymore.
 // =====================================
 
 function loadActivity(
     activity
-){
+) {
 
-    if(
-        !activity
-    ){
+    if (!activity) {
 
         console.error(
             "Activity Not Found"
@@ -117,25 +125,45 @@ function loadActivity(
 
     }
 
-    ActivityManager.load(
-        activity
+
+    if (
+        typeof App !==
+        "undefined"
+        &&
+        typeof App.startActivity ===
+        "function"
+    ) {
+
+        App.startActivity(
+            activity
+        );
+
+        return;
+
+    }
+
+
+    console.error(
+        "App.startActivity Not Available"
     );
 
 }
 
+
 // =====================================
-// Find Activity
+// FIND ACTIVITY
 // =====================================
 
 function getActivityById(
     activityId
-){
+) {
 
     return activities.find(
-        function(item){
+        function (item) {
 
             return (
-                item.id === activityId
+                item.id ===
+                activityId
             );
 
         }
@@ -143,34 +171,44 @@ function getActivityById(
 
 }
 
+
 // =====================================
-// Start Activity
+// LEGACY START ACTIVITY
+// =====================================
+//
+// Kept temporarily so old code does not
+// break.
+//
+// Official path:
+// App.startActivity(activity)
 // =====================================
 
 function startActivity(
     activityId
-){
+) {
 
     const activity =
-    getActivityById(
-        activityId
-    );
+        getActivityById(
+            activityId
+        );
 
-    if(
-        !activity
-    ){
+
+    if (!activity) {
 
         console.error(
-            "Activity Missing"
+            "Activity Missing:",
+            activityId
         );
 
         return;
 
     }
 
+
     Navigation.selectActivity(
         activityId
     );
+
 
     loadActivity(
         activity
@@ -178,70 +216,139 @@ function startActivity(
 
 }
 
+
 // =====================================
-// Restart Activity
+// RESTART ACTIVITY
 // =====================================
 
-function restartActivity(){
+function restartActivity() {
 
-    if(
-        !AppState.activity
-    ){
+    if (
+        typeof App !==
+        "undefined"
+        &&
+        typeof App.restartActivity ===
+        "function"
+    ) {
 
-        console.error(
-            "No Activity Selected"
-        );
+        return App.restartActivity();
+
+    }
+
+
+    console.error(
+        "App.restartActivity Not Available"
+    );
+
+}
+
+
+// =====================================
+// HOME
+// =====================================
+
+function goHome() {
+
+    if (
+        typeof App !==
+        "undefined"
+        &&
+        typeof App.goHome ===
+        "function"
+    ) {
+
+        App.goHome();
 
         return;
 
     }
 
-    startActivity(
-        AppState.activity
-    );
-
-}
-
-// =====================================
-// Home
-// =====================================
-
-function goHome(){
 
     Screen.showHome();
 
 }
 
+
 // =====================================
-// Dashboard
+// DASHBOARD
 // =====================================
 
-function openDashboard(){
+function openDashboard() {
+
+    if (
+        typeof App !==
+        "undefined"
+        &&
+        typeof App.openDashboard ===
+        "function"
+    ) {
+
+        App.openDashboard();
+
+        return;
+
+    }
+
 
     Navigation.openDashboard();
 
 }
 
+
 // =====================================
-// Reports
+// REPORTS
 // =====================================
 
-function openReports(){
+function openReports() {
+
+    if (
+        typeof App !==
+        "undefined"
+        &&
+        typeof App.openReports ===
+        "function"
+    ) {
+
+        App.openReports();
+
+        return;
+
+    }
+
 
     Screen.showReports();
 
 }
 
+
 // =====================================
-// Platform Ready
+// READY
 // =====================================
 
 console.log(
-    "App.js Ready"
+    "App.js Compatibility Shell Ready"
 );
 
+
 // =====================================
-// Start Application
+// START APPLICATION
 // =====================================
 
-App.init();
+if (
+    typeof App !==
+    "undefined"
+    &&
+    typeof App.init ===
+    "function"
+) {
+
+    App.init();
+
+}
+else {
+
+    console.error(
+        "App Controller Not Available"
+    );
+
+}

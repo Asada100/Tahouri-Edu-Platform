@@ -1,24 +1,51 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 2.1
-// Divisibility Group Navigation
-// Difficulty Selection Integration
+// Version 2.3
+// Divisibility Group Screen
+//
+// Responsibilities:
+// - Show Divisibility Group
+// - Show Divisibility Activities
+// - Content Lock
+// - Difficulty Selection
+// - Back Navigation
+//
+// NOT Responsible For:
+// - Main Activity List
+// - Quiz Rendering
+// - Activity Execution
+// - Direct ActivityManager Entry
+//
+// Architecture:
+//
+// ActivityScreen
+//      ↓
+// DivisibilityScreen
+//      ↓
+// DifficultyModal
+//      ↓
+// App.startActivity()
+//      ↓
+// ActivityManager
+//      ↓
+// QuizEngine
+//      ↓
+// QuizScreen
 // =====================================
 
 
-(function () {
+const DivisibilityScreen = {
 
 
     // =====================================
-    // Show Main Activity Screen
+    // SHOW
     // =====================================
 
-    Screen.showActivities = function (
+    show: function (
         gradeId,
         subjectId,
         chapterId
     ) {
-
 
         const app =
             document.getElementById(
@@ -29,7 +56,7 @@
         if (!app) {
 
             console.error(
-                "App Container Not Found"
+                "Divisibility Screen: App Container Not Found"
             );
 
             return;
@@ -38,10 +65,10 @@
 
 
         // =====================================
-        // Get Chapter Activities
+        // GET DIVISIBILITY ACTIVITIES
         // =====================================
 
-        const chapterActivities =
+        const divisibilityActivities =
             activities.filter(
                 function (activity) {
 
@@ -60,23 +87,11 @@
                         activity.chapter ===
                         chapterId
 
-                    );
+                        &&
 
-                }
-            );
-
-
-        // =====================================
-        // Divisibility Children
-        // =====================================
-
-        const divisibilityActivities =
-            chapterActivities.filter(
-                function (activity) {
-
-                    return (
                         activity.group ===
                         "divisibility"
+
                     );
 
                 }
@@ -84,371 +99,83 @@
 
 
         // =====================================
-        // Other Activities
+        // BUILD CHILDREN
         // =====================================
 
-        const otherActivities =
-            chapterActivities.filter(
-                function (activity) {
+        const childrenHTML =
+            divisibilityActivities
+                .map(
+                    function (activity) {
 
-                    return (
-                        activity.group !==
-                        "divisibility"
-                    );
+                        const locked =
+                            typeof ContentLockManager !==
+                            "undefined"
 
-                }
-            );
+                                ?
 
-
-        // =====================================
-        // Build Main Activities
-        // =====================================
-
-        let mainActivitiesHTML = "";
-
-
-        otherActivities.forEach(
-            function (activity) {
-
-
-                const locked =
-                    ContentLockManager.isLocked(
-                        activity.id
-                    );
-
-
-                mainActivitiesHTML += `
-
-                    <button
-                        class="activityBtn mainActivityBtn"
-                        data-id="${activity.id}"
-                        ${locked ? "disabled" : ""}>
-
-                        ${
-                            locked
-                            ?
-                            "🔒"
-                            :
-                            "🎮"
-                        }
-
-                        ${activity.title}
-
-                    </button>
-
-                `;
-
-            }
-        );
-
-
-        // =====================================
-        // Divisibility Group
-        // =====================================
-
-        if (
-            divisibilityActivities.length > 0
-        ) {
-
-            mainActivitiesHTML += `
-
-                <button
-                    id="divisibilityGroupBtn"
-                    class="activityBtn divisibilityGroupBtn">
-
-                    🎮 بخش‌پذیری
-
-                </button>
-
-            `;
-
-        }
-
-
-        // =====================================
-        // Main Screen
-        // =====================================
-
-        app.innerHTML = `
-
-            <div class="screen">
-
-                <h1>
-                    انتخاب فعالیت
-                </h1>
-
-                <div id="mainActivitiesContainer">
-
-                    ${mainActivitiesHTML}
-
-                </div>
-
-                <br>
-
-                <button
-                    id="backChaptersBtn">
-
-                    ⬅ بازگشت به فصل‌ها
-
-                </button>
-
-            </div>
-
-        `;
-
-
-        // =====================================
-        // Main Activity Buttons
-        // =====================================
-
-        document
-            .querySelectorAll(
-                ".mainActivityBtn"
-            )
-            .forEach(
-                function (btn) {
-
-
-                    btn.onclick =
-                        function () {
-
-
-                            const activityId =
-                                this.dataset.id;
-
-
-                            if (
-                                !ContentLockManager.canOpen(
-                                    activityId
+                                ContentLockManager.isLocked(
+                                    activity.id
                                 )
-                            ) {
 
-                                alert(
-                                    "این فعالیت هنوز قفل است."
-                                );
+                                :
 
-                                return;
-
-                            }
+                                false;
 
 
-                            const activity =
-                                activities.find(
-                                    function (item) {
+                        return `
 
-                                        return (
-                                            item.id ===
-                                            activityId
-                                        );
+                            <button
 
-                                    }
-                                );
+                                class="activityBtn divisibilityChildBtn"
 
+                                data-id="${activity.id}"
 
-                            if (!activity) {
+                                ${
+                                    locked
+                                        ? "disabled"
+                                        : ""
+                                }>
 
-                                console.error(
-                                    "Activity Not Found:",
-                                    activityId
-                                );
+                                ${
+                                    locked
+                                        ? "🔒"
+                                        : "🎮"
+                                }
 
-                                return;
+                                ${activity.title}
 
-                            }
+                            </button>
 
+                        `;
 
-                            Navigation.selectActivity(
-                                activityId
-                            );
-
-
-                            ActivityManager.load(
-                                activity
-                            );
-
-                        };
-
-                }
-            );
+                    }
+                )
+                .join("");
 
 
         // =====================================
-        // Divisibility Group Button
-        // =====================================
-
-        const divisibilityBtn =
-            document.getElementById(
-                "divisibilityGroupBtn"
-            );
-
-
-        if (divisibilityBtn) {
-
-            divisibilityBtn.onclick =
-                function () {
-
-                    Screen.showDivisibility(
-                        gradeId,
-                        subjectId,
-                        chapterId
-                    );
-
-                };
-
-        }
-
-
-        // =====================================
-        // Back To Chapters
-        // =====================================
-
-        const backButton =
-            document.getElementById(
-                "backChaptersBtn"
-            );
-
-
-        if (backButton) {
-
-            backButton.onclick =
-                function () {
-
-                    Screen.showChapters(
-                        gradeId,
-                        subjectId
-                    );
-
-                };
-
-        }
-
-
-        console.log(
-            "Main Activity Screen Displayed"
-        );
-
-    };
-
-
-    // =====================================
-    // Show Divisibility Activities
-    // =====================================
-
-    Screen.showDivisibility = function (
-        gradeId,
-        subjectId,
-        chapterId
-    ) {
-
-
-        const app =
-            document.getElementById(
-                "app"
-            );
-
-
-        if (!app) {
-
-            console.error(
-                "App Container Not Found"
-            );
-
-            return;
-
-        }
-
-
-        // =====================================
-        // Get Divisibility Activities
-        // =====================================
-
-        const divisibilityActivities =
-            activities.filter(
-                function (activity) {
-
-                    return (
-
-                        activity.grade ===
-                        gradeId
-
-                        &&
-
-                        activity.subject ===
-                        subjectId
-
-                        &&
-
-                        activity.chapter ===
-                        chapterId
-
-                        &&
-
-                        activity.group ===
-                        "divisibility"
-
-                    );
-
-                }
-            );
-
-
-        // =====================================
-        // Build Child Buttons
-        // =====================================
-
-        let childrenHTML = "";
-
-
-        divisibilityActivities.forEach(
-            function (activity) {
-
-
-                const locked =
-                    ContentLockManager.isLocked(
-                        activity.id
-                    );
-
-
-                childrenHTML += `
-
-                    <button
-                        class="activityBtn divisibilityChildBtn"
-                        data-id="${activity.id}"
-                        ${locked ? "disabled" : ""}>
-
-                        ${
-                            locked
-                            ?
-                            "🔒"
-                            :
-                            "🎮"
-                        }
-
-                        ${activity.title}
-
-                    </button>
-
-                `;
-
-            }
-        );
-
-
-        // =====================================
-        // Divisibility Screen
+        // SCREEN
         // =====================================
 
         app.innerHTML = `
 
-            <div class="screen">
+            <div
+                class="screen divisibilityScreen"
+                dir="rtl">
 
                 <h1>
+
                     بخش‌پذیری
+
                 </h1>
+
 
                 <p>
+
                     انتخاب قانون بخش‌پذیری
+
                 </p>
+
 
                 <div
                     id="divisibilityActivitiesContainer">
@@ -457,7 +184,9 @@
 
                 </div>
 
+
                 <br>
+
 
                 <button
                     id="backToActivitiesBtn">
@@ -466,151 +195,23 @@
 
                 </button>
 
+
             </div>
 
         `;
 
 
         // =====================================
-        // Child Activity Buttons
+        // BIND ACTIVITY BUTTONS
         // =====================================
 
-        document
-            .querySelectorAll(
-                ".divisibilityChildBtn"
-            )
-            .forEach(
-                function (btn) {
-
-
-                    btn.onclick =
-                        function () {
-
-
-                            const activityId =
-                                this.dataset.id;
-
-
-                            if (
-                                !ContentLockManager.canOpen(
-                                    activityId
-                                )
-                            ) {
-
-                                alert(
-                                    "این فعالیت هنوز قفل است."
-                                );
-
-                                return;
-
-                            }
-
-
-                            const activity =
-                                activities.find(
-                                    function (item) {
-
-                                        return (
-                                            item.id ===
-                                            activityId
-                                        );
-
-                                    }
-                                );
-
-
-                            if (!activity) {
-
-                                console.error(
-                                    "Divisibility Activity Not Found:",
-                                    activityId
-                                );
-
-                                return;
-
-                            }
-
-
-                            Navigation.selectActivity(
-                                activityId
-                            );
-
-
-                            // =================================
-                            // Difficulty Selection
-                            // =================================
-
-                            if (
-
-                                typeof DifficultyModal !==
-                                "undefined"
-
-                                &&
-
-                                typeof DifficultyModal.open ===
-                                "function"
-
-                            ) {
-
-
-                                console.log(
-                                    "Opening Difficulty Modal:",
-                                    activity.id
-                                );
-
-
-                                DifficultyModal.open(
-
-                                    activity,
-
-                                    function (
-                                        selectedActivity
-                                    ) {
-
-
-                                        console.log(
-                                            "Difficulty Selected:",
-                                            selectedActivity
-                                                .settings
-                                                .difficulty
-                                        );
-
-
-                                        ActivityManager.load(
-                                            selectedActivity
-                                        );
-
-                                    }
-
-                                );
-
-
-                                return;
-
-                            }
-
-
-                            // =================================
-                            // Fallback
-                            // =================================
-
-                            console.warn(
-                                "Difficulty Modal Not Available"
-                            );
-
-
-                            ActivityManager.load(
-                                activity
-                            );
-
-                        };
-
-                }
-            );
+        this.bindActivityButtons(
+            divisibilityActivities
+        );
 
 
         // =====================================
-        // Back To Main Activities
+        // BACK
         // =====================================
 
         const backButton =
@@ -636,14 +237,272 @@
 
 
         console.log(
-            "Divisibility Screen Displayed"
+            "Divisibility Screen Displayed:",
+            divisibilityActivities.length
         );
 
-    };
+    },
 
 
-    console.log(
-        "Divisibility Screen Ready"
-    );
+    // =====================================
+    // BIND ACTIVITY BUTTONS
+    // =====================================
 
-})();
+    bindActivityButtons: function (
+        activityList
+    ) {
+
+        document
+            .querySelectorAll(
+                ".divisibilityChildBtn"
+            )
+            .forEach(
+                function (btn) {
+
+                    btn.onclick =
+                        function () {
+
+                            const activityId =
+                                this.dataset.id;
+
+
+                            const activity =
+                                activityList.find(
+                                    function (
+                                        item
+                                    ) {
+
+                                        return (
+                                            item.id ===
+                                            activityId
+                                        );
+
+                                    }
+                                );
+
+
+                            if (!activity) {
+
+                                console.error(
+                                    "Divisibility Activity Not Found:",
+                                    activityId
+                                );
+
+                                return;
+
+                            }
+
+
+                            // =================================
+                            // CONTENT LOCK
+                            // =================================
+
+                            if (
+                                typeof ContentLockManager !==
+                                "undefined"
+                            ) {
+
+                                if (
+                                    !ContentLockManager.canOpen(
+                                        activityId
+                                    )
+                                ) {
+
+                                    alert(
+                                        "این فعالیت هنوز قفل است."
+                                    );
+
+                                    return;
+
+                                }
+
+                            }
+
+
+                            // =================================
+                            // NAVIGATION
+                            // =================================
+
+                            if (
+                                typeof Navigation !==
+                                "undefined"
+                            ) {
+
+                                Navigation.selectActivity(
+                                    activityId
+                                );
+
+                            }
+
+
+                            // =================================
+                            // DIFFICULTY
+                            // =================================
+
+                            if (
+
+                                typeof DifficultyModal !==
+                                "undefined"
+
+                                &&
+
+                                typeof DifficultyModal.open ===
+                                "function"
+
+                            ) {
+
+                                console.log(
+                                    "Opening Difficulty Modal:",
+                                    activity.id
+                                );
+
+
+                                DifficultyModal.open(
+
+                                    activity,
+
+                                    function (
+                                        selectedActivity
+                                    ) {
+
+                                        console.log(
+                                            "Difficulty Selected:",
+                                            selectedActivity
+                                                .settings
+                                                .difficulty
+                                        );
+
+
+                                        // =================================
+                                        // UNIFIED ACTIVITY ENTRY
+                                        // =================================
+
+                                        if (
+                                            typeof App !==
+                                            "undefined"
+
+                                            &&
+
+                                            typeof App.startActivity ===
+                                            "function"
+                                        ) {
+
+                                            App.startActivity(
+                                                selectedActivity
+                                            );
+
+                                            return;
+
+                                        }
+
+
+                                        console.error(
+                                            "Activity Entry System Not Available"
+                                        );
+
+                                    }
+
+                                );
+
+
+                                return;
+
+                            }
+
+
+                            // =================================
+                            // NO DIFFICULTY MODAL
+                            // =================================
+
+                            console.warn(
+                                "Difficulty Modal Not Available"
+                            );
+
+
+                            if (
+                                typeof App !==
+                                "undefined"
+
+                                &&
+
+                                typeof App.startActivity ===
+                                "function"
+                            ) {
+
+                                App.startActivity(
+                                    activity
+                                );
+
+                                return;
+
+                            }
+
+
+                            console.error(
+                                "Activity Entry System Not Available"
+                            );
+
+                        };
+
+                }
+            );
+
+    }
+
+};
+
+
+// =====================================
+// GLOBAL
+// =====================================
+
+window.DivisibilityScreen =
+    DivisibilityScreen;
+
+
+// =====================================
+// SCREEN BRIDGE
+// =====================================
+//
+// فقط برای سازگاری با کدهای فعلی.
+// منطق اصلی گروه بخش‌پذیری داخل
+// DivisibilityScreen باقی می‌ماند.
+// =====================================
+
+Screen.showDivisibility = function (
+    gradeId,
+    subjectId,
+    chapterId
+) {
+
+    if (
+        typeof DivisibilityScreen !==
+        "undefined"
+    ) {
+
+        DivisibilityScreen.show(
+            gradeId,
+            subjectId,
+            chapterId
+        );
+
+    }
+
+    else {
+
+        console.error(
+            "DivisibilityScreen Not Available"
+        );
+
+    }
+
+};
+
+
+// =====================================
+// READY
+// =====================================
+
+console.log(
+    "Divisibility Screen v2.3 Ready"
+);

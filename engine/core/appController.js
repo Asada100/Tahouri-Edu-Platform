@@ -1,19 +1,33 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 5.0
+// Version 5.1
 // App Controller
-// Activity Config Loader
+//
+// Responsibilities:
+// - Application Initialization
+// - Global Data Loading
+// - Navigation Bridge
+// - Unified Activity Entry
+//
+// Important:
+// ActivityManager is the ONLY place that
+// loads activity.json.
 // =====================================
+
 
 const App = {
 
     grades: [],
+
     subjects: [],
+
     chapters: [],
+
     activities: [],
 
+
     // =====================================
-    // Start Application
+    // START APPLICATION
     // =====================================
 
     init: async function () {
@@ -22,14 +36,17 @@ const App = {
             "App Controller Started"
         );
 
+
         await this.loadData();
+
 
         Screen.showHome();
 
     },
 
+
     // =====================================
-    // Load Data
+    // LOAD DATA
     // =====================================
 
     loadData: async function () {
@@ -41,25 +58,41 @@ const App = {
                     "data/grades.json"
                 );
 
+
             this.subjects =
                 await DataManager.loadJSON(
                     "data/subjects.json"
                 );
+
 
             this.chapters =
                 await DataManager.loadJSON(
                     "data/chapters.json"
                 );
 
+
             this.activities =
                 await DataManager.loadJSON(
                     "data/activities.json"
                 );
 
-            grades = this.grades;
-            subjects = this.subjects;
-            chapters = this.chapters;
-            activities = this.activities;
+
+            // =================================
+            // Legacy Global Data Compatibility
+            // =================================
+
+            grades =
+                this.grades;
+
+            subjects =
+                this.subjects;
+
+            chapters =
+                this.chapters;
+
+            activities =
+                this.activities;
+
 
             console.log(
                 "All Data Loaded"
@@ -78,23 +111,26 @@ const App = {
 
     },
 
+
     // =====================================
-    // Navigation
+    // NAVIGATION
     // =====================================
 
-    showHome:function(){
+    showHome: function () {
 
         Screen.showHome();
 
     },
 
-    showGrades:function(){
+
+    showGrades: function () {
 
         Screen.showGrades();
 
     },
 
-    showSubjects:function(){
+
+    showSubjects: function () {
 
         Screen.showSubjects(
             AppState.grade
@@ -102,7 +138,8 @@ const App = {
 
     },
 
-    showChapters:function(){
+
+    showChapters: function () {
 
         Screen.showChapters(
             AppState.grade,
@@ -111,7 +148,8 @@ const App = {
 
     },
 
-    showActivities:function(){
+
+    showActivities: function () {
 
         Screen.showActivities(
             AppState.grade,
@@ -121,13 +159,29 @@ const App = {
 
     },
 
+
     // =====================================
-    // Start Activity
+    // START ACTIVITY
+    // =====================================
+    //
+    // Unified Activity Entry Point
+    //
+    // UI
+    //   ↓
+    // App.startActivity(activity)
+    //   ↓
+    // ActivityManager.load(activity)
+    //
+    // ActivityManager is responsible for
+    // loading activity.json.
     // =====================================
 
-    startActivity: async function(activity){
+    startActivity: async function (
+        activity
+    ) {
 
-        if(!activity){
+
+        if (!activity) {
 
             console.error(
                 "Activity Missing"
@@ -137,50 +191,52 @@ const App = {
 
         }
 
-        try{
 
-            const config =
-                await DataManager.loadJSON(
+        console.log(
+            "App: Starting Activity:",
+            activity.id
+        );
 
-                    activity.path +
-                    "/activity.json"
 
-                );
+        // =================================
+        // Unified Entry
+        // =================================
 
-            activity.config = config;
+        if (
+            typeof ActivityManager !==
+            "undefined"
+            &&
+            typeof ActivityManager.load ===
+            "function"
+        ) {
 
-            console.log(
-                "Activity Config Loaded",
-                config
+
+            await ActivityManager.load(
+                activity
             );
+
+
+            return;
 
         }
 
-        catch(error){
 
-            console.warn(
-                "Activity Config Not Found"
-            );
-
-            activity.config = null;
-
-        }
-
-        ActivityManager.load(
-            activity
+        console.error(
+            "ActivityManager Not Available"
         );
 
     },
 
+
     // =====================================
-    // Restart Activity
+    // RESTART ACTIVITY
     // =====================================
 
-    restartActivity: async function(){
+    restartActivity: async function () {
 
-        if(
+        if (
             !AppState.activity
-        ){
+        ) {
 
             console.error(
                 "No Current Activity"
@@ -190,24 +246,21 @@ const App = {
 
         }
 
+
         const activity =
+            this.activities.find(
+                function (item) {
 
-        this.activities.find(
+                    return (
+                        item.id ===
+                        AppState.activity
+                    );
 
-            function(item){
+                }
+            );
 
-                return(
 
-                    item.id ===
-                    AppState.activity
-
-                );
-
-            }
-
-        );
-
-        if(!activity){
+        if (!activity) {
 
             console.error(
                 "Activity Not Found"
@@ -217,37 +270,41 @@ const App = {
 
         }
 
+
         await this.startActivity(
             activity
         );
 
     },
 
+
     // =====================================
-    // Dashboard
+    // DASHBOARD
     // =====================================
 
-    openDashboard:function(){
+    openDashboard: function () {
 
         Navigation.openDashboard();
 
     },
 
+
     // =====================================
-    // Reports
+    // REPORTS
     // =====================================
 
-    openReports:function(){
+    openReports: function () {
 
         Screen.showReports();
 
     },
 
+
     // =====================================
-    // Home
+    // HOME
     // =====================================
 
-    goHome:function(){
+    goHome: function () {
 
         Screen.showHome();
 
@@ -255,8 +312,19 @@ const App = {
 
 };
 
-window.App = App;
+
+// =====================================
+// GLOBAL
+// =====================================
+
+window.App =
+    App;
+
+
+// =====================================
+// READY
+// =====================================
 
 console.log(
-    "App Controller Ready"
+    "App Controller v5.1 Ready"
 );
