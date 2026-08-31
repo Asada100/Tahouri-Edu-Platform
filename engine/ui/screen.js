@@ -1,11 +1,11 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 5.1
+// Version 5.2
 // Screen Manager
 //
 // Responsibilities:
 // - Home
-// - Grades
+// - Active Grade
 // - Subjects
 // - Chapters
 // - Activity List Bridge
@@ -14,13 +14,12 @@
 // - Finish Bridge
 // - Profile Bridge
 //
-// Activity rendering is handled by
-// Activity-specific Screens.
+// No CSS
+// No class syntax
 // =====================================
 
 
 const Screen = {
-
 
     // =====================================
     // HOME SCREEN
@@ -29,9 +28,7 @@ const Screen = {
     showHome: function () {
 
         const app =
-            document.getElementById(
-                "app"
-            );
+            document.getElementById("app");
 
 
         if (!app) {
@@ -63,14 +60,6 @@ const Screen = {
 
 
                 <div class="home-buttons">
-
-                    <button
-                        id="continueLearningBtn">
-
-                        ▶ ادامه یادگیری
-
-                    </button>
-
 
                     <button
                         id="gradesBtn">
@@ -105,14 +94,6 @@ const Screen = {
 
 
                     <button
-                        id="achievementBtn">
-
-                        🏆 دستاوردها
-
-                    </button>
-
-
-                    <button
                         id="settingsBtn">
 
                         ⚙ تنظیمات
@@ -130,245 +111,136 @@ const Screen = {
         // GRADES
         // =================================
 
-        document
-            .getElementById(
+        const gradesButton =
+            document.getElementById(
                 "gradesBtn"
-            )
-            .onclick =
+            );
+
+
+        if (gradesButton) {
+
+            gradesButton.onclick =
                 function () {
 
                     Screen.showGrades();
 
                 };
 
+        }
+
 
         // =================================
         // PROFILE
         // =================================
 
-        document
-            .getElementById(
+        const profileButton =
+            document.getElementById(
                 "profileBtn"
-            )
-            .onclick =
+            );
+
+
+        if (profileButton) {
+
+            profileButton.onclick =
                 function () {
 
                     Screen.showProfile();
 
                 };
 
+        }
+
 
         // =================================
         // DASHBOARD
         // =================================
 
-        document
-            .getElementById(
+        const dashboardButton =
+            document.getElementById(
                 "dashboardBtn"
-            )
-            .onclick =
+            );
+
+
+        if (dashboardButton) {
+
+            dashboardButton.onclick =
                 function () {
-
-                    Navigation.openDashboard();
-
-                };
-
-
-        // =================================
-        // REPORTS
-        // =================================
-
-        document
-            .getElementById(
-                "reportsBtn"
-            )
-            .onclick =
-                function () {
-
-                    if (
-                        typeof ReportsController !==
-                        "undefined"
-                    ) {
-
-                        ReportsController.open();
-
-                    }
-
-                };
-
-
-        // =================================
-        // CONTINUE LEARNING
-        // =================================
-
-        document
-            .getElementById(
-                "continueLearningBtn"
-            )
-            .onclick =
-                function () {
-
-                    if (
-                        typeof ActivityHistory ===
-                        "undefined"
-                    ) {
-
-                        alert(
-                            "سیستم سابقه فعالیت در دسترس نیست."
-                        );
-
-                        return;
-
-                    }
-
-
-                    const activity =
-                        ActivityHistory.get();
-
-
-                    if (!activity) {
-
-                        alert(
-                            "هنوز فعالیتی برای ادامه وجود ندارد."
-                        );
-
-                        return;
-
-                    }
-
-
-                    if (
-                        typeof ContentLockManager !==
-                        "undefined"
-
-                        &&
-
-                        !ContentLockManager.canOpen(
-                            activity.id
-                        )
-                    ) {
-
-                        alert(
-                            "این فعالیت در حال حاضر قفل است."
-                        );
-
-                        return;
-
-                    }
-
-
-                    console.log(
-                        "Continue Learning:",
-                        activity
-                    );
-
-
-                    // =================================
-                    // RESTORE NAVIGATION
-                    // =================================
 
                     if (
                         typeof Navigation !==
                         "undefined"
                     ) {
 
-                        if (
-                            activity.grade
-                        ) {
+                        Navigation.openDashboard();
 
-                            Navigation.selectGrade(
-                                activity.grade
-                            );
+                    }
+                    else {
 
-                        }
-
-
-                        if (
-                            activity.subject
-                        ) {
-
-                            Navigation.selectSubject(
-                                activity.subject
-                            );
-
-                        }
-
-
-                        if (
-                            activity.chapter
-                        ) {
-
-                            Navigation.selectChapter(
-                                activity.chapter
-                            );
-
-                        }
-
-
-                        Navigation.selectActivity(
-                            activity.id
+                        console.error(
+                            "Navigation Not Available"
                         );
 
                     }
 
+                };
 
-                    // =================================
-                    // START ACTIVITY
-                    // =================================
+        }
+
+
+        // =================================
+        // REPORTS
+        // =================================
+
+        const reportsButton =
+            document.getElementById(
+                "reportsBtn"
+            );
+
+
+        if (reportsButton) {
+
+            reportsButton.onclick =
+                function () {
 
                     if (
-                        typeof App !==
+                        typeof ReportsController !==
                         "undefined"
 
                         &&
 
-                        typeof App.startActivity ===
+                        typeof ReportsController.open ===
                         "function"
                     ) {
 
-                        App.startActivity(
-                            activity
-                        );
+                        ReportsController.open();
 
-                        return;
+                    }
+                    else {
+
+                        console.error(
+                            "ReportsController Not Available"
+                        );
 
                     }
 
-
-                    console.error(
-                        "App.startActivity Not Available"
-                    );
-
                 };
 
-
-        // =================================
-        // ACHIEVEMENTS
-        // =================================
-
-        document
-            .getElementById(
-                "achievementBtn"
-            )
-            .onclick =
-                function () {
-
-                    alert(
-                        "در نسخه بعدی فعال می‌شود."
-                    );
-
-                };
+        }
 
 
         // =================================
         // SETTINGS
         // =================================
 
-        document
-            .getElementById(
+        const settingsButton =
+            document.getElementById(
                 "settingsBtn"
-            )
-            .onclick =
+            );
+
+
+        if (settingsButton) {
+
+            settingsButton.onclick =
                 function () {
 
                     alert(
@@ -376,6 +248,8 @@ const Screen = {
                     );
 
                 };
+
+        }
 
 
         console.log(
@@ -405,6 +279,20 @@ const Screen = {
         }
 
 
+        if (
+            typeof ProfileScreen.show !==
+            "function"
+        ) {
+
+            console.error(
+                "ProfileScreen.show Not Available"
+            );
+
+            return;
+
+        }
+
+
         ProfileScreen.show();
 
 
@@ -422,9 +310,7 @@ const Screen = {
     showGrades: function () {
 
         const app =
-            document.getElementById(
-                "app"
-            );
+            document.getElementById("app");
 
 
         if (!app) {
@@ -438,6 +324,146 @@ const Screen = {
         }
 
 
+        // =================================
+        // Check License Manager
+        // =================================
+
+        if (
+            typeof LicenseManager ===
+            "undefined"
+        ) {
+
+            console.error(
+                "LicenseManager Not Available"
+            );
+
+            return;
+
+        }
+
+
+        // =================================
+        // Get All Grades
+        // =================================
+
+        const allGrades =
+            LicenseManager.getGrades();
+
+
+        // =================================
+        // Get Active Grades
+        // =================================
+
+        const activeGradeIds = [];
+
+
+        Object.keys(allGrades)
+            .forEach(
+                function (gradeId) {
+
+                    if (
+                        LicenseManager.isGradeActivated(
+                            gradeId
+                        )
+                    ) {
+
+                        activeGradeIds.push(
+                            gradeId
+                        );
+
+                    }
+
+                }
+            );
+
+
+        // =================================
+        // No Active Grade
+        // =================================
+
+        if (
+            activeGradeIds.length === 0
+        ) {
+
+            app.innerHTML = `
+
+                <div class="screen">
+
+                    <h1>
+                        پلتفرم آموزشی طهوری
+                    </h1>
+
+                    <h2>
+                        پایه فعال
+                    </h2>
+
+                    <p>
+                        هنوز هیچ پایه‌ای فعال نشده است.
+                    </p>
+
+                    <br>
+
+                    <button
+                        id="backHomeBtn">
+
+                        🏠 بازگشت به خانه
+
+                    </button>
+
+                </div>
+
+            `;
+
+
+            const backButton =
+                document.getElementById(
+                    "backHomeBtn"
+                );
+
+
+            if (backButton) {
+
+                backButton.onclick =
+                    function () {
+
+                        Screen.showHome();
+
+                    };
+
+            }
+
+
+            return;
+
+        }
+
+
+        // =================================
+        // Render Only Active Grades
+        // =================================
+
+        const gradeButtons =
+            activeGradeIds
+                .map(
+                    function (gradeId) {
+
+                        return `
+
+                            <button
+                                class="gradeBtn"
+                                data-id="${gradeId}">
+
+                                ${allGrades[gradeId]}
+
+                            </button>
+
+                        `;
+
+                    }
+                )
+                .join("");
+
+
         app.innerHTML = `
 
             <div class="screen">
@@ -448,33 +474,13 @@ const Screen = {
 
 
                 <h2>
-                    انتخاب پایه
+                    پایه فعال
                 </h2>
 
 
                 <div id="gradesContainer">
 
-                    ${
-                        grades
-                            .map(
-                                function (grade) {
-
-                                    return `
-
-                                        <button
-                                            class="gradeBtn"
-                                            data-id="${grade.id}">
-
-                                            ${grade.title}
-
-                                        </button>
-
-                                    `;
-
-                                }
-                            )
-                            .join("")
-                    }
+                    ${gradeButtons}
 
                 </div>
 
@@ -494,23 +500,53 @@ const Screen = {
         `;
 
 
-        document
-            .querySelectorAll(
-                ".gradeBtn"
-            )
-            .forEach(
-                function (btn) {
+        // =================================
+        // Grade Buttons
+        // =================================
 
-                    btn.onclick =
+        document
+            .querySelectorAll(".gradeBtn")
+            .forEach(
+                function (button) {
+
+                    button.onclick =
                         function () {
 
                             const gradeId =
                                 this.dataset.id;
 
 
-                            Navigation.selectGrade(
-                                gradeId
-                            );
+                            // امنیت دوباره
+                            if (
+                                !LicenseManager.isGradeActivated(
+                                    gradeId
+                                )
+                            ) {
+
+                                alert(
+                                    "این پایه فعال نیست."
+                                );
+
+                                return;
+
+                            }
+
+
+                            if (
+                                typeof Navigation !==
+                                "undefined"
+
+                                &&
+
+                                typeof Navigation.selectGrade ===
+                                "function"
+                            ) {
+
+                                Navigation.selectGrade(
+                                    gradeId
+                                );
+
+                            }
 
 
                             Screen.showSubjects(
@@ -523,21 +559,31 @@ const Screen = {
             );
 
 
-        document
-            .getElementById(
+        // =================================
+        // Back Home
+        // =================================
+
+        const backHomeButton =
+            document.getElementById(
                 "backHomeBtn"
-            )
-            .onclick =
+            );
+
+
+        if (backHomeButton) {
+
+            backHomeButton.onclick =
                 function () {
 
                     Screen.showHome();
 
                 };
 
+        }
+
 
         console.log(
-            "Grades Displayed",
-            grades.length
+            "Active Grades Displayed:",
+            activeGradeIds
         );
 
     },
@@ -552,9 +598,7 @@ const Screen = {
     ) {
 
         const app =
-            document.getElementById(
-                "app"
-            );
+            document.getElementById("app");
 
 
         if (!app) {
@@ -568,11 +612,63 @@ const Screen = {
         }
 
 
+        // =================================
+        // License Check
+        // =================================
+
+        if (
+            typeof LicenseManager !==
+            "undefined"
+        ) {
+
+            if (
+                !LicenseManager.isGradeActivated(
+                    gradeId
+                )
+            ) {
+
+                alert(
+                    "این پایه فعال نیست."
+                );
+
+                Screen.showGrades();
+
+                return;
+
+            }
+
+        }
+
+
+        // =================================
+        // Check Subjects
+        // =================================
+
+        if (
+            typeof subjects ===
+            "undefined"
+        ) {
+
+            console.error(
+                "Subjects Data Not Available"
+            );
+
+            return;
+
+        }
+
+
         const gradeSubjects =
             subjects.filter(
                 function (subject) {
 
                     return (
+                        Array.isArray(
+                            subject.grades
+                        )
+
+                        &&
+
                         subject.grades.includes(
                             gradeId
                         )
@@ -581,6 +677,10 @@ const Screen = {
                 }
             );
 
+
+        // =================================
+        // Render
+        // =================================
 
         app.innerHTML = `
 
@@ -624,7 +724,7 @@ const Screen = {
                 <button
                     id="backGradesBtn">
 
-                    ⬅ بازگشت به پایه‌ها
+                    ⬅ بازگشت به پایه
 
                 </button>
 
@@ -633,23 +733,37 @@ const Screen = {
         `;
 
 
-        document
-            .querySelectorAll(
-                ".subjectBtn"
-            )
-            .forEach(
-                function (btn) {
+        // =================================
+        // Subject Buttons
+        // =================================
 
-                    btn.onclick =
+        document
+            .querySelectorAll(".subjectBtn")
+            .forEach(
+                function (button) {
+
+                    button.onclick =
                         function () {
 
                             const subjectId =
                                 this.dataset.id;
 
 
-                            Navigation.selectSubject(
-                                subjectId
-                            );
+                            if (
+                                typeof Navigation !==
+                                "undefined"
+
+                                &&
+
+                                typeof Navigation.selectSubject ===
+                                "function"
+                            ) {
+
+                                Navigation.selectSubject(
+                                    subjectId
+                                );
+
+                            }
 
 
                             Screen.showChapters(
@@ -663,16 +777,32 @@ const Screen = {
             );
 
 
-        document
-            .getElementById(
+        // =================================
+        // Back
+        // =================================
+
+        const backButton =
+            document.getElementById(
                 "backGradesBtn"
-            )
-            .onclick =
+            );
+
+
+        if (backButton) {
+
+            backButton.onclick =
                 function () {
 
                     Screen.showGrades();
 
                 };
+
+        }
+
+
+        console.log(
+            "Subjects Displayed:",
+            gradeSubjects.length
+        );
 
     },
 
@@ -687,15 +817,59 @@ const Screen = {
     ) {
 
         const app =
-            document.getElementById(
-                "app"
-            );
+            document.getElementById("app");
 
 
         if (!app) {
 
             console.error(
                 "App Container Not Found"
+            );
+
+            return;
+
+        }
+
+
+        // =================================
+        // License Check
+        // =================================
+
+        if (
+            typeof LicenseManager !==
+            "undefined"
+        ) {
+
+            if (
+                !LicenseManager.isGradeActivated(
+                    gradeId
+                )
+            ) {
+
+                alert(
+                    "این پایه فعال نیست."
+                );
+
+                Screen.showGrades();
+
+                return;
+
+            }
+
+        }
+
+
+        // =================================
+        // Check Chapters
+        // =================================
+
+        if (
+            typeof chapters ===
+            "undefined"
+        ) {
+
+            console.error(
+                "Chapters Data Not Available"
             );
 
             return;
@@ -722,6 +896,10 @@ const Screen = {
                 }
             );
 
+
+        // =================================
+        // Render
+        // =================================
 
         app.innerHTML = `
 
@@ -774,23 +952,37 @@ const Screen = {
         `;
 
 
-        document
-            .querySelectorAll(
-                ".chapterBtn"
-            )
-            .forEach(
-                function (btn) {
+        // =================================
+        // Chapter Buttons
+        // =================================
 
-                    btn.onclick =
+        document
+            .querySelectorAll(".chapterBtn")
+            .forEach(
+                function (button) {
+
+                    button.onclick =
                         function () {
 
                             const chapterId =
                                 this.dataset.id;
 
 
-                            Navigation.selectChapter(
-                                chapterId
-                            );
+                            if (
+                                typeof Navigation !==
+                                "undefined"
+
+                                &&
+
+                                typeof Navigation.selectChapter ===
+                                "function"
+                            ) {
+
+                                Navigation.selectChapter(
+                                    chapterId
+                                );
+
+                            }
 
 
                             Screen.showActivities(
@@ -805,11 +997,19 @@ const Screen = {
             );
 
 
-        document
-            .getElementById(
+        // =================================
+        // Back
+        // =================================
+
+        const backButton =
+            document.getElementById(
                 "backSubjectsBtn"
-            )
-            .onclick =
+            );
+
+
+        if (backButton) {
+
+            backButton.onclick =
                 function () {
 
                     Screen.showSubjects(
@@ -818,11 +1018,19 @@ const Screen = {
 
                 };
 
+        }
+
+
+        console.log(
+            "Chapters Displayed:",
+            subjectChapters.length
+        );
+
     },
 
 
     // =====================================
-    // ACTIVITIES SCREEN BRIDGE
+    // ACTIVITIES SCREEN
     // =====================================
 
     showActivities: function (
@@ -831,6 +1039,38 @@ const Screen = {
         chapterId
     ) {
 
+        // =================================
+        // License Check
+        // =================================
+
+        if (
+            typeof LicenseManager !==
+            "undefined"
+        ) {
+
+            if (
+                !LicenseManager.isGradeActivated(
+                    gradeId
+                )
+            ) {
+
+                alert(
+                    "این پایه فعال نیست."
+                );
+
+                Screen.showGrades();
+
+                return;
+
+            }
+
+        }
+
+
+        // =================================
+        // ActivityScreen Check
+        // =================================
+
         if (
             typeof ActivityScreen ===
             "undefined"
@@ -838,6 +1078,24 @@ const Screen = {
 
             console.error(
                 "ActivityScreen Not Available"
+            );
+
+            return;
+
+        }
+
+
+        // =================================
+        // Activities Data
+        // =================================
+
+        if (
+            typeof activities ===
+            "undefined"
+        ) {
+
+            console.error(
+                "Activities Data Not Available"
             );
 
             return;
@@ -872,9 +1130,21 @@ const Screen = {
 
         console.log(
             "Screen Activity Bridge:",
-            chapterActivities.length
+            {
+                grade: gradeId,
+                subject: subjectId,
+                chapter: chapterId,
+                count: chapterActivities.length
+            }
         );
 
+
+        // =================================
+        // IMPORTANT
+        // =================================
+        // بازی‌های فصل توسط ActivityScreen
+        // نمایش داده می‌شوند.
+        // اینجا مستقیماً بازی را اجرا نمی‌کنیم.
 
         ActivityScreen.show(
             chapterActivities
@@ -889,7 +1159,26 @@ const Screen = {
 
     showDashboard: function () {
 
-        Navigation.openDashboard();
+        if (
+            typeof Navigation !==
+            "undefined"
+
+            &&
+
+            typeof Navigation.openDashboard ===
+            "function"
+        ) {
+
+            Navigation.openDashboard();
+
+        }
+        else {
+
+            console.error(
+                "Navigation.openDashboard Not Available"
+            );
+
+        }
 
     },
 
@@ -903,9 +1192,21 @@ const Screen = {
         if (
             typeof ReportsController !==
             "undefined"
+
+            &&
+
+            typeof ReportsController.open ===
+            "function"
         ) {
 
             ReportsController.open();
+
+        }
+        else {
+
+            console.error(
+                "ReportsController Not Available"
+            );
 
         }
 
@@ -929,6 +1230,11 @@ const Screen = {
         if (
             typeof ResultModal !==
             "undefined"
+
+            &&
+
+            typeof ResultModal.show ===
+            "function"
         ) {
 
             ResultModal.show(
@@ -936,7 +1242,6 @@ const Screen = {
             );
 
         }
-
         else {
 
             console.error(
@@ -963,5 +1268,5 @@ window.Screen =
 // =====================================
 
 console.log(
-    "Screen Manager v5.1 Ready"
+    "Screen Manager v5.2 Ready"
 );

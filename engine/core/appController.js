@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 5.1
+// Version 5.2
 // App Controller
 //
 // Responsibilities:
@@ -8,6 +8,7 @@
 // - Global Data Loading
 // - Navigation Bridge
 // - Unified Activity Entry
+// - Dashboard Continue Learning Bridge
 //
 // Important:
 // ActivityManager is the ONLY place that
@@ -166,9 +167,17 @@ const App = {
     //
     // Unified Activity Entry Point
     //
+    // Supported:
+    //
+    // App.startActivity(activityObject)
+    //
+    // App.startActivity("activityId")
+    //
     // UI
     //   ↓
-    // App.startActivity(activity)
+    // AppController.startActivity(...)
+    //   ↓
+    // App.startActivity(...)
     //   ↓
     // ActivityManager.load(activity)
     //
@@ -180,6 +189,9 @@ const App = {
         activity
     ) {
 
+        // =================================
+        // Activity Missing
+        // =================================
 
         if (!activity) {
 
@@ -191,6 +203,102 @@ const App = {
 
         }
 
+
+        // =================================
+        // Resolve Activity ID
+        // =================================
+        //
+        // Dashboard may send only:
+        //
+        // "divisibleBy100"
+        //
+        // Convert it to the complete
+        // activity object.
+        // =================================
+
+        if (
+            typeof activity ===
+            "string"
+        ) {
+
+            const activityId =
+                activity;
+
+
+            console.log(
+                "App: Resolving Activity ID:",
+                activityId
+            );
+
+
+            const foundActivity =
+                this.activities.find(
+                    function (item) {
+
+                        return (
+                            item &&
+                            item.id ===
+                            activityId
+                        );
+
+                    }
+                );
+
+
+            if (!foundActivity) {
+
+                console.error(
+                    "Activity Not Found:",
+                    activityId
+                );
+
+                return;
+
+            }
+
+
+            activity =
+                foundActivity;
+
+        }
+
+
+        // =================================
+        // Validate Activity Object
+        // =================================
+
+        if (
+            typeof activity !==
+            "object"
+        ) {
+
+            console.error(
+                "Invalid Activity:",
+                activity
+            );
+
+            return;
+
+        }
+
+
+        if (
+            !activity.id
+        ) {
+
+            console.error(
+                "Activity ID Missing:",
+                activity
+            );
+
+            return;
+
+        }
+
+
+        // =================================
+        // Log
+        // =================================
 
         console.log(
             "App: Starting Activity:",
@@ -209,7 +317,6 @@ const App = {
             typeof ActivityManager.load ===
             "function"
         ) {
-
 
             await ActivityManager.load(
                 activity
@@ -252,6 +359,7 @@ const App = {
                 function (item) {
 
                     return (
+                        item &&
                         item.id ===
                         AppState.activity
                     );
@@ -263,7 +371,8 @@ const App = {
         if (!activity) {
 
             console.error(
-                "Activity Not Found"
+                "Activity Not Found:",
+                AppState.activity
             );
 
             return;
@@ -314,10 +423,24 @@ const App = {
 
 
 // =====================================
-// GLOBAL
+// GLOBAL ACCESS
+// =====================================
+//
+// Main name:
+// App
+//
+// Compatibility name:
+// AppController
+//
+// Dashboard and other existing systems
+// can therefore use AppController.
 // =====================================
 
 window.App =
+    App;
+
+
+window.AppController =
     App;
 
 
@@ -326,5 +449,6 @@ window.App =
 // =====================================
 
 console.log(
-    "App Controller v5.1 Ready"
+    "App Controller v5.2 Ready"
 );
+
