@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 2.2
+// Version 2.3
 // Progress Tracker
 // Profile Scoped Progress
 // Legacy Progress Migration
@@ -14,7 +14,9 @@ const ProgressTracker = {
 
     STORAGE_KEY: "Tahouri_Progress",
 
-    MIGRATION_KEY: "Tahouri_ProfileScoped_Migration_v1",
+    MIGRATION_KEY: "Tahouri_Progress_ProfileMigration_v1",
+
+    currentStorageKey: null,
 
 
     getStorageKey: function () {
@@ -41,29 +43,9 @@ const ProgressTracker = {
     init: function () {
 
         this.load();
-        this.bindProfileContext();
 
         console.log(
             "Progress Tracker Ready"
-        );
-
-    },
-
-
-    bindProfileContext: function () {
-
-        if (
-            typeof EventManager === "undefined" ||
-            typeof EventManager.on !== "function"
-        ) {
-            return;
-        }
-
-        EventManager.on(
-            "profileChanged",
-            function () {
-                ProgressTracker.load();
-            }
         );
 
     },
@@ -131,11 +113,12 @@ const ProgressTracker = {
 
     load: function () {
 
-        this.progress =
-            this.getDefaultProgress();
-
         const key =
             this.getStorageKey();
+
+        this.currentStorageKey = key;
+        this.progress =
+            this.getDefaultProgress();
 
         if (!key) {
 
@@ -177,20 +160,28 @@ const ProgressTracker = {
                 error
             );
 
-            this.progress =
-                this.getDefaultProgress();
-
         }
+
+    },
+
+
+    ensureProfileContext: function () {
+
+        const key =
+            this.getStorageKey();
+
+        if (key !== this.currentStorageKey) {
+            this.load();
+        }
+
+        return !!key;
 
     },
 
 
     save: function () {
 
-        const key =
-            this.getStorageKey();
-
-        if (!key) {
+        if (!this.ensureProfileContext()) {
 
             console.warn(
                 "Progress Tracker: Save skipped, no active profile"
@@ -203,7 +194,7 @@ const ProgressTracker = {
         try {
 
             localStorage.setItem(
-                key,
+                this.currentStorageKey,
                 JSON.stringify(this.progress)
             );
 
@@ -225,6 +216,10 @@ const ProgressTracker = {
 
 
     get: function (activityId) {
+
+        if (!this.ensureProfileContext()) {
+            return null;
+        }
 
         if (!activityId) {
             return null;
@@ -282,18 +277,16 @@ const ProgressTracker = {
             return;
         }
 
-        if (!this.getStorageKey()) {
-
-            console.warn(
-                "Progress Tracker: Update skipped, no active profile"
-            );
-
+        if (!this.ensureProfileContext()) {
             return;
-
         }
 
         const item =
             this.get(activityId);
+
+        if (!item) {
+            return;
+        }
 
         item.played = true;
         item.completed = true;
@@ -324,14 +317,16 @@ const ProgressTracker = {
 
 
     getAll: function () {
+
+        this.ensureProfileContext();
         return this.progress;
+
     },
 
 
     getStars: function (activityId) {
 
         const item = this.get(activityId);
-
         return item ? item.stars : 0;
 
     },
@@ -340,7 +335,6 @@ const ProgressTracker = {
     getBestScore: function (activityId) {
 
         const item = this.get(activityId);
-
         return item ? item.bestScore : 0;
 
     },
