@@ -1,8 +1,9 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 2.1
+// Version 2.2
 // Progress Tracker
 // Profile Scoped Progress
+// Legacy Progress Migration
 // Quiz + Memory + Future Engines
 // =====================================
 
@@ -13,10 +14,8 @@ const ProgressTracker = {
 
     STORAGE_KEY: "Tahouri_Progress",
 
+    MIGRATION_KEY: "Tahouri_ProfileScoped_Migration_v1",
 
-    // =====================================
-    // PROFILE CONTEXT
-    // =====================================
 
     getStorageKey: function () {
 
@@ -24,9 +23,7 @@ const ProgressTracker = {
             typeof ProfileContext === "undefined" ||
             typeof ProfileContext.key !== "function"
         ) {
-
             return null;
-
         }
 
         return ProfileContext.key(
@@ -37,20 +34,13 @@ const ProgressTracker = {
 
 
     getDefaultProgress: function () {
-
         return {};
-
     },
 
-
-    // =====================================
-    // INIT
-    // =====================================
 
     init: function () {
 
         this.load();
-
         this.bindProfileContext();
 
         console.log(
@@ -60,19 +50,13 @@ const ProgressTracker = {
     },
 
 
-    // =====================================
-    // PROFILE CHANGE
-    // =====================================
-
     bindProfileContext: function () {
 
         if (
             typeof EventManager === "undefined" ||
             typeof EventManager.on !== "function"
         ) {
-
             return;
-
         }
 
         EventManager.on(
@@ -85,9 +69,65 @@ const ProgressTracker = {
     },
 
 
-    // =====================================
-    // LOAD
-    // =====================================
+    migrateLegacyProgress: function (profileKey) {
+
+        if (!profileKey) {
+            return;
+        }
+
+        if (
+            localStorage.getItem(this.MIGRATION_KEY) === "true"
+        ) {
+            return;
+        }
+
+        const legacy =
+            localStorage.getItem(this.STORAGE_KEY);
+
+        if (!legacy) {
+            return;
+        }
+
+        if (
+            localStorage.getItem(profileKey) !== null
+        ) {
+            localStorage.setItem(
+                this.MIGRATION_KEY,
+                "true"
+            );
+            return;
+        }
+
+        try {
+
+            JSON.parse(legacy);
+
+            localStorage.setItem(
+                profileKey,
+                legacy
+            );
+
+            localStorage.setItem(
+                this.MIGRATION_KEY,
+                "true"
+            );
+
+            console.log(
+                "Legacy Progress Migrated To Active Profile"
+            );
+
+        }
+        catch (error) {
+
+            console.error(
+                "Legacy Progress Migration Error",
+                error
+            );
+
+        }
+
+    },
+
 
     load: function () {
 
@@ -107,6 +147,8 @@ const ProgressTracker = {
 
         }
 
+        this.migrateLegacyProgress(key);
+
         try {
 
             const data =
@@ -122,9 +164,7 @@ const ProgressTracker = {
                     typeof parsed === "object" &&
                     !Array.isArray(parsed)
                 ) {
-
                     this.progress = parsed;
-
                 }
 
             }
@@ -144,10 +184,6 @@ const ProgressTracker = {
 
     },
 
-
-    // =====================================
-    // SAVE
-    // =====================================
 
     save: function () {
 
@@ -188,16 +224,10 @@ const ProgressTracker = {
     },
 
 
-    // =====================================
-    // GET ACTIVITY
-    // =====================================
-
     get: function (activityId) {
 
         if (!activityId) {
-
             return null;
-
         }
 
         if (!this.progress[activityId]) {
@@ -217,10 +247,6 @@ const ProgressTracker = {
 
     },
 
-
-    // =====================================
-    // CALCULATE PERCENTAGE
-    // =====================================
 
     calculatePercentage: function (result) {
 
@@ -242,12 +268,7 @@ const ProgressTracker = {
         }
 
         if (result.score !== undefined) {
-
-            return Math.min(
-                result.score,
-                100
-            );
-
+            return Math.min(result.score, 100);
         }
 
         return 0;
@@ -255,16 +276,10 @@ const ProgressTracker = {
     },
 
 
-    // =====================================
-    // UPDATE
-    // =====================================
-
     update: function (activityId, result) {
 
         if (!activityId || !result) {
-
             return;
-
         }
 
         if (!this.getStorageKey()) {
@@ -294,10 +309,7 @@ const ProgressTracker = {
             result.score !== undefined &&
             result.score > item.bestScore
         ) {
-
-            item.bestScore =
-                result.score;
-
+            item.bestScore = result.score;
         }
 
         this.save();
@@ -311,14 +323,8 @@ const ProgressTracker = {
     },
 
 
-    // =====================================
-    // GET ALL
-    // =====================================
-
     getAll: function () {
-
         return this.progress;
-
     },
 
 
@@ -326,9 +332,7 @@ const ProgressTracker = {
 
         const item = this.get(activityId);
 
-        return item
-            ? item.stars
-            : 0;
+        return item ? item.stars : 0;
 
     },
 
@@ -337,9 +341,7 @@ const ProgressTracker = {
 
         const item = this.get(activityId);
 
-        return item
-            ? item.bestScore
-            : 0;
+        return item ? item.bestScore : 0;
 
     },
 
