@@ -1,59 +1,148 @@
 // =====================================
 // Tahouri Edu Platform
 // Statistics Manager
-// Version 3.0
+// Version 3.1
+// Profile Scoped Statistics
 // Overall + Subject + Activity Statistics
 // =====================================
 
 const StatisticsManager = {
 
+    STORAGE_KEY: "Tahouri_Statistics",
+
+    statistics: null,
+
+    currentStorageKey: null,
+
+
     // =====================================
-    // Storage
+    // DEFAULT STRUCTURE
     // =====================================
 
-    STORAGE_KEY:
-        "Tahouri_Statistics",
+    getDefaultStatistics: function () {
+
+        return {
+
+            overall: {
+                totalActivities: 0,
+                totalScore: 0,
+                averageScore: 0,
+                bestScore: 0,
+                totalCorrect: 0,
+                totalWrong: 0
+            },
+
+            subjects: {},
+
+            activities: {}
+
+        };
+
+    },
 
 
     // =====================================
-    // ساختار اصلی آمار
+    // PROFILE STORAGE KEY
     // =====================================
 
-    statistics: {
+    getStorageKey: function () {
 
-        // ---------------------------------
-        // آمار کلی
-        // ---------------------------------
+        if (
+            typeof ProfileContext === "undefined" ||
+            typeof ProfileContext.key !== "function"
+        ) {
 
-        overall: {
+            return null;
 
-            totalActivities: 0,
+        }
 
-            totalScore: 0,
+        return ProfileContext.key(
+            this.STORAGE_KEY
+        );
 
-            averageScore: 0,
-
-            bestScore: 0,
-
-            totalCorrect: 0,
-
-            totalWrong: 0
-
-        },
+    },
 
 
-        // ---------------------------------
-        // آمار بر اساس درس
-        // ---------------------------------
+    // =====================================
+    // ENSURE CURRENT PROFILE
+    // =====================================
 
-        subjects: {},
+    ensureProfileContext: function () {
+
+        const key =
+            this.getStorageKey();
+
+        if (!key) {
+
+            this.currentStorageKey = null;
+            this.statistics =
+                this.getDefaultStatistics();
+            return false;
+
+        }
+
+        if (
+            this.currentStorageKey !== key ||
+            !this.statistics
+        ) {
+
+            this.loadForKey(key);
+
+        }
+
+        return true;
+
+    },
 
 
-        // ---------------------------------
-        // آمار بر اساس فعالیت
-        // ---------------------------------
+    // =====================================
+    // LOAD FOR PROFILE
+    // =====================================
 
-        activities: {}
+    loadForKey: function (key) {
+
+        this.currentStorageKey = key;
+        this.statistics =
+            this.getDefaultStatistics();
+
+        try {
+
+            const saved =
+                SaveManager.load(key);
+
+            if (
+                saved &&
+                saved.overall &&
+                saved.subjects &&
+                saved.activities
+            ) {
+
+                this.statistics = saved;
+
+            }
+
+            else if (saved) {
+
+                console.log(
+                    "Old Statistics Structure Detected For Profile"
+                );
+
+                this.save();
+
+            }
+
+        }
+        catch (error) {
+
+            console.error(
+                "Statistics Load Error",
+                error
+            );
+
+            this.statistics =
+                this.getDefaultStatistics();
+
+        }
 
     },
 
@@ -62,55 +151,11 @@ const StatisticsManager = {
     // INIT
     // =====================================
 
-    init: function(){
+    init: function () {
 
-        const saved =
+        this.ensureProfileContext();
 
-            SaveManager.load(
-                this.STORAGE_KEY
-            );
-
-
-        if(saved){
-
-            // ---------------------------------
-            // پشتیبانی از ساختار جدید
-            // ---------------------------------
-
-            if(
-                saved.overall &&
-                saved.subjects &&
-                saved.activities
-            ){
-
-                this.statistics = saved;
-
-            }
-
-            else{
-
-                // ---------------------------------
-                // اگر داده قدیمی وجود داشته باشد
-                // آن را پاک نمی‌کنیم.
-                // ساختار جدید از صفر شروع می‌شود.
-                // ---------------------------------
-
-                console.log(
-                    "Old Statistics Structure Detected"
-                );
-
-                this.reset();
-
-            }
-
-        }
-
-        else{
-
-            this.save();
-
-        }
-
+        this.bindProfileContext();
 
         console.log(
             "Statistics Loaded",
@@ -121,181 +166,130 @@ const StatisticsManager = {
 
 
     // =====================================
-    // ثبت نتیجه فعالیت
+    // PROFILE CHANGE SUPPORT
     // =====================================
 
-    addResult: function(activity, result){
+    bindProfileContext: function () {
 
-        if(!activity){
+        if (
+            typeof EventManager === "undefined" ||
+            typeof EventManager.on !== "function"
+        ) {
+
+            return;
+
+        }
+
+        EventManager.on(
+            "profileChanged",
+            function () {
+                StatisticsManager.currentStorageKey = null;
+                StatisticsManager.ensureProfileContext();
+            }
+        );
+
+    },
+
+
+    // =====================================
+    // ADD RESULT
+    // =====================================
+
+    addResult: function (activity, result) {
+
+        if (!activity || !result) {
 
             console.error(
-                "Statistics Activity Missing"
+                "Statistics Activity Or Result Missing"
             );
 
             return;
 
         }
 
+        if (!this.ensureProfileContext()) {
 
-        if(!result){
-
-            console.error(
-                "Statistics Result Missing"
+            console.warn(
+                "Statistics Update Skipped: No Active Profile"
             );
 
             return;
 
         }
-
-
-        // =================================
-        // اطلاعات پایه فعالیت
-        // =================================
 
         const activityId =
-
             activity.id ||
             result.activityId ||
             "unknown";
 
-
         const subjectId =
-
             activity.subject ||
             "unknown";
 
-
         const gradeId =
-
             activity.grade ||
             "unknown";
 
-
         const chapterId =
-
             activity.chapter ||
             "unknown";
 
-
         const score =
-
-            Number(
-                result.score || 0
-            );
-
+            Number(result.score || 0);
 
         const correct =
-
             Number(
                 result.correctAnswers ||
                 result.correct ||
                 0
             );
 
-
         const wrong =
-
             Number(
                 result.wrongAnswers ||
                 result.wrong ||
                 0
             );
 
-
         const percentage =
-
-            Number(
-                result.percentage || 0
-            );
-
-
-        // =================================
-        // 1
-        // ثبت آمار کلی
-        // =================================
+            Number(result.percentage || 0);
 
         this.updateOverall({
-
             score: score,
-
             correct: correct,
-
             wrong: wrong
-
         });
 
-
-        // =================================
-        // 2
-        // ثبت آمار درس
-        // =================================
-
         this.updateSubject(
-
             subjectId,
-
             gradeId,
-
             {
-
                 score: score,
-
                 correct: correct,
-
                 wrong: wrong,
-
                 percentage: percentage
-
             }
-
         );
-
-
-        // =================================
-        // 3
-        // ثبت آمار فعالیت
-        // =================================
 
         this.updateActivity(
-
             activityId,
-
             subjectId,
-
             gradeId,
-
             chapterId,
-
             {
-
                 score: score,
-
                 correct: correct,
-
                 wrong: wrong,
-
                 percentage: percentage
-
             }
-
         );
-
-
-        // =================================
-        // ذخیره
-        // =================================
 
         this.save();
 
-
         console.log(
-
             "Statistics Updated:",
-
             activityId,
-
             this.getActivity(activityId)
-
         );
 
     },
@@ -305,49 +299,24 @@ const StatisticsManager = {
     // UPDATE OVERALL
     // =====================================
 
-    updateOverall: function(data){
+    updateOverall: function (data) {
 
         const overall =
-
             this.statistics.overall;
 
-
         overall.totalActivities++;
+        overall.totalScore += data.score;
+        overall.totalCorrect += data.correct;
+        overall.totalWrong += data.wrong;
 
-
-        overall.totalScore +=
-
-            data.score;
-
-
-        overall.totalCorrect +=
-
-            data.correct;
-
-
-        overall.totalWrong +=
-
-            data.wrong;
-
-
-        if(
-            data.score >
-            overall.bestScore
-        ){
-
-            overall.bestScore =
-                data.score;
-
+        if (data.score > overall.bestScore) {
+            overall.bestScore = data.score;
         }
 
-
         overall.averageScore =
-
             Math.round(
-
                 overall.totalScore /
                 overall.totalActivities
-
             );
 
     },
@@ -357,85 +326,39 @@ const StatisticsManager = {
     // UPDATE SUBJECT
     // =====================================
 
-    updateSubject: function(
-        subjectId,
-        gradeId,
-        data
-    ){
+    updateSubject: function (subjectId, gradeId, data) {
 
-        if(
-            !this.statistics.subjects[
-                subjectId
-            ]
-        ){
+        if (!this.statistics.subjects[subjectId]) {
 
-            this.statistics.subjects[
-                subjectId
-            ] = {
-
-                subjectId:
-                    subjectId,
-
-                gradeId:
-                    gradeId,
-
+            this.statistics.subjects[subjectId] = {
+                subjectId: subjectId,
+                gradeId: gradeId,
                 totalActivities: 0,
-
                 totalScore: 0,
-
                 averageScore: 0,
-
                 bestScore: 0,
-
                 totalCorrect: 0,
-
                 totalWrong: 0
-
             };
 
         }
 
-
         const subject =
-
-            this.statistics.subjects[
-                subjectId
-            ];
-
+            this.statistics.subjects[subjectId];
 
         subject.totalActivities++;
+        subject.totalScore += data.score;
+        subject.totalCorrect += data.correct;
+        subject.totalWrong += data.wrong;
 
-
-        subject.totalScore +=
-            data.score;
-
-
-        subject.totalCorrect +=
-            data.correct;
-
-
-        subject.totalWrong +=
-            data.wrong;
-
-
-        if(
-            data.score >
-            subject.bestScore
-        ){
-
-            subject.bestScore =
-                data.score;
-
+        if (data.score > subject.bestScore) {
+            subject.bestScore = data.score;
         }
 
-
         subject.averageScore =
-
             Math.round(
-
                 subject.totalScore /
                 subject.totalActivities
-
             );
 
     },
@@ -445,106 +368,52 @@ const StatisticsManager = {
     // UPDATE ACTIVITY
     // =====================================
 
-    updateActivity: function(
+    updateActivity: function (
         activityId,
         subjectId,
         gradeId,
         chapterId,
         data
-    ){
+    ) {
 
-        if(
-            !this.statistics.activities[
-                activityId
-            ]
-        ){
+        if (!this.statistics.activities[activityId]) {
 
-            this.statistics.activities[
-                activityId
-            ] = {
-
-                activityId:
-                    activityId,
-
-                subjectId:
-                    subjectId,
-
-                gradeId:
-                    gradeId,
-
-                chapterId:
-                    chapterId,
-
+            this.statistics.activities[activityId] = {
+                activityId: activityId,
+                subjectId: subjectId,
+                gradeId: gradeId,
+                chapterId: chapterId,
                 totalActivities: 0,
-
                 totalScore: 0,
-
                 averageScore: 0,
-
                 bestScore: 0,
-
                 totalCorrect: 0,
-
                 totalWrong: 0,
-
                 bestPercentage: 0
-
             };
 
         }
 
-
         const activity =
-
-            this.statistics.activities[
-                activityId
-            ];
-
+            this.statistics.activities[activityId];
 
         activity.totalActivities++;
+        activity.totalScore += data.score;
+        activity.totalCorrect += data.correct;
+        activity.totalWrong += data.wrong;
 
-
-        activity.totalScore +=
-            data.score;
-
-
-        activity.totalCorrect +=
-            data.correct;
-
-
-        activity.totalWrong +=
-            data.wrong;
-
-
-        if(
-            data.score >
-            activity.bestScore
-        ){
-
-            activity.bestScore =
-                data.score;
-
+        if (data.score > activity.bestScore) {
+            activity.bestScore = data.score;
         }
 
-
-        if(
-            data.percentage >
-            activity.bestPercentage
-        ){
-
-            activity.bestPercentage =
-                data.percentage;
-
+        if (data.percentage > activity.bestPercentage) {
+            activity.bestPercentage = data.percentage;
         }
-
 
         activity.averageScore =
-
             Math.round(
-
                 activity.totalScore /
                 activity.totalActivities
-
             );
 
     },
@@ -554,14 +423,15 @@ const StatisticsManager = {
     // SAVE
     // =====================================
 
-    save: function(){
+    save: function () {
 
-        SaveManager.save(
+        if (!this.ensureProfileContext()) {
+            return false;
+        }
 
-            this.STORAGE_KEY,
-
+        return SaveManager.save(
+            this.currentStorageKey,
             this.statistics
-
         );
 
     },
@@ -571,21 +441,9 @@ const StatisticsManager = {
     // LOAD
     // =====================================
 
-    load: function(){
+    load: function () {
 
-        const saved =
-
-            SaveManager.load(
-                this.STORAGE_KEY
-            );
-
-
-        if(saved){
-
-            this.statistics =
-                saved;
-
-        }
+        return this.ensureProfileContext();
 
     },
 
@@ -594,12 +452,16 @@ const StatisticsManager = {
     // GET OVERALL
     // =====================================
 
-    get: function(){
+    get: function () {
+
+        if (!this.ensureProfileContext()) {
+            return {
+                ...this.getDefaultStatistics().overall
+            };
+        }
 
         return {
-
             ...this.statistics.overall
-
         };
 
     },
@@ -609,42 +471,26 @@ const StatisticsManager = {
     // GET SUBJECT
     // =====================================
 
-    getSubject: function(subjectId){
+    getSubject: function (subjectId) {
 
-        if(
-            !this.statistics.subjects[
-                subjectId
-            ]
-        ){
+        this.ensureProfileContext();
+
+        if (!this.statistics.subjects[subjectId]) {
 
             return {
-
-                subjectId:
-                    subjectId,
-
+                subjectId: subjectId,
                 totalActivities: 0,
-
                 totalScore: 0,
-
                 averageScore: 0,
-
                 bestScore: 0,
-
                 totalCorrect: 0,
-
                 totalWrong: 0
-
             };
 
         }
 
-
         return {
-
-            ...this.statistics.subjects[
-                subjectId
-            ]
-
+            ...this.statistics.subjects[subjectId]
         };
 
     },
@@ -654,12 +500,12 @@ const StatisticsManager = {
     // GET ALL SUBJECTS
     // =====================================
 
-    getSubjects: function(){
+    getSubjects: function () {
+
+        this.ensureProfileContext();
 
         return {
-
             ...this.statistics.subjects
-
         };
 
     },
@@ -669,44 +515,27 @@ const StatisticsManager = {
     // GET ACTIVITY
     // =====================================
 
-    getActivity: function(activityId){
+    getActivity: function (activityId) {
 
-        if(
-            !this.statistics.activities[
-                activityId
-            ]
-        ){
+        this.ensureProfileContext();
+
+        if (!this.statistics.activities[activityId]) {
 
             return {
-
-                activityId:
-                    activityId,
-
+                activityId: activityId,
                 totalActivities: 0,
-
                 totalScore: 0,
-
                 averageScore: 0,
-
                 bestScore: 0,
-
                 totalCorrect: 0,
-
                 totalWrong: 0,
-
                 bestPercentage: 0
-
             };
 
         }
 
-
         return {
-
-            ...this.statistics.activities[
-                activityId
-            ]
-
+            ...this.statistics.activities[activityId]
         };
 
     },
@@ -716,131 +545,75 @@ const StatisticsManager = {
     // GET ALL ACTIVITIES
     // =====================================
 
-    getActivities: function(){
+    getActivities: function () {
+
+        this.ensureProfileContext();
 
         return {
-
             ...this.statistics.activities
-
         };
 
     },
 
 
     // =====================================
-    // RESET ALL
+    // RESET CURRENT PROFILE
     // =====================================
 
-    reset: function(){
+    reset: function () {
 
-        this.statistics = {
+        if (!this.ensureProfileContext()) {
+            return false;
+        }
 
-            overall: {
-
-                totalActivities: 0,
-
-                totalScore: 0,
-
-                averageScore: 0,
-
-                bestScore: 0,
-
-                totalCorrect: 0,
-
-                totalWrong: 0
-
-            },
-
-
-            subjects: {},
-
-
-            activities: {}
-
-        };
-
+        this.statistics =
+            this.getDefaultStatistics();
 
         this.save();
 
-
         console.log(
-            "Statistics Reset"
+            "Statistics Reset For Active Profile"
         );
 
+        return true;
+
     },
 
 
     // =====================================
-    // توابع کمکی
+    // HELPERS
     // =====================================
 
-    getAverage: function(){
-
-        return this.statistics
-            .overall
-            .averageScore;
-
+    getAverage: function () {
+        return this.get().averageScore;
     },
 
-
-    getBestScore: function(){
-
-        return this.statistics
-            .overall
-            .bestScore;
-
+    getBestScore: function () {
+        return this.get().bestScore;
     },
 
-
-    getTotalActivities: function(){
-
-        return this.statistics
-            .overall
-            .totalActivities;
-
+    getTotalActivities: function () {
+        return this.get().totalActivities;
     },
 
-
-    getTotalScore: function(){
-
-        return this.statistics
-            .overall
-            .totalScore;
-
+    getTotalScore: function () {
+        return this.get().totalScore;
     },
 
-
-    getTotalCorrect: function(){
-
-        return this.statistics
-            .overall
-            .totalCorrect;
-
+    getTotalCorrect: function () {
+        return this.get().totalCorrect;
     },
 
-
-    getTotalWrong: function(){
-
-        return this.statistics
-            .overall
-            .totalWrong;
-
+    getTotalWrong: function () {
+        return this.get().totalWrong;
     }
 
 };
 
 
-// =====================================
-// Global
-// =====================================
-
 window.StatisticsManager =
     StatisticsManager;
 
-
-// =====================================
-// Initialize
-// =====================================
 
 StatisticsManager.init();
 
