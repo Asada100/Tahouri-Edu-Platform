@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Statistics Manager
-// Version 3.2
+// Version 3.3
 // Profile Scoped Statistics
 // Legacy Statistics Migration
 // Overall + Subject + Activity Statistics
@@ -10,7 +10,7 @@
 const StatisticsManager = {
 
     STORAGE_KEY: "Tahouri_Statistics",
-    MIGRATION_KEY: "Tahouri_ProfileScoped_Migration_v1",
+    MIGRATION_KEY: "Tahouri_Statistics_ProfileMigration_v1",
 
     statistics: null,
     currentStorageKey: null,
@@ -52,22 +52,16 @@ const StatisticsManager = {
 
     migrateLegacyStatistics: function (profileKey) {
 
-        if (!profileKey) {
-            return;
-        }
+        if (!profileKey) return;
 
         if (
             localStorage.getItem(this.MIGRATION_KEY) === "true"
-        ) {
-            return;
-        }
+        ) return;
 
         const legacy =
             localStorage.getItem(this.STORAGE_KEY);
 
-        if (!legacy) {
-            return;
-        }
+        if (!legacy) return;
 
         if (
             localStorage.getItem(profileKey) !== null
@@ -129,6 +123,7 @@ const StatisticsManager = {
             this.currentStorageKey = null;
             this.statistics =
                 this.getDefaultStatistics();
+
             return false;
 
         }
@@ -137,9 +132,7 @@ const StatisticsManager = {
             this.currentStorageKey !== key ||
             !this.statistics
         ) {
-
             this.loadForKey(key);
-
         }
 
         return true;
@@ -166,7 +159,6 @@ const StatisticsManager = {
                 saved.subjects &&
                 saved.activities
             ) {
-
                 this.statistics = saved;
             }
             else if (saved) {
@@ -187,9 +179,6 @@ const StatisticsManager = {
                 error
             );
 
-            this.statistics =
-                this.getDefaultStatistics();
-
         }
 
     },
@@ -198,7 +187,6 @@ const StatisticsManager = {
     init: function () {
 
         this.ensureProfileContext();
-        this.bindProfileContext();
 
         console.log(
             "Statistics Loaded",
@@ -208,46 +196,20 @@ const StatisticsManager = {
     },
 
 
-    bindProfileContext: function () {
-
-        if (
-            typeof EventManager === "undefined" ||
-            typeof EventManager.on !== "function"
-        ) {
-            return;
-        }
-
-        EventManager.on(
-            "profileChanged",
-            function () {
-                StatisticsManager.currentStorageKey = null;
-                StatisticsManager.ensureProfileContext();
-            }
-        );
-
-    },
-
-
     addResult: function (activity, result) {
 
         if (!activity || !result) {
-
             console.error(
                 "Statistics Activity Or Result Missing"
             );
-
             return;
-
         }
 
         if (!this.ensureProfileContext()) {
-
             console.warn(
                 "Statistics Update Skipped: No Active Profile"
             );
-
             return;
-
         }
 
         const activityId =
@@ -318,12 +280,6 @@ const StatisticsManager = {
         );
 
         this.save();
-
-        console.log(
-            "Statistics Updated:",
-            activityId,
-            this.getActivity(activityId)
-        );
 
     },
 
@@ -479,7 +435,6 @@ const StatisticsManager = {
         this.ensureProfileContext();
 
         if (!this.statistics.subjects[subjectId]) {
-
             return {
                 subjectId: subjectId,
                 totalActivities: 0,
@@ -489,7 +444,6 @@ const StatisticsManager = {
                 totalCorrect: 0,
                 totalWrong: 0
             };
-
         }
 
         return {
@@ -515,7 +469,6 @@ const StatisticsManager = {
         this.ensureProfileContext();
 
         if (!this.statistics.activities[activityId]) {
-
             return {
                 activityId: activityId,
                 totalActivities: 0,
@@ -526,7 +479,6 @@ const StatisticsManager = {
                 totalWrong: 0,
                 bestPercentage: 0
             };
-
         }
 
         return {
@@ -557,11 +509,6 @@ const StatisticsManager = {
             this.getDefaultStatistics();
 
         this.save();
-
-        console.log(
-            "Statistics Reset For Active Profile"
-        );
-
         return true;
 
     },
