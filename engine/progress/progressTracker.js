@@ -1,402 +1,365 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 2.0
+// Version 2.1
 // Progress Tracker
-// Standard Result Support
+// Profile Scoped Progress
 // Quiz + Memory + Future Engines
 // =====================================
 
 
 const ProgressTracker = {
 
+    progress: {},
 
-    progress:{},
+    STORAGE_KEY: "Tahouri_Progress",
 
 
+    // =====================================
+    // PROFILE CONTEXT
+    // =====================================
 
-    init:function(){
+    getStorageKey: function () {
 
+        if (
+            typeof ProfileContext === "undefined" ||
+            typeof ProfileContext.key !== "function"
+        ) {
+
+            return null;
+
+        }
+
+        return ProfileContext.key(
+            this.STORAGE_KEY
+        );
+
+    },
+
+
+    getDefaultProgress: function () {
+
+        return {};
+
+    },
+
+
+    // =====================================
+    // INIT
+    // =====================================
+
+    init: function () {
 
         this.load();
 
+        this.bindProfileContext();
 
         console.log(
             "Progress Tracker Ready"
         );
 
+    },
+
+
+    // =====================================
+    // PROFILE CHANGE
+    // =====================================
+
+    bindProfileContext: function () {
+
+        if (
+            typeof EventManager === "undefined" ||
+            typeof EventManager.on !== "function"
+        ) {
+
+            return;
+
+        }
+
+        EventManager.on(
+            "profileChanged",
+            function () {
+                ProgressTracker.load();
+            }
+        );
 
     },
 
 
+    // =====================================
+    // LOAD
+    // =====================================
 
+    load: function () {
 
+        this.progress =
+            this.getDefaultProgress();
 
-    load:function(){
+        const key =
+            this.getStorageKey();
 
+        if (!key) {
 
-        const data =
+            console.warn(
+                "Progress Tracker: No Active Profile"
+            );
 
-        localStorage.getItem(
-            "Tahouri_Progress"
-        );
+            return;
 
+        }
 
-        if(data){
+        try {
 
+            const data =
+                localStorage.getItem(key);
+
+            if (data) {
+
+                const parsed =
+                    JSON.parse(data);
+
+                if (
+                    parsed &&
+                    typeof parsed === "object" &&
+                    !Array.isArray(parsed)
+                ) {
+
+                    this.progress = parsed;
+
+                }
+
+            }
+
+        }
+        catch (error) {
+
+            console.error(
+                "Progress Load Error",
+                error
+            );
 
             this.progress =
-
-            JSON.parse(data);
-
+                this.getDefaultProgress();
 
         }
 
+    },
+
+
+    // =====================================
+    // SAVE
+    // =====================================
+
+    save: function () {
+
+        const key =
+            this.getStorageKey();
+
+        if (!key) {
+
+            console.warn(
+                "Progress Tracker: Save skipped, no active profile"
+            );
+
+            return false;
+
+        }
+
+        try {
+
+            localStorage.setItem(
+                key,
+                JSON.stringify(this.progress)
+            );
+
+            return true;
+
+        }
+        catch (error) {
+
+            console.error(
+                "Progress Save Error",
+                error
+            );
+
+            return false;
+
+        }
 
     },
 
 
+    // =====================================
+    // GET ACTIVITY
+    // =====================================
 
+    get: function (activityId) {
 
+        if (!activityId) {
 
-    save:function(){
+            return null;
 
+        }
 
-        localStorage.setItem(
+        if (!this.progress[activityId]) {
 
-            "Tahouri_Progress",
-
-            JSON.stringify(
-                this.progress
-            )
-
-        );
-
-
-    },
-
-
-
-
-
-
-
-    get:function(activityId){
-
-
-        if(
-            !this.progress[activityId]
-        ){
-
-
-            this.progress[activityId]={
-
-
-                played:false,
-
-
-                bestScore:0,
-
-
-                stars:0,
-
-
-                percentage:0,
-
-
-                completed:false,
-
-
-                lastPlayed:null
-
-
+            this.progress[activityId] = {
+                played: false,
+                bestScore: 0,
+                stars: 0,
+                percentage: 0,
+                completed: false,
+                lastPlayed: null
             };
 
-
         }
-
-
 
         return this.progress[activityId];
 
-
     },
 
 
+    // =====================================
+    // CALCULATE PERCENTAGE
+    // =====================================
 
+    calculatePercentage: function (result) {
 
+        result = result || {};
 
-
-
-
-
-    calculatePercentage:function(result){
-
-
-
-        // Quiz Engine
-
-        if(
-            result.percentage !== undefined
-        ){
-
-
+        if (result.percentage !== undefined) {
             return result.percentage;
-
-
         }
 
-
-
-
-
-
-        // Memory Engine
-
-
-        if(
-
+        if (
             result.pairs !== undefined &&
-
             result.totalPairs !== undefined
-
-        ){
-
-
+        ) {
 
             return Math.round(
-
-                (
-
-                    result.pairs /
-
-                    result.totalPairs
-
-                )
-
-                *
-
-                100
-
+                (result.pairs / result.totalPairs) * 100
             );
 
         }
 
-
-
-
-
-
-
-        // حالت ساده با امتیاز
-
-
-        if(
-            result.score !== undefined
-        ){
-
-
+        if (result.score !== undefined) {
 
             return Math.min(
-
                 result.score,
-
                 100
-
             );
 
-
         }
-
-
-
-
-
-
 
         return 0;
 
-
     },
 
 
+    // =====================================
+    // UPDATE
+    // =====================================
 
+    update: function (activityId, result) {
 
+        if (!activityId || !result) {
 
-
-
-
-
-    update:function(
-
-        activityId,
-
-        result
-
-    ){
-
-
-
-        const item =
-
-        this.get(
-            activityId
-        );
-
-
-
-
-
-        item.played = true;
-
-
-        item.completed = true;
-
-
-
-        item.lastPlayed =
-
-        Date.now();
-
-
-
-
-
-
-
-        item.percentage =
-
-        this.calculatePercentage(
-            result
-        );
-
-
-
-
-
-
-
-        item.stars =
-
-        Math.round(
-
-            item.percentage / 20
-
-        );
-
-
-
-
-
-
-
-
-        if(
-
-            result.score >
-
-            item.bestScore
-
-        ){
-
-
-
-            item.bestScore =
-
-            result.score;
-
-
+            return;
 
         }
 
+        if (!this.getStorageKey()) {
 
+            console.warn(
+                "Progress Tracker: Update skipped, no active profile"
+            );
 
+            return;
 
+        }
 
+        const item =
+            this.get(activityId);
+
+        item.played = true;
+        item.completed = true;
+        item.lastPlayed = Date.now();
+        item.percentage =
+            this.calculatePercentage(result);
+
+        item.stars = Math.round(
+            item.percentage / 20
+        );
+
+        if (
+            result.score !== undefined &&
+            result.score > item.bestScore
+        ) {
+
+            item.bestScore =
+                result.score;
+
+        }
 
         this.save();
 
-
-
-
         console.log(
-
             "Progress Updated:",
-
             activityId,
-
             item
-
         );
 
-
-
     },
 
-getAll:function(){
 
+    // =====================================
+    // GET ALL
+    // =====================================
 
-    return this.progress;
+    getAll: function () {
 
-
-},
-
-
-    getStars:function(activityId){
-
-
-        return this.get(
-            activityId
-        ).stars;
-
+        return this.progress;
 
     },
 
 
+    getStars: function (activityId) {
 
+        const item = this.get(activityId);
 
-
-
-
-    getBestScore:function(activityId){
-
-
-        return this.get(
-            activityId
-        ).bestScore;
-
+        return item
+            ? item.stars
+            : 0;
 
     },
 
 
+    getBestScore: function (activityId) {
+
+        const item = this.get(activityId);
+
+        return item
+            ? item.bestScore
+            : 0;
+
+    },
 
 
+    isCompleted: function (activityId) {
 
+        const item = this.get(activityId);
 
-
-    isCompleted:function(activityId){
-
-
-        return this.get(
-            activityId
-        ).completed;
-
+        return !!(
+            item &&
+            item.completed
+        );
 
     }
-
-
 
 };
 
 
-
-
-
-
-
 window.ProgressTracker =
-
-ProgressTracker;
-
+    ProgressTracker;
 
 
 ProgressTracker.init();
