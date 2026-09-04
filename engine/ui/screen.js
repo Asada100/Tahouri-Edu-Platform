@@ -1,10 +1,13 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 5.2
+// Version 5.4
 // Screen Manager
+//
+// Profile Integrated
 //
 // Responsibilities:
 // - Home
+// - Daily Message
 // - Active Grade
 // - Subjects
 // - Chapters
@@ -20,6 +23,50 @@
 
 
 const Screen = {
+
+    // =====================================
+    // PROFILE HELPERS
+    // =====================================
+
+    getActiveProfile: function () {
+
+        if (
+            typeof ProfileManager !==
+            "undefined"
+            &&
+            typeof ProfileManager.get ===
+            "function"
+        ) {
+
+            return ProfileManager.get();
+
+        }
+
+        return null;
+
+    },
+
+
+    getProfileGrade: function () {
+
+        const profile =
+            Screen.getActiveProfile();
+
+
+        if (
+            !profile ||
+            !profile.grade
+        ) {
+
+            return null;
+
+        }
+
+
+        return profile.grade;
+
+    },
+
 
     // =====================================
     // HOME SCREEN
@@ -42,6 +89,75 @@ const Screen = {
         }
 
 
+        // =====================================
+        // DAILY MESSAGE
+        // =====================================
+
+        let dailyMessage = null;
+
+
+        if (
+            typeof DailyMessageManager !==
+            "undefined" &&
+
+            typeof DailyMessageManager.getTodayMessage ===
+            "function"
+        ) {
+
+            dailyMessage =
+                DailyMessageManager.getTodayMessage();
+
+        }
+
+
+        // =====================================
+        // DAILY MESSAGE HTML
+        // =====================================
+
+        let dailyMessageHTML = "";
+
+
+        if (dailyMessage) {
+
+            dailyMessageHTML = `
+
+                <div class="daily-message-home">
+
+                    <div class="daily-message-home-icon">
+                        ${dailyMessage.icon || "💡"}
+                    </div>
+
+                    <div class="daily-message-home-content">
+
+                        <h2>
+                            💬 پیام امروز
+                        </h2>
+
+                        <p>
+                            ${dailyMessage.text}
+                        </p>
+
+                    </div>
+
+                    <button
+                        id="dailyMessageHomeBtn"
+                        type="button">
+
+                        متوجه شدم
+
+                    </button>
+
+                </div>
+
+            `;
+
+        }
+
+
+        // =====================================
+        // HOME HTML
+        // =====================================
+
         app.innerHTML = `
 
             <div class="screen">
@@ -59,10 +175,21 @@ const Screen = {
                 <hr>
 
 
+                ${dailyMessageHTML}
+
+
+                ${
+                    dailyMessageHTML
+                        ? "<hr>"
+                        : ""
+                }
+
+
                 <div class="home-buttons">
 
                     <button
-                        id="gradesBtn">
+                        id="gradesBtn"
+                        type="button">
 
                         🎓 انتخاب پایه
 
@@ -70,7 +197,8 @@ const Screen = {
 
 
                     <button
-                        id="profileBtn">
+                        id="profileBtn"
+                        type="button">
 
                         👤 پروفایل من
 
@@ -78,7 +206,8 @@ const Screen = {
 
 
                     <button
-                        id="dashboardBtn">
+                        id="dashboardBtn"
+                        type="button">
 
                         📊 داشبورد
 
@@ -86,7 +215,8 @@ const Screen = {
 
 
                     <button
-                        id="reportsBtn">
+                        id="reportsBtn"
+                        type="button">
 
                         📈 گزارش‌ها
 
@@ -94,7 +224,8 @@ const Screen = {
 
 
                     <button
-                        id="settingsBtn">
+                        id="settingsBtn"
+                        type="button">
 
                         ⚙ تنظیمات
 
@@ -107,9 +238,54 @@ const Screen = {
         `;
 
 
-        // =================================
+        // =====================================
+        // DAILY MESSAGE BUTTON
+        // =====================================
+
+        const dailyMessageButton =
+            document.getElementById(
+                "dailyMessageHomeBtn"
+            );
+
+
+        if (dailyMessageButton) {
+
+            dailyMessageButton.onclick =
+                function () {
+
+                    if (
+                        typeof DailyMessageManager !==
+                        "undefined" &&
+
+                        typeof DailyMessageManager.markAsViewed ===
+                        "function"
+                    ) {
+
+                        DailyMessageManager.markAsViewed();
+
+                    }
+
+
+                    dailyMessageButton.textContent =
+                        "✓ مشاهده شد";
+
+
+                    dailyMessageButton.disabled =
+                        true;
+
+
+                    console.log(
+                        "Screen: Daily Message Viewed"
+                    );
+
+                };
+
+        }
+
+
+        // =====================================
         // GRADES
-        // =================================
+        // =====================================
 
         const gradesButton =
             document.getElementById(
@@ -129,9 +305,9 @@ const Screen = {
         }
 
 
-        // =================================
+        // =====================================
         // PROFILE
-        // =================================
+        // =====================================
 
         const profileButton =
             document.getElementById(
@@ -151,9 +327,9 @@ const Screen = {
         }
 
 
-        // =================================
+        // =====================================
         // DASHBOARD
-        // =================================
+        // =====================================
 
         const dashboardButton =
             document.getElementById(
@@ -187,9 +363,9 @@ const Screen = {
         }
 
 
-        // =================================
+        // =====================================
         // REPORTS
-        // =================================
+        // =====================================
 
         const reportsButton =
             document.getElementById(
@@ -228,9 +404,9 @@ const Screen = {
         }
 
 
-        // =================================
+        // =====================================
         // SETTINGS
-        // =================================
+        // =====================================
 
         const settingsButton =
             document.getElementById(
@@ -254,6 +430,12 @@ const Screen = {
 
         console.log(
             "Home Screen Displayed"
+        );
+
+
+        console.log(
+            "Home Daily Message:",
+            dailyMessage
         );
 
     },
@@ -324,65 +506,21 @@ const Screen = {
         }
 
 
-        // =================================
-        // Check License Manager
-        // =================================
+        // =====================================
+        // Profile Check
+        // =====================================
+
+        const profile =
+            Screen.getActiveProfile();
+
+
+        const profileGrade =
+            Screen.getProfileGrade();
+
 
         if (
-            typeof LicenseManager ===
-            "undefined"
-        ) {
-
-            console.error(
-                "LicenseManager Not Available"
-            );
-
-            return;
-
-        }
-
-
-        // =================================
-        // Get All Grades
-        // =================================
-
-        const allGrades =
-            LicenseManager.getGrades();
-
-
-        // =================================
-        // Get Active Grades
-        // =================================
-
-        const activeGradeIds = [];
-
-
-        Object.keys(allGrades)
-            .forEach(
-                function (gradeId) {
-
-                    if (
-                        LicenseManager.isGradeActivated(
-                            gradeId
-                        )
-                    ) {
-
-                        activeGradeIds.push(
-                            gradeId
-                        );
-
-                    }
-
-                }
-            );
-
-
-        // =================================
-        // No Active Grade
-        // =================================
-
-        if (
-            activeGradeIds.length === 0
+            !profile ||
+            !profileGrade
         ) {
 
             app.innerHTML = `
@@ -394,14 +532,25 @@ const Screen = {
                     </h1>
 
                     <h2>
-                        پایه فعال
+                        پروفایل دانش‌آموز
                     </h2>
 
                     <p>
-                        هنوز هیچ پایه‌ای فعال نشده است.
+                        پروفایل دانش‌آموز مشخص نیست.
+                    </p>
+
+                    <p>
+                        ابتدا یک پروفایل ایجاد یا انتخاب کنید.
                     </p>
 
                     <br>
+
+                    <button
+                        id="profileFromGradesBtn">
+
+                        👤 پروفایل
+
+                    </button>
 
                     <button
                         id="backHomeBtn">
@@ -413,6 +562,24 @@ const Screen = {
                 </div>
 
             `;
+
+
+            const profileButton =
+                document.getElementById(
+                    "profileFromGradesBtn"
+                );
+
+
+            if (profileButton) {
+
+                profileButton.onclick =
+                    function () {
+
+                        Screen.showProfile();
+
+                    };
+
+            }
 
 
             const backButton =
@@ -433,36 +600,182 @@ const Screen = {
             }
 
 
+            console.warn(
+                "Screen: No Active Student Profile."
+            );
+
             return;
 
         }
 
 
-        // =================================
-        // Render Only Active Grades
-        // =================================
+        // =====================================
+        // Check License Manager
+        // =====================================
 
-        const gradeButtons =
-            activeGradeIds
-                .map(
-                    function (gradeId) {
+        if (
+            typeof LicenseManager ===
+            "undefined"
+        ) {
 
-                        return `
+            console.error(
+                "LicenseManager Not Available"
+            );
 
-                            <button
-                                class="gradeBtn"
-                                data-id="${gradeId}">
+            return;
 
-                                ${allGrades[gradeId]}
+        }
 
-                            </button>
 
-                        `;
+        // =====================================
+        // Profile Grade License
+        // =====================================
 
-                    }
-                )
-                .join("");
+        const profileGradeActivated =
+            LicenseManager.isGradeActivated(
+                profileGrade
+            );
 
+
+        // =====================================
+        // Grade Title
+        // =====================================
+
+        const allGrades =
+            LicenseManager.getGrades();
+
+
+        const profileGradeTitle =
+            allGrades[profileGrade] ||
+            profileGrade;
+
+
+        // =====================================
+        // NOT ACTIVATED
+        // =====================================
+
+        if (!profileGradeActivated) {
+
+            app.innerHTML = `
+
+                <div class="screen">
+
+                    <h1>
+                        پلتفرم آموزشی طهوری
+                    </h1>
+
+                    <h2>
+                        پایه دانش‌آموز
+                    </h2>
+
+                    <p>
+                        پروفایل فعال:
+                        <strong>
+                            ${profile.name || "دانش‌آموز"}
+                        </strong>
+                    </p>
+
+                    <p>
+                        پایه:
+                        <strong>
+                            ${profileGradeTitle}
+                        </strong>
+                    </p>
+
+                    <p>
+                        مجوز استفاده از این پایه
+                        برای سال تحصیلی جاری فعال نیست.
+                    </p>
+
+                    <br>
+
+                    <button
+                        id="activateProfileGradeBtn">
+
+                        🔐 فعال‌سازی ${profileGradeTitle}
+
+                    </button>
+
+                    <button
+                        id="backHomeBtn">
+
+                        🏠 بازگشت به خانه
+
+                    </button>
+
+                </div>
+
+            `;
+
+
+            const activateButton =
+                document.getElementById(
+                    "activateProfileGradeBtn"
+                );
+
+
+            if (activateButton) {
+
+                activateButton.onclick =
+                    function () {
+
+                        if (
+                            typeof ActivationGate !==
+                            "undefined"
+                            &&
+                            typeof ActivationGate.openGrade ===
+                            "function"
+                        ) {
+
+                            ActivationGate.openGrade(
+                                profileGrade
+                            );
+
+                        }
+                        else {
+
+                            console.error(
+                                "ActivationGate.openGrade Not Available"
+                            );
+
+                        }
+
+                    };
+
+            }
+
+
+            const backButton =
+                document.getElementById(
+                    "backHomeBtn"
+                );
+
+
+            if (backButton) {
+
+                backButton.onclick =
+                    function () {
+
+                        Screen.showHome();
+
+                    };
+
+            }
+
+
+            console.log(
+                "Profile Grade Not Activated:",
+                profileGrade
+            );
+
+            return;
+
+        }
+
+
+        // =====================================
+        // ONLY PROFILE GRADE
+        // =====================================
 
         app.innerHTML = `
 
@@ -474,15 +787,40 @@ const Screen = {
 
 
                 <h2>
-                    پایه فعال
+                    پایه دانش‌آموز
                 </h2>
+
+
+                <p>
+                    پروفایل فعال:
+                    <strong>
+                        ${profile.name || "دانش‌آموز"}
+                    </strong>
+                </p>
 
 
                 <div id="gradesContainer">
 
-                    ${gradeButtons}
+                    <button
+                        class="gradeBtn"
+                        data-id="${profileGrade}">
+
+                        🎓 ${profileGradeTitle}
+
+                    </button>
 
                 </div>
+
+
+                <p
+                    style="
+                        margin-top:15px;
+                        color:#666;
+                    "
+                >
+                    پایه تحصیلی از پروفایل دانش‌آموز
+                    تعیین می‌شود.
+                </p>
 
 
                 <br>
@@ -500,68 +838,102 @@ const Screen = {
         `;
 
 
-        // =================================
-        // Grade Buttons
-        // =================================
+        // =====================================
+        // Profile Grade Button
+        // =====================================
 
-        document
-            .querySelectorAll(".gradeBtn")
-            .forEach(
-                function (button) {
-
-                    button.onclick =
-                        function () {
-
-                            const gradeId =
-                                this.dataset.id;
-
-
-                            // امنیت دوباره
-                            if (
-                                !LicenseManager.isGradeActivated(
-                                    gradeId
-                                )
-                            ) {
-
-                                alert(
-                                    "این پایه فعال نیست."
-                                );
-
-                                return;
-
-                            }
-
-
-                            if (
-                                typeof Navigation !==
-                                "undefined"
-
-                                &&
-
-                                typeof Navigation.selectGrade ===
-                                "function"
-                            ) {
-
-                                Navigation.selectGrade(
-                                    gradeId
-                                );
-
-                            }
-
-
-                            Screen.showSubjects(
-                                gradeId
-                            );
-
-                        };
-
-                }
+        const gradeButton =
+            document.querySelector(
+                ".gradeBtn"
             );
 
 
-        // =================================
+        if (gradeButton) {
+
+            gradeButton.onclick =
+                function () {
+
+                    const gradeId =
+                        this.dataset.id;
+
+
+                    // =================================
+                    // Security Check 1
+                    // =================================
+
+                    if (
+                        gradeId !==
+                        Screen.getProfileGrade()
+                    ) {
+
+                        console.warn(
+                            "Screen: Blocked grade outside active profile.",
+                            {
+                                requestedGrade:
+                                    gradeId,
+
+                                profileGrade:
+                                    Screen.getProfileGrade()
+                            }
+                        );
+
+                        return;
+
+                    }
+
+
+                    // =================================
+                    // Security Check 2
+                    // =================================
+
+                    if (
+                        !LicenseManager.isGradeActivated(
+                            gradeId
+                        )
+                    ) {
+
+                        alert(
+                            "مجوز این پایه فعال نیست."
+                        );
+
+                        return;
+
+                    }
+
+
+                    // =================================
+                    // Navigation
+                    // =================================
+
+                    if (
+                        typeof Navigation !==
+                        "undefined"
+
+                        &&
+
+                        typeof Navigation.selectGrade ===
+                        "function"
+                    ) {
+
+                        Navigation.selectGrade(
+                            profileGrade
+                        );
+
+                    }
+
+
+                    Screen.showSubjects(
+                        profileGrade
+                    );
+
+                };
+
+        }
+
+
+        // =====================================
         // Back Home
-        // =================================
+        // =====================================
 
         const backHomeButton =
             document.getElementById(
@@ -582,8 +954,20 @@ const Screen = {
 
 
         console.log(
-            "Active Grades Displayed:",
-            activeGradeIds
+            "Active Profile Grade Displayed:",
+            {
+                studentId:
+                    profile.studentId,
+
+                name:
+                    profile.name,
+
+                grade:
+                    profileGrade,
+
+                activated:
+                    profileGradeActivated
+            }
         );
 
     },
@@ -612,9 +996,54 @@ const Screen = {
         }
 
 
-        // =================================
+        // =====================================
+        // Profile Grade Security
+        // =====================================
+
+        const profileGrade =
+            Screen.getProfileGrade();
+
+
+        if (
+            !profileGrade
+        ) {
+
+            console.warn(
+                "Screen: No active profile grade."
+            );
+
+            Screen.showProfile();
+
+            return;
+
+        }
+
+
+        if (
+            gradeId !== profileGrade
+        ) {
+
+            console.warn(
+                "Screen: Blocked unauthorized grade.",
+                {
+                    requestedGrade:
+                        gradeId,
+
+                    profileGrade:
+                        profileGrade
+                }
+            );
+
+            Screen.showGrades();
+
+            return;
+
+        }
+
+
+        // =====================================
         // License Check
-        // =================================
+        // =====================================
 
         if (
             typeof LicenseManager !==
@@ -623,12 +1052,12 @@ const Screen = {
 
             if (
                 !LicenseManager.isGradeActivated(
-                    gradeId
+                    profileGrade
                 )
             ) {
 
                 alert(
-                    "این پایه فعال نیست."
+                    "مجوز این پایه فعال نیست."
                 );
 
                 Screen.showGrades();
@@ -640,9 +1069,9 @@ const Screen = {
         }
 
 
-        // =================================
+        // =====================================
         // Check Subjects
-        // =================================
+        // =====================================
 
         if (
             typeof subjects ===
@@ -670,7 +1099,7 @@ const Screen = {
                         &&
 
                         subject.grades.includes(
-                            gradeId
+                            profileGrade
                         )
                     );
 
@@ -678,9 +1107,9 @@ const Screen = {
             );
 
 
-        // =================================
+        // =====================================
         // Render
-        // =================================
+        // =====================================
 
         app.innerHTML = `
 
@@ -733,9 +1162,9 @@ const Screen = {
         `;
 
 
-        // =================================
+        // =====================================
         // Subject Buttons
-        // =================================
+        // =====================================
 
         document
             .querySelectorAll(".subjectBtn")
@@ -767,7 +1196,7 @@ const Screen = {
 
 
                             Screen.showChapters(
-                                gradeId,
+                                profileGrade,
                                 subjectId
                             );
 
@@ -777,9 +1206,9 @@ const Screen = {
             );
 
 
-        // =================================
+        // =====================================
         // Back
-        // =================================
+        // =====================================
 
         const backButton =
             document.getElementById(
@@ -831,9 +1260,54 @@ const Screen = {
         }
 
 
-        // =================================
+        // =====================================
+        // Profile Grade Security
+        // =====================================
+
+        const profileGrade =
+            Screen.getProfileGrade();
+
+
+        if (
+            !profileGrade
+        ) {
+
+            console.warn(
+                "Screen: No active profile grade."
+            );
+
+            Screen.showProfile();
+
+            return;
+
+        }
+
+
+        if (
+            gradeId !== profileGrade
+        ) {
+
+            console.warn(
+                "Screen: Blocked unauthorized chapter grade.",
+                {
+                    requestedGrade:
+                        gradeId,
+
+                    profileGrade:
+                        profileGrade
+                }
+            );
+
+            Screen.showGrades();
+
+            return;
+
+        }
+
+
+        // =====================================
         // License Check
-        // =================================
+        // =====================================
 
         if (
             typeof LicenseManager !==
@@ -842,12 +1316,12 @@ const Screen = {
 
             if (
                 !LicenseManager.isGradeActivated(
-                    gradeId
+                    profileGrade
                 )
             ) {
 
                 alert(
-                    "این پایه فعال نیست."
+                    "مجوز این پایه فعال نیست."
                 );
 
                 Screen.showGrades();
@@ -859,9 +1333,9 @@ const Screen = {
         }
 
 
-        // =================================
+        // =====================================
         // Check Chapters
-        // =================================
+        // =====================================
 
         if (
             typeof chapters ===
@@ -884,7 +1358,7 @@ const Screen = {
                     return (
 
                         chapter.grade ===
-                        gradeId
+                        profileGrade
 
                         &&
 
@@ -897,9 +1371,9 @@ const Screen = {
             );
 
 
-        // =================================
+        // =====================================
         // Render
-        // =================================
+        // =====================================
 
         app.innerHTML = `
 
@@ -952,9 +1426,9 @@ const Screen = {
         `;
 
 
-        // =================================
+        // =====================================
         // Chapter Buttons
-        // =================================
+        // =====================================
 
         document
             .querySelectorAll(".chapterBtn")
@@ -986,7 +1460,7 @@ const Screen = {
 
 
                             Screen.showActivities(
-                                gradeId,
+                                profileGrade,
                                 subjectId,
                                 chapterId
                             );
@@ -997,9 +1471,9 @@ const Screen = {
             );
 
 
-        // =================================
+        // =====================================
         // Back
-        // =================================
+        // =====================================
 
         const backButton =
             document.getElementById(
@@ -1013,7 +1487,7 @@ const Screen = {
                 function () {
 
                     Screen.showSubjects(
-                        gradeId
+                        profileGrade
                     );
 
                 };
@@ -1039,9 +1513,54 @@ const Screen = {
         chapterId
     ) {
 
-        // =================================
+        // =====================================
+        // Profile Grade Security
+        // =====================================
+
+        const profileGrade =
+            Screen.getProfileGrade();
+
+
+        if (
+            !profileGrade
+        ) {
+
+            console.warn(
+                "Screen: No active profile grade."
+            );
+
+            Screen.showProfile();
+
+            return;
+
+        }
+
+
+        if (
+            gradeId !== profileGrade
+        ) {
+
+            console.warn(
+                "Screen: Blocked unauthorized activity grade.",
+                {
+                    requestedGrade:
+                        gradeId,
+
+                    profileGrade:
+                        profileGrade
+                }
+            );
+
+            Screen.showGrades();
+
+            return;
+
+        }
+
+
+        // =====================================
         // License Check
-        // =================================
+        // =====================================
 
         if (
             typeof LicenseManager !==
@@ -1050,12 +1569,12 @@ const Screen = {
 
             if (
                 !LicenseManager.isGradeActivated(
-                    gradeId
+                    profileGrade
                 )
             ) {
 
                 alert(
-                    "این پایه فعال نیست."
+                    "مجوز این پایه فعال نیست."
                 );
 
                 Screen.showGrades();
@@ -1067,9 +1586,9 @@ const Screen = {
         }
 
 
-        // =================================
+        // =====================================
         // ActivityScreen Check
-        // =================================
+        // =====================================
 
         if (
             typeof ActivityScreen ===
@@ -1085,9 +1604,9 @@ const Screen = {
         }
 
 
-        // =================================
+        // =====================================
         // Activities Data
-        // =================================
+        // =====================================
 
         if (
             typeof activities ===
@@ -1110,7 +1629,7 @@ const Screen = {
                     return (
 
                         activity.grade ===
-                        gradeId
+                        profileGrade
 
                         &&
 
@@ -1131,17 +1650,24 @@ const Screen = {
         console.log(
             "Screen Activity Bridge:",
             {
-                grade: gradeId,
-                subject: subjectId,
-                chapter: chapterId,
-                count: chapterActivities.length
+                grade:
+                    profileGrade,
+
+                subject:
+                    subjectId,
+
+                chapter:
+                    chapterId,
+
+                count:
+                    chapterActivities.length
             }
         );
 
 
-        // =================================
+        // =====================================
         // IMPORTANT
-        // =================================
+        // =====================================
         // بازی‌های فصل توسط ActivityScreen
         // نمایش داده می‌شوند.
         // اینجا مستقیماً بازی را اجرا نمی‌کنیم.
@@ -1268,5 +1794,5 @@ window.Screen =
 // =====================================
 
 console.log(
-    "Screen Manager v5.2 Ready"
+    "Screen Manager v5.4 Ready"
 );

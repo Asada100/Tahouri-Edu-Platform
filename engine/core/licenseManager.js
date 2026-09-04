@@ -1,7 +1,14 @@
 // =====================================
 // Tahouri Edu Platform
 // License Manager
-// Version 1.0
+// Version 2.1
+// =====================================
+//
+// License Binding:
+// studentId + gradeId + academicYear
+//
+// هر کد فعال‌سازی فقط به یک پروفایل
+// در یک پایه و یک سال تحصیلی متصل می‌شود.
 // =====================================
 
 (function () {
@@ -24,15 +31,10 @@
     const GRADES = {
 
         grade1: "پایه اول",
-
         grade2: "پایه دوم",
-
         grade3: "پایه سوم",
-
         grade4: "پایه چهارم",
-
         grade5: "پایه پنجم",
-
         grade6: "پایه ششم"
 
     };
@@ -42,8 +44,15 @@
     // Demo Codes
     // =====================================
     //
-    // فقط برای آزمایش
+    // فقط برای تست داخلی پروژه.
     //
+    // هر کد می‌تواند فقط یک بار به یک
+    // studentId متصل شود.
+    //
+    // در نسخه نهایی عمومی نباید کدهای
+    // واقعی داخل فایل JavaScript قرار بگیرند.
+    //
+    // =====================================
 
     const DEMO_CODES = {
 
@@ -57,7 +66,17 @@
 
         "GRADE5-1405-TEST": "grade5",
 
-        "GRADE6-1405-TEST": "grade6"
+        // ---------------------------------
+        // Grade 6 Test Codes
+        // ---------------------------------
+
+        "GRADE6-1405-TEST": "grade6",
+
+        "GRADE6-1405-TEST-A": "grade6",
+
+        "GRADE6-1405-TEST-B": "grade6",
+
+        "GRADE6-1405-TEST-C": "grade6"
 
     };
 
@@ -91,6 +110,14 @@
     }
 
 
+    function normalizeStudentId(studentId) {
+
+        return safeText(studentId)
+            .trim();
+
+    }
+
+
     function toPersianDigits(value) {
 
         return String(value)
@@ -108,19 +135,123 @@
     }
 
 
-    function escapeHTML(value) {
+    // =====================================
+    // Active Profile
+    // =====================================
 
-        return safeText(value)
+    function getActiveProfile() {
 
-            .replace(/&/g, "&amp;")
+        try {
 
-            .replace(/</g, "&lt;")
+            if (
+                window.ProfileManager &&
+                typeof window.ProfileManager.get ===
+                "function"
+            ) {
 
-            .replace(/>/g, "&gt;")
+                return (
+                    window.ProfileManager.get() ||
+                    null
+                );
 
-            .replace(/"/g, "&quot;")
+            }
 
-            .replace(/'/g, "&#039;");
+        }
+        catch (error) {
+
+            console.error(
+                "License Manager: Cannot read active profile.",
+                error
+            );
+
+        }
+
+        return null;
+
+    }
+
+
+    function getActiveStudentId() {
+
+        const profile =
+            getActiveProfile();
+
+        if (!profile) {
+
+            return "";
+
+        }
+
+        return normalizeStudentId(
+            profile.studentId
+        );
+
+    }
+
+
+    // =====================================
+    // Persian Calendar
+    // =====================================
+
+    function getPersianParts(date) {
+
+        try {
+
+            const formatter =
+                new Intl.DateTimeFormat(
+                    "en-US-u-ca-persian",
+                    {
+                        year: "numeric",
+                        month: "numeric",
+                        day: "numeric"
+                    }
+                );
+
+            const parts =
+                formatter.formatToParts(date);
+
+            const result = {};
+
+            parts.forEach(
+                function (part) {
+
+                    if (
+                        part.type === "year" ||
+                        part.type === "month" ||
+                        part.type === "day"
+                    ) {
+
+                        result[part.type] =
+                            Number(part.value);
+
+                    }
+
+                }
+            );
+
+            if (
+                !result.year ||
+                !result.month ||
+                !result.day
+            ) {
+
+                return null;
+
+            }
+
+            return result;
+
+        }
+        catch (error) {
+
+            console.error(
+                "License Manager: Persian date conversion failed.",
+                error
+            );
+
+            return null;
+
+        }
 
     }
 
@@ -128,72 +259,183 @@
     // =====================================
     // Academic Year
     // =====================================
-    //
-    // شروع سال تحصیلی:
-    // 1 مهر
-    //
-    // در تقویم اجرایی این نسخه:
-    // 23 September
-    //
-    // پایان:
-    // 22 September سال بعد
-    //
-    // اولین لحظه 23 September
-    // سال بعد، سال تحصیلی جدید است.
-    //
 
     function getAcademicYear() {
 
         const now =
             new Date();
 
+        const parts =
+            getPersianParts(now);
 
-        const year =
-            now.getFullYear();
+        if (!parts) {
 
-
-        const september23 =
-            new Date(
-                year,
-                8,
-                23,
-                0,
-                0,
-                0,
-                0
+            console.error(
+                "License Manager: Cannot calculate Persian academic year."
             );
 
-
-        if (
-            now >=
-            september23
-        ) {
-
-            return year;
+            return null;
 
         }
 
+        let academicStartYear =
+            parts.year;
 
-        return year - 1;
+        // قبل از ۱ مهر
+        if (
+            parts.month < 7
+        ) {
+
+            academicStartYear =
+                parts.year - 1;
+
+        }
+
+        return academicStartYear;
 
     }
 
+
+    // =====================================
+    // Academic Year Text
+    // =====================================
 
     function getAcademicYearText() {
 
         const start =
             getAcademicYear();
 
+        if (
+            start === null ||
+            start === undefined
+        ) {
+
+            return "نامشخص";
+
+        }
 
         const end =
             start + 1;
-
 
         return (
             toPersianDigits(start) +
             "–" +
             toPersianDigits(end)
         );
+
+    }
+
+
+    // =====================================
+    // Persian Date → Gregorian Date
+    // =====================================
+
+    function persianToGregorian(
+        persianYear,
+        persianMonth,
+        persianDay
+    ) {
+
+        try {
+
+            const startGregorian =
+                Date.UTC(
+                    persianYear + 621,
+                    2,
+                    1
+                );
+
+            const endGregorian =
+                Date.UTC(
+                    persianYear + 622,
+                    2,
+                    31
+                );
+
+            const target =
+                (
+                    persianYear * 10000 +
+                    persianMonth * 100 +
+                    persianDay
+                );
+
+            let low =
+                startGregorian;
+
+            let high =
+                endGregorian;
+
+            while (
+                low <= high
+            ) {
+
+                const middle =
+                    Math.floor(
+                        (
+                            low +
+                            high
+                        ) / 2
+                    );
+
+                const date =
+                    new Date(middle);
+
+                const parts =
+                    getPersianParts(date);
+
+                if (!parts) {
+
+                    return null;
+
+                }
+
+                const current =
+                    (
+                        parts.year * 10000 +
+                        parts.month * 100 +
+                        parts.day
+                    );
+
+                if (
+                    current === target
+                ) {
+
+                    return date;
+
+                }
+
+                if (
+                    current < target
+                ) {
+
+                    low =
+                        middle +
+                        86400000;
+
+                }
+                else {
+
+                    high =
+                        middle -
+                        86400000;
+
+                }
+
+            }
+
+            return null;
+
+        }
+        catch (error) {
+
+            console.error(
+                "License Manager: Persian to Gregorian conversion failed.",
+                error
+            );
+
+            return null;
+
+        }
 
     }
 
@@ -207,50 +449,80 @@
         const academicStartYear =
             getAcademicYear();
 
+        if (
+            academicStartYear === null
+        ) {
+
+            return {
+
+                start: null,
+                end: null,
+                nextStart: null,
+                academicStartYear: null,
+                academicEndYear: null
+
+            };
+
+        }
+
+        const nextAcademicYear =
+            academicStartYear + 1;
 
         const start =
-            new Date(
+            persianToGregorian(
                 academicStartYear,
-                8,
-                23,
-                0,
-                0,
-                0,
-                0
+                7,
+                1
             );
-
 
         const nextStart =
-            new Date(
-                academicStartYear + 1,
-                8,
-                23,
-                0,
-                0,
-                0,
-                0
+            persianToGregorian(
+                nextAcademicYear,
+                7,
+                1
             );
 
+        if (
+            !start ||
+            !nextStart
+        ) {
+
+            console.error(
+                "License Manager: Academic period conversion failed."
+            );
+
+            return {
+
+                start: null,
+                end: null,
+                nextStart: null,
+
+                academicStartYear:
+                    academicStartYear,
+
+                academicEndYear:
+                    nextAcademicYear
+
+            };
+
+        }
 
         const end =
             new Date(
                 nextStart.getTime() - 1
             );
 
-
         return {
 
             start: start,
-
             end: end,
-
             nextStart: nextStart,
 
             academicStartYear:
                 academicStartYear,
 
             academicEndYear:
-                academicStartYear + 1
+                nextAcademicYear
 
         };
 
@@ -266,10 +538,17 @@
         const period =
             getAcademicPeriod();
 
+        if (
+            !period.start ||
+            !period.nextStart
+        ) {
+
+            return 0;
+
+        }
 
         const now =
             new Date();
-
 
         if (
             now < period.start
@@ -279,7 +558,6 @@
 
         }
 
-
         if (
             now >= period.nextStart
         ) {
@@ -288,11 +566,9 @@
 
         }
 
-
         const difference =
             period.nextStart.getTime() -
             now.getTime();
-
 
         return Math.max(
             0,
@@ -333,6 +609,48 @@
 
 
     // =====================================
+    // Gregorian Date
+    // =====================================
+
+    function getGregorianDate(date) {
+
+        try {
+
+            const targetDate =
+                date instanceof Date
+                    ? date
+                    : new Date(date);
+
+            if (
+                isNaN(
+                    targetDate.getTime()
+                )
+            ) {
+
+                return "";
+
+            }
+
+            return new Intl.DateTimeFormat(
+                "en-US",
+                {
+                    year: "numeric",
+                    month: "2-digit",
+                    day: "2-digit"
+                }
+            ).format(targetDate);
+
+        }
+        catch (error) {
+
+            return "";
+
+        }
+
+    }
+
+
+    // =====================================
     // Storage
     // =====================================
 
@@ -345,17 +663,14 @@
                     STORAGE_KEY
                 );
 
-
             if (!raw) {
 
                 return [];
 
             }
 
-
             const data =
                 JSON.parse(raw);
-
 
             if (
                 !Array.isArray(data)
@@ -365,17 +680,15 @@
 
             }
 
-
             return data;
 
         }
         catch (error) {
 
             console.error(
-                "License Manager: Load failed",
+                "License Manager: Load failed.",
                 error
             );
-
 
             return [];
 
@@ -397,17 +710,15 @@
                 )
             );
 
-
             return true;
 
         }
         catch (error) {
 
             console.error(
-                "License Manager: Save failed",
+                "License Manager: Save failed.",
                 error
             );
-
 
             return false;
 
@@ -425,10 +736,16 @@
         const currentYear =
             getAcademicYear();
 
+        if (
+            currentYear === null
+        ) {
+
+            return [];
+
+        }
 
         const licenses =
             loadLicenses();
-
 
         const valid =
             licenses.filter(
@@ -436,13 +753,15 @@
 
                     if (
                         !license ||
-                        !license.academicYear
+                        license.academicYear ===
+                        undefined ||
+                        license.academicYear ===
+                        null
                     ) {
 
                         return false;
 
                     }
-
 
                     return (
                         Number(
@@ -456,7 +775,6 @@
                 }
             );
 
-
         if (
             valid.length !==
             licenses.length
@@ -467,7 +785,6 @@
             );
 
         }
-
 
         return valid;
 
@@ -485,25 +802,150 @@
     }
 
 
-    function isActivated() {
+    // =====================================
+    // Profile License
+    // =====================================
 
-        return (
-            getActiveLicenses()
-                .length > 0
-        );
+    function getProfileLicenses(
+        studentId
+    ) {
+
+        const normalizedStudentId =
+            normalizeStudentId(
+                studentId ||
+                getActiveStudentId()
+            );
+
+        if (!normalizedStudentId) {
+
+            return [];
+
+        }
+
+        return getActiveLicenses()
+            .filter(
+                function (license) {
+
+                    return (
+                        normalizeStudentId(
+                            license.studentId
+                        ) ===
+                        normalizedStudentId
+                    );
+
+                }
+            );
 
     }
 
 
-    function isGradeActivated(
+    function getProfileLicense(
+        studentId,
         gradeId
     ) {
+
+        const normalizedStudentId =
+            normalizeStudentId(
+                studentId ||
+                getActiveStudentId()
+            );
+
+        if (
+            !normalizedStudentId ||
+            !gradeId
+        ) {
+
+            return null;
+
+        }
+
+        return getActiveLicenses()
+            .find(
+                function (license) {
+
+                    return (
+                        normalizeStudentId(
+                            license.studentId
+                        ) ===
+                        normalizedStudentId
+                        &&
+                        license.gradeId ===
+                        gradeId
+                    );
+
+                }
+            ) || null;
+
+    }
+
+
+    // =====================================
+    // Activation Status
+    // =====================================
+
+    function isActivated(
+        studentId
+    ) {
+
+        const normalizedStudentId =
+            normalizeStudentId(
+                studentId ||
+                getActiveStudentId()
+            );
+
+        if (!normalizedStudentId) {
+
+            return false;
+
+        }
 
         return getActiveLicenses()
             .some(
                 function (license) {
 
                     return (
+                        normalizeStudentId(
+                            license.studentId
+                        ) ===
+                        normalizedStudentId
+                    );
+
+                }
+            );
+
+    }
+
+
+    function isGradeActivated(
+        gradeId,
+        studentId
+    ) {
+
+        const normalizedStudentId =
+            normalizeStudentId(
+                studentId ||
+                getActiveStudentId()
+            );
+
+        if (
+            !normalizedStudentId ||
+            !gradeId
+        ) {
+
+            return false;
+
+        }
+
+        return getActiveLicenses()
+            .some(
+                function (license) {
+
+                    return (
+                        normalizeStudentId(
+                            license.studentId
+                        ) ===
+                        normalizedStudentId
+                        &&
                         license.gradeId ===
                         gradeId
                     );
@@ -515,17 +957,68 @@
 
 
     // =====================================
-    // Validate Code
+    // Profile Activation
     // =====================================
 
-    function validateCode(
-        code,
-        selectedGrade
+    function isProfileActivated(
+        studentId,
+        gradeId
+    ) {
+
+        return isGradeActivated(
+            gradeId,
+            studentId
+        );
+
+    }
+
+
+    // =====================================
+    // Find Code
+    // =====================================
+
+    function findLicenseByCode(
+        code
     ) {
 
         const normalized =
             normalizeCode(code);
 
+        if (!normalized) {
+
+            return null;
+
+        }
+
+        return getActiveLicenses()
+            .find(
+                function (license) {
+
+                    return (
+                        normalizeCode(
+                            license.code
+                        ) ===
+                        normalized
+                    );
+
+                }
+            ) || null;
+
+    }
+
+
+    // =====================================
+    // Validate Code
+    // =====================================
+
+    function validateCode(
+        code,
+        selectedGrade,
+        studentId
+    ) {
+
+        const normalized =
+            normalizeCode(code);
 
         if (!normalized) {
 
@@ -555,11 +1048,36 @@
         }
 
 
+        const normalizedStudentId =
+            normalizeStudentId(
+                studentId ||
+                getActiveStudentId()
+            );
+
+
+        if (!normalizedStudentId) {
+
+            return {
+
+                valid: false,
+
+                message:
+                    "پروفایل فعال پیدا نشد."
+
+            };
+
+        }
+
+
         const codeGrade =
             DEMO_CODES[
                 normalized
             ];
 
+
+        // =====================================
+        // Code must exist
+        // =====================================
 
         if (!codeGrade) {
 
@@ -574,6 +1092,10 @@
 
         }
 
+
+        // =====================================
+        // Grade Match
+        // =====================================
 
         if (
             codeGrade !==
@@ -592,23 +1114,123 @@
         }
 
 
-        if (
-            isGradeActivated(
+        // =====================================
+        // Existing license for this profile
+        // =====================================
+
+        const profileLicense =
+            getProfileLicense(
+                normalizedStudentId,
                 selectedGrade
-            )
-        ) {
+            );
+
+        if (profileLicense) {
 
             return {
 
                 valid: false,
 
                 message:
-                    "این پایه قبلاً روی این دستگاه فعال شده است."
+                    "این پروفایل قبلاً برای این پایه فعال شده است."
 
             };
 
         }
 
+
+        // =====================================
+        // Code already used
+        // =====================================
+
+        const existingLicense =
+            findLicenseByCode(
+                normalized
+            );
+
+
+        if (existingLicense) {
+
+            const ownerStudentId =
+                normalizeStudentId(
+                    existingLicense.studentId
+                );
+
+
+            // =====================================
+            // Legacy license
+            // =====================================
+            //
+            // مجوزهای نسخه 1.3 فاقد studentId
+            // هستند.
+            //
+            // اولین پروفایل استفاده‌کننده مالک
+            // آن مجوز خواهد شد.
+            //
+            // =====================================
+
+            if (!ownerStudentId) {
+
+                return {
+
+                    valid: true,
+
+                    code:
+                        normalized,
+
+                    gradeId:
+                        codeGrade,
+
+                    studentId:
+                        normalizedStudentId,
+
+                    legacy:
+                        true
+
+                };
+
+            }
+
+
+            // =====================================
+            // Same owner
+            // =====================================
+
+            if (
+                ownerStudentId ===
+                normalizedStudentId
+            ) {
+
+                return {
+
+                    valid: false,
+
+                    message:
+                        "این کد قبلاً برای همین پروفایل فعال شده است."
+
+                };
+
+            }
+
+
+            // =====================================
+            // Different owner
+            // =====================================
+
+            return {
+
+                valid: false,
+
+                message:
+                    "این کد قبلاً برای پروفایل دیگری استفاده شده است."
+
+            };
+
+        }
+
+
+        // =====================================
+        // New Code
+        // =====================================
 
         return {
 
@@ -618,7 +1240,10 @@
                 codeGrade,
 
             code:
-                normalized
+                normalized,
+
+            studentId:
+                normalizedStudentId
 
         };
 
@@ -631,13 +1256,22 @@
 
     function activate(
         code,
-        gradeId
+        gradeId,
+        studentId
     ) {
+
+        const normalizedStudentId =
+            normalizeStudentId(
+                studentId ||
+                getActiveStudentId()
+            );
+
 
         const validation =
             validateCode(
                 code,
-                gradeId
+                gradeId,
+                normalizedStudentId
             );
 
 
@@ -654,11 +1288,113 @@
             getAcademicPeriod();
 
 
+        if (
+            !period.start ||
+            !period.nextStart
+        ) {
+
+            return {
+
+                valid: false,
+
+                message:
+                    "تاریخ سال تحصیلی قابل محاسبه نیست."
+
+            };
+
+        }
+
+
+        const licenses =
+            getActiveLicenses();
+
+
+        // =====================================
+        // Legacy License Claim
+        // =====================================
+
+        const existingLicense =
+            licenses.find(
+                function (license) {
+
+                    return (
+                        normalizeCode(
+                            license.code
+                        ) ===
+                        validation.code
+                    );
+
+                }
+            );
+
+
+        if (
+            existingLicense &&
+            !normalizeStudentId(
+                existingLicense.studentId
+            )
+        ) {
+
+            existingLicense.studentId =
+                normalizedStudentId;
+
+            existingLicense.studentName =
+                getActiveProfileName();
+
+            existingLicense.boundAt =
+                new Date().toISOString();
+
+            existingLicense.bindingVersion =
+                2;
+
+            const saved =
+                saveLicenses(
+                    licenses
+                );
+
+            if (!saved) {
+
+                return {
+
+                    valid: false,
+
+                    message:
+                        "ذخیره مالکیت مجوز انجام نشد."
+
+                };
+
+            }
+
+            console.log(
+                "Legacy License Bound:",
+                existingLicense
+            );
+
+            return {
+
+                valid: true,
+
+                license:
+                    existingLicense
+
+            };
+
+        }
+
+
+        // =====================================
+        // New License
+        // =====================================
+
         const license = {
 
             id:
                 "license_" +
-                Date.now(),
+                Date.now() +
+                "_" +
+                Math.random()
+                    .toString(36)
+                    .slice(2, 8),
 
             code:
                 validation.code,
@@ -671,6 +1407,12 @@
                     validation.gradeId
                 ],
 
+            studentId:
+                normalizedStudentId,
+
+            studentName:
+                getActiveProfileName(),
+
             academicYear:
                 period.academicStartYear,
 
@@ -680,17 +1422,19 @@
             activatedAt:
                 new Date().toISOString(),
 
+            boundAt:
+                new Date().toISOString(),
+
             validFrom:
                 period.start.toISOString(),
 
             validUntil:
-                period.nextStart.toISOString()
+                period.nextStart.toISOString(),
+
+            bindingVersion:
+                2
 
         };
-
-
-        const licenses =
-            getActiveLicenses();
 
 
         licenses.push(
@@ -737,11 +1481,85 @@
 
 
     // =====================================
+    // Active Profile Name
+    // =====================================
+
+    function getActiveProfileName() {
+
+        const profile =
+            getActiveProfile();
+
+        if (!profile) {
+
+            return "";
+
+        }
+
+        return safeText(
+            profile.name
+        );
+
+    }
+
+
+    // =====================================
+    // Remove License
+    // =====================================
+    //
+    // فعلاً فقط برای تست داخلی.
+    // در نسخه نهایی عمومی نباید امکان حذف
+    // آزادانه مجوز وجود داشته باشد.
+    //
+    // =====================================
+
+    function removeLicense(
+        licenseId
+    ) {
+
+        if (!licenseId) {
+
+            return false;
+
+        }
+
+        const licenses =
+            getActiveLicenses();
+
+        const filtered =
+            licenses.filter(
+                function (license) {
+
+                    return (
+                        license.id !==
+                        licenseId
+                    );
+
+                }
+            );
+
+        if (
+            filtered.length ===
+            licenses.length
+        ) {
+
+            return false;
+
+        }
+
+        return saveLicenses(
+            filtered
+        );
+
+    }
+
+
+    // =====================================
     // Public API
     // =====================================
 
     const api = {
 
+        // Grades
         getGrades:
             function () {
 
@@ -751,6 +1569,8 @@
 
             },
 
+
+        // Academic Year
         getAcademicYear:
             getAcademicYear,
 
@@ -763,23 +1583,50 @@
         getRemainingDays:
             getRemainingDays,
 
+
+        // Dates
         getPersianDate:
             getPersianDate,
 
+        getGregorianDate:
+            getGregorianDate,
+
+
+        // Licenses
         getActiveLicenses:
             getActiveLicenses,
 
+        getProfileLicenses:
+            getProfileLicenses,
+
+        getProfileLicense:
+            getProfileLicense,
+
+
+        // Status
         isActivated:
             isActivated,
 
         isGradeActivated:
             isGradeActivated,
 
+        isProfileActivated:
+            isProfileActivated,
+
+
+        // Validation
         validateCode:
             validateCode,
 
+
+        // Activation
         activate:
-            activate
+            activate,
+
+
+        // Internal / Testing
+        removeLicense:
+            removeLicense
 
     };
 
@@ -793,7 +1640,7 @@
 
 
     console.log(
-        "License Manager Ready"
+        "License Manager v2.1 Ready"
     );
 
 })();

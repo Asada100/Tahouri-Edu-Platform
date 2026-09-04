@@ -1,8 +1,31 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 4.2
+// Version 5.0
 // Profile Manager
-// User Profile Core System
+// Student Profile Core System
+//
+// Responsibilities:
+// - Multiple Student Profiles
+// - Active Student Profile
+// - Unique Student ID
+// - Grade per Student
+// - Personal Settings per Student
+// - Legacy Profile Compatibility
+//
+// Important:
+// Profile identity is independent from
+// License, Navigation and Session.
+//
+// Architecture:
+// Student Profile
+//      ↓
+// studentId
+//      ↓
+// Grade
+//      ↓
+// License
+//      ↓
+// Progress / Reports / Settings
 // =====================================
 
 
@@ -10,66 +33,308 @@ const ProfileManager = {
 
 
 // =====================================
-// Default Profile
+// STORAGE KEYS
 // =====================================
 
-profile: {
+PROFILES_KEY:
+    "Tahouri_Profiles",
 
-    name: "",
+ACTIVE_PROFILE_KEY:
+    "Tahouri_Active_Profile",
 
-    grade: null,
+LEGACY_PROFILE_KEY:
+    "Tahouri_Profile",
 
-    createdAt: null
+
+// =====================================
+// PROFILE COLLECTION
+// =====================================
+
+profiles: [],
+
+activeProfileId: null,
+
+
+// =====================================
+// DEFAULT SETTINGS
+// =====================================
+
+getDefaultSettings: function () {
+
+    return {
+
+        theme: "light",
+
+        music: true,
+
+        programSound: true,
+
+        notifications: true,
+
+        soundFeedback: true
+
+    };
 
 },
 
 
 // =====================================
-// Initialize
+// CREATE UNIQUE STUDENT ID
+// =====================================
+
+generateStudentId: function () {
+
+    if (
+        typeof crypto !== "undefined"
+        &&
+        typeof crypto.randomUUID === "function"
+    ) {
+
+        return crypto.randomUUID();
+
+    }
+
+
+    return (
+        "student_" +
+        Date.now() +
+        "_" +
+        Math.random()
+            .toString(36)
+            .substring(2, 10)
+    );
+
+},
+
+
+// =====================================
+// INITIALIZE
 // =====================================
 
 init: function () {
 
-    const savedProfile =
+    console.log(
+        "Profile Manager v5.0 Starting"
+    );
+
+
+    const savedProfiles =
         localStorage.getItem(
-            "Tahouri_Profile"
+            this.PROFILES_KEY
         );
 
 
-    if (savedProfile) {
+    if (savedProfiles) {
 
         try {
 
-            this.profile =
+            this.profiles =
                 JSON.parse(
-                    savedProfile
+                    savedProfiles
                 );
 
 
-            console.log(
-                "Profile Loaded",
-                this.profile
-            );
+            if (
+                !Array.isArray(
+                    this.profiles
+                )
+            ) {
+
+                this.profiles = [];
+
+            }
 
         }
 
         catch (error) {
 
             console.error(
-                "Profile Load Error",
+                "Profiles Load Error",
                 error
             );
 
 
-            this.createDefault();
+            this.profiles = [];
 
         }
 
     }
 
+
+    // =================================
+    // LEGACY MIGRATION
+    // =================================
+
+    if (
+        this.profiles.length === 0
+    ) {
+
+        this.migrateLegacyProfile();
+
+    }
+
+
+    // =================================
+    // ACTIVE PROFILE
+    // =================================
+
+    const savedActiveId =
+        localStorage.getItem(
+            this.ACTIVE_PROFILE_KEY
+        );
+
+
+    if (
+        savedActiveId
+        &&
+        this.profiles.some(
+            function (profile) {
+
+                return (
+                    profile.studentId ===
+                    savedActiveId
+                );
+
+            }
+        )
+    ) {
+
+        this.activeProfileId =
+            savedActiveId;
+
+    }
+
+    else if (
+        this.profiles.length > 0
+    ) {
+
+        this.activeProfileId =
+            this.profiles[0].studentId;
+
+    }
+
     else {
 
-        this.createDefault();
+        this.activeProfileId =
+            null;
+
+    }
+
+
+    this.normalizeProfiles();
+
+    this.save();
+
+
+    console.log(
+        "Profiles Loaded:",
+        this.profiles
+    );
+
+
+    console.log(
+        "Active Profile:",
+        this.get()
+    );
+
+},
+
+
+// =====================================
+// LEGACY PROFILE MIGRATION
+// =====================================
+//
+// Converts the old:
+//
+// Tahouri_Profile
+//
+// into the new multi-profile system.
+// =====================================
+
+migrateLegacyProfile: function () {
+
+    const legacyData =
+        localStorage.getItem(
+            this.LEGACY_PROFILE_KEY
+        );
+
+
+    if (!legacyData) {
+
+        return;
+
+    }
+
+
+    try {
+
+        const oldProfile =
+            JSON.parse(
+                legacyData
+            );
+
+
+        if (
+            !oldProfile
+            ||
+            (
+                !oldProfile.name
+                &&
+                !oldProfile.grade
+            )
+        ) {
+
+            return;
+
+        }
+
+
+        const profile =
+            this.buildProfile({
+
+                name:
+                    oldProfile.name || "",
+
+                grade:
+                    oldProfile.grade || null,
+
+                createdAt:
+                    oldProfile.createdAt || null
+
+            });
+
+
+        this.profiles = [
+            profile
+        ];
+
+
+        this.activeProfileId =
+            profile.studentId;
+
+
+        localStorage.setItem(
+
+            this.ACTIVE_PROFILE_KEY,
+
+            profile.studentId
+
+        );
+
+
+        console.log(
+            "Legacy Profile Migrated:",
+            profile
+        );
+
+    }
+
+    catch (error) {
+
+        console.error(
+            "Legacy Profile Migration Error",
+            error
+        );
 
     }
 
@@ -77,49 +342,217 @@ init: function () {
 
 
 // =====================================
-// Create Default Profile
+// BUILD PROFILE
 // =====================================
 
-createDefault: function () {
+buildProfile: function (data) {
 
-    this.profile = {
+    data =
+        data || {};
 
-        name: "",
 
-        grade: null,
+    const settings = {
 
-        createdAt:
-            new Date().toISOString()
+        ...this.getDefaultSettings(),
+
+        ...(
+            data.settings || {}
+        )
 
     };
 
 
-    this.save();
+    return {
+
+        studentId:
+            data.studentId ||
+            this.generateStudentId(),
+
+        name:
+            typeof data.name === "string"
+                ? data.name.trim()
+                : "",
+
+        grade:
+            data.grade ||
+            null,
+
+        createdAt:
+            data.createdAt ||
+            new Date().toISOString(),
+
+        settings:
+            settings
+
+    };
+
+},
 
 
-    console.log(
-        "Default Profile Created"
+// =====================================
+// NORMALIZE PROFILES
+// =====================================
+
+normalizeProfiles: function () {
+
+    this.profiles =
+        this.profiles.map(
+            function (profile) {
+
+                return {
+
+                    studentId:
+                        profile.studentId ||
+                        this.generateStudentId(),
+
+                    name:
+                        typeof profile.name ===
+                        "string"
+                            ? profile.name
+                            : "",
+
+                    grade:
+                        profile.grade ||
+                        null,
+
+                    createdAt:
+                        profile.createdAt ||
+                        new Date().toISOString(),
+
+                    settings: {
+
+                        ...this.getDefaultSettings(),
+
+                        ...(
+                            profile.settings ||
+                            {}
+                        )
+
+                    }
+
+                };
+
+            }.bind(this)
+        );
+
+
+    if (
+        this.profiles.length === 0
+    ) {
+
+        this.activeProfileId =
+            null;
+
+        return;
+
+    }
+
+
+    const activeExists =
+        this.profiles.some(
+            function (profile) {
+
+                return (
+                    profile.studentId ===
+                    this.activeProfileId
+                );
+
+            }
+        );
+
+
+    if (!activeExists) {
+
+        this.activeProfileId =
+            this.profiles[0].studentId;
+
+    }
+
+},
+
+
+// =====================================
+// GET ALL PROFILES
+// =====================================
+
+getAll: function () {
+
+    return this.profiles.map(
+        function (profile) {
+
+            return {
+                ...profile,
+                settings: {
+                    ...profile.settings
+                }
+            };
+
+        }
     );
 
 },
 
 
 // =====================================
-// Get Profile
+// GET ACTIVE PROFILE
 // =====================================
 
 get: function () {
 
+    const profile =
+        this.profiles.find(
+            function (item) {
+
+                return (
+                    item.studentId ===
+                    this.activeProfileId
+                );
+
+            }.bind(this)
+        );
+
+
+    if (!profile) {
+
+        return {
+
+            studentId: null,
+
+            name: "",
+
+            grade: null,
+
+            createdAt: null,
+
+            settings:
+                this.getDefaultSettings()
+
+        };
+
+    }
+
+
     return {
 
+        studentId:
+            profile.studentId,
+
         name:
-            this.profile.name,
+            profile.name,
 
         grade:
-            this.profile.grade,
+            profile.grade,
 
         createdAt:
-            this.profile.createdAt
+            profile.createdAt,
+
+        settings: {
+
+            ...this.getDefaultSettings(),
+
+            ...profile.settings
+
+        }
 
     };
 
@@ -127,45 +560,75 @@ get: function () {
 
 
 // =====================================
-// Get Name
+// GET ACTIVE STUDENT ID
+// =====================================
+
+getStudentId: function () {
+
+    return (
+        this.activeProfileId ||
+        null
+    );
+
+},
+
+
+// =====================================
+// GET NAME
 // =====================================
 
 getName: function () {
 
+    const profile =
+        this.get();
+
     return (
-        this.profile.name || ""
+        profile.name ||
+        ""
     );
 
 },
 
 
 // =====================================
-// Get Grade
+// GET GRADE
 // =====================================
 
 getGrade: function () {
 
+    const profile =
+        this.get();
+
     return (
-        this.profile.grade || null
+        profile.grade ||
+        null
     );
 
 },
 
 
 // =====================================
-// Check Profile
+// HAS ACTIVE PROFILE
 // =====================================
 
 hasProfile: function () {
 
+    const profile =
+        this.get();
+
+
     return (
 
-        typeof this.profile.name ===
+        !!profile.studentId
+
+        &&
+
+        typeof profile.name ===
         "string"
 
         &&
 
-        this.profile.name.trim()
+        profile.name.trim()
             .length > 0
 
     );
@@ -174,10 +637,183 @@ hasProfile: function () {
 
 
 // =====================================
-// Set Name
+// HAS ANY PROFILE
+// =====================================
+
+hasProfiles: function () {
+
+    return (
+        this.profiles.length > 0
+    );
+
+},
+
+
+// =====================================
+// CREATE PROFILE
+// =====================================
+
+createProfile: function (data) {
+
+    if (
+        !data
+        ||
+        typeof data !== "object"
+    ) {
+
+        console.error(
+            "Invalid Profile Data"
+        );
+
+        return null;
+
+    }
+
+
+    const name =
+        typeof data.name === "string"
+            ? data.name.trim()
+            : "";
+
+
+    if (!name) {
+
+        console.error(
+            "Profile Name Empty"
+        );
+
+        return null;
+
+    }
+
+
+    const profile =
+        this.buildProfile({
+
+            name:
+                name,
+
+            grade:
+                data.grade || null,
+
+            settings:
+                data.settings || {},
+
+            createdAt:
+                data.createdAt || null
+
+        });
+
+
+    this.profiles.push(
+        profile
+    );
+
+
+    this.activeProfileId =
+        profile.studentId;
+
+
+    this.save();
+
+
+    console.log(
+        "Student Profile Created:",
+        profile
+    );
+
+
+    return {
+        ...profile
+    };
+
+},
+
+
+// =====================================
+// SWITCH PROFILE
+// =====================================
+
+switchProfile: function (
+    studentId
+) {
+
+    if (!studentId) {
+
+        console.error(
+            "Student ID Missing"
+        );
+
+        return false;
+
+    }
+
+
+    const profile =
+        this.profiles.find(
+            function (item) {
+
+                return (
+                    item.studentId ===
+                    studentId
+                );
+
+            }
+        );
+
+
+    if (!profile) {
+
+        console.error(
+            "Profile Not Found:",
+            studentId
+        );
+
+        return false;
+
+    }
+
+
+    this.activeProfileId =
+        studentId;
+
+
+    localStorage.setItem(
+
+        this.ACTIVE_PROFILE_KEY,
+
+        studentId
+
+    );
+
+
+    console.log(
+        "Active Profile Changed:",
+        profile
+    );
+
+
+    return true;
+
+},
+
+
+// =====================================
+// SET NAME
 // =====================================
 
 setName: function (name) {
+
+    const profile =
+        this.getActiveProfileObject();
+
+
+    if (!profile) {
+
+        return false;
+
+    }
+
 
     if (
         typeof name !==
@@ -210,7 +846,7 @@ setName: function (name) {
     }
 
 
-    this.profile.name =
+    profile.name =
         cleanName;
 
 
@@ -218,7 +854,7 @@ setName: function (name) {
 
 
     console.log(
-        "Profile Name Updated",
+        "Profile Name Updated:",
         cleanName
     );
 
@@ -229,37 +865,32 @@ setName: function (name) {
 
 
 // =====================================
-// Set Grade
+// SET GRADE
 // =====================================
 
 setGrade: function (gradeId) {
 
-    if (
-        gradeId === null ||
+    const profile =
+        this.getActiveProfileObject();
 
-        typeof gradeId ===
-        "undefined"
-    ) {
 
-        this.profile.grade =
-            null;
+    if (!profile) {
+
+        return false;
 
     }
 
-    else {
 
-        this.profile.grade =
-            gradeId;
-
-    }
+    profile.grade =
+        gradeId || null;
 
 
     this.save();
 
 
     console.log(
-        "Profile Grade Updated",
-        gradeId
+        "Profile Grade Updated:",
+        profile.grade
     );
 
 
@@ -269,20 +900,34 @@ setGrade: function (gradeId) {
 
 
 // =====================================
-// Update Profile
+// UPDATE PROFILE
 // =====================================
 
 update: function (data) {
 
     if (
-        !data ||
-
-        typeof data !==
-        "object"
+        !data
+        ||
+        typeof data !== "object"
     ) {
 
         console.error(
             "Invalid Profile Data"
+        );
+
+        return false;
+
+    }
+
+
+    const profile =
+        this.getActiveProfileObject();
+
+
+    if (!profile) {
+
+        console.error(
+            "No Active Profile"
         );
 
         return false;
@@ -303,7 +948,7 @@ update: function (data) {
             cleanName.length > 0
         ) {
 
-            this.profile.name =
+            profile.name =
                 cleanName;
 
         }
@@ -320,8 +965,28 @@ update: function (data) {
             )
     ) {
 
-        this.profile.grade =
-            data.grade;
+        profile.grade =
+            data.grade || null;
+
+    }
+
+
+    if (
+        data.settings
+        &&
+        typeof data.settings ===
+        "object"
+    ) {
+
+        profile.settings = {
+
+            ...this.getDefaultSettings(),
+
+            ...profile.settings,
+
+            ...data.settings
+
+        };
 
     }
 
@@ -330,8 +995,8 @@ update: function (data) {
 
 
     console.log(
-        "Profile Updated",
-        this.profile
+        "Active Profile Updated:",
+        profile
     );
 
 
@@ -341,7 +1006,197 @@ update: function (data) {
 
 
 // =====================================
-// Save Profile
+// UPDATE SETTINGS
+// =====================================
+
+updateSettings: function (
+    settings
+) {
+
+    if (
+        !settings
+        ||
+        typeof settings !==
+        "object"
+    ) {
+
+        console.error(
+            "Invalid Settings"
+        );
+
+        return false;
+
+    }
+
+
+    const profile =
+        this.getActiveProfileObject();
+
+
+    if (!profile) {
+
+        console.error(
+            "No Active Profile"
+        );
+
+        return false;
+
+    }
+
+
+    profile.settings = {
+
+        ...this.getDefaultSettings(),
+
+        ...profile.settings,
+
+        ...settings
+
+    };
+
+
+    this.save();
+
+
+    console.log(
+        "Profile Settings Updated:",
+        profile.settings
+    );
+
+
+    return true;
+
+},
+
+
+// =====================================
+// GET SETTINGS
+// =====================================
+
+getSettings: function () {
+
+    const profile =
+        this.get();
+
+
+    return {
+
+        ...this.getDefaultSettings(),
+
+        ...profile.settings
+
+    };
+
+},
+
+
+// =====================================
+// GET ACTIVE PROFILE OBJECT
+// =====================================
+//
+// Internal helper.
+// Returns actual stored object.
+// =====================================
+
+getActiveProfileObject: function () {
+
+    return this.profiles.find(
+        function (profile) {
+
+            return (
+                profile.studentId ===
+                this.activeProfileId
+            );
+
+        }.bind(this)
+    ) || null;
+
+},
+
+
+// =====================================
+// DELETE PROFILE
+// =====================================
+
+deleteProfile: function (
+    studentId
+) {
+
+    if (!studentId) {
+
+        return false;
+
+    }
+
+
+    if (
+        this.profiles.length <= 1
+    ) {
+
+        console.error(
+            "Cannot Delete Last Profile"
+        );
+
+        return false;
+
+    }
+
+
+    const index =
+        this.profiles.findIndex(
+            function (profile) {
+
+                return (
+                    profile.studentId ===
+                    studentId
+                );
+
+            }
+        );
+
+
+    if (index === -1) {
+
+        return false;
+
+    }
+
+
+    const wasActive =
+        this.activeProfileId ===
+        studentId;
+
+
+    this.profiles.splice(
+        index,
+        1
+    );
+
+
+    if (wasActive) {
+
+        this.activeProfileId =
+            this.profiles[0].studentId;
+
+    }
+
+
+    this.save();
+
+
+    console.log(
+        "Profile Deleted:",
+        studentId
+    );
+
+
+    return true;
+
+},
+
+
+// =====================================
+// SAVE PROFILES
 // =====================================
 
 save: function () {
@@ -350,17 +1205,32 @@ save: function () {
 
         localStorage.setItem(
 
-            "Tahouri_Profile",
+            this.PROFILES_KEY,
 
             JSON.stringify(
-                this.profile
+                this.profiles
             )
 
         );
 
 
+        if (
+            this.activeProfileId
+        ) {
+
+            localStorage.setItem(
+
+                this.ACTIVE_PROFILE_KEY,
+
+                this.activeProfileId
+
+            );
+
+        }
+
+
         console.log(
-            "Profile Saved"
+            "Profiles Saved"
         );
 
 
@@ -371,7 +1241,7 @@ save: function () {
     catch (error) {
 
         console.error(
-            "Profile Save Error",
+            "Profiles Save Error",
             error
         );
 
@@ -384,29 +1254,64 @@ save: function () {
 
 
 // =====================================
-// Clear Profile
+// CLEAR ALL PROFILES
 // =====================================
 
 clear: function () {
 
-    this.profile = {
+    this.profiles = [];
 
-        name: "",
+    this.activeProfileId =
+        null;
 
-        grade: null,
 
-        createdAt:
-            new Date().toISOString()
+    localStorage.removeItem(
+        this.PROFILES_KEY
+    );
 
-    };
+
+    localStorage.removeItem(
+        this.ACTIVE_PROFILE_KEY
+    );
+
+
+    console.log(
+        "All Profiles Cleared"
+    );
+
+},
+
+
+// =====================================
+// RESET ACTIVE PROFILE SETTINGS
+// =====================================
+
+resetSettings: function () {
+
+    const profile =
+        this.getActiveProfileObject();
+
+
+    if (!profile) {
+
+        return false;
+
+    }
+
+
+    profile.settings =
+        this.getDefaultSettings();
 
 
     this.save();
 
 
     console.log(
-        "Profile Cleared"
+        "Active Profile Settings Reset"
     );
+
+
+    return true;
 
 }
 
@@ -414,14 +1319,14 @@ clear: function () {
 
 
 // =====================================
-// Initialize Profile Manager
+// INITIALIZE
 // =====================================
 
 ProfileManager.init();
 
 
 // =====================================
-// Global Access
+// GLOBAL ACCESS
 // =====================================
 
 window.ProfileManager =
@@ -429,9 +1334,9 @@ window.ProfileManager =
 
 
 // =====================================
-// Ready
+// READY
 // =====================================
 
 console.log(
-    "Profile Manager Ready"
+    "Profile Manager v5.0 Ready"
 );

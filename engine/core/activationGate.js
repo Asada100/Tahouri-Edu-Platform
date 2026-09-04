@@ -1,12 +1,13 @@
-// =====================================
 // Tahouri Edu Platform
 // Activation Gate
-// Version 4.0
+// Version 8.1
+// Profile + License Binding
 // =====================================
 
 (function () {
 
     "use strict";
+
 
     // =====================================
     // State
@@ -17,346 +18,556 @@
 
 
     // =====================================
+    // Profile
+    // =====================================
+
+    function getActiveProfile() {
+
+        try {
+
+            if (
+                window.ProfileManager &&
+                typeof ProfileManager.get === "function"
+            ) {
+
+                return ProfileManager.get();
+
+            }
+
+        }
+        catch (error) {
+
+            console.error(
+                "Activation Gate: Profile read failed.",
+                error
+            );
+
+        }
+
+        return null;
+
+    }
+
+
+    function getAllProfiles() {
+
+        try {
+
+            if (
+                window.ProfileManager &&
+                typeof ProfileManager.getAll === "function"
+            ) {
+
+                return ProfileManager.getAll() || [];
+
+            }
+
+        }
+        catch (error) {
+
+            console.error(
+                "Activation Gate: Profile list failed.",
+                error
+            );
+
+        }
+
+        return [];
+
+    }
+
+
+    function getActiveStudentId() {
+
+        const profile =
+            getActiveProfile();
+
+
+        if (
+            !profile ||
+            !profile.studentId
+        ) {
+
+            return null;
+
+        }
+
+
+        return String(
+            profile.studentId
+        ).trim();
+
+    }
+
+
+    function getProfileGrade() {
+
+        const profile =
+            getActiveProfile();
+
+
+        if (
+            !profile ||
+            !profile.grade
+        ) {
+
+            return null;
+
+        }
+
+
+        return profile.grade;
+
+    }
+
+
+    function getProfileName() {
+
+        const profile =
+            getActiveProfile();
+
+
+        if (
+            profile &&
+            profile.name
+        ) {
+
+            return profile.name;
+
+        }
+
+
+        return "دانش‌آموز";
+
+    }
+
+
+    function switchProfile(
+        studentId
+    ) {
+
+        try {
+
+            if (
+                window.ProfileManager &&
+                typeof ProfileManager.switchProfile ===
+                    "function"
+            ) {
+
+                return ProfileManager.switchProfile(
+                    studentId
+                );
+
+            }
+
+        }
+        catch (error) {
+
+            console.error(
+                "Activation Gate: Profile switch failed.",
+                error
+            );
+
+        }
+
+
+        return false;
+
+    }
+
+
+    // =====================================
+    // Academic Year
+    // =====================================
+
+    function getAcademicYear() {
+
+        try {
+
+            if (
+                window.LicenseManager &&
+                typeof LicenseManager.getAcademicYearText ===
+                    "function"
+            ) {
+
+                return LicenseManager.getAcademicYearText();
+
+            }
+
+        }
+        catch (error) {
+
+            console.error(
+                "Activation Gate: Academic year unavailable.",
+                error
+            );
+
+        }
+
+
+        return "نامشخص";
+
+    }
+
+
+    // =====================================
+    // Grade Title
+    // =====================================
+
+    function getGradeTitle(
+        gradeId
+    ) {
+
+        try {
+
+            if (
+                window.LicenseManager &&
+                typeof LicenseManager.getGrades ===
+                    "function"
+            ) {
+
+                const grades =
+                    LicenseManager.getGrades();
+
+
+                if (
+                    grades &&
+                    !Array.isArray(grades) &&
+                    typeof grades === "object"
+                ) {
+
+                    const value =
+                        grades[gradeId];
+
+
+                    if (
+                        typeof value === "string"
+                    ) {
+
+                        return value;
+
+                    }
+
+
+                    if (
+                        value &&
+                        typeof value === "object"
+                    ) {
+
+                        return (
+                            value.title ||
+                            value.name ||
+                            gradeId
+                        );
+
+                    }
+
+                }
+
+
+                if (Array.isArray(grades)) {
+
+                    const grade =
+                        grades.find(
+                            function (item) {
+
+                                return (
+                                    item &&
+                                    item.id === gradeId
+                                );
+
+                            }
+                        );
+
+
+                    if (grade) {
+
+                        return (
+                            grade.title ||
+                            grade.name ||
+                            gradeId
+                        );
+
+                    }
+
+                }
+
+            }
+
+        }
+        catch (error) {
+
+            console.warn(
+                "Activation Gate: Grade title unavailable.",
+                error
+            );
+
+        }
+
+
+        return gradeId;
+
+    }
+
+
+    // =====================================
     // Create Gate
     // =====================================
 
     function createGate() {
 
-        const oldGate =
+        const existing =
             document.getElementById(
                 "tahouriActivationGate"
             );
 
-        if (oldGate) {
-            oldGate.remove();
+
+        if (existing) {
+
+            gateElement =
+                existing;
+
+            return gateElement;
+
         }
+
 
         gateElement =
             document.createElement("div");
 
+
         gateElement.id =
             "tahouriActivationGate";
 
-        gateElement.style.position = "fixed";
-        gateElement.style.inset = "0";
-        gateElement.style.zIndex = "999999";
-        gateElement.style.display = "flex";
-        gateElement.style.alignItems = "center";
-        gateElement.style.justifyContent = "center";
-        gateElement.style.padding = "20px";
-        gateElement.style.boxSizing = "border-box";
-        gateElement.style.direction = "rtl";
-        gateElement.style.background = "#f1f5f9";
-        gateElement.style.fontFamily =
-            '"B Yekan", "Vazirmatn", Tahoma, Arial, sans-serif';
+
+        gateElement.style.position =
+            "fixed";
+
+        gateElement.style.top =
+            "0";
+
+        gateElement.style.left =
+            "0";
+
+        gateElement.style.width =
+            "100%";
+
+        gateElement.style.height =
+            "100%";
+
+        gateElement.style.background =
+            "#f5f7fb";
+
+        gateElement.style.zIndex =
+            "999999";
+
+        gateElement.style.overflow =
+            "auto";
+
 
         document.body.appendChild(
             gateElement
         );
 
+
         return gateElement;
+
     }
 
 
     // =====================================
-    // Render
+    // Open License Management
     // =====================================
 
-    function renderGate() {
+    function openLicenseManagement() {
+
+        close();
+
 
         if (
-            !window.LicenseManager
+            window.LicenseScreen &&
+            typeof LicenseScreen.open === "function"
         ) {
 
-            console.error(
-                "Activation Gate: LicenseManager not found."
+            LicenseScreen.open(
+                null,
+                {
+                    returnToGate: true
+                }
             );
 
+
             return;
+
         }
 
+
+        console.warn(
+            "Activation Gate: LicenseScreen unavailable."
+        );
+
+    }
+
+
+    // =====================================
+    // Profile Management
+    // =====================================
+
+    function openProfileManagement() {
+
+        close();
+
+
+        if (
+            window.ProfileScreen &&
+            typeof ProfileScreen.showProfiles ===
+                "function"
+        ) {
+
+            ProfileScreen.showProfiles();
+
+            return;
+
+        }
+
+
+        if (
+            window.Screen &&
+            typeof Screen.showProfile ===
+                "function"
+        ) {
+
+            Screen.showProfile();
+
+            return;
+
+        }
+
+
+        console.warn(
+            "Activation Gate: Profile screen unavailable."
+        );
+
+    }
+
+
+    // =====================================
+    // No Profile
+    // =====================================
+
+    function renderNoProfile() {
 
         const gate =
             createGate();
 
 
-        const grades =
-            LicenseManager.getGrades();
-
-
-        const licenses =
-            LicenseManager.getActiveLicenses();
-
-
-        let gradeHTML = "";
-
-
-        Object.keys(grades).forEach(
-            function (gradeId) {
-
-                const active =
-                    LicenseManager.isGradeActivated(
-                        gradeId
-                    );
-
-
-                gradeHTML += `
-                    <button
-                        type="button"
-                        data-grade-id="${gradeId}"
-                        style="
-                            width:100%;
-                            padding:18px;
-                            margin-bottom:10px;
-                            border-radius:12px;
-                            border:1px solid #cbd5e1;
-                            background:${active ? "#dcfce7" : "#f8fafc"};
-                            cursor:pointer;
-                            font-family:inherit;
-                            font-size:16px;
-                            text-align:right;
-                        "
-                    >
-                        ${active ? "🎓" : "🔒"}
-                        ${grades[gradeId]}
-                        <br>
-                        <small>
-                            ${
-                                active
-                                    ? "✓ مجاز - ورود به پایه"
-                                    : "🔒 قفل - نیاز به کد فعال‌سازی"
-                            }
-                        </small>
-                    </button>
-                `;
-
-            }
-        );
-
-
         gate.innerHTML = `
-            <div
-                style="
-                    width:min(600px,100%);
-                    max-height:90vh;
-                    overflow:auto;
-                    background:white;
-                    padding:25px;
+
+            <div style="
+                min-height:100%;
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                font-family:'B Yekan',Tahoma,sans-serif;
+                box-sizing:border-box;
+                padding:20px;
+            ">
+
+                <div style="
+                    width:100%;
+                    max-width:600px;
+                    background:#ffffff;
                     border-radius:20px;
+                    padding:32px 24px;
                     box-sizing:border-box;
-                    box-shadow:0 20px 50px rgba(0,0,0,.15);
-                "
-            >
+                    text-align:center;
+                    box-shadow:0 5px 25px rgba(0,0,0,0.08);
+                ">
 
-                <div
-                    style="
-                        text-align:center;
-                        margin-bottom:20px;
-                    "
-                >
-
-                    <div style="font-size:40px;">
-                        🔐
+                    <div style="
+                        font-size:48px;
+                        margin-bottom:12px;
+                    ">
+                        👤
                     </div>
 
-                    <h2>
-                        پلتفرم آموزشی طهوری
-                    </h2>
+                    <h1 style="
+                        margin:0 0 14px 0;
+                        color:#222;
+                        font-size:24px;
+                    ">
+                        پروفایل دانش‌آموز
+                    </h1>
 
-                    <p>
-                        پایه‌ای را که مجوز استفاده از آن را دارید
-                        انتخاب کنید.
+                    <p style="
+                        color:#666;
+                        line-height:2;
+                        font-size:15px;
+                        margin:0 0 22px 0;
+                    ">
+                        برای ورود به محیط آموزشی ابتدا
+                        یک پروفایل دانش‌آموز ایجاد کنید.
                     </p>
 
-                    <div
-                        style="
-                            padding:12px;
-                            background:#f0fdf4;
-                            border-radius:12px;
-                        "
-                    >
-                        تعداد پایه‌های فعال:
-                        <strong>
-                            ${licenses.length}
-                        </strong>
-
-                        <br>
-
-                        سال تحصیلی:
-                        <strong>
-                            ${LicenseManager.getAcademicYearText()}
-                        </strong>
-                    </div>
-
-                </div>
-
-
-                <div id="tahouriGradeList">
-                    ${gradeHTML}
-                </div>
-
-
-                <div
-                    id="tahouriActivationForm"
-                    style="
-                        display:none;
-                        margin-top:20px;
-                        padding:20px;
-                        background:#f8fafc;
-                        border-radius:15px;
-                    "
-                >
-
-                    <h3
-                        id="tahouriActivationTitle"
-                    >
-                        فعال‌سازی پایه
-                    </h3>
-
-
-                    <p
-                        id="tahouriActivationMessage"
-                    ></p>
-
-
-                    <input
-                        id="tahouriActivationCode"
-                        type="text"
-                        autocomplete="off"
-                        placeholder="کد فعال‌سازی"
-                        style="
-                            width:100%;
-                            height:50px;
-                            box-sizing:border-box;
-                            padding:10px;
-                            border:1px solid #cbd5e1;
-                            border-radius:10px;
-                            text-align:center;
-                            direction:ltr;
-                            font-size:16px;
-                        "
-                    />
-
-
-                    <div
-                        id="tahouriActivationError"
-                        style="
-                            display:none;
-                            margin-top:10px;
-                            padding:10px;
-                            background:#fee2e2;
-                            color:#b91c1c;
-                            border-radius:10px;
-                            text-align:center;
-                        "
-                    ></div>
-
-
                     <button
-                        id="tahouriActivationButton"
+                        id="tahouriCreateProfileButton"
                         type="button"
                         style="
                             width:100%;
-                            margin-top:12px;
-                            padding:14px;
+                            height:46px;
                             border:0;
-                            border-radius:10px;
+                            border-radius:11px;
                             background:#2563eb;
-                            color:white;
-                            font-family:inherit;
+                            color:#fff;
+                            font-family:'B Yekan',Tahoma,sans-serif;
                             font-size:15px;
                             font-weight:bold;
                             cursor:pointer;
                         "
                     >
-                        🔓 فعال‌سازی پایه
+                        👤 ایجاد پروفایل
                     </button>
 
-
-                    <button
-                        id="tahouriActivationCancel"
-                        type="button"
-                        style="
-                            width:100%;
-                            margin-top:8px;
-                            padding:12px;
-                            border:1px solid #cbd5e1;
-                            border-radius:10px;
-                            background:white;
-                            font-family:inherit;
-                            cursor:pointer;
-                        "
-                    >
-                        بازگشت
-                    </button>
-
-                </div>
-
-
-                <div
-                    style="
-                        margin-top:20px;
-                        padding:12px;
-                        background:#f8fafc;
-                        border-radius:10px;
-                        text-align:center;
-                        font-size:12px;
-                        color:#64748b;
-                        line-height:2;
-                    "
-                >
-                    انتخاب پایه به‌تنهایی مجوز ایجاد نمی‌کند.
-                    <br>
-                    فقط پایه‌هایی که مجوز معتبر دارند قابل ورود هستند.
                 </div>
 
             </div>
+
         `;
 
 
-        const buttons =
-            gate.querySelectorAll(
-                "[data-grade-id]"
+        const button =
+            gate.querySelector(
+                "#tahouriCreateProfileButton"
             );
 
 
-        buttons.forEach(
-            function (button) {
+        if (button) {
 
-                button.addEventListener(
-                    "click",
-                    function () {
-
-                        const gradeId =
-                            button.getAttribute(
-                                "data-grade-id"
-                            );
-
-
-                        handleGradeClick(
-                            gradeId
-                        );
-
-                    }
-                );
-
-            }
-        );
-
-
-        const cancel =
-            document.getElementById(
-                "tahouriActivationCancel"
-            );
-
-
-        if (cancel) {
-
-            cancel.addEventListener(
+            button.addEventListener(
                 "click",
                 function () {
 
-                    hideActivationForm();
+                    close();
+
+
+                    if (
+                        window.ProfileScreen &&
+                        typeof ProfileScreen.showCreate ===
+                            "function"
+                    ) {
+
+                        ProfileScreen.showCreate();
+
+                    }
+                    else if (
+                        window.ProfileScreen &&
+                        typeof ProfileScreen.showProfiles ===
+                            "function"
+                    ) {
+
+                        ProfileScreen.showProfiles();
+
+                    }
 
                 }
             );
@@ -367,162 +578,962 @@
 
 
     // =====================================
-    // Grade Click
+    // Profile License Status
     // =====================================
 
-    function handleGradeClick(
+    function isCurrentProfileActivated(
         gradeId
     ) {
 
-        console.log(
-            "Activation Gate: Grade Selected:",
-            gradeId
-        );
+        const studentId =
+            getActiveStudentId();
 
 
-        const activated =
-            LicenseManager.isGradeActivated(
-                gradeId
-            );
+        if (
+            !studentId ||
+            !gradeId
+        ) {
 
+            return false;
 
-        if (activated) {
-
-            console.log(
-                "Activation Gate: Grade Authorized:",
-                gradeId
-            );
-
-
-            enterGrade(
-                gradeId
-            );
-
-
-            return;
         }
 
 
-        console.log(
-            "Activation Gate: Grade Locked:",
-            gradeId
-        );
+        try {
+
+            if (
+                window.LicenseManager &&
+                typeof LicenseManager.isProfileActivated ===
+                    "function"
+            ) {
+
+                return LicenseManager.isProfileActivated(
+                    studentId,
+                    gradeId
+                );
+
+            }
 
 
-        showActivationForm(
-            gradeId
-        );
+            if (
+                window.LicenseManager &&
+                typeof LicenseManager.isGradeActivated ===
+                    "function"
+            ) {
+
+                return LicenseManager.isGradeActivated(
+                    gradeId,
+                    studentId
+                );
+
+            }
+
+        }
+        catch (error) {
+
+            console.error(
+                "Activation Gate: Profile license status failed.",
+                error
+            );
+
+        }
+
+
+        return false;
 
     }
 
 
     // =====================================
-    // Show Activation Form
+    // Current Profile Licenses
+    // =====================================
+
+    function getCurrentProfileLicenses() {
+
+        const studentId =
+            getActiveStudentId();
+
+
+        if (!studentId) {
+
+            return [];
+
+        }
+
+
+        try {
+
+            if (
+                window.LicenseManager &&
+                typeof LicenseManager.getProfileLicenses ===
+                    "function"
+            ) {
+
+                return (
+                    LicenseManager.getProfileLicenses(
+                        studentId
+                    ) || []
+                );
+
+            }
+
+        }
+        catch (error) {
+
+            console.error(
+                "Activation Gate: Profile licenses read failed.",
+                error
+            );
+
+        }
+
+
+        return [];
+
+    }
+
+
+    // =====================================
+    // Render Gate
+    // =====================================
+
+    function renderGate() {
+
+        const profile =
+            getActiveProfile();
+
+
+        const profileGrade =
+            getProfileGrade();
+
+
+        const studentId =
+            getActiveStudentId();
+
+
+        if (
+            !profile ||
+            !profileGrade ||
+            !studentId
+        ) {
+
+            renderNoProfile();
+
+            return;
+
+        }
+
+
+        const gate =
+            createGate();
+
+
+        const profileGradeTitle =
+            getGradeTitle(
+                profileGrade
+            );
+
+
+        let profileActivated =
+            false;
+
+
+        let profileLicenses =
+            [];
+
+
+        try {
+
+            profileActivated =
+                isCurrentProfileActivated(
+                    profileGrade
+                );
+
+
+            profileLicenses =
+                getCurrentProfileLicenses();
+
+        }
+        catch (error) {
+
+            console.error(
+                "Activation Gate: LicenseManager error.",
+                error
+            );
+
+        }
+
+
+        const activeLicenseCount =
+            profileLicenses.length;
+
+
+        // =====================================
+        // Profile Dropdown
+        // =====================================
+
+        const profiles =
+            getAllProfiles();
+
+
+        let profileOptions =
+            "";
+
+
+        profiles.forEach(
+            function (item) {
+
+                if (!item) {
+
+                    return;
+
+                }
+
+
+                const selected =
+                    item.studentId ===
+                    profile.studentId
+                        ? "selected"
+                        : "";
+
+
+                profileOptions += `
+
+                    <option
+                        value="${item.studentId || ""}"
+                        ${selected}
+                    >
+                        ${
+                            item.name ||
+                            "دانش‌آموز"
+                        }
+                    </option>
+
+                `;
+
+            }
+        );
+
+
+        gate.innerHTML = `
+
+            <div style="
+                min-height:100%;
+                font-family:'B Yekan',Tahoma,sans-serif;
+                box-sizing:border-box;
+                padding:25px 18px 40px 18px;
+            ">
+
+                <div style="
+                    width:100%;
+                    max-width:760px;
+                    margin:0 auto;
+                ">
+
+
+                    <!-- Header -->
+
+                    <div style="
+                        text-align:center;
+                        margin-bottom:22px;
+                    ">
+
+                        <div style="
+                            font-size:42px;
+                            margin-bottom:8px;
+                        ">
+                            🔐
+                        </div>
+
+                        <h1 style="
+                            margin:0 0 8px 0;
+                            color:#222;
+                            font-size:24px;
+                        ">
+                            ورود به محیط آموزشی
+                        </h1>
+
+                        <div style="
+                            color:#666;
+                            font-size:14px;
+                        ">
+                            سال تحصیلی ${getAcademicYear()}
+                        </div>
+
+                    </div>
+
+
+                    <!-- Active Profile -->
+
+                    <div style="
+                        background:#fff;
+                        border-radius:18px;
+                        padding:20px;
+                        margin-bottom:15px;
+                        box-shadow:0 4px 18px rgba(0,0,0,0.06);
+                        box-sizing:border-box;
+                        text-align:center;
+                    ">
+
+                        <div style="
+                            font-size:30px;
+                            margin-bottom:6px;
+                        ">
+                            👤
+                        </div>
+
+                        <div style="
+                            color:#777;
+                            font-size:13px;
+                            margin-bottom:7px;
+                        ">
+                            پروفایل فعال
+                        </div>
+
+
+                        <select
+                            id="tahouriActiveProfileSelect"
+                            style="
+                                width:100%;
+                                height:46px;
+                                padding:0 12px;
+                                border:1px solid #cbd5e1;
+                                border-radius:11px;
+                                background:#f8fafc;
+                                color:#222;
+                                font-family:'B Yekan',Tahoma,sans-serif;
+                                font-size:16px;
+                                font-weight:bold;
+                                text-align:center;
+                                cursor:pointer;
+                                box-sizing:border-box;
+                                outline:none;
+                            "
+                        >
+
+                            ${profileOptions}
+
+                        </select>
+
+
+                        <div style="
+                            color:#555;
+                            font-size:14px;
+                            margin-top:10px;
+                        ">
+                            ${profileGradeTitle}
+                        </div>
+
+
+                        <button
+                            id="tahouriSwitchProfileButton"
+                            type="button"
+                            style="
+                                width:100%;
+                                height:43px;
+                                margin-top:15px;
+                                border:1px solid #dbe3ec;
+                                border-radius:11px;
+                                background:#f8fafc;
+                                color:#334155;
+                                font-family:'B Yekan',Tahoma,sans-serif;
+                                font-size:14px;
+                                font-weight:bold;
+                                cursor:pointer;
+                            "
+                        >
+                            👥 مدیریت پروفایل‌ها
+                        </button>
+
+                    </div>
+
+
+                    <!-- Current License -->
+
+                    <div style="
+                        background:#fff;
+                        border-radius:18px;
+                        padding:20px;
+                        margin-bottom:15px;
+                        box-shadow:0 4px 18px rgba(0,0,0,0.06);
+                        box-sizing:border-box;
+                        text-align:center;
+                    ">
+
+                        <div style="
+                            font-size:34px;
+                            margin-bottom:7px;
+                        ">
+                            ${
+                                profileActivated
+                                    ? "🎓"
+                                    : "🔑"
+                            }
+                        </div>
+
+                        <h2 style="
+                            margin:0 0 9px 0;
+                            color:#222;
+                            font-size:20px;
+                        ">
+                            ${profileGradeTitle}
+                        </h2>
+
+                        <p style="
+                            margin:0;
+                            color:#666;
+                            line-height:1.9;
+                            font-size:14px;
+                        ">
+
+                            ${
+                                profileActivated
+                                    ? "مجوز این پایه برای این پروفایل فعال است."
+                                    : "برای این پروفایل هنوز مجوز این پایه فعال نشده است."
+                            }
+
+                        </p>
+
+
+                        ${
+                            profileActivated
+                            ? `
+                                <button
+                                    id="tahouriEnterGradeButton"
+                                    type="button"
+                                    style="
+                                        width:100%;
+                                        height:46px;
+                                        margin:18px auto 0 auto;
+                                        display:block;
+                                        border:0;
+                                        border-radius:11px;
+                                        background:#059669;
+                                        color:#fff;
+                                        font-family:'B Yekan',Tahoma,sans-serif;
+                                        font-size:15px;
+                                        font-weight:bold;
+                                        cursor:pointer;
+                                    "
+                                >
+                                    ▶️ ورود به ${profileGradeTitle}
+                                </button>
+                            `
+                            : `
+                                <button
+                                    id="tahouriShowActivationButton"
+                                    type="button"
+                                    style="
+                                        width:100%;
+                                        height:46px;
+                                        margin:18px auto 0 auto;
+                                        display:block;
+                                        border:0;
+                                        border-radius:11px;
+                                        background:#2563eb;
+                                        color:#fff;
+                                        font-family:'B Yekan',Tahoma,sans-serif;
+                                        font-size:15px;
+                                        font-weight:bold;
+                                        cursor:pointer;
+                                    "
+                                >
+                                    🔑 فعال‌سازی ${profileGradeTitle}
+                                </button>
+                            `
+                        }
+
+                    </div>
+
+
+                    <!-- License Management -->
+
+                    <div style="
+                        background:#fff;
+                        border-radius:18px;
+                        padding:20px;
+                        margin-bottom:15px;
+                        box-shadow:0 4px 18px rgba(0,0,0,0.06);
+                        box-sizing:border-box;
+                        text-align:center;
+                    ">
+
+                        <div style="
+                            font-size:30px;
+                            margin-bottom:6px;
+                        ">
+                            📚
+                        </div>
+
+                        <h2 style="
+                            margin:0 0 8px 0;
+                            color:#222;
+                            font-size:19px;
+                        ">
+                            مدیریت مجوزها
+                        </h2>
+
+                        <p style="
+                            margin:0 0 15px 0;
+                            color:#666;
+                            line-height:1.9;
+                            font-size:13px;
+                        ">
+                            ${
+                                activeLicenseCount
+                            }
+                            مجوز برای این پروفایل فعال است.
+                        </p>
+
+                        <button
+                            id="tahouriManageLicensesButton"
+                            type="button"
+                            style="
+                                width:100%;
+                                height:46px;
+                                border:1px solid #7c3aed;
+                                border-radius:11px;
+                                background:#fff;
+                                color:#7c3aed;
+                                font-family:'B Yekan',Tahoma,sans-serif;
+                                font-size:15px;
+                                font-weight:bold;
+                                cursor:pointer;
+                            "
+                        >
+                            ⚙ مدیریت مجوزها
+                        </button>
+
+                    </div>
+
+
+                    <div style="
+                        background:#f8fafc;
+                        border-radius:15px;
+                        padding:15px;
+                        color:#64748b;
+                        font-size:12px;
+                        line-height:2;
+                        text-align:center;
+                        box-sizing:border-box;
+                    ">
+
+                        هر پروفایل پایه آموزشی خودش را دارد.
+
+                        <br>
+
+                        هر مجوز فقط برای همان پروفایل معتبر است.
+
+                    </div>
+
+
+                </div>
+
+            </div>
+
+        `;
+
+
+        // =====================================
+        // Profile Dropdown Change
+        // =====================================
+
+        const profileSelect =
+            gate.querySelector(
+                "#tahouriActiveProfileSelect"
+            );
+
+
+        if (profileSelect) {
+
+            profileSelect.addEventListener(
+                "change",
+                function () {
+
+                    const studentId =
+                        this.value;
+
+
+                    if (!studentId) {
+
+                        return;
+
+                    }
+
+
+                    const changed =
+                        switchProfile(
+                            studentId
+                        );
+
+
+                    if (changed !== false) {
+
+                        renderGate();
+
+                    }
+
+                }
+            );
+
+        }
+
+
+        // =====================================
+        // Profile Management
+        // =====================================
+
+        const switchButton =
+            gate.querySelector(
+                "#tahouriSwitchProfileButton"
+            );
+
+
+        if (switchButton) {
+
+            switchButton.addEventListener(
+                "click",
+                openProfileManagement
+            );
+
+        }
+
+
+        // =====================================
+        // Enter Grade
+        // =====================================
+
+        const enterButton =
+            gate.querySelector(
+                "#tahouriEnterGradeButton"
+            );
+
+
+        if (enterButton) {
+
+            enterButton.addEventListener(
+                "click",
+                function () {
+
+                    enterGrade(
+                        profileGrade
+                    );
+
+                }
+            );
+
+        }
+
+
+        // =====================================
+        // Activation
+        // =====================================
+
+        const activationButton =
+            gate.querySelector(
+                "#tahouriShowActivationButton"
+            );
+
+
+        if (activationButton) {
+
+            activationButton.addEventListener(
+                "click",
+                function () {
+
+                    showActivationForm(
+                        profileGrade
+                    );
+
+                }
+            );
+
+        }
+
+
+        // =====================================
+        // License Management
+        // =====================================
+
+        const manageButton =
+            gate.querySelector(
+                "#tahouriManageLicensesButton"
+            );
+
+
+        if (manageButton) {
+
+            manageButton.addEventListener(
+                "click",
+                openLicenseManagement
+            );
+
+        }
+
+    }
+
+
+    // =====================================
+    // Activation Form
     // =====================================
 
     function showActivationForm(
         gradeId
     ) {
 
+        const profileGrade =
+            getProfileGrade();
+
+
+        const studentId =
+            getActiveStudentId();
+
+
+        if (
+            !profileGrade ||
+            !studentId ||
+            gradeId !== profileGrade
+        ) {
+
+            console.warn(
+                "Activation Gate: Unauthorized activation request.",
+                {
+                    requestedGrade:
+                        gradeId,
+
+                    profileGrade:
+                        profileGrade,
+
+                    studentId:
+                        studentId
+                }
+            );
+
+            return;
+
+        }
+
+
         selectedGradeId =
             gradeId;
 
 
-        const grades =
-            LicenseManager.getGrades();
+        const gate =
+            gateElement;
 
 
-        const form =
-            document.getElementById(
-                "tahouriActivationForm"
-            );
-
-
-        const title =
-            document.getElementById(
-                "tahouriActivationTitle"
-            );
-
-
-        const message =
-            document.getElementById(
-                "tahouriActivationMessage"
-            );
-
-
-        const code =
-            document.getElementById(
-                "tahouriActivationCode"
-            );
-
-
-        const error =
-            document.getElementById(
-                "tahouriActivationError"
-            );
-
-
-        if (
-            !form ||
-            !title ||
-            !message ||
-            !code ||
-            !error
-        ) {
+        if (!gate) {
 
             return;
+
         }
 
 
-        title.textContent =
-            "🔐 فعال‌سازی " +
-            grades[gradeId];
-
-
-        message.textContent =
-            "این پایه هنوز فعال نشده است. " +
-            "برای ورود، کد فعال‌سازی همین پایه را وارد کنید.";
-
-
-        code.value = "";
-
-
-        error.textContent = "";
-
-
-        error.style.display =
-            "none";
-
-
-        form.style.display =
-            "block";
-
-
-        code.focus();
-
-    }
-
-
-    // =====================================
-    // Hide Activation Form
-    // =====================================
-
-    function hideActivationForm() {
-
-        selectedGradeId =
-            null;
-
-
-        const form =
-            document.getElementById(
-                "tahouriActivationForm"
+        const title =
+            getGradeTitle(
+                gradeId
             );
 
 
-        if (form) {
+        gate.innerHTML = `
 
-            form.style.display =
-                "none";
+            <div style="
+                min-height:100%;
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                padding:20px;
+                box-sizing:border-box;
+                font-family:'B Yekan',Tahoma,sans-serif;
+            ">
+
+                <div style="
+                    width:100%;
+                    max-width:500px;
+                    background:#fff;
+                    border-radius:18px;
+                    padding:25px;
+                    box-shadow:0 5px 20px rgba(0,0,0,0.08);
+                    box-sizing:border-box;
+                ">
+
+                    <div style="
+                        text-align:center;
+                        font-size:38px;
+                        margin-bottom:10px;
+                    ">
+                        🔑
+                    </div>
+
+                    <h2 style="
+                        margin:0 0 10px 0;
+                        text-align:center;
+                        color:#222;
+                        font-size:21px;
+                    ">
+                        فعال‌سازی ${title}
+                    </h2>
+
+                    <p style="
+                        margin:0 0 18px 0;
+                        text-align:center;
+                        color:#666;
+                        line-height:2;
+                        font-size:14px;
+                    ">
+                        کد فعال‌سازی مربوط به
+                        ${title}
+                        و سال تحصیلی جاری را وارد کنید.
+                    </p>
+
+                    <input
+                        id="tahouriActivationCode"
+                        type="text"
+                        autocomplete="off"
+                        placeholder="کد فعال‌سازی"
+                        style="
+                            width:100%;
+                            height:48px;
+                            box-sizing:border-box;
+                            padding:0 14px;
+                            border:1px solid #cbd5e1;
+                            border-radius:11px;
+                            font-family:Tahoma,sans-serif;
+                            font-size:15px;
+                            text-align:center;
+                            direction:ltr;
+                            margin-bottom:12px;
+                            outline:none;
+                        "
+                    />
+
+                    <div
+                        id="tahouriActivationError"
+                        style="
+                            display:none;
+                            padding:10px;
+                            border-radius:10px;
+                            background:#fef2f2;
+                            color:#b91c1c;
+                            text-align:center;
+                            margin-bottom:12px;
+                            line-height:1.8;
+                            font-size:13px;
+                        "
+                    ></div>
+
+                    <button
+                        id="tahouriActivationButton"
+                        type="button"
+                        style="
+                            width:100%;
+                            height:48px;
+                            border:0;
+                            border-radius:11px;
+                            background:#2563eb;
+                            color:#fff;
+                            font-family:'B Yekan',Tahoma,sans-serif;
+                            font-size:15px;
+                            font-weight:bold;
+                            cursor:pointer;
+                            margin-bottom:10px;
+                        "
+                    >
+                        🔓 فعال‌سازی
+                    </button>
+
+                    <button
+                        id="tahouriActivationBackButton"
+                        type="button"
+                        style="
+                            width:100%;
+                            height:44px;
+                            border:1px solid #dbe3ec;
+                            border-radius:11px;
+                            background:#f8fafc;
+                            color:#475569;
+                            font-family:'B Yekan',Tahoma,sans-serif;
+                            font-size:14px;
+                            font-weight:bold;
+                            cursor:pointer;
+                        "
+                    >
+                        ← بازگشت
+                    </button>
+
+                </div>
+
+            </div>
+
+        `;
+
+
+        const codeInput =
+            gate.querySelector(
+                "#tahouriActivationCode"
+            );
+
+
+        const submitButton =
+            gate.querySelector(
+                "#tahouriActivationButton"
+            );
+
+
+        const backButton =
+            gate.querySelector(
+                "#tahouriActivationBackButton"
+            );
+
+
+        if (submitButton) {
+
+            submitButton.addEventListener(
+                "click",
+                activateSelectedGrade
+            );
+
+        }
+
+
+        if (backButton) {
+
+            backButton.addEventListener(
+                "click",
+                renderGate
+            );
+
+        }
+
+
+        if (codeInput) {
+
+            codeInput.addEventListener(
+                "keydown",
+                function (event) {
+
+                    if (
+                        event.key === "Enter"
+                    ) {
+
+                        event.preventDefault();
+
+                        activateSelectedGrade();
+
+                    }
+
+                }
+            );
+
+
+            setTimeout(
+                function () {
+
+                    codeInput.focus();
+
+                },
+                100
+            );
 
         }
 
@@ -535,57 +1546,104 @@
 
     function activateSelectedGrade() {
 
-        if (!selectedGradeId) {
+        const profileGrade =
+            getProfileGrade();
+
+
+        const studentId =
+            getActiveStudentId();
+
+
+        if (
+            !profileGrade ||
+            !studentId ||
+            selectedGradeId !== profileGrade
+        ) {
+
+            showError(
+                "این پایه با پایه پروفایل فعال یکسان نیست."
+            );
 
             return;
+
         }
 
 
-        const code =
+        const codeInput =
             document.getElementById(
                 "tahouriActivationCode"
             );
 
 
-        const error =
-            document.getElementById(
-                "tahouriActivationError"
-            );
-
-
-        if (
-            !code ||
-            !error
-        ) {
+        if (!codeInput) {
 
             return;
+
         }
 
 
-        error.style.display =
-            "none";
+        const code =
+            codeInput.value.trim();
 
 
-        const result =
-            LicenseManager.activate(
-                code.value,
-                selectedGradeId
+        if (!code) {
+
+            showError(
+                "لطفاً کد فعال‌سازی را وارد کنید."
+            );
+
+            return;
+
+        }
+
+
+        let result =
+            null;
+
+
+        try {
+
+            result =
+                LicenseManager.activate(
+                    code,
+                    profileGrade,
+                    studentId
+                );
+
+        }
+        catch (error) {
+
+            console.error(
+                "Activation Gate: Activation failed.",
+                error
             );
 
 
-        if (
-            !result.valid
-        ) {
-
-            error.textContent =
-                result.message;
-
-
-            error.style.display =
-                "block";
+            showError(
+                "خطایی هنگام فعال‌سازی رخ داد."
+            );
 
 
             return;
+
+        }
+
+
+        if (
+            !result ||
+            !result.valid
+        ) {
+
+            showError(
+                result &&
+                result.message
+                    ? result.message
+                    : "فعال‌سازی انجام نشد."
+            );
+
+
+            return;
+
         }
 
 
@@ -595,14 +1653,43 @@
         );
 
 
-        /*
-         * بعد از فعال‌سازی،
-         * فقط همان پایه قابل ورود است.
-         */
+        selectedGradeId =
+            null;
 
-        enterGrade(
-            selectedGradeId
-        );
+
+        renderGate();
+
+    }
+
+
+    // =====================================
+    // Error
+    // =====================================
+
+    function showError(
+        message
+    ) {
+
+        const errorElement =
+            document.getElementById(
+                "tahouriActivationError"
+            );
+
+
+        if (!errorElement) {
+
+            return;
+
+        }
+
+
+        errorElement.textContent =
+            message ||
+            "خطایی رخ داد.";
+
+
+        errorElement.style.display =
+            "block";
 
     }
 
@@ -615,100 +1702,128 @@
         gradeId
     ) {
 
-        /*
-         * کنترل نهایی امنیتی:
-         * حتی اگر somehow این تابع با پایه غیرمجاز
-         * فراخوانی شود، اجازه ورود نمی‌دهیم.
-         */
+        const profile =
+            getActiveProfile();
+
+
+        const profileGrade =
+            getProfileGrade();
+
+
+        const studentId =
+            getActiveStudentId();
+
 
         if (
-            !LicenseManager.isGradeActivated(
-                gradeId
-            )
+            !profile ||
+            !profileGrade ||
+            !studentId ||
+            gradeId !== profileGrade
         ) {
 
             console.warn(
-                "Activation Gate: Unauthorized Grade:",
-                gradeId
+                "Activation Gate: Unauthorized grade entry.",
+                {
+                    requestedGrade:
+                        gradeId,
+
+                    profileGrade:
+                        profileGrade,
+
+                    studentId:
+                        studentId,
+
+                    profile:
+                        profile
+                }
             );
 
 
+            renderGate();
+
+
+            return;
+
+        }
+
+
+        if (
+            !isCurrentProfileActivated(
+                profileGrade
+            )
+        ) {
+
+            renderGate();
+
+
             showActivationForm(
-                gradeId
+                profileGrade
             );
 
 
             return;
+
         }
 
 
-        console.log(
-            "Activation Gate: Entering Authorized Grade:",
-            gradeId
-        );
+        close();
 
 
-        const gate =
-            document.getElementById(
-                "tahouriActivationGate"
+        try {
+
+            if (
+                window.Navigation &&
+                typeof Navigation.selectGrade ===
+                    "function"
+            ) {
+
+                console.log(
+                    "Navigation: Selected Grade From Active Profile:",
+                    {
+                        studentId:
+                            studentId,
+
+                        profileGrade:
+                            profileGrade
+                    }
+                );
+
+
+                Navigation.selectGrade(
+                    profileGrade
+                );
+
+
+                return;
+
+            }
+
+
+            if (
+                window.Router &&
+                typeof Router.goTo ===
+                    "function"
+            ) {
+
+                Router.goTo(
+                    "grade",
+                    {
+                        gradeId:
+                            profileGrade
+                    }
+                );
+
+            }
+
+        }
+        catch (error) {
+
+            console.error(
+                "Activation Gate: Navigation failed.",
+                error
             );
 
-
-        if (gate) {
-
-            gate.remove();
-
         }
-
-
-        gateElement =
-            null;
-
-
-        document.body.style.overflow =
-            "";
-
-
-        /*
-         * انتخاب پایه در سیستم Navigation
-         */
-
-        if (
-            window.Navigation &&
-            typeof Navigation.selectGrade ===
-            "function"
-        ) {
-
-            Navigation.selectGrade(
-                gradeId
-            );
-
-        }
-
-
-        /*
-         * اگر Navigation.selectGrade وجود نداشت،
-         * از Router استفاده می‌کنیم.
-         */
-
-        else if (
-            window.Router &&
-            typeof Router.goTo ===
-            "function"
-        ) {
-
-            Router.goTo(
-                "grade",
-                gradeId
-            );
-
-        }
-
-
-        console.log(
-            "Activation Gate: Application Unlocked:",
-            gradeId
-        );
 
     }
 
@@ -720,33 +1835,229 @@
     function initialize() {
 
         console.log(
-            "Tahouri Activation Gate Ready"
+            "Activation Gate: Initializing..."
         );
 
 
-        if (
-            !window.LicenseManager
-        ) {
+        renderGate();
 
-            console.error(
-                "Activation Gate: LicenseManager not found."
+    }
+
+
+    // =====================================
+    // Open
+    // =====================================
+
+    function open() {
+
+        const licenseContainer =
+            document.getElementById(
+                "tahouriLicenseContainer"
             );
 
 
-            return;
+        if (licenseContainer) {
+
+            licenseContainer.remove();
+
         }
 
 
-        /*
-         * نسخه 4:
-         *
-         * همیشه ابتدا صفحه انتخاب پایه نمایش داده می‌شود.
-         *
-         * وجود یک لایسنس به معنی آزاد بودن
-         * تمام پایه‌ها نیست.
-         */
+        if (!gateElement) {
+
+            createGate();
+
+        }
+
 
         renderGate();
+
+    }
+
+
+    // =====================================
+    // Close
+    // =====================================
+
+    function close() {
+
+        const element =
+            document.getElementById(
+                "tahouriActivationGate"
+            );
+
+
+        if (element) {
+
+            element.remove();
+
+        }
+
+
+        gateElement =
+            null;
+
+
+        selectedGradeId =
+            null;
+
+    }
+
+
+    // =====================================
+    // Is Activated
+    // =====================================
+
+    function isActivated() {
+
+        const profileGrade =
+            getProfileGrade();
+
+
+        const studentId =
+            getActiveStudentId();
+
+
+        if (
+            !profileGrade ||
+            !studentId
+        ) {
+
+            return false;
+
+        }
+
+
+        return isCurrentProfileActivated(
+            profileGrade
+        );
+
+    }
+
+
+    // =====================================
+    // Is Grade Activated
+    // =====================================
+
+    function isGradeActivated(
+        gradeId
+    ) {
+
+        const profileGrade =
+            getProfileGrade();
+
+
+        const studentId =
+            getActiveStudentId();
+
+
+        if (
+            !gradeId ||
+            !profileGrade ||
+            !studentId
+        ) {
+
+            return false;
+
+        }
+
+
+        if (
+            gradeId !== profileGrade
+        ) {
+
+            return false;
+
+        }
+
+
+        return isCurrentProfileActivated(
+            gradeId
+        );
+
+    }
+
+
+    // =====================================
+    // Open Grade
+    // =====================================
+
+    function openGrade(
+        gradeId
+    ) {
+
+        const profileGrade =
+            getProfileGrade();
+
+
+        const studentId =
+            getActiveStudentId();
+
+
+        if (
+            !profileGrade ||
+            !studentId
+        ) {
+
+            open();
+
+            return false;
+
+        }
+
+
+        if (
+            gradeId !== profileGrade
+        ) {
+
+            console.warn(
+                "Activation Gate: openGrade blocked.",
+                {
+                    requestedGrade:
+                        gradeId,
+
+                    profileGrade:
+                        profileGrade,
+
+                    studentId:
+                        studentId
+                }
+            );
+
+
+            open();
+
+
+            return false;
+
+        }
+
+
+        if (
+            !isCurrentProfileActivated(
+                profileGrade
+            )
+        ) {
+
+            open();
+
+
+            showActivationForm(
+                profileGrade
+            );
+
+
+            return false;
+
+        }
+
+
+        enterGrade(
+            profileGrade
+        );
+
+
+        return true;
 
     }
 
@@ -755,145 +2066,34 @@
     // Public API
     // =====================================
 
-    const api = {
+    window.ActivationGate = {
 
         open:
-            function () {
-
-                renderGate();
-
-            },
-
+            open,
 
         close:
-            function () {
-
-                const gate =
-                    document.getElementById(
-                        "tahouriActivationGate"
-                    );
-
-
-                if (gate) {
-
-                    gate.remove();
-
-                }
-
-
-                gateElement =
-                    null;
-
-
-                document.body.style.overflow =
-                    "";
-
-            },
-
+            close,
 
         isActivated:
-            function () {
-
-                return LicenseManager
-                    .isActivated();
-
-            },
-
+            isActivated,
 
         isGradeActivated:
-            function (
-                gradeId
-            ) {
-
-                return LicenseManager
-                    .isGradeActivated(
-                        gradeId
-                    );
-
-            },
-
+            isGradeActivated,
 
         openGrade:
-            function (
-                gradeId
-            ) {
+            openGrade,
 
-                handleGradeClick(
-                    gradeId
-                );
+        openLicenseManagement:
+            openLicenseManagement,
 
-            }
+        openProfileManagement:
+            openProfileManagement
 
     };
 
 
     // =====================================
-    // Global
-    // =====================================
-
-    window.ActivationGate =
-        api;
-
-
-    window.__TahouriActivationGate__ =
-        api;
-
-
-    // =====================================
-    // Activation Button
-    // =====================================
-
-    document.addEventListener(
-        "click",
-        function (event) {
-
-            if (
-                event.target &&
-                event.target.id ===
-                "tahouriActivationButton"
-            ) {
-
-                activateSelectedGrade();
-
-            }
-
-        }
-    );
-
-
-    document.addEventListener(
-        "keydown",
-        function (event) {
-
-            if (
-                event.key !== "Enter"
-            ) {
-
-                return;
-            }
-
-
-            const code =
-                document.getElementById(
-                    "tahouriActivationCode"
-                );
-
-
-            if (
-                code &&
-                document.activeElement === code
-            ) {
-
-                activateSelectedGrade();
-
-            }
-
-        }
-    );
-
-
-    // =====================================
-    // Start
+    // Initialize
     // =====================================
 
     if (
@@ -913,5 +2113,9 @@
 
     }
 
+
+    console.log(
+        "Activation Gate v8.1 Ready"
+    );
 
 })();

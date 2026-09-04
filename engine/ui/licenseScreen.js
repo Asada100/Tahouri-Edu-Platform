@@ -1,314 +1,125 @@
-// =====================================
-// Tahouri Edu Platform
-// License Screen
-// Version 1.0
-// =====================================
+/* =========================================================
+   Tahouri Edu Platform
+   License Screen v4.2
+   Profile Dropdown + Grade Routing + License Management
+   Compatible with ActivationGate v7.0
+   Manual Entry Flow
+   ========================================================= */
 
 (function () {
 
     "use strict";
 
 
-    // =====================================
+    // =========================================================
     // State
-    // =====================================
+    // =========================================================
 
-    let container =
-        null;
+    let container = null;
+    let overlayMode = false;
+    let returnToGate = false;
 
 
-    // =====================================
+    // =========================================================
     // Styles
-    // =====================================
+    // =========================================================
 
     function injectStyles() {
 
         if (
             document.getElementById(
-                "tahouriLicenseScreenStyles"
+                "tahouriLicenseStyles"
             )
         ) {
-
             return;
-
         }
 
 
         const style =
-            document.createElement(
-                "style"
-            );
+            document.createElement("style");
 
 
         style.id =
-            "tahouriLicenseScreenStyles";
+            "tahouriLicenseStyles";
 
 
         style.textContent = `
 
+            #tahouriLicenseContainer {
+
+                position:fixed;
+                inset:0;
+                z-index:999998;
+                background:#f5f7fa;
+                overflow-y:auto;
+                font-family:"B Yekan",Tahoma,Arial,sans-serif;
+
+            }
+
+
             .tahouri-license-screen {
 
-                direction: rtl;
-
-                width: 100%;
-
-                box-sizing: border-box;
-
-                padding: 24px;
-
-                font-family:
-                    "B Yekan",
-                    "Vazirmatn",
-                    Tahoma,
-                    Arial,
-                    sans-serif;
+                width:100%;
+                min-height:100%;
+                display:flex;
+                justify-content:center;
+                box-sizing:border-box;
+                padding:25px 15px 40px;
 
             }
 
 
             .tahouri-license-wrapper {
 
-                width:
-                    min(700px, 100%);
-
-                margin:
-                    0 auto;
+                width:100%;
+                max-width:600px;
+                box-sizing:border-box;
 
             }
 
 
             .tahouri-license-header {
 
-                text-align: center;
-
-                margin-bottom: 25px;
-
-            }
-
-
-            .tahouri-license-header-icon {
-
-                font-size: 42px;
-
-                margin-bottom: 10px;
+                text-align:center;
+                margin-bottom:20px;
 
             }
 
 
             .tahouri-license-header h2 {
 
-                margin: 0;
-
-                font-size: 25px;
-
-                color: #0f172a;
+                margin:0 0 8px;
+                font-size:25px;
 
             }
 
 
             .tahouri-license-header p {
 
-                margin-top: 8px;
-
-                color: #64748b;
-
-                line-height: 1.9;
-
-            }
-
-
-            .tahouri-license-status {
-
-                padding: 15px;
-
-                border-radius: 16px;
-
-                background: #f0fdf4;
-
-                color: #166534;
-
-                text-align: center;
-
-                font-weight: 700;
-
-                margin-bottom: 16px;
-
-            }
-
-
-            .tahouri-license-card {
-
-                background: #ffffff;
-
-                border:
-                    1px solid #e2e8f0;
-
-                border-radius: 18px;
-
-                padding: 18px;
-
-                margin-bottom: 12px;
-
-                display: flex;
-
-                justify-content: space-between;
-
-                align-items: center;
-
-                gap: 15px;
-
-                box-sizing: border-box;
-
-            }
-
-
-            .tahouri-license-card-info {
-
-                min-width: 0;
-
-            }
-
-
-            .tahouri-license-grade {
-
-                font-size: 17px;
-
-                font-weight: 700;
-
-                color: #0f172a;
-
-            }
-
-
-            .tahouri-license-year {
-
-                margin-top: 6px;
-
-                font-size: 13px;
-
-                color: #64748b;
-
-            }
-
-
-            .tahouri-license-valid {
-
-                margin-top: 4px;
-
-                font-size: 12px;
-
-                color: #64748b;
-
-            }
-
-
-            .tahouri-license-days {
-
-                flex-shrink: 0;
-
-                padding: 9px 12px;
-
-                border-radius: 12px;
-
-                background: #ecfdf5;
-
-                color: #047857;
-
-                font-size: 13px;
-
-                font-weight: 700;
-
-            }
-
-
-            .tahouri-license-add {
-
-                width: 100%;
-
-                min-height: 52px;
-
-                border: 0;
-
-                border-radius: 15px;
-
-                background: #2563eb;
-
-                color: #ffffff;
-
-                font-family: inherit;
-
-                font-size: 15px;
-
-                font-weight: 700;
-
-                cursor: pointer;
-
-                margin-top: 8px;
-
-            }
-
-
-            .tahouri-license-add:hover {
-
-                background: #1d4ed8;
-
-            }
-
-
-            .tahouri-license-back {
-
-                width: 100%;
-
-                min-height: 48px;
-
-                border: 1px solid #dbe3ec;
-
-                border-radius: 14px;
-
-                background: #f8fafc;
-
-                color: #334155;
-
-                font-family: inherit;
-
-                font-size: 14px;
-
-                font-weight: 700;
-
-                cursor: pointer;
-
-                margin-top: 10px;
+                margin:0;
+                color:#666;
+                font-size:14px;
 
             }
 
 
             .tahouri-license-form {
 
-                background: #ffffff;
-
-                border:
-                    1px solid #e2e8f0;
-
-                border-radius: 20px;
-
-                padding: 20px;
-
-                box-sizing: border-box;
+                background:#fff;
+                border-radius:16px;
+                padding:20px;
+                box-shadow:0 4px 18px rgba(0,0,0,.08);
+                box-sizing:border-box;
 
             }
 
 
             .tahouri-license-label {
 
-                display: block;
-
-                margin-bottom: 8px;
-
-                color: #334155;
-
-                font-size: 14px;
-
-                font-weight: 700;
+                display:block;
+                margin-bottom:8px;
+                font-weight:bold;
+                font-size:15px;
 
             }
 
@@ -316,135 +127,1797 @@
             .tahouri-license-select,
             .tahouri-license-input {
 
-                width: 100%;
-
-                height: 52px;
-
-                border:
-                    1px solid #cbd5e1;
-
-                border-radius: 14px;
-
-                padding: 0 14px;
-
-                box-sizing: border-box;
-
-                font-family: inherit;
-
-                font-size: 15px;
-
-                outline: none;
+                width:100%;
+                height:48px;
+                border:1px solid #d5d9df;
+                border-radius:10px;
+                padding:0 12px;
+                font-family:inherit;
+                font-size:15px;
+                box-sizing:border-box;
+                background:#fff;
+                margin-bottom:18px;
 
             }
 
 
-            .tahouri-license-input {
+            .tahouri-license-route {
 
-                direction: ltr;
-
-                text-align: center;
-
-                letter-spacing: 1px;
-
-                margin-top: 14px;
+                margin-top:8px;
+                padding:18px;
+                border-radius:14px;
+                background:#f7f8fa;
+                border:1px solid #e2e5e9;
 
             }
 
 
-            .tahouri-license-select:focus,
-            .tahouri-license-input:focus {
+            .tahouri-license-route-title {
 
-                border-color: #60a5fa;
-
-                box-shadow:
-                    0 0 0 3px
-                    rgba(96,165,250,.15);
+                font-size:20px;
+                font-weight:bold;
+                margin-bottom:8px;
 
             }
 
 
-            .tahouri-license-error {
+            .tahouri-license-route-text {
 
-                display: none;
+                color:#666;
+                line-height:1.8;
+                font-size:14px;
+                margin-bottom:14px;
 
-                margin-top: 12px;
+            }
 
-                padding: 11px;
 
-                border-radius: 12px;
+            .tahouri-license-status {
 
-                background: #fef2f2;
+                padding:12px 14px;
+                border-radius:10px;
+                margin-bottom:14px;
+                font-size:14px;
+                line-height:1.7;
 
-                color: #b91c1c;
+            }
 
-                text-align: center;
 
-                font-size: 13px;
+            .tahouri-license-status.active {
 
-                line-height: 1.8;
+                background:#e9f7ef;
+                color:#187744;
+                border:1px solid #bfe5ce;
+
+            }
+
+
+            .tahouri-license-status.inactive {
+
+                background:#fff5e8;
+                color:#9a5a00;
+                border:1px solid #f0d4a5;
+
+            }
+
+
+            .tahouri-license-button {
+
+                width:100%;
+                min-height:48px;
+                border:none;
+                border-radius:10px;
+                padding:10px 15px;
+                margin-top:8px;
+                font-family:inherit;
+                font-size:15px;
+                font-weight:bold;
+                cursor:pointer;
+                background:#2563eb;
+                color:#fff;
+
+            }
+
+
+            .tahouri-license-button:hover {
+
+                opacity:.92;
+
+            }
+
+
+            .tahouri-license-button.secondary {
+
+                background:#667085;
+
+            }
+
+
+            .tahouri-license-button.management {
+
+                background:#7c3aed;
 
             }
 
 
             .tahouri-license-note {
 
-                margin-top: 16px;
+                margin-top:16px;
+                padding:12px;
+                border-radius:10px;
+                background:#f1f3f5;
+                color:#666;
+                font-size:13px;
+                line-height:1.8;
+                text-align:center;
 
-                padding: 13px;
+            }
 
-                border-radius: 14px;
 
-                background: #f8fafc;
+            .tahouri-license-back {
 
-                color: #64748b;
+                margin-top:10px;
 
-                font-size: 12px;
+            }
 
-                line-height: 1.9;
 
-                text-align: center;
+            .tahouri-license-empty {
+
+                text-align:center;
+                padding:30px 15px;
+                color:#666;
+                line-height:2;
+
+            }
+
+
+            .tahouri-license-management-title {
+
+                font-size:20px;
+                font-weight:bold;
+                margin-bottom:8px;
+
+            }
+
+
+            .tahouri-license-management-text {
+
+                color:#666;
+                line-height:1.8;
+                font-size:14px;
+                margin-bottom:18px;
+
+            }
+
+
+            .tahouri-license-divider {
+
+                height:1px;
+                background:#e5e7eb;
+                margin:20px 0;
 
             }
 
         `;
 
 
-        document.head.appendChild(
-            style
+        document.head.appendChild(style);
+
+    }
+
+
+    // =========================================================
+    // Profile Helpers
+    // =========================================================
+
+    function getActiveProfile() {
+
+        try {
+
+            if (
+                window.ProfileManager &&
+                typeof ProfileManager.get ===
+                    "function"
+            ) {
+
+                return ProfileManager.get();
+
+            }
+
+        }
+        catch (error) {
+
+            console.error(
+                "License Screen: Active profile read failed.",
+                error
+            );
+
+        }
+
+
+        return null;
+
+    }
+
+
+    function getAllProfiles() {
+
+        try {
+
+            if (
+                window.ProfileManager &&
+                typeof ProfileManager.getAll ===
+                    "function"
+            ) {
+
+                return (
+                    ProfileManager.getAll() ||
+                    []
+                );
+
+            }
+
+        }
+        catch (error) {
+
+            console.error(
+                "License Screen: Profile list failed.",
+                error
+            );
+
+        }
+
+
+        return [];
+
+    }
+
+
+    function switchProfile(
+        studentId
+    ) {
+
+        try {
+
+            if (
+                window.ProfileManager &&
+                typeof ProfileManager.switchProfile ===
+                    "function"
+            ) {
+
+                return ProfileManager.switchProfile(
+                    studentId
+                );
+
+            }
+
+        }
+        catch (error) {
+
+            console.error(
+                "License Screen: Profile switch failed.",
+                error
+            );
+
+        }
+
+
+        return false;
+
+    }
+
+
+    // =========================================================
+    // Grade Helpers
+    // =========================================================
+
+    function getGrades() {
+
+        try {
+
+            if (
+                window.LicenseManager &&
+                typeof LicenseManager.getGrades ===
+                    "function"
+            ) {
+
+                return (
+                    LicenseManager.getGrades() ||
+                    {}
+                );
+
+            }
+
+        }
+        catch (error) {
+
+            console.error(
+                "License Screen: Grades unavailable.",
+                error
+            );
+
+        }
+
+
+        return {};
+
+    }
+
+
+    function getGradeList() {
+
+        const grades =
+            getGrades();
+
+
+        if (Array.isArray(grades)) {
+
+            return grades;
+
+        }
+
+
+        if (
+            grades &&
+            typeof grades === "object"
+        ) {
+
+            return Object.keys(grades).map(
+                function (gradeId) {
+
+                    const grade =
+                        grades[gradeId];
+
+
+                    if (
+                        grade &&
+                        typeof grade === "object"
+                    ) {
+
+                        return {
+                            id:
+                                grade.id ||
+                                gradeId,
+
+                            title:
+                                grade.title ||
+                                grade.name ||
+                                gradeId,
+
+                            name:
+                                grade.name ||
+                                grade.title ||
+                                gradeId
+                        };
+
+                    }
+
+
+                    return {
+
+                        id:
+                            gradeId,
+
+                        title:
+                            String(
+                                grade ||
+                                gradeId
+                            ),
+
+                        name:
+                            String(
+                                grade ||
+                                gradeId
+                            )
+
+                    };
+
+                }
+            );
+
+        }
+
+
+        return [];
+
+    }
+
+
+    function getGradeTitle(
+        gradeId
+    ) {
+
+        if (!gradeId) {
+
+            return "نامشخص";
+
+        }
+
+
+        const grades =
+            getGrades();
+
+
+        // Object format:
+        // {
+        //     grade1: "پایه اول",
+        //     grade2: "پایه دوم"
+        // }
+
+        if (
+            grades &&
+            !Array.isArray(grades) &&
+            typeof grades === "object"
+        ) {
+
+            const value =
+                grades[gradeId];
+
+
+            if (
+                typeof value === "string"
+            ) {
+
+                return value;
+
+            }
+
+
+            if (
+                value &&
+                typeof value === "object"
+            ) {
+
+                return (
+                    value.title ||
+                    value.name ||
+                    gradeId
+                );
+
+            }
+
+        }
+
+
+        // Array format
+
+        if (Array.isArray(grades)) {
+
+            const grade =
+                grades.find(
+                    function (item) {
+
+                        return (
+                            item &&
+                            item.id === gradeId
+                        );
+
+                    }
+                );
+
+
+            if (grade) {
+
+                return (
+                    grade.title ||
+                    grade.name ||
+                    gradeId
+                );
+
+            }
+
+        }
+
+
+        return gradeId;
+
+    }
+
+
+    // =========================================================
+    // License Helpers
+    // =========================================================
+
+    function getActiveLicenses() {
+
+        try {
+
+            if (
+                window.LicenseManager &&
+                typeof LicenseManager.getActiveLicenses ===
+                    "function"
+            ) {
+
+                return (
+                    LicenseManager.getActiveLicenses() ||
+                    []
+                );
+
+            }
+
+        }
+        catch (error) {
+
+            console.error(
+                "License Screen: Active licenses unavailable.",
+                error
+            );
+
+        }
+
+
+        return [];
+
+    }
+
+
+    function isGradeActivated(
+        gradeId
+    ) {
+
+        if (!gradeId) {
+
+            return false;
+
+        }
+
+
+        try {
+
+            /*
+             * این همان API اصلی مورد استفاده
+             * توسط ActivationGate v7.0 است.
+             */
+
+            if (
+                window.LicenseManager &&
+                typeof LicenseManager.isGradeActivated ===
+                    "function"
+            ) {
+
+                return Boolean(
+                    LicenseManager.isGradeActivated(
+                        gradeId
+                    )
+                );
+
+            }
+
+        }
+        catch (error) {
+
+            console.error(
+                "License Screen: License status check failed.",
+                error
+            );
+
+        }
+
+
+        /*
+         * سازگاری با نسخه‌های قدیمی‌تر
+         */
+
+        try {
+
+            if (
+                window.LicenseManager &&
+                typeof LicenseManager.isActivated ===
+                    "function"
+            ) {
+
+                return Boolean(
+                    LicenseManager.isActivated(
+                        gradeId
+                    )
+                );
+
+            }
+
+        }
+        catch (error) {
+
+            console.error(
+                "License Screen: Legacy license status failed.",
+                error
+            );
+
+        }
+
+
+        /*
+         * آخرین fallback
+         */
+
+        const licenses =
+            getActiveLicenses();
+
+
+        if (!Array.isArray(licenses)) {
+
+            return false;
+
+        }
+
+
+        return licenses.some(
+            function (license) {
+
+                if (!license) {
+
+                    return false;
+
+                }
+
+
+                const licenseGrade =
+                    license.grade ||
+                    license.gradeId;
+
+
+                return (
+                    licenseGrade === gradeId &&
+                    (
+                        license.active === true ||
+                        license.valid === true
+                    )
+                );
+
+            }
         );
 
     }
 
 
-    // =====================================
-    // Render
-    // =====================================
+    function getAcademicYear() {
 
-    function render(target) {
+        try {
 
-        if (
-            !window.LicenseManager
-        ) {
+            if (
+                window.LicenseManager &&
+                typeof LicenseManager.getAcademicYearText ===
+                    "function"
+            ) {
+
+                return (
+                    LicenseManager.getAcademicYearText() ||
+                    ""
+                );
+
+            }
+
+        }
+        catch (error) {
 
             console.error(
-                "License Screen: LicenseManager not found."
+                "License Screen: Academic year unavailable.",
+                error
             );
 
+        }
+
+
+        return "";
+
+    }
+
+
+    // =========================================================
+    // Container Closing
+    // =========================================================
+
+    function closeForGradeEntry() {
+
+        /*
+         * در ورود مستقیم به پایه، نباید دوباره
+         * ActivationGate باز شود.
+         */
+
+        if (container) {
+
+            if (overlayMode) {
+
+                container.remove();
+
+            }
+            else {
+
+                container.innerHTML = "";
+
+            }
+
+
+            container =
+                null;
+
+        }
+
+
+        overlayMode =
+            false;
+
+
+        returnToGate =
+            false;
+
+
+        return true;
+
+    }
+
+
+    function closeContainer() {
+
+        const shouldReturnToGate =
+            returnToGate;
+
+
+        if (container) {
+
+            if (overlayMode) {
+
+                container.remove();
+
+            }
+            else {
+
+                container.innerHTML = "";
+
+            }
+
+
+            container =
+                null;
+
+        }
+
+
+        overlayMode =
+            false;
+
+
+        returnToGate =
+            false;
+
+
+        if (
+            shouldReturnToGate &&
+            window.ActivationGate &&
+            typeof ActivationGate.open ===
+                "function"
+        ) {
+
+            ActivationGate.open();
+
             return;
+
+        }
+
+
+        if (
+            window.Screen &&
+            typeof Screen.showHome ===
+                "function"
+        ) {
+
+            Screen.showHome();
+
+        }
+
+    }
+
+
+    // =========================================================
+    // Overlay Container
+    // =========================================================
+
+    function createOverlayContainer() {
+
+        const old =
+            document.getElementById(
+                "tahouriLicenseContainer"
+            );
+
+
+        if (old) {
+
+            old.remove();
 
         }
 
 
         container =
-            typeof target === "string"
-                ? document.querySelector(target)
-                : target;
+            document.createElement("div");
 
+
+        container.id =
+            "tahouriLicenseContainer";
+
+
+        document.body.appendChild(
+            container
+        );
+
+
+        overlayMode =
+            true;
+
+
+        return container;
+
+    }
+
+
+    function getTargetContainer(
+        target
+    ) {
+
+        if (
+            target &&
+            typeof target === "object"
+        ) {
+
+            return target;
+
+        }
+
+
+        return createOverlayContainer();
+
+    }
+
+
+    // =========================================================
+    // Main List
+    // =========================================================
+
+    function renderList() {
 
         if (!container) {
 
-            console.error(
-                "License Screen: Target not found."
+            return;
+
+        }
+
+
+        const activeProfile =
+            getActiveProfile();
+
+
+        const profiles =
+            getAllProfiles();
+
+
+        if (!activeProfile) {
+
+            renderNoProfile();
+
+            return;
+
+        }
+
+
+        const currentGrade =
+            activeProfile.grade;
+
+
+        const gradeTitle =
+            getGradeTitle(
+                currentGrade
+            );
+
+
+        const activated =
+            isGradeActivated(
+                currentGrade
+            );
+
+
+        let profileOptions =
+            "";
+
+
+        profiles.forEach(
+            function (profile) {
+
+                if (!profile) {
+
+                    return;
+
+                }
+
+
+                const selected =
+                    profile.studentId ===
+                    activeProfile.studentId
+                        ? "selected"
+                        : "";
+
+
+                profileOptions += `
+
+                    <option
+                        value="${profile.studentId || ""}"
+                        ${selected}
+                    >
+                        ${
+                            profile.name ||
+                            "دانش‌آموز"
+                        }
+                        -
+                        ${
+                            getGradeTitle(
+                                profile.grade
+                            )
+                        }
+                    </option>
+
+                `;
+
+            }
+        );
+
+
+        container.innerHTML = `
+
+            <div class="tahouri-license-screen">
+
+                <div class="tahouri-license-wrapper">
+
+
+                    <div class="tahouri-license-header">
+
+                        <h2>
+                            🔑 مدیریت دسترسی
+                        </h2>
+
+                        <p>
+                            پروفایل و مسیر آموزشی را انتخاب کنید
+                        </p>
+
+                    </div>
+
+
+                    <div class="tahouri-license-form">
+
+
+                        <label
+                            class="tahouri-license-label"
+                        >
+                            پروفایل دانش‌آموز
+                        </label>
+
+
+                        <select
+                            id="tahouriLicenseProfileSelect"
+                            class="tahouri-license-select"
+                        >
+
+                            ${profileOptions}
+
+                        </select>
+
+
+                        <div
+                            class="tahouri-license-route"
+                        >
+
+                            <div
+                                class="tahouri-license-route-title"
+                            >
+                                🎓 ${gradeTitle}
+                            </div>
+
+
+                            <div
+                                class="tahouri-license-route-text"
+                            >
+                                مسیر آموزشی این پروفایل بر اساس پایه
+                                انتخاب‌شده نمایش داده می‌شود.
+                            </div>
+
+
+                            ${
+                                activated
+
+                                ?
+
+                                `
+
+                                    <div
+                                        class="tahouri-license-status active"
+                                    >
+
+                                        ✅ مجوز این پایه فعال است.
+
+                                        ${
+                                            getAcademicYear()
+
+                                            ?
+
+                                            `<br>
+                                             سال تحصیلی:
+                                             ${getAcademicYear()}`
+
+                                            :
+
+                                            ""
+                                        }
+
+                                    </div>
+
+
+                                    <button
+                                        id="tahouriLicenseEnterButton"
+                                        type="button"
+                                        class="tahouri-license-button"
+                                    >
+                                        ▶️ ورود به ${gradeTitle}
+                                    </button>
+
+                                `
+
+                                :
+
+                                `
+
+                                    <div
+                                        class="tahouri-license-status inactive"
+                                    >
+                                        🔒 مجوز این پایه فعال نیست.
+                                    </div>
+
+
+                                    <button
+                                        id="tahouriLicenseActivateGradeButton"
+                                        type="button"
+                                        class="tahouri-license-button"
+                                    >
+                                        🔑 فعال‌سازی مجوز ${gradeTitle}
+                                    </button>
+
+                                `
+                            }
+
+
+                        </div>
+
+
+                        <div
+                            class="tahouri-license-divider"
+                        ></div>
+
+
+                        <button
+                            id="tahouriLicenseManagementButton"
+                            type="button"
+                            class="tahouri-license-button management"
+                        >
+                            🔑 مدیریت مجوزها
+                        </button>
+
+
+                        <button
+                            id="tahouriLicenseBackButton"
+                            type="button"
+                            class="tahouri-license-button secondary tahouri-license-back"
+                        >
+                            ↩️ بازگشت
+                        </button>
+
+
+                        <div
+                            class="tahouri-license-note"
+                        >
+
+                            تغییر پروفایل فقط مسیر پایه همان پروفایل را تغییر می‌دهد.
+
+                            <br>
+
+                            ورود به پایه فقط با کلیک روی دکمه ورود انجام می‌شود.
+
+                        </div>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        `;
+
+
+        bindListEvents();
+
+    }
+
+
+    // =========================================================
+    // Main List Events
+    // =========================================================
+
+    function bindListEvents() {
+
+        const profileSelect =
+            document.getElementById(
+                "tahouriLicenseProfileSelect"
+            );
+
+
+        if (profileSelect) {
+
+            profileSelect.addEventListener(
+                "change",
+                function () {
+
+                    const studentId =
+                        this.value;
+
+
+                    if (!studentId) {
+
+                        return;
+
+                    }
+
+
+                    const changed =
+                        switchProfile(
+                            studentId
+                        );
+
+
+                    /*
+                     * بعضی نسخه‌های ProfileManager
+                     * مقدار true/false برمی‌گردانند،
+                     * بعضی نسخه‌ها در موفقیت چیزی برنمی‌گردانند.
+                     */
+
+                    if (changed !== false) {
+
+                        renderList();
+
+                    }
+
+                }
+            );
+
+        }
+
+
+        // =====================================================
+        // Enter Grade
+        // =====================================================
+
+        const enterButton =
+            document.getElementById(
+                "tahouriLicenseEnterButton"
+            );
+
+
+        if (enterButton) {
+
+            enterButton.addEventListener(
+                "click",
+                function () {
+
+                    const activeProfile =
+                        getActiveProfile();
+
+
+                    if (
+                        !activeProfile ||
+                        !activeProfile.grade
+                    ) {
+
+                        return;
+
+                    }
+
+
+                    const grade =
+                        activeProfile.grade;
+
+
+                    if (
+                        !isGradeActivated(
+                            grade
+                        )
+                    ) {
+
+                        renderList();
+
+                        return;
+
+                    }
+
+
+                    /*
+                     * صفحه License بسته می‌شود.
+                     *
+                     * returnToGate نیز خاموش می‌شود
+                     * تا Gate دوباره باز نشود.
+                     */
+
+                    closeForGradeEntry();
+
+
+                    /*
+                     * ActivationGate v7.0
+                     * تنها مسئول ورود نهایی به پایه است.
+                     */
+
+                    if (
+                        window.ActivationGate &&
+                        typeof ActivationGate.openGrade ===
+                            "function"
+                    ) {
+
+                        ActivationGate.openGrade(
+                            grade
+                        );
+
+                        return;
+
+                    }
+
+
+                    console.warn(
+                        "License Screen: ActivationGate.openGrade unavailable."
+                    );
+
+                }
+            );
+
+        }
+
+
+        // =====================================================
+        // Activate Current Profile Grade
+        // =====================================================
+
+        const activateButton =
+            document.getElementById(
+                "tahouriLicenseActivateGradeButton"
+            );
+
+
+        if (activateButton) {
+
+            activateButton.addEventListener(
+                "click",
+                function () {
+
+                    const activeProfile =
+                        getActiveProfile();
+
+
+                    if (
+                        !activeProfile ||
+                        !activeProfile.grade
+                    ) {
+
+                        return;
+
+                    }
+
+
+                    renderAddForm(
+                        activeProfile.grade
+                    );
+
+                }
+            );
+
+        }
+
+
+        // =====================================================
+        // License Management
+        // =====================================================
+
+        const managementButton =
+            document.getElementById(
+                "tahouriLicenseManagementButton"
+            );
+
+
+        if (managementButton) {
+
+            managementButton.addEventListener(
+                "click",
+                function () {
+
+                    renderAddForm();
+
+                }
+            );
+
+        }
+
+
+        // =====================================================
+        // Back
+        // =====================================================
+
+        const backButton =
+            document.getElementById(
+                "tahouriLicenseBackButton"
+            );
+
+
+        if (backButton) {
+
+            backButton.addEventListener(
+                "click",
+                function () {
+
+                    closeContainer();
+
+                }
+            );
+
+        }
+
+    }
+
+
+    // =========================================================
+    // No Profile
+    // =========================================================
+
+    function renderNoProfile() {
+
+        if (!container) {
+
+            return;
+
+        }
+
+
+        container.innerHTML = `
+
+            <div class="tahouri-license-screen">
+
+                <div class="tahouri-license-wrapper">
+
+
+                    <div class="tahouri-license-header">
+
+                        <h2>
+                            🔑 مدیریت دسترسی
+                        </h2>
+
+                    </div>
+
+
+                    <div class="tahouri-license-form">
+
+                        <div
+                            class="tahouri-license-empty"
+                        >
+
+                            <div>
+                                هنوز پروفایلی انتخاب نشده است.
+                            </div>
+
+
+                            <button
+                                id="tahouriLicenseCreateProfileButton"
+                                type="button"
+                                class="tahouri-license-button"
+                            >
+                                👤 ایجاد / انتخاب پروفایل
+                            </button>
+
+
+                            <button
+                                id="tahouriLicenseNoProfileBackButton"
+                                type="button"
+                                class="tahouri-license-button secondary"
+                            >
+                                ↩️ بازگشت
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        `;
+
+
+        const createButton =
+            document.getElementById(
+                "tahouriLicenseCreateProfileButton"
+            );
+
+
+        if (createButton) {
+
+            createButton.addEventListener(
+                "click",
+                function () {
+
+                    /*
+                     * در این حالت نمی‌خواهیم
+                     * Gate دوباره باز شود.
+                     */
+
+                    closeForGradeEntry();
+
+
+                    if (
+                        window.ProfileScreen &&
+                        typeof ProfileScreen.showProfiles ===
+                            "function"
+                    ) {
+
+                        ProfileScreen.showProfiles();
+
+                        return;
+
+                    }
+
+
+                    if (
+                        window.Screen &&
+                        typeof Screen.showProfile ===
+                            "function"
+                    ) {
+
+                        Screen.showProfile();
+
+                    }
+
+                }
+            );
+
+        }
+
+
+        const backButton =
+            document.getElementById(
+                "tahouriLicenseNoProfileBackButton"
+            );
+
+
+        if (backButton) {
+
+            backButton.addEventListener(
+                "click",
+                function () {
+
+                    closeContainer();
+
+                }
+            );
+
+        }
+
+    }
+
+
+    // =========================================================
+    // License Management
+    // =========================================================
+
+    function renderAddForm(
+        preselectedGrade
+    ) {
+
+        if (!container) {
+
+            return;
+
+        }
+
+
+        const grades =
+            getGradeList();
+
+
+        const availableGrades =
+            grades.filter(
+                function (grade) {
+
+                    if (!grade || !grade.id) {
+
+                        return false;
+
+                    }
+
+
+                    return !isGradeActivated(
+                        grade.id
+                    );
+
+                }
+            );
+
+
+        let gradeOptions =
+            "";
+
+
+        availableGrades.forEach(
+            function (grade) {
+
+                const selected =
+                    preselectedGrade &&
+                    grade.id ===
+                    preselectedGrade
+                        ? "selected"
+                        : "";
+
+
+                gradeOptions += `
+
+                    <option
+                        value="${grade.id}"
+                        ${selected}
+                    >
+                        ${
+                            grade.title ||
+                            grade.name ||
+                            grade.id
+                        }
+                    </option>
+
+                `;
+
+            }
+        );
+
+
+        const hasAvailableGrades =
+            availableGrades.length > 0;
+
+
+        container.innerHTML = `
+
+            <div class="tahouri-license-screen">
+
+                <div class="tahouri-license-wrapper">
+
+
+                    <div class="tahouri-license-header">
+
+                        <h2>
+                            🔑 مدیریت مجوزها
+                        </h2>
+
+                        <p>
+                            افزودن یا فعال‌سازی مجوز پایه
+                        </p>
+
+                    </div>
+
+
+                    <div class="tahouri-license-form">
+
+
+                        ${
+                            hasAvailableGrades
+
+                            ?
+
+                            `
+
+                                <div
+                                    class="tahouri-license-management-title"
+                                >
+                                    فعال‌سازی مجوز
+                                </div>
+
+
+                                <div
+                                    class="tahouri-license-management-text"
+                                >
+                                    پایه موردنظر را انتخاب کرده و
+                                    کد مجوز آن را وارد کنید.
+                                </div>
+
+
+                                <label
+                                    class="tahouri-license-label"
+                                >
+                                    پایه
+                                </label>
+
+
+                                <select
+                                    id="tahouriLicenseGradeSelect"
+                                    class="tahouri-license-select"
+                                >
+
+                                    ${gradeOptions}
+
+                                </select>
+
+
+                                <label
+                                    class="tahouri-license-label"
+                                >
+                                    کد مجوز
+                                </label>
+
+
+                                <input
+                                    id="tahouriActivationCode"
+                                    class="tahouri-license-input"
+                                    type="text"
+                                    placeholder="کد مجوز را وارد کنید"
+                                    autocomplete="off"
+                                />
+
+
+                                <div
+                                    id="tahouriLicenseActivationError"
+                                    style="
+                                        display:none;
+                                        margin-bottom:12px;
+                                        padding:10px;
+                                        border-radius:10px;
+                                        background:#fef2f2;
+                                        border:1px solid #fecaca;
+                                        color:#b91c1c;
+                                        text-align:center;
+                                        line-height:1.8;
+                                        font-size:13px;
+                                    "
+                                ></div>
+
+
+                                <button
+                                    id="tahouriActivationButton"
+                                    type="button"
+                                    class="tahouri-license-button"
+                                >
+                                    ✅ فعال‌سازی مجوز
+                                </button>
+
+                            `
+
+                            :
+
+                            `
+
+                                <div
+                                    class="tahouri-license-status active"
+                                >
+                                    ✅ تمام پایه‌های موجود دارای
+                                    مجوز فعال هستند.
+                                </div>
+
+                            `
+                        }
+
+
+                        <button
+                            id="tahouriActivationBackButton"
+                            type="button"
+                            class="tahouri-license-button secondary tahouri-license-back"
+                        >
+                            ↩️ بازگشت
+                        </button>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        `;
+
+
+        // =====================================================
+        // Activation
+        // =====================================================
+
+        const activationButton =
+            document.getElementById(
+                "tahouriActivationButton"
+            );
+
+
+        if (activationButton) {
+
+            activationButton.addEventListener(
+                "click",
+                function () {
+
+                    activateLicense();
+
+                }
+            );
+
+        }
+
+
+        const codeInput =
+            document.getElementById(
+                "tahouriActivationCode"
+            );
+
+
+        if (codeInput) {
+
+            codeInput.addEventListener(
+                "keydown",
+                function (event) {
+
+                    if (
+                        event.key === "Enter"
+                    ) {
+
+                        event.preventDefault();
+
+                        activateLicense();
+
+                    }
+
+                }
+            );
+
+
+            setTimeout(
+                function () {
+
+                    codeInput.focus();
+
+                },
+                100
+            );
+
+        }
+
+
+        const backButton =
+            document.getElementById(
+                "tahouriActivationBackButton"
+            );
+
+
+        if (backButton) {
+
+            backButton.addEventListener(
+                "click",
+                function () {
+
+                    renderList();
+
+                }
+            );
+
+        }
+
+    }
+
+
+    // =========================================================
+    // Show Management Error
+    // =========================================================
+
+    function showManagementError(
+        message
+    ) {
+
+        const element =
+            document.getElementById(
+                "tahouriLicenseActivationError"
+            );
+
+
+        if (!element) {
+
+            alert(
+                message ||
+                "خطایی رخ داد."
             );
 
             return;
@@ -452,7 +1925,220 @@
         }
 
 
+        element.textContent =
+            message ||
+            "خطایی رخ داد.";
+
+
+        element.style.display =
+            "block";
+
+    }
+
+
+    // =========================================================
+    // Activate License
+    // =========================================================
+
+    function activateLicense() {
+
+        const gradeSelect =
+            document.getElementById(
+                "tahouriLicenseGradeSelect"
+            );
+
+
+        const codeInput =
+            document.getElementById(
+                "tahouriActivationCode"
+            );
+
+
+        if (
+            !gradeSelect ||
+            !codeInput
+        ) {
+
+            return;
+
+        }
+
+
+        const grade =
+            gradeSelect.value;
+
+
+        const code =
+            codeInput.value.trim();
+
+
+        if (!grade) {
+
+            showManagementError(
+                "لطفاً پایه را انتخاب کنید."
+            );
+
+            return;
+
+        }
+
+
+        if (!code) {
+
+            showManagementError(
+                "لطفاً کد مجوز را وارد کنید."
+            );
+
+            return;
+
+        }
+
+
+        if (
+            !window.LicenseManager ||
+            typeof LicenseManager.activate !==
+                "function"
+        ) {
+
+            showManagementError(
+                "مدیریت مجوز در دسترس نیست."
+            );
+
+            return;
+
+        }
+
+
+        let result =
+            null;
+
+
+        try {
+
+            result =
+                LicenseManager.activate(
+                    code,
+                    grade
+                );
+
+        }
+        catch (error) {
+
+            console.error(
+                "License Screen: License activation failed.",
+                error
+            );
+
+
+            showManagementError(
+                "خطایی هنگام فعال‌سازی رخ داد."
+            );
+
+
+            return;
+
+        }
+
+
+        /*
+         * ActivationGate v7.0 از result.valid استفاده می‌کند.
+         *
+         * success:true نیز برای سازگاری با نسخه‌های
+         * قدیمی‌تر پذیرفته می‌شود.
+         */
+
+        const valid =
+            result &&
+            (
+                result.valid === true ||
+                result.success === true
+            );
+
+
+        if (!valid) {
+
+            showManagementError(
+
+                result &&
+                result.message
+
+                    ?
+
+                    result.message
+
+                    :
+
+                    "کد مجوز معتبر نیست یا فعال‌سازی انجام نشد."
+
+            );
+
+
+            return;
+
+        }
+
+
+        console.log(
+            "License Screen: License activated successfully.",
+            result.license || result
+        );
+
+
+        /*
+         * مهم:
+         *
+         * پس از فعال‌سازی ورود خودکار انجام نمی‌شود.
+         *
+         * ابتدا مسیر پروفایل و وضعیت جدید مجوز نمایش داده می‌شود.
+         * سپس کاربر خودش دکمه «ورود» را فشار می‌دهد.
+         */
+
+        renderList();
+
+    }
+
+
+    // =========================================================
+    // Public Open
+    // =========================================================
+
+    function open(
+        target,
+        options
+    ) {
+
+        options =
+            options || {};
+
+
+        returnToGate =
+            options.returnToGate === true;
+
+
         injectStyles();
+
+
+        if (
+            target &&
+            typeof target === "object"
+        ) {
+
+            container =
+                getTargetContainer(
+                    target
+                );
+
+
+            overlayMode =
+                false;
+
+        }
+        else {
+
+            container =
+                createOverlayContainer();
+
+        }
 
 
         renderList();
@@ -460,502 +2146,24 @@
     }
 
 
-    // =====================================
-    // List
-    // =====================================
-
-    function renderList() {
-
-        const licenses =
-            LicenseManager
-                .getActiveLicenses();
-
-
-        const grades =
-            LicenseManager
-                .getGrades();
-
-
-        container.innerHTML = `
-
-            <div
-                class="tahouri-license-screen"
-            >
-
-                <div
-                    class="tahouri-license-wrapper"
-                >
-
-                    <div
-                        class="tahouri-license-header"
-                    >
-
-                        <div
-                            class="tahouri-license-header-icon"
-                        >
-                            🔐
-                        </div>
-
-                        <h2>
-                            مجوزهای فعال
-                        </h2>
-
-                        <p>
-                            مدیریت پایه‌های فعال
-                            و مجوزهای سال تحصیلی
-                        </p>
-
-                    </div>
-
-
-                    <div
-                        class="tahouri-license-status"
-                    >
-                        🟢
-                        ${licenses.length}
-                        پایه فعال است
-                        <br>
-                        سال تحصیلی
-                        ${LicenseManager
-                            .getAcademicYearText()}
-                    </div>
-
-
-                    ${
-
-                        licenses.length
-
-                            ?
-
-                            licenses
-                                .map(
-                                    function (license) {
-
-                                        return `
-
-                                            <div
-                                                class="tahouri-license-card"
-                                            >
-
-                                                <div
-                                                    class="tahouri-license-card-info"
-                                                >
-
-                                                    <div
-                                                        class="tahouri-license-grade"
-                                                    >
-                                                        🎓
-                                                        ${
-                                                            grades[
-                                                                license.gradeId
-                                                            ] ||
-                                                            license.gradeId
-                                                        }
-                                                    </div>
-
-                                                    <div
-                                                        class="tahouri-license-year"
-                                                    >
-                                                        سال تحصیلی:
-                                                        ${
-                                                            license.academicYearText
-                                                        }
-                                                    </div>
-
-                                                    <div
-                                                        class="tahouri-license-valid"
-                                                    >
-                                                        فعال از:
-                                                        ${
-                                                            LicenseManager
-                                                                .getPersianDate(
-                                                                    new Date(
-                                                                        license.validFrom
-                                                                    )
-                                                                )
-                                                        }
-                                                    </div>
-
-                                                </div>
-
-
-                                                <div
-                                                    class="tahouri-license-days"
-                                                >
-                                                    ${
-                                                        LicenseManager
-                                                            .getRemainingDays()
-                                                    }
-                                                    روز باقی‌مانده
-                                                </div>
-
-                                            </div>
-
-                                        `;
-
-                                    }
-                                )
-                                .join("")
-
-                            :
-
-                            `
-
-                                <div
-                                    class="tahouri-license-note"
-                                >
-                                    هنوز هیچ پایه‌ای فعال نشده است.
-                                </div>
-
-                            `
-
-                    }
-
-
-                    <button
-                        id="tahouriLicenseAddButton"
-                        class="tahouri-license-add"
-                        type="button"
-                    >
-                        ➕ افزودن کد پایه دیگر
-                    </button>
-
-
-                    <button
-                        id="tahouriLicenseBackButton"
-                        class="tahouri-license-back"
-                        type="button"
-                    >
-                        ← بازگشت
-                    </button>
-
-                </div>
-
-            </div>
-
-        `;
-
-
-        const addButton =
-            container.querySelector(
-                "#tahouriLicenseAddButton"
-            );
-
-
-        const backButton =
-            container.querySelector(
-                "#tahouriLicenseBackButton"
-            );
-
-
-        addButton.addEventListener(
-            "click",
-            renderAddForm
-        );
-
-
-        backButton.addEventListener(
-            "click",
-            function () {
-
-                if (
-                    window.Screen &&
-                    typeof Screen.showHome ===
-                    "function"
-                ) {
-
-                    Screen.showHome();
-
-                }
-                else {
-
-                    window.history.back();
-
-                }
-
-            }
-        );
-
-    }
-
-
-    // =====================================
-    // Add Form
-    // =====================================
-
-    function renderAddForm() {
-
-        const licenses =
-            LicenseManager
-                .getActiveLicenses();
-
-
-        const activeGrades =
-            licenses.map(
-                function (license) {
-
-                    return license.gradeId;
-
-                }
-            );
-
-
-        const grades =
-            LicenseManager
-                .getGrades();
-
-
-        const options =
-            Object.keys(grades)
-
-                .filter(
-                    function (gradeId) {
-
-                        return (
-                            !activeGrades.includes(
-                                gradeId
-                            )
-                        );
-
-                    }
-                )
-
-                .map(
-                    function (gradeId) {
-
-                        return `
-
-                            <option
-                                value="${gradeId}"
-                            >
-                                ${grades[gradeId]}
-                            </option>
-
-                        `;
-
-                    }
-                )
-
-                .join("");
-
-
-        container.innerHTML = `
-
-            <div
-                class="tahouri-license-screen"
-            >
-
-                <div
-                    class="tahouri-license-wrapper"
-                >
-
-                    <div
-                        class="tahouri-license-header"
-                    >
-
-                        <div
-                            class="tahouri-license-header-icon"
-                        >
-                            ➕
-                        </div>
-
-                        <h2>
-                            افزودن پایه
-                        </h2>
-
-                        <p>
-                            کد پایه جدید را وارد کنید.
-                        </p>
-
-                    </div>
-
-
-                    <div
-                        class="tahouri-license-form"
-                    >
-
-                        <label
-                            class="tahouri-license-label"
-                            for="tahouriLicenseGrade"
-                        >
-                            پایه تحصیلی
-                        </label>
-
-
-                        <select
-                            id="tahouriLicenseGrade"
-                            class="tahouri-license-select"
-                        >
-
-                            <option value="">
-                                انتخاب پایه
-                            </option>
-
-                            ${options}
-
-                        </select>
-
-
-                        <input
-                            id="tahouriLicenseCode"
-                            class="tahouri-license-input"
-                            type="text"
-                            autocomplete="off"
-                            placeholder="کد فعال‌سازی"
-                        />
-
-
-                        <div
-                            id="tahouriLicenseError"
-                            class="tahouri-license-error"
-                        ></div>
-
-
-                        <button
-                            id="tahouriLicenseSubmit"
-                            class="tahouri-license-add"
-                            type="button"
-                        >
-                            🔓 فعال‌سازی پایه
-                        </button>
-
-
-                        <button
-                            id="tahouriLicenseCancel"
-                            class="tahouri-license-back"
-                            type="button"
-                        >
-                            ← بازگشت
-                        </button>
-
-
-                        <div
-                            class="tahouri-license-note"
-                        >
-                            هر کد فقط برای یک پایه معتبر است.
-                            <br>
-                            هر پایه مجوز مستقل خود را دارد.
-                            <br>
-                            اعتبار مجوز از ۱ مهر تا ۳۱ شهریور
-                            سال تحصیلی است.
-                        </div>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-        `;
-
-
-        const grade =
-            container.querySelector(
-                "#tahouriLicenseGrade"
-            );
-
-
-        const code =
-            container.querySelector(
-                "#tahouriLicenseCode"
-            );
-
-
-        const submit =
-            container.querySelector(
-                "#tahouriLicenseSubmit"
-            );
-
-
-        const cancel =
-            container.querySelector(
-                "#tahouriLicenseCancel"
-            );
-
-
-        const error =
-            container.querySelector(
-                "#tahouriLicenseError"
-            );
-
-
-        function submitLicense() {
-
-            error.style.display =
-                "none";
-
-
-            const result =
-                LicenseManager.activate(
-                    code.value,
-                    grade.value
-                );
-
-
-            if (
-                !result.valid
-            ) {
-
-                error.textContent =
-                    result.message;
-
-                error.style.display =
-                    "block";
-
-                return;
-
-            }
-
-
-            renderList();
-
-        }
-
-
-        submit.addEventListener(
-            "click",
-            submitLicense
-        );
-
-
-        code.addEventListener(
-            "keydown",
-            function (event) {
-
-                if (
-                    event.key === "Enter"
-                ) {
-
-                    submitLicense();
-
-                }
-
-            }
-        );
-
-
-        cancel.addEventListener(
-            "click",
-            renderList
-        );
-
-    }
-
-
-    // =====================================
+    // =========================================================
     // Public API
-    // =====================================
+    // =========================================================
 
     window.LicenseScreen = {
 
         open:
-            render
+            open
 
     };
 
 
+    // =========================================================
+    // Ready
+    // =========================================================
+
     console.log(
-        "License Screen Ready"
+        "License Screen v4.2 Ready"
     );
 
 })();

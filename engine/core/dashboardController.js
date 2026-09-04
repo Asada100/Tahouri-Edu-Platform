@@ -1,10 +1,18 @@
 // =====================================
 // Tahouri Edu Platform
 // Dashboard Controller
-// Version 5.1
+// Version 6.0
+//
+// Student Friendly Dashboard
 // =====================================
 
+
 const DashboardController = {
+
+
+    // =====================================
+    // OPEN DASHBOARD
+    // =====================================
 
     open: function () {
 
@@ -18,7 +26,8 @@ const DashboardController = {
         // =====================================
 
         if (
-            typeof DashboardScreen === "undefined"
+            typeof DashboardScreen ===
+            "undefined"
         ) {
 
             console.error(
@@ -26,18 +35,23 @@ const DashboardController = {
             );
 
             return;
+
         }
 
 
         // =====================================
-        // Statistics
+        // STATISTICS
         // =====================================
 
         let overall = {};
 
+
         if (
-            typeof StatisticsManager !== "undefined" &&
-            typeof StatisticsManager.get === "function"
+            typeof StatisticsManager !==
+            "undefined" &&
+
+            typeof StatisticsManager.get ===
+            "function"
         ) {
 
             overall =
@@ -47,73 +61,112 @@ const DashboardController = {
 
 
         // =====================================
-        // CURRENT CONTEXT
+        // CURRENT GRADE
         // =====================================
 
         const currentGrade =
-            typeof AppState !== "undefined"
+
+            typeof AppState !==
+            "undefined"
+
                 ? AppState.grade
-                : null;
+
+                : (
+
+                    typeof ProfileManager !==
+                    "undefined" &&
+
+                    typeof ProfileManager.get ===
+                    "function"
+
+                        ? (
+                            ProfileManager.get() || {}
+                          ).grade
+
+                        : null
+                  );
+
+
+        // =====================================
+        // CURRENT CONTEXT
+        // =====================================
 
         const currentSubject =
-            typeof AppState !== "undefined"
+
+            typeof AppState !==
+            "undefined"
+
                 ? AppState.subject
+
                 : null;
 
+
         const currentChapter =
-            typeof AppState !== "undefined"
+
+            typeof AppState !==
+            "undefined"
+
                 ? AppState.chapter
+
                 : null;
 
 
         console.log(
             "Dashboard: Current Context:",
             {
-                grade: currentGrade,
-                subject: currentSubject,
-                chapter: currentChapter
+                grade:
+                    currentGrade,
+
+                subject:
+                    currentSubject,
+
+                chapter:
+                    currentChapter
             }
         );
 
 
         // =====================================
-        // CONTINUE LEARNING
-        //
-        // Priority:
-        // 1. Find an unlocked activity
-        //    that is not completed.
-        //
-        // 2. Preserve the order of activities
-        //    as the educational path.
-        //
-        // 3. Do NOT limit search to the
-        //    last-used subject.
+        // ALL ACTIVITIES
         // =====================================
 
-        let continueLearning = {};
+        let activities = [];
 
-        let activities =
-            typeof App !== "undefined" &&
+
+        if (
+            typeof App !==
+            "undefined" &&
+
             Array.isArray(App.activities)
-                ? App.activities
-                : [];
+        ) {
+
+            activities =
+                App.activities;
+
+        }
 
 
         // =====================================
-        // FILTER BY CURRENT GRADE
+        // ACTIVITIES OF CURRENT GRADE
         // =====================================
 
-        let gradeActivities =
+        const gradeActivities =
             activities.filter(
                 function (activity) {
 
                     if (!activity) {
+
                         return false;
+
                     }
 
+
                     if (!currentGrade) {
+
                         return true;
+
                     }
+
 
                     return (
                         activity.grade ===
@@ -131,13 +184,122 @@ const DashboardController = {
 
 
         // =====================================
-        // FIND NEXT LEARNING ACTIVITY
+        // COMPLETED ACTIVITIES
+        // =====================================
+
+        let completedCount = 0;
+
+
+        for (
+            let i = 0;
+            i < gradeActivities.length;
+            i++
+        ) {
+
+            const activity =
+                gradeActivities[i];
+
+
+            if (
+                !activity ||
+                !activity.id
+            ) {
+
+                continue;
+
+            }
+
+
+            let completed = false;
+
+
+            // ---------------------------------
+            // ProgressManager
+            // ---------------------------------
+
+            if (
+                typeof ProgressManager !==
+                "undefined"
+            ) {
+
+                if (
+                    typeof ProgressManager.isCompleted ===
+                    "function"
+                ) {
+
+                    completed =
+                        ProgressManager.isCompleted(
+                            activity.id
+                        );
+
+                }
+
+                else if (
+                    typeof ProgressManager.get ===
+                    "function"
+                ) {
+
+                    const progress =
+                        ProgressManager.get();
+
+
+                    if (
+                        progress &&
+                        Array.isArray(
+                            progress.completedActivities
+                        )
+                    ) {
+
+                        completed =
+                            progress.completedActivities
+                                .includes(
+                                    activity.id
+                                );
+
+                    }
+
+                }
+
+            }
+
+
+            if (completed) {
+
+                completedCount++;
+
+            }
+
+        }
+
+
+        // =====================================
+        // PROGRESS PERCENTAGE
+        // =====================================
+
+        let progressPercentage = 0;
+
+
+        if (
+            gradeActivities.length > 0
+        ) {
+
+            progressPercentage =
+                Math.round(
+                    (
+                        completedCount /
+                        gradeActivities.length
+                    ) * 100
+                );
+
+        }
+
+
+        // =====================================
+        // CONTINUE LEARNING
         //
-        // IMPORTANT:
-        // We intentionally iterate in the
-        // original activities.json order.
-        // This order represents the
-        // educational path.
+        // Priority:
+        // First unlocked + incomplete activity
+        // in educational order.
         // =====================================
 
         let nextActivity = null;
@@ -153,45 +315,12 @@ const DashboardController = {
                 gradeActivities[i];
 
 
-            if (!activity.id) {
-                continue;
-            }
-
-
-            // ---------------------------------
-            // Progress information
-            // ---------------------------------
-
-            let progress = null;
-
-
             if (
-                typeof ProgressManager !== "undefined"
+                !activity ||
+                !activity.id
             ) {
 
-                if (
-                    typeof ProgressManager.getActivity ===
-                    "function"
-                ) {
-
-                    progress =
-                        ProgressManager.getActivity(
-                            activity.id
-                        );
-
-                }
-
-                else if (
-                    typeof ProgressManager.get ===
-                    "function"
-                ) {
-
-                    progress =
-                        ProgressManager.get(
-                            activity.id
-                        );
-
-                }
+                continue;
 
             }
 
@@ -204,14 +333,47 @@ const DashboardController = {
 
 
             if (
-                progress &&
-                (
-                    progress.completed === true ||
-                    Number(progress.completed) > 0
-                )
+                typeof ProgressManager !==
+                "undefined"
             ) {
 
-                completed = true;
+                if (
+                    typeof ProgressManager.isCompleted ===
+                    "function"
+                ) {
+
+                    completed =
+                        ProgressManager.isCompleted(
+                            activity.id
+                        );
+
+                }
+
+                else if (
+                    typeof ProgressManager.get ===
+                    "function"
+                ) {
+
+                    const progress =
+                        ProgressManager.get();
+
+
+                    if (
+                        progress &&
+                        Array.isArray(
+                            progress.completedActivities
+                        )
+                    ) {
+
+                        completed =
+                            progress.completedActivities
+                                .includes(
+                                    activity.id
+                                );
+
+                    }
+
+                }
 
             }
 
@@ -263,21 +425,10 @@ const DashboardController = {
                         completed,
 
                     unlocked:
-                        unlocked,
-
-                    subject:
-                        activity.subject,
-
-                    chapter:
-                        activity.chapter
+                        unlocked
                 }
             );
 
-
-            // ---------------------------------
-            // FIRST:
-            // unlocked + not completed
-            // ---------------------------------
 
             if (
                 unlocked &&
@@ -295,8 +446,11 @@ const DashboardController = {
 
 
         // =====================================
-        // BUILD CONTINUE LEARNING
+        // CONTINUE LEARNING DATA
         // =====================================
+
+        let continueLearning = {};
+
 
         if (nextActivity) {
 
@@ -338,13 +492,25 @@ const DashboardController = {
 
 
         // =====================================
-        // OPEN DASHBOARD
+        // OPEN SCREEN
         // =====================================
 
         DashboardScreen.show({
 
             overall:
                 overall,
+
+            currentGrade:
+                currentGrade,
+
+            completedCount:
+                completedCount,
+
+            totalGradeActivities:
+                gradeActivities.length,
+
+            progressPercentage:
+                progressPercentage,
 
             continueLearning:
                 continueLearning
@@ -355,6 +521,21 @@ const DashboardController = {
         // =====================================
         // LOG
         // =====================================
+
+        console.log(
+            "Dashboard Progress:",
+            {
+                completed:
+                    completedCount,
+
+                total:
+                    gradeActivities.length,
+
+                percentage:
+                    progressPercentage
+            }
+        );
+
 
         console.log(
             "Dashboard Continue Learning:",
@@ -379,5 +560,5 @@ window.DashboardController =
 // =====================================
 
 console.log(
-    "Dashboard Controller v5.1 Ready"
+    "Dashboard Controller v6.0 Ready"
 );

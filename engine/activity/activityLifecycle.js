@@ -5,7 +5,9 @@
 // Session + Statistics + Progress
 // Sequential Content Lock
 // Final Reward Unlock
+// Daily Learning Streak
 // =====================================
+
 
 const ActivityLifecycle = {
 
@@ -75,6 +77,36 @@ const ActivityLifecycle = {
                     );
 
                     return;
+
+                }
+
+
+                // =================================
+                // Daily Learning Streak
+                // =================================
+                //
+                // هر فعالیت آموزشی که تمام شود
+                // برای مسیر یادگیری روزانه ثبت می‌شود.
+                //
+                // این بخش مستقل از امتیاز و شرط
+                // موفقیت فعالیت است.
+                //
+                // =================================
+
+                if (
+                    typeof DailyLearningStreak !== "undefined" &&
+                    typeof DailyLearningStreak.recordActivity === "function"
+                ) {
+
+                   DailyLearningStreak.recordActivity(
+                       activity,
+                         result
+                    );
+
+                    console.log(
+                        "Daily Learning Streak Updated:",
+                        DailyLearningStreak.getDisplayData()
+                    );
 
                 }
 

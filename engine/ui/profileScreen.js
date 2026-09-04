@@ -1,7 +1,8 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 4.1
+// Version 5.0
 // Profile Screen
+// Multi Profile + Personal Settings
 // =====================================
 
 const ProfileScreen = {
@@ -28,6 +29,49 @@ const ProfileScreen = {
         const profile =
             ProfileManager.get();
 
+        if (!profile) {
+
+            app.innerHTML = `
+
+<div class="screen profile-screen">
+
+    <h1>👤 پروفایل</h1>
+
+    <p>
+        هنوز پروفایلی ایجاد نشده است.
+    </p>
+
+    <button
+        id="createFirstProfileBtn"
+        type="button">
+
+        ➕ ایجاد پروفایل
+
+    </button>
+
+</div>
+
+            `;
+
+            document
+                .getElementById(
+                    "createFirstProfileBtn"
+                )
+                .onclick = function () {
+
+                    ProfileScreen.showCreate();
+
+                };
+
+            return;
+
+        }
+
+
+        const settings =
+            ProfileManager.getSettings();
+
+
         app.innerHTML = `
 
 <div class="screen profile-screen">
@@ -37,10 +81,15 @@ const ProfileScreen = {
     </h1>
 
     <p>
-        اطلاعات کاربر
+        محیط شخصی دانش‌آموز
     </p>
 
     <hr>
+
+
+    <!-- ================================= -->
+    <!-- Active Profile -->
+    <!-- ================================= -->
 
     <div class="profile-card">
 
@@ -55,12 +104,12 @@ const ProfileScreen = {
                 ${
                     profile.name ||
                     "هنوز ثبت نشده"
-
                 }
 
             </p>
 
         </div>
+
 
         <div class="profile-item">
 
@@ -74,12 +123,12 @@ const ProfileScreen = {
                     this.getGradeTitle(
                         profile.grade
                     )
-
                 }
 
             </p>
 
         </div>
+
 
         <div class="profile-item">
 
@@ -93,7 +142,6 @@ const ProfileScreen = {
                     this.formatDate(
                         profile.createdAt
                     )
-
                 }
 
             </p>
@@ -102,7 +150,13 @@ const ProfileScreen = {
 
     </div>
 
+
     <hr>
+
+
+    <!-- ================================= -->
+    <!-- Profile Actions -->
+    <!-- ================================= -->
 
     <button
         id="editProfileBtn"
@@ -112,6 +166,266 @@ const ProfileScreen = {
 
     </button>
 
+
+    <button
+        id="switchProfileBtn"
+        type="button">
+
+        👥 تغییر پروفایل
+
+    </button>
+
+
+    <button
+        id="createProfileBtn"
+        type="button">
+
+        ➕ افزودن دانش‌آموز
+
+    </button>
+
+
+    <hr>
+
+
+    <!-- ================================= -->
+    <!-- Personal Settings -->
+    <!-- ================================= -->
+
+    <div class="profile-settings">
+
+        <h2>
+            ⚙ تنظیمات شخصی
+        </h2>
+
+        <p>
+            این تنظیمات فقط برای این پروفایل ذخیره می‌شوند.
+        </p>
+
+
+        <!-- Theme -->
+
+        <div class="profile-setting-item">
+
+            <label>
+                🌓 محیط برنامه
+            </label>
+
+            <select
+                id="profileThemeSelect">
+
+                <option
+                    value="light"
+                    ${
+                        settings.theme === "light"
+                        ? "selected"
+                        : ""
+                    }>
+
+                    ☀ روشن
+
+                </option>
+
+                <option
+                    value="dark"
+                    ${
+                        settings.theme === "dark"
+                        ? "selected"
+                        : ""
+                    }>
+
+                    🌙 تاریک
+
+                </option>
+
+            </select>
+
+        </div>
+
+
+        <!-- Music -->
+
+        <div class="profile-setting-item">
+
+            <label>
+
+                🎵 موسیقی
+
+            </label>
+
+            <select
+                id="profileMusicSelect">
+
+                <option
+                    value="true"
+                    ${
+                        settings.music
+                        ? "selected"
+                        : ""
+                    }>
+
+                    🔊 روشن
+
+                </option>
+
+                <option
+                    value="false"
+                    ${
+                        !settings.music
+                        ? "selected"
+                        : ""
+                    }>
+
+                    🔇 خاموش
+
+                </option>
+
+            </select>
+
+        </div>
+
+
+        <!-- Program Sound -->
+
+        <div class="profile-setting-item">
+
+            <label>
+
+                🔊 صدای برنامه
+
+            </label>
+
+            <select
+                id="profileProgramSoundSelect">
+
+                <option
+                    value="true"
+                    ${
+                        settings.programSound
+                        ? "selected"
+                        : ""
+                    }>
+
+                    🔊 روشن
+
+                </option>
+
+                <option
+                    value="false"
+                    ${
+                        !settings.programSound
+                        ? "selected"
+                        : ""
+                    }>
+
+                    🔇 خاموش
+
+                </option>
+
+            </select>
+
+        </div>
+
+
+        <!-- Notifications -->
+
+        <div class="profile-setting-item">
+
+            <label>
+
+                🔔 اعلان‌ها
+
+            </label>
+
+            <select
+                id="profileNotificationsSelect">
+
+                <option
+                    value="true"
+                    ${
+                        settings.notifications
+                        ? "selected"
+                        : ""
+                    }>
+
+                    🔔 روشن
+
+                </option>
+
+                <option
+                    value="false"
+                    ${
+                        !settings.notifications
+                        ? "selected"
+                        : ""
+                    }>
+
+                    🔕 خاموش
+
+                </option>
+
+            </select>
+
+        </div>
+
+
+        <!-- Sound Feedback -->
+
+        <div class="profile-setting-item">
+
+            <label>
+
+                🎯 بازخورد صوتی
+
+            </label>
+
+            <select
+                id="profileSoundFeedbackSelect">
+
+                <option
+                    value="true"
+                    ${
+                        settings.soundFeedback
+                        ? "selected"
+                        : ""
+                    }>
+
+                    🔊 روشن
+
+                </option>
+
+                <option
+                    value="false"
+                    ${
+                        !settings.soundFeedback
+                        ? "selected"
+                        : ""
+                    }>
+
+                    🔇 خاموش
+
+                </option>
+
+            </select>
+
+        </div>
+
+
+        <div
+            id="settingsMessage">
+
+        </div>
+
+    </div>
+
+
+    <hr>
+
+
+    <!-- ================================= -->
+    <!-- Navigation -->
+    <!-- ================================= -->
+
     <button
         id="profileDashboardBtn"
         type="button">
@@ -120,6 +434,7 @@ const ProfileScreen = {
 
     </button>
 
+
     <button
         id="profileHomeBtn"
         type="button">
@@ -127,6 +442,7 @@ const ProfileScreen = {
         🏠 صفحه اصلی
 
     </button>
+
 
 </div>
 
@@ -144,6 +460,36 @@ const ProfileScreen = {
             .onclick = function () {
 
                 ProfileScreen.showEdit();
+
+            };
+
+
+        // =====================================
+        // Switch Profile
+        // =====================================
+
+        document
+            .getElementById(
+                "switchProfileBtn"
+            )
+            .onclick = function () {
+
+                ProfileScreen.showProfiles();
+
+            };
+
+
+        // =====================================
+        // Create Profile
+        // =====================================
+
+        document
+            .getElementById(
+                "createProfileBtn"
+            )
+            .onclick = function () {
+
+                ProfileScreen.showCreate();
 
             };
 
@@ -178,9 +524,627 @@ const ProfileScreen = {
             };
 
 
+        // =====================================
+        // Settings
+        // =====================================
+
+        this.bindSettings();
+
+
         console.log(
-            "Profile Screen Displayed"
+            "Profile Screen v5.0 Displayed:",
+            profile
         );
+
+    },
+
+
+    // =====================================
+    // Bind Settings
+    // =====================================
+
+    bindSettings: function () {
+
+        const theme =
+            document.getElementById(
+                "profileThemeSelect"
+            );
+
+        const music =
+            document.getElementById(
+                "profileMusicSelect"
+            );
+
+        const programSound =
+            document.getElementById(
+                "profileProgramSoundSelect"
+            );
+
+        const notifications =
+            document.getElementById(
+                "profileNotificationsSelect"
+            );
+
+        const soundFeedback =
+            document.getElementById(
+                "profileSoundFeedbackSelect"
+            );
+
+
+        if (theme) {
+
+            theme.onchange = function () {
+
+                ProfileManager.updateSettings({
+
+                    theme:
+                        theme.value
+
+                });
+
+                ProfileScreen.showSettingsMessage(
+                    "تنظیمات محیط ذخیره شد."
+                );
+
+            };
+
+        }
+
+
+        if (music) {
+
+            music.onchange = function () {
+
+                ProfileManager.updateSettings({
+
+                    music:
+                        music.value === "true"
+
+                });
+
+                ProfileScreen.showSettingsMessage(
+                    "تنظیمات موسیقی ذخیره شد."
+                );
+
+            };
+
+        }
+
+
+        if (programSound) {
+
+            programSound.onchange = function () {
+
+                ProfileManager.updateSettings({
+
+                    programSound:
+                        programSound.value === "true"
+
+                });
+
+                ProfileScreen.showSettingsMessage(
+                    "تنظیمات صدای برنامه ذخیره شد."
+                );
+
+            };
+
+        }
+
+
+        if (notifications) {
+
+            notifications.onchange = function () {
+
+                ProfileManager.updateSettings({
+
+                    notifications:
+                        notifications.value === "true"
+
+                });
+
+                ProfileScreen.showSettingsMessage(
+                    "تنظیمات اعلان‌ها ذخیره شد."
+                );
+
+            };
+
+        }
+
+
+        if (soundFeedback) {
+
+            soundFeedback.onchange = function () {
+
+                ProfileManager.updateSettings({
+
+                    soundFeedback:
+                        soundFeedback.value === "true"
+
+                });
+
+                ProfileScreen.showSettingsMessage(
+                    "تنظیمات بازخورد صوتی ذخیره شد."
+                );
+
+            };
+
+        }
+
+    },
+
+
+    // =====================================
+    // Settings Message
+    // =====================================
+
+    showSettingsMessage: function (
+        message
+    ) {
+
+        const box =
+            document.getElementById(
+                "settingsMessage"
+            );
+
+        if (!box) {
+
+            return;
+
+        }
+
+        box.innerHTML =
+            message;
+
+        setTimeout(
+            function () {
+
+                if (box) {
+
+                    box.innerHTML = "";
+
+                }
+
+            },
+            1500
+        );
+
+    },
+
+
+    // =====================================
+    // Show Profiles
+    // =====================================
+
+    showProfiles: function () {
+
+        const app =
+            document.getElementById("app");
+
+        if (!app) {
+
+            return;
+
+        }
+
+        const profiles =
+            ProfileManager.getAll();
+
+        const activeProfile =
+            ProfileManager.get();
+
+
+        app.innerHTML = `
+
+<div class="screen profiles-screen">
+
+    <h1>
+        👥 پروفایل‌های دانش‌آموزان
+    </h1>
+
+    <p>
+        پروفایل دانش‌آموز موردنظر را انتخاب کنید.
+    </p>
+
+    <hr>
+
+    <div class="profiles-list">
+
+        ${
+            profiles.map(
+                function (profile) {
+
+                    const active =
+                        activeProfile &&
+                        activeProfile.studentId ===
+                        profile.studentId;
+
+                    return `
+
+<div class="profile-select-card">
+
+    <h2>
+
+        ${
+            active
+            ? "⭐ "
+            : ""
+        }
+
+        ${profile.name}
+
+    </h2>
+
+    <p>
+
+        🎓 ${
+            ProfileScreen.getGradeTitle(
+                profile.grade
+            )
+        }
+
+    </p>
+
+    <p>
+
+        📅 ${
+            ProfileScreen.formatDate(
+                profile.createdAt
+            )
+        }
+
+    </p>
+
+
+    ${
+        active
+
+        ?
+
+        `
+
+        <button
+            type="button"
+            disabled>
+
+            ✓ پروفایل فعال
+
+        </button>
+
+        `
+
+        :
+
+        `
+
+        <button
+            type="button"
+            data-profile-id="${
+                profile.studentId
+            }">
+
+            ورود به این پروفایل
+
+        </button>
+
+        `
+
+    }
+
+</div>
+
+                    `;
+
+                }
+            ).join("")
+
+        }
+
+    </div>
+
+
+    <hr>
+
+
+    <button
+        id="newProfileFromListBtn"
+        type="button">
+
+        ➕ افزودن پروفایل جدید
+
+    </button>
+
+
+    <button
+        id="backToProfileBtn"
+        type="button">
+
+        ↩ بازگشت
+
+    </button>
+
+</div>
+
+        `;
+
+
+        const buttons =
+            document.querySelectorAll(
+                "[data-profile-id]"
+            );
+
+
+        buttons.forEach(
+            function (button) {
+
+                button.onclick =
+                    function () {
+
+                        const studentId =
+                            button.getAttribute(
+                                "data-profile-id"
+                            );
+
+                        ProfileManager.switchProfile(
+                            studentId
+                        );
+
+
+                        ProfileScreen.show();
+
+                    };
+
+            }
+        );
+
+
+        document
+            .getElementById(
+                "newProfileFromListBtn"
+            )
+            .onclick = function () {
+
+                ProfileScreen.showCreate();
+
+            };
+
+
+        document
+            .getElementById(
+                "backToProfileBtn"
+            )
+            .onclick = function () {
+
+                ProfileScreen.show();
+
+            };
+
+
+        console.log(
+            "Profile List Displayed:",
+            profiles
+        );
+
+    },
+
+
+    // =====================================
+    // Create Profile
+    // =====================================
+
+    showCreate: function () {
+
+        const app =
+            document.getElementById("app");
+
+        if (!app) {
+
+            return;
+
+        }
+
+
+        app.innerHTML = `
+
+<div class="screen profile-create-screen">
+
+    <h1>
+        ➕ ایجاد پروفایل دانش‌آموز
+    </h1>
+
+    <p>
+        برای هر دانش‌آموز یک پروفایل جداگانه بسازید.
+    </p>
+
+    <hr>
+
+
+    <label
+        for="newProfileName">
+
+        نام دانش‌آموز
+
+    </label>
+
+    <br>
+
+    <input
+        id="newProfileName"
+        type="text"
+        placeholder="مثلاً محمد">
+
+    <br><br>
+
+
+    <label
+        for="newProfileGrade">
+
+        پایه
+
+    </label>
+
+    <br>
+
+    <select
+        id="newProfileGrade">
+
+        <option value="">
+
+            انتخاب پایه
+
+        </option>
+
+        ${
+            this.buildGradeOptions(null)
+        }
+
+    </select>
+
+    <br><br>
+
+
+    <button
+        id="saveNewProfileBtn"
+        type="button">
+
+        💾 ایجاد پروفایل
+
+    </button>
+
+
+    <button
+        id="cancelNewProfileBtn"
+        type="button">
+
+        ❌ انصراف
+
+    </button>
+
+
+    <div
+        id="profileCreateMessage">
+
+    </div>
+
+</div>
+
+        `;
+
+
+        document
+            .getElementById(
+                "saveNewProfileBtn"
+            )
+            .onclick = function () {
+
+                const name =
+                    document
+                        .getElementById(
+                            "newProfileName"
+                        )
+                        .value
+                        .trim();
+
+
+                const grade =
+                    document
+                        .getElementById(
+                            "newProfileGrade"
+                        )
+                        .value;
+
+
+                if (!name) {
+
+                    ProfileScreen.showCreateMessage(
+                        "لطفاً نام دانش‌آموز را وارد کنید.",
+                        "error"
+                    );
+
+                    return;
+
+                }
+
+
+                if (!grade) {
+
+                    ProfileScreen.showCreateMessage(
+                        "لطفاً پایه دانش‌آموز را انتخاب کنید.",
+                        "error"
+                    );
+
+                    return;
+
+                }
+
+
+                const profile =
+                    ProfileManager.createProfile({
+
+                        name: name,
+
+                        grade: grade
+
+                    });
+
+
+                if (!profile) {
+
+                    ProfileScreen.showCreateMessage(
+                        "ایجاد پروفایل انجام نشد.",
+                        "error"
+                    );
+
+                    return;
+
+                }
+
+
+                ProfileScreen.showCreateMessage(
+                    "پروفایل با موفقیت ایجاد شد.",
+                    "success"
+                );
+
+
+                setTimeout(
+                    function () {
+
+                        /*
+                         * بعد از ایجاد پروفایل،
+                         * پروفایل جدید فعال می‌شود.
+                         *
+                         * ورود به بخش آموزشی باید
+                         * از مسیر ActivationGate انجام شود.
+                         */
+
+                        if (
+                            typeof ActivationGate !==
+                            "undefined"
+                        ) {
+
+                            ActivationGate.open();
+
+                        } else {
+
+                            ProfileScreen.show();
+
+                        }
+
+                    },
+                    500
+                );
+
+            };
+
+
+        document
+            .getElementById(
+                "cancelNewProfileBtn"
+            )
+            .onclick = function () {
+
+                ProfileScreen.showProfiles();
+
+            };
 
     },
 
@@ -197,6 +1161,13 @@ const ProfileScreen = {
         const profile =
             ProfileManager.get();
 
+        if (!app || !profile) {
+
+            return;
+
+        }
+
+
         app.innerHTML = `
 
 <div class="screen profile-edit-screen">
@@ -206,6 +1177,7 @@ const ProfileScreen = {
     </h1>
 
     <hr>
+
 
     <label
         for="profileNameInput">
@@ -217,20 +1189,15 @@ const ProfileScreen = {
     <br>
 
     <input
-
         id="profileNameInput"
-
         type="text"
-
         value="${
             profile.name || ""
         }"
-
-        placeholder="نام خود را وارد کنید"
-
-    >
+        placeholder="نام دانش‌آموز">
 
     <br><br>
+
 
     <label
         for="profileGradeSelect">
@@ -244,12 +1211,6 @@ const ProfileScreen = {
     <select
         id="profileGradeSelect">
 
-        <option value="">
-
-            انتخاب پایه
-
-        </option>
-
         ${
             this.buildGradeOptions(
                 profile.grade
@@ -260,13 +1221,25 @@ const ProfileScreen = {
 
     <br><br>
 
+
+    <div class="profile-edit-warning">
+
+        ⚠ تغییر پایه، پایه آموزشی همین پروفایل را تغییر می‌دهد.
+        پس از ذخیره، مجوز پایه جدید بررسی خواهد شد.
+
+    </div>
+
+    <br>
+
+
     <button
         id="saveProfileBtn"
         type="button">
 
-        💾 ذخیره
+        💾 ذخیره تغییرات
 
     </button>
+
 
     <button
         id="cancelProfileBtn"
@@ -275,6 +1248,7 @@ const ProfileScreen = {
         ❌ انصراف
 
     </button>
+
 
     <div
         id="profileMessage">
@@ -285,10 +1259,6 @@ const ProfileScreen = {
 
         `;
 
-
-        // =====================================
-        // Save
-        // =====================================
 
         document
             .getElementById(
@@ -306,8 +1276,10 @@ const ProfileScreen = {
                         "profileGradeSelect"
                     );
 
+
                 const name =
                     nameInput.value.trim();
+
 
                 const grade =
                     gradeSelect.value || null;
@@ -325,6 +1297,22 @@ const ProfileScreen = {
                 }
 
 
+                if (!grade) {
+
+                    ProfileScreen.showMessage(
+                        "لطفاً پایه دانش‌آموز را انتخاب کنید.",
+                        "error"
+                    );
+
+                    return;
+
+                }
+
+
+                const oldGrade =
+                    profile.grade;
+
+
                 ProfileManager.update({
 
                     name: name,
@@ -332,6 +1320,41 @@ const ProfileScreen = {
                     grade: grade
 
                 });
+
+
+                if (
+                    oldGrade !== grade
+                ) {
+
+                    ProfileScreen.showMessage(
+                        "پروفایل ذخیره شد. مجوز پایه جدید بررسی می‌شود.",
+                        "success"
+                    );
+
+
+                    setTimeout(
+                        function () {
+
+                            if (
+                                typeof ActivationGate !==
+                                "undefined"
+                            ) {
+
+                                ActivationGate.open();
+
+                            } else {
+
+                                ProfileScreen.show();
+
+                            }
+
+                        },
+                        500
+                    );
+
+                    return;
+
+                }
 
 
                 ProfileScreen.showMessage(
@@ -351,10 +1374,6 @@ const ProfileScreen = {
 
             };
 
-
-        // =====================================
-        // Cancel
-        // =====================================
 
         document
             .getElementById(
@@ -386,6 +1405,7 @@ const ProfileScreen = {
 
         }
 
+
         return grades.map(
             function (grade) {
 
@@ -396,6 +1416,7 @@ const ProfileScreen = {
                     "selected"
                     :
                     "";
+
 
                 return `
 
@@ -429,6 +1450,7 @@ const ProfileScreen = {
 
         }
 
+
         if (
             typeof grades ===
             "undefined"
@@ -437,6 +1459,7 @@ const ProfileScreen = {
             return gradeId;
 
         }
+
 
         const grade =
             grades.find(
@@ -450,11 +1473,13 @@ const ProfileScreen = {
                 }
             );
 
+
         if (!grade) {
 
             return gradeId;
 
         }
+
 
         return grade.title;
 
@@ -475,8 +1500,10 @@ const ProfileScreen = {
 
         }
 
+
         const value =
             new Date(date);
+
 
         if (
             isNaN(
@@ -487,6 +1514,7 @@ const ProfileScreen = {
             return "نامشخص";
 
         }
+
 
         return value.toLocaleDateString(
             "fa-IR"
@@ -509,14 +1537,49 @@ const ProfileScreen = {
                 "profileMessage"
             );
 
+
         if (!box) {
 
             return;
 
         }
 
+
         box.innerHTML =
             message;
+
+
+        box.className =
+            type || "";
+
+    },
+
+
+    // =====================================
+    // Create Message
+    // =====================================
+
+    showCreateMessage: function (
+        message,
+        type
+    ) {
+
+        const box =
+            document.getElementById(
+                "profileCreateMessage"
+            );
+
+
+        if (!box) {
+
+            return;
+
+        }
+
+
+        box.innerHTML =
+            message;
+
 
         box.className =
             type || "";
@@ -539,5 +1602,5 @@ window.ProfileScreen =
 // =====================================
 
 console.log(
-    "Profile Screen Ready"
+    "Profile Screen v5.0 Ready"
 );
