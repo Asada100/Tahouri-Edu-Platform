@@ -1,28 +1,24 @@
 // =====================================
 // Tahouri Edu Platform
 // Statistics Manager
-// Version 3.1
+// Version 3.2
 // Profile Scoped Statistics
+// Legacy Statistics Migration
 // Overall + Subject + Activity Statistics
 // =====================================
 
 const StatisticsManager = {
 
     STORAGE_KEY: "Tahouri_Statistics",
+    MIGRATION_KEY: "Tahouri_ProfileScoped_Migration_v1",
 
     statistics: null,
-
     currentStorageKey: null,
 
-
-    // =====================================
-    // DEFAULT STRUCTURE
-    // =====================================
 
     getDefaultStatistics: function () {
 
         return {
-
             overall: {
                 totalActivities: 0,
                 totalScore: 0,
@@ -31,19 +27,12 @@ const StatisticsManager = {
                 totalCorrect: 0,
                 totalWrong: 0
             },
-
             subjects: {},
-
             activities: {}
-
         };
 
     },
 
-
-    // =====================================
-    // PROFILE STORAGE KEY
-    // =====================================
 
     getStorageKey: function () {
 
@@ -51,9 +40,7 @@ const StatisticsManager = {
             typeof ProfileContext === "undefined" ||
             typeof ProfileContext.key !== "function"
         ) {
-
             return null;
-
         }
 
         return ProfileContext.key(
@@ -63,9 +50,74 @@ const StatisticsManager = {
     },
 
 
-    // =====================================
-    // ENSURE CURRENT PROFILE
-    // =====================================
+    migrateLegacyStatistics: function (profileKey) {
+
+        if (!profileKey) {
+            return;
+        }
+
+        if (
+            localStorage.getItem(this.MIGRATION_KEY) === "true"
+        ) {
+            return;
+        }
+
+        const legacy =
+            localStorage.getItem(this.STORAGE_KEY);
+
+        if (!legacy) {
+            return;
+        }
+
+        if (
+            localStorage.getItem(profileKey) !== null
+        ) {
+            localStorage.setItem(
+                this.MIGRATION_KEY,
+                "true"
+            );
+            return;
+        }
+
+        try {
+
+            const parsed = JSON.parse(legacy);
+
+            if (
+                parsed &&
+                parsed.overall &&
+                parsed.subjects &&
+                parsed.activities
+            ) {
+
+                localStorage.setItem(
+                    profileKey,
+                    legacy
+                );
+
+                localStorage.setItem(
+                    this.MIGRATION_KEY,
+                    "true"
+                );
+
+                console.log(
+                    "Legacy Statistics Migrated To Active Profile"
+                );
+
+            }
+
+        }
+        catch (error) {
+
+            console.error(
+                "Legacy Statistics Migration Error",
+                error
+            );
+
+        }
+
+    },
+
 
     ensureProfileContext: function () {
 
@@ -95,15 +147,13 @@ const StatisticsManager = {
     },
 
 
-    // =====================================
-    // LOAD FOR PROFILE
-    // =====================================
-
     loadForKey: function (key) {
 
         this.currentStorageKey = key;
         this.statistics =
             this.getDefaultStatistics();
+
+        this.migrateLegacyStatistics(key);
 
         try {
 
@@ -118,9 +168,7 @@ const StatisticsManager = {
             ) {
 
                 this.statistics = saved;
-
             }
-
             else if (saved) {
 
                 console.log(
@@ -147,14 +195,9 @@ const StatisticsManager = {
     },
 
 
-    // =====================================
-    // INIT
-    // =====================================
-
     init: function () {
 
         this.ensureProfileContext();
-
         this.bindProfileContext();
 
         console.log(
@@ -165,19 +208,13 @@ const StatisticsManager = {
     },
 
 
-    // =====================================
-    // PROFILE CHANGE SUPPORT
-    // =====================================
-
     bindProfileContext: function () {
 
         if (
             typeof EventManager === "undefined" ||
             typeof EventManager.on !== "function"
         ) {
-
             return;
-
         }
 
         EventManager.on(
@@ -190,10 +227,6 @@ const StatisticsManager = {
 
     },
 
-
-    // =====================================
-    // ADD RESULT
-    // =====================================
 
     addResult: function (activity, result) {
 
@@ -295,10 +328,6 @@ const StatisticsManager = {
     },
 
 
-    // =====================================
-    // UPDATE OVERALL
-    // =====================================
-
     updateOverall: function (data) {
 
         const overall =
@@ -321,10 +350,6 @@ const StatisticsManager = {
 
     },
 
-
-    // =====================================
-    // UPDATE SUBJECT
-    // =====================================
 
     updateSubject: function (subjectId, gradeId, data) {
 
@@ -363,10 +388,6 @@ const StatisticsManager = {
 
     },
 
-
-    // =====================================
-    // UPDATE ACTIVITY
-    // =====================================
 
     updateActivity: function (
         activityId,
@@ -419,10 +440,6 @@ const StatisticsManager = {
     },
 
 
-    // =====================================
-    // SAVE
-    // =====================================
-
     save: function () {
 
         if (!this.ensureProfileContext()) {
@@ -437,20 +454,10 @@ const StatisticsManager = {
     },
 
 
-    // =====================================
-    // LOAD
-    // =====================================
-
     load: function () {
-
         return this.ensureProfileContext();
-
     },
 
-
-    // =====================================
-    // GET OVERALL
-    // =====================================
 
     get: function () {
 
@@ -466,10 +473,6 @@ const StatisticsManager = {
 
     },
 
-
-    // =====================================
-    // GET SUBJECT
-    // =====================================
 
     getSubject: function (subjectId) {
 
@@ -496,10 +499,6 @@ const StatisticsManager = {
     },
 
 
-    // =====================================
-    // GET ALL SUBJECTS
-    // =====================================
-
     getSubjects: function () {
 
         this.ensureProfileContext();
@@ -510,10 +509,6 @@ const StatisticsManager = {
 
     },
 
-
-    // =====================================
-    // GET ACTIVITY
-    // =====================================
 
     getActivity: function (activityId) {
 
@@ -541,10 +536,6 @@ const StatisticsManager = {
     },
 
 
-    // =====================================
-    // GET ALL ACTIVITIES
-    // =====================================
-
     getActivities: function () {
 
         this.ensureProfileContext();
@@ -555,10 +546,6 @@ const StatisticsManager = {
 
     },
 
-
-    // =====================================
-    // RESET CURRENT PROFILE
-    // =====================================
 
     reset: function () {
 
@@ -579,10 +566,6 @@ const StatisticsManager = {
 
     },
 
-
-    // =====================================
-    // HELPERS
-    // =====================================
 
     getAverage: function () {
         return this.get().averageScore;
