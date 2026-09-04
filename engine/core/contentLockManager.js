@@ -1,8 +1,9 @@
 // =====================================
 // Tahouri Edu Platform
 // Content Lock Manager
-// Version 1.4
+// Version 1.5
 // Profile Scoped Persistent Lock System
+// Legacy Lock Migration
 // Unknown Activities Locked By Default
 // =====================================
 
@@ -13,10 +14,10 @@ const ContentLockManager = {
 
     BASE_STORAGE_KEY: "Tahouri_ContentLocks",
 
+    MIGRATION_KEY: "Tahouri_ProfileScoped_Migration_v1",
 
-    // =====================================
-    // PROFILE STORAGE KEY
-    // =====================================
+    currentStorageKey: null,
+
 
     getStorageKey: function () {
 
@@ -24,9 +25,7 @@ const ContentLockManager = {
             typeof ProfileContext === "undefined" ||
             typeof ProfileContext.key !== "function"
         ) {
-
             return null;
-
         }
 
         return ProfileContext.key(
@@ -35,10 +34,6 @@ const ContentLockManager = {
 
     },
 
-
-    // =====================================
-    // INITIALIZE
-    // =====================================
 
     init: function () {
 
@@ -52,24 +47,19 @@ const ContentLockManager = {
     },
 
 
-    // =====================================
-    // PROFILE CHANGE
-    // =====================================
-
     bindProfileContext: function () {
 
         if (
             typeof EventManager === "undefined" ||
             typeof EventManager.on !== "function"
         ) {
-
             return;
-
         }
 
         EventManager.on(
             "profileChanged",
             function () {
+                ContentLockManager.currentStorageKey = null;
                 ContentLockManager.loadLocks();
             }
         );
@@ -77,24 +67,16 @@ const ContentLockManager = {
     },
 
 
-    // =====================================
-    // LOAD LOCKS
-    // =====================================
-
     loadLocks: function () {
 
-        fetch(
-            "data/contentLocks.json"
-        )
+        fetch("data/contentLocks.json")
         .then(function (response) {
 
             if (!response.ok) {
-
                 throw new Error(
                     "Content Locks File Load Failed: " +
                     response.status
                 );
-
             }
 
             return response.json();
@@ -109,18 +91,17 @@ const ContentLockManager = {
                 data.forEach(function (item) {
 
                     if (item && item.id) {
-
                         defaults[item.id] =
                             item.locked === true;
-
                     }
 
                 });
 
             }
 
-            ContentLockManager.lockedContents =
-                defaults;
+            ContentLockManager.lockedContents = defaults;
+            ContentLockManager.currentStorageKey =
+                ContentLockManager.getStorageKey();
 
             ContentLockManager.loadSavedLocks();
 
@@ -138,7 +119,8 @@ const ContentLockManager = {
             );
 
             ContentLockManager.lockedContents = {};
-
+            ContentLockManager.currentStorageKey =
+                ContentLockManager.getStorageKey();
             ContentLockManager.loadSavedLocks();
 
         });
@@ -146,9 +128,65 @@ const ContentLockManager = {
     },
 
 
-    // =====================================
-    // LOAD PROFILE-SCOPED SAVED LOCKS
-    // =====================================
+    migrateLegacyLocks: function (profileKey) {
+
+        if (!profileKey) {
+            return;
+        }
+
+        if (
+            localStorage.getItem(this.MIGRATION_KEY) === "true"
+        ) {
+            return;
+        }
+
+        const legacy =
+            localStorage.getItem(this.BASE_STORAGE_KEY);
+
+        if (!legacy) {
+            return;
+        }
+
+        if (
+            localStorage.getItem(profileKey) !== null
+        ) {
+            localStorage.setItem(
+                this.MIGRATION_KEY,
+                "true"
+            );
+            return;
+        }
+
+        try {
+
+            JSON.parse(legacy);
+
+            localStorage.setItem(
+                profileKey,
+                legacy
+            );
+
+            localStorage.setItem(
+                this.MIGRATION_KEY,
+                "true"
+            );
+
+            console.log(
+                "Legacy Content Locks Migrated To Active Profile"
+            );
+
+        }
+        catch (error) {
+
+            console.error(
+                "Legacy Content Locks Migration Error",
+                error
+            );
+
+        }
+
+    },
+
 
     loadSavedLocks: function () {
 
@@ -164,6 +202,9 @@ const ContentLockManager = {
             return;
 
         }
+
+        this.currentStorageKey = key;
+        this.migrateLegacyLocks(key);
 
         try {
 
@@ -205,10 +246,6 @@ const ContentLockManager = {
     },
 
 
-    // =====================================
-    // SAVE LOCKS
-    // =====================================
-
     saveLocks: function () {
 
         const key =
@@ -223,6 +260,8 @@ const ContentLockManager = {
             return false;
 
         }
+
+        this.currentStorageKey = key;
 
         try {
 
@@ -248,15 +287,20 @@ const ContentLockManager = {
     },
 
 
-    // =====================================
-    // CHECK LOCK
-    // Unknown Activity = LOCKED
-    // =====================================
-
     isLocked: function (contentId) {
 
         if (!contentId) {
             return true;
+        }
+
+        const currentKey =
+            this.getStorageKey();
+
+        if (
+            currentKey &&
+            currentKey !== this.currentStorageKey
+        ) {
+            this.loadLocks();
         }
 
         if (
@@ -265,9 +309,7 @@ const ContentLockManager = {
                 contentId
             )
         ) {
-
             return this.lockedContents[contentId] === true;
-
         }
 
         return true;
@@ -275,64 +317,34 @@ const ContentLockManager = {
     },
 
 
-    // =====================================
-    // LOCK
-    // =====================================
-
     lock: function (contentId) {
 
-        if (!contentId) {
-            return false;
-        }
-
-        if (!this.getStorageKey()) {
+        if (!contentId || !this.getStorageKey()) {
             return false;
         }
 
         this.lockedContents[contentId] = true;
-        this.saveLocks();
-
-        return true;
+        return this.saveLocks();
 
     },
 
 
-    // =====================================
-    // UNLOCK
-    // =====================================
-
     unlock: function (contentId) {
 
-        if (!contentId) {
-            return false;
-        }
-
-        if (!this.getStorageKey()) {
+        if (!contentId || !this.getStorageKey()) {
             return false;
         }
 
         this.lockedContents[contentId] = false;
-        this.saveLocks();
-
-        return true;
+        return this.saveLocks();
 
     },
 
-
-    // =====================================
-    // CAN OPEN
-    // =====================================
 
     canOpen: function (contentId) {
-
         return !this.isLocked(contentId);
-
     },
 
-
-    // =====================================
-    // LOCK RECORD
-    // =====================================
 
     hasLockRecord: function (contentId) {
 
@@ -347,10 +359,6 @@ const ContentLockManager = {
 
     },
 
-
-    // =====================================
-    // ENSURE LOCKED
-    // =====================================
 
     ensureLocked: function (contentId) {
 
@@ -371,31 +379,17 @@ const ContentLockManager = {
     },
 
 
-    // =====================================
-    // RESET ONE
-    // =====================================
-
     reset: function (contentId) {
 
-        if (!contentId) {
-            return false;
-        }
-
-        if (!this.getStorageKey()) {
+        if (!contentId || !this.getStorageKey()) {
             return false;
         }
 
         this.lockedContents[contentId] = true;
-        this.saveLocks();
-
-        return true;
+        return this.saveLocks();
 
     },
 
-
-    // =====================================
-    // RESET ALL
-    // =====================================
 
     resetAll: function () {
 
@@ -409,9 +403,7 @@ const ContentLockManager = {
 
         ContentLockManager.lockedContents["evenOdd"] = false;
 
-        ContentLockManager.saveLocks();
-
-        return true;
+        return ContentLockManager.saveLocks();
 
     }
 
