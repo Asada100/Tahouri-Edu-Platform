@@ -7,7 +7,6 @@
 // Unknown Activities Locked By Default
 // =====================================
 
-
 const ContentLockManager = {
 
     lockedContents: {},
@@ -18,7 +17,6 @@ const ContentLockManager = {
 
     currentStorageKey: null,
 
-
     getStorageKey: function () {
 
         if (
@@ -28,23 +26,17 @@ const ContentLockManager = {
             return null;
         }
 
-        return ProfileContext.key(
-            this.BASE_STORAGE_KEY
-        );
+        return ProfileContext.key(this.BASE_STORAGE_KEY);
 
     },
 
-
     init: function () {
 
-        console.log(
-            "Content Lock Manager Loading..."
-        );
+        console.log("Content Lock Manager Loading...");
 
         this.loadLocks();
 
     },
-
 
     bindProfileContext: function () {
 
@@ -65,7 +57,6 @@ const ContentLockManager = {
 
     },
 
-
     loadLocks: function () {
 
         fetch("data/contentLocks.json")
@@ -73,8 +64,7 @@ const ContentLockManager = {
 
             if (!response.ok) {
                 throw new Error(
-                    "Content Locks File Load Failed: " +
-                    response.status
+                    "Content Locks File Load Failed: " + response.status
                 );
             }
 
@@ -121,7 +111,6 @@ const ContentLockManager = {
 
     },
 
-
     migrateLegacyLocks: function (profileKey) {
 
         if (!profileKey) return;
@@ -138,10 +127,7 @@ const ContentLockManager = {
         if (
             localStorage.getItem(profileKey) !== null
         ) {
-            localStorage.setItem(
-                this.MIGRATION_KEY,
-                "true"
-            );
+            localStorage.setItem(this.MIGRATION_KEY, "true");
             return;
         }
 
@@ -149,22 +135,16 @@ const ContentLockManager = {
 
             JSON.parse(legacy);
 
-            localStorage.setItem(
-                profileKey,
-                legacy
-            );
-
-            localStorage.setItem(
-                this.MIGRATION_KEY,
-                "true"
-            );
+            localStorage.setItem(profileKey, legacy);
+            localStorage.setItem(this.MIGRATION_KEY, "true");
 
             console.log(
                 "Legacy Content Locks Migrated To Active Profile"
             );
 
         }
-        catch (error) {\n
+        catch (error) {
+
             console.error(
                 "Legacy Content Locks Migration Error",
                 error
@@ -173,7 +153,6 @@ const ContentLockManager = {
         }
 
     },
-
 
     applyProfileLocks: function () {
 
@@ -229,7 +208,6 @@ const ContentLockManager = {
 
     },
 
-
     saveLocks: function () {
 
         const key =
@@ -264,22 +242,18 @@ const ContentLockManager = {
 
     },
 
-
     ensureCurrentProfile: function () {
 
         const key =
             this.getStorageKey();
 
-        if (
-            key !== this.currentStorageKey
-        ) {
+        if (key !== this.currentStorageKey) {
             this.applyProfileLocks();
         }
 
         return !!key;
 
     },
-
 
     isLocked: function (contentId) {
 
@@ -302,7 +276,6 @@ const ContentLockManager = {
 
     },
 
-
     lock: function (contentId) {
 
         if (
@@ -316,7 +289,6 @@ const ContentLockManager = {
         return this.saveLocks();
 
     },
-
 
     unlock: function (contentId) {
 
@@ -332,11 +304,9 @@ const ContentLockManager = {
 
     },
 
-
     canOpen: function (contentId) {
         return !this.isLocked(contentId);
     },
-
 
     hasLockRecord: function (contentId) {
 
@@ -352,7 +322,6 @@ const ContentLockManager = {
         );
 
     },
-
 
     ensureLocked: function (contentId) {
 
@@ -372,7 +341,6 @@ const ContentLockManager = {
 
     },
 
-
     reset: function (contentId) {
 
         if (!contentId || !this.ensureCurrentProfile()) {
@@ -383,7 +351,6 @@ const ContentLockManager = {
         return this.saveLocks();
 
     },
-
 
     resetAll: function () {
 
@@ -403,13 +370,10 @@ const ContentLockManager = {
 
 };
 
-
 window.ContentLockManager =
     ContentLockManager;
 
-
 ContentLockManager.init();
-
 
 console.log(
     "Content Lock Manager Ready"
