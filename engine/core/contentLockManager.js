@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Content Lock Manager
-// Version 1.5
+// Version 1.6
 // Profile Scoped Persistent Lock System
 // Legacy Lock Migration
 // Unknown Activities Locked By Default
@@ -11,10 +11,10 @@
 const ContentLockManager = {
 
     lockedContents: {},
+    defaultLocks: {},
 
     BASE_STORAGE_KEY: "Tahouri_ContentLocks",
-
-    MIGRATION_KEY: "Tahouri_ProfileScoped_Migration_v1",
+    MIGRATION_KEY: "Tahouri_ContentLocks_ProfileMigration_v1",
 
     currentStorageKey: null,
 
@@ -42,7 +42,6 @@ const ContentLockManager = {
         );
 
         this.loadLocks();
-        this.bindProfileContext();
 
     },
 
@@ -60,7 +59,7 @@ const ContentLockManager = {
             "profileChanged",
             function () {
                 ContentLockManager.currentStorageKey = null;
-                ContentLockManager.loadLocks();
+                ContentLockManager.applyProfileLocks();
             }
         );
 
@@ -84,14 +83,14 @@ const ContentLockManager = {
         })
         .then(function (data) {
 
-            const defaults = {};
+            ContentLockManager.defaultLocks = {};
 
             if (Array.isArray(data)) {
 
                 data.forEach(function (item) {
 
                     if (item && item.id) {
-                        defaults[item.id] =
+                        ContentLockManager.defaultLocks[item.id] =
                             item.locked === true;
                     }
 
@@ -99,11 +98,8 @@ const ContentLockManager = {
 
             }
 
-            ContentLockManager.lockedContents = defaults;
-            ContentLockManager.currentStorageKey =
-                ContentLockManager.getStorageKey();
-
-            ContentLockManager.loadSavedLocks();
+            ContentLockManager.applyProfileLocks();
+            ContentLockManager.bindProfileContext();
 
             console.log(
                 "Content Locks Loaded",
@@ -118,10 +114,8 @@ const ContentLockManager = {
                 error
             );
 
-            ContentLockManager.lockedContents = {};
-            ContentLockManager.currentStorageKey =
-                ContentLockManager.getStorageKey();
-            ContentLockManager.loadSavedLocks();
+            ContentLockManager.applyProfileLocks();
+            ContentLockManager.bindProfileContext();
 
         });
 
@@ -130,22 +124,16 @@ const ContentLockManager = {
 
     migrateLegacyLocks: function (profileKey) {
 
-        if (!profileKey) {
-            return;
-        }
+        if (!profileKey) return;
 
         if (
             localStorage.getItem(this.MIGRATION_KEY) === "true"
-        ) {
-            return;
-        }
+        ) return;
 
         const legacy =
             localStorage.getItem(this.BASE_STORAGE_KEY);
 
-        if (!legacy) {
-            return;
-        }
+        if (!legacy) return;
 
         if (
             localStorage.getItem(profileKey) !== null
@@ -176,8 +164,7 @@ const ContentLockManager = {
             );
 
         }
-        catch (error) {
-
+        catch (error) {\n
             console.error(
                 "Legacy Content Locks Migration Error",
                 error
@@ -188,22 +175,21 @@ const ContentLockManager = {
     },
 
 
-    loadSavedLocks: function () {
+    applyProfileLocks: function () {
 
         const key =
             this.getStorageKey();
 
-        if (!key) {
-
-            console.warn(
-                "Content Locks: No Active Profile"
-            );
-
-            return;
-
-        }
+        this.lockedContents = {
+            ...this.defaultLocks
+        };
 
         this.currentStorageKey = key;
+
+        if (!key) {
+            return;
+        }
+
         this.migrateLegacyLocks(key);
 
         try {
@@ -225,10 +211,8 @@ const ContentLockManager = {
             ) {
 
                 Object.keys(parsedLocks).forEach(function (id) {
-
                     ContentLockManager.lockedContents[id] =
                         parsedLocks[id] === true;
-
                 });
 
             }
@@ -252,13 +236,7 @@ const ContentLockManager = {
             this.getStorageKey();
 
         if (!key) {
-
-            console.warn(
-                "Content Locks: Save skipped, no active profile"
-            );
-
             return false;
-
         }
 
         this.currentStorageKey = key;
@@ -287,21 +265,29 @@ const ContentLockManager = {
     },
 
 
+    ensureCurrentProfile: function () {
+
+        const key =
+            this.getStorageKey();
+
+        if (
+            key !== this.currentStorageKey
+        ) {
+            this.applyProfileLocks();
+        }
+
+        return !!key;
+
+    },
+
+
     isLocked: function (contentId) {
 
         if (!contentId) {
             return true;
         }
 
-        const currentKey =
-            this.getStorageKey();
-
-        if (
-            currentKey &&
-            currentKey !== this.currentStorageKey
-        ) {
-            this.loadLocks();
-        }
+        this.ensureCurrentProfile();
 
         if (
             Object.prototype.hasOwnProperty.call(
@@ -319,7 +305,10 @@ const ContentLockManager = {
 
     lock: function (contentId) {
 
-        if (!contentId || !this.getStorageKey()) {
+        if (
+            !contentId ||
+            !this.ensureCurrentProfile()
+        ) {
             return false;
         }
 
@@ -331,7 +320,10 @@ const ContentLockManager = {
 
     unlock: function (contentId) {
 
-        if (!contentId || !this.getStorageKey()) {
+        if (
+            !contentId ||
+            !this.ensureCurrentProfile()
+        ) {
             return false;
         }
 
@@ -352,6 +344,8 @@ const ContentLockManager = {
             return false;
         }
 
+        this.ensureCurrentProfile();
+
         return Object.prototype.hasOwnProperty.call(
             this.lockedContents,
             contentId
@@ -362,7 +356,7 @@ const ContentLockManager = {
 
     ensureLocked: function (contentId) {
 
-        if (!contentId) {
+        if (!contentId || !this.ensureCurrentProfile()) {
             return false;
         }
 
@@ -381,7 +375,7 @@ const ContentLockManager = {
 
     reset: function (contentId) {
 
-        if (!contentId || !this.getStorageKey()) {
+        if (!contentId || !this.ensureCurrentProfile()) {
             return false;
         }
 
@@ -393,7 +387,7 @@ const ContentLockManager = {
 
     resetAll: function () {
 
-        if (!this.getStorageKey()) {
+        if (!this.ensureCurrentProfile()) {
             return false;
         }
 
