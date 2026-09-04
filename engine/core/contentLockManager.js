@@ -1,32 +1,43 @@
 // =====================================
 // Tahouri Edu Platform
 // Content Lock Manager
-// Version 1.3
-// Persistent Lock System
+// Version 1.4
+// Profile Scoped Persistent Lock System
 // Unknown Activities Locked By Default
 // =====================================
 
 
 const ContentLockManager = {
 
-
-    // =====================================
-    // Current Locks
-    // =====================================
-
     lockedContents: {},
 
-
-    // =====================================
-    // Storage Key
-    // =====================================
-
-    storageKey:
-        "Tahouri_ContentLocks",
+    BASE_STORAGE_KEY: "Tahouri_ContentLocks",
 
 
     // =====================================
-    // Initialize
+    // PROFILE STORAGE KEY
+    // =====================================
+
+    getStorageKey: function () {
+
+        if (
+            typeof ProfileContext === "undefined" ||
+            typeof ProfileContext.key !== "function"
+        ) {
+
+            return null;
+
+        }
+
+        return ProfileContext.key(
+            this.BASE_STORAGE_KEY
+        );
+
+    },
+
+
+    // =====================================
+    // INITIALIZE
     // =====================================
 
     init: function () {
@@ -35,14 +46,39 @@ const ContentLockManager = {
             "Content Lock Manager Loading..."
         );
 
-
         this.loadLocks();
+        this.bindProfileContext();
 
     },
 
 
     // =====================================
-    // Load Locks
+    // PROFILE CHANGE
+    // =====================================
+
+    bindProfileContext: function () {
+
+        if (
+            typeof EventManager === "undefined" ||
+            typeof EventManager.on !== "function"
+        ) {
+
+            return;
+
+        }
+
+        EventManager.on(
+            "profileChanged",
+            function () {
+                ContentLockManager.loadLocks();
+            }
+        );
+
+    },
+
+
+    // =====================================
+    // LOAD LOCKS
     // =====================================
 
     loadLocks: function () {
@@ -50,7 +86,6 @@ const ContentLockManager = {
         fetch(
             "data/contentLocks.json"
         )
-
         .then(function (response) {
 
             if (!response.ok) {
@@ -65,33 +100,17 @@ const ContentLockManager = {
             return response.json();
 
         })
-
         .then(function (data) {
 
-            // =============================
-            // Reset Default State
-            // =============================
-
-            ContentLockManager.lockedContents =
-                {};
-
-
-            // =============================
-            // Load Default Locks
-            // =============================
+            const defaults = {};
 
             if (Array.isArray(data)) {
 
                 data.forEach(function (item) {
 
-                    if (
-                        item &&
-                        item.id
-                    ) {
+                    if (item && item.id) {
 
-                        ContentLockManager.lockedContents[
-                            item.id
-                        ] =
+                        defaults[item.id] =
                             item.locked === true;
 
                     }
@@ -100,69 +119,10 @@ const ContentLockManager = {
 
             }
 
+            ContentLockManager.lockedContents =
+                defaults;
 
-            // =============================
-            // Load Saved Locks
-            // =============================
-
-            const savedLocks =
-                localStorage.getItem(
-                    ContentLockManager.storageKey
-                );
-
-
-            if (savedLocks) {
-
-                try {
-
-                    const parsedLocks =
-                        JSON.parse(
-                            savedLocks
-                        );
-
-
-                    if (
-                        parsedLocks &&
-                        typeof parsedLocks ===
-                        "object"
-                    ) {
-
-                        Object.keys(
-                            parsedLocks
-                        ).forEach(function (id) {
-
-                            ContentLockManager.lockedContents[
-                                id
-                            ] =
-                                parsedLocks[id] === true;
-
-                        });
-
-                    }
-
-
-                    console.log(
-                        "Saved Content Locks Restored",
-                        ContentLockManager.lockedContents
-                    );
-
-                }
-
-                catch (error) {
-
-                    console.error(
-                        "Saved Content Locks Parse Error",
-                        error
-                    );
-
-                }
-
-            }
-
-
-            // =============================
-            // Final Status
-            // =============================
+            ContentLockManager.loadSavedLocks();
 
             console.log(
                 "Content Locks Loaded",
@@ -170,8 +130,6 @@ const ContentLockManager = {
             );
 
         })
-
-
         .catch(function (error) {
 
             console.error(
@@ -179,6 +137,9 @@ const ContentLockManager = {
                 error
             );
 
+            ContentLockManager.lockedContents = {};
+
+            ContentLockManager.loadSavedLocks();
 
         });
 
@@ -186,35 +147,56 @@ const ContentLockManager = {
 
 
     // =====================================
-    // Save Locks
+    // LOAD PROFILE-SCOPED SAVED LOCKS
     // =====================================
 
-    saveLocks: function () {
+    loadSavedLocks: function () {
 
-        try {
+        const key =
+            this.getStorageKey();
 
-            localStorage.setItem(
+        if (!key) {
 
-                this.storageKey,
-
-                JSON.stringify(
-                    this.lockedContents
-                )
-
+            console.warn(
+                "Content Locks: No Active Profile"
             );
 
-
-            console.log(
-                "Content Locks Saved",
-                this.lockedContents
-            );
+            return;
 
         }
 
+        try {
+
+            const savedLocks =
+                localStorage.getItem(key);
+
+            if (!savedLocks) {
+                return;
+            }
+
+            const parsedLocks =
+                JSON.parse(savedLocks);
+
+            if (
+                parsedLocks &&
+                typeof parsedLocks === "object" &&
+                !Array.isArray(parsedLocks)
+            ) {
+
+                Object.keys(parsedLocks).forEach(function (id) {
+
+                    ContentLockManager.lockedContents[id] =
+                        parsedLocks[id] === true;
+
+                });
+
+            }
+
+        }
         catch (error) {
 
             console.error(
-                "Content Lock Save Error",
+                "Saved Content Locks Parse Error",
                 error
             );
 
@@ -224,23 +206,58 @@ const ContentLockManager = {
 
 
     // =====================================
-    // Check Lock
-    // IMPORTANT:
+    // SAVE LOCKS
+    // =====================================
+
+    saveLocks: function () {
+
+        const key =
+            this.getStorageKey();
+
+        if (!key) {
+
+            console.warn(
+                "Content Locks: Save skipped, no active profile"
+            );
+
+            return false;
+
+        }
+
+        try {
+
+            localStorage.setItem(
+                key,
+                JSON.stringify(this.lockedContents)
+            );
+
+            return true;
+
+        }
+        catch (error) {
+
+            console.error(
+                "Content Lock Save Error",
+                error
+            );
+
+            return false;
+
+        }
+
+    },
+
+
+    // =====================================
+    // CHECK LOCK
     // Unknown Activity = LOCKED
     // =====================================
 
     isLocked: function (contentId) {
 
         if (!contentId) {
-
             return true;
-
         }
-
-
-        // =================================
-        // Explicitly Stored Lock
-        // =================================
 
         if (
             Object.prototype.hasOwnProperty.call(
@@ -249,19 +266,9 @@ const ContentLockManager = {
             )
         ) {
 
-            return (
-                this.lockedContents[
-                    contentId
-                ] === true
-            );
+            return this.lockedContents[contentId] === true;
 
         }
-
-
-        // =================================
-        // Unknown Activity
-        // Locked By Default
-        // =================================
 
         return true;
 
@@ -269,35 +276,21 @@ const ContentLockManager = {
 
 
     // =====================================
-    // Lock Content
+    // LOCK
     // =====================================
 
     lock: function (contentId) {
 
         if (!contentId) {
-
-            console.warn(
-                "Cannot Lock: Invalid Content ID"
-            );
-
             return false;
-
         }
 
+        if (!this.getStorageKey()) {
+            return false;
+        }
 
-        this.lockedContents[
-            contentId
-        ] = true;
-
-
+        this.lockedContents[contentId] = true;
         this.saveLocks();
-
-
-        console.log(
-            "Content Locked:",
-            contentId
-        );
-
 
         return true;
 
@@ -305,35 +298,21 @@ const ContentLockManager = {
 
 
     // =====================================
-    // Unlock Content
+    // UNLOCK
     // =====================================
 
     unlock: function (contentId) {
 
         if (!contentId) {
-
-            console.warn(
-                "Cannot Unlock: Invalid Content ID"
-            );
-
             return false;
-
         }
 
+        if (!this.getStorageKey()) {
+            return false;
+        }
 
-        this.lockedContents[
-            contentId
-        ] = false;
-
-
+        this.lockedContents[contentId] = false;
         this.saveLocks();
-
-
-        console.log(
-            "Content Unlocked:",
-            contentId
-        );
-
 
         return true;
 
@@ -341,96 +320,51 @@ const ContentLockManager = {
 
 
     // =====================================
-    // Can Open
+    // CAN OPEN
     // =====================================
 
     canOpen: function (contentId) {
 
-        const locked =
-            this.isLocked(
-                contentId
-            );
-
-
-        if (locked) {
-
-            console.log(
-                "Content Is Locked:",
-                contentId
-            );
-
-
-            return false;
-
-        }
-
-
-        return true;
+        return !this.isLocked(contentId);
 
     },
 
 
     // =====================================
-    // Check Whether Lock Exists
+    // LOCK RECORD
     // =====================================
 
     hasLockRecord: function (contentId) {
 
         if (!contentId) {
-
             return false;
-
         }
 
-
         return Object.prototype.hasOwnProperty.call(
-
             this.lockedContents,
-
             contentId
-
         );
 
     },
 
 
     // =====================================
-    // Set Default Lock
+    // ENSURE LOCKED
     // =====================================
 
     ensureLocked: function (contentId) {
 
         if (!contentId) {
-
             return false;
-
         }
 
+        if (!this.hasLockRecord(contentId)) {
 
-        if (
-            !this.hasLockRecord(
-                contentId
-            )
-        ) {
-
-            this.lockedContents[
-                contentId
-            ] = true;
-
-
+            this.lockedContents[contentId] = true;
             this.saveLocks();
-
-
-            console.log(
-                "New Content Locked By Default:",
-                contentId
-            );
-
-
             return true;
 
         }
-
 
         return false;
 
@@ -438,31 +372,21 @@ const ContentLockManager = {
 
 
     // =====================================
-    // Reset One Lock
+    // RESET ONE
     // =====================================
 
     reset: function (contentId) {
 
         if (!contentId) {
-
             return false;
-
         }
 
+        if (!this.getStorageKey()) {
+            return false;
+        }
 
-        this.lockedContents[
-            contentId
-        ] = true;
-
-
+        this.lockedContents[contentId] = true;
         this.saveLocks();
-
-
-        console.log(
-            "Content Lock Reset:",
-            contentId
-        );
-
 
         return true;
 
@@ -470,67 +394,36 @@ const ContentLockManager = {
 
 
     // =====================================
-    // Reset All Locks
+    // RESET ALL
     // =====================================
 
     resetAll: function () {
 
-        Object.keys(
-            this.lockedContents
-        ).forEach(function (id) {
+        if (!this.getStorageKey()) {
+            return false;
+        }
 
-            ContentLockManager.lockedContents[
-                id
-            ] = true;
-
+        Object.keys(this.lockedContents).forEach(function (id) {
+            ContentLockManager.lockedContents[id] = true;
         });
 
-
-        // =================================
-        // Keep evenOdd Open
-        // =================================
-
-        ContentLockManager.lockedContents[
-            "evenOdd"
-        ] = false;
-
+        ContentLockManager.lockedContents["evenOdd"] = false;
 
         ContentLockManager.saveLocks();
 
-
-        console.log(
-            "All Content Locks Reset"
-        );
-
-
-        console.log(
-            "Current Locks:",
-            ContentLockManager.lockedContents
-        );
+        return true;
 
     }
 
 };
 
 
-// =====================================
-// Global Access
-// =====================================
-
 window.ContentLockManager =
     ContentLockManager;
 
 
-// =====================================
-// Initialize
-// =====================================
-
 ContentLockManager.init();
 
-
-// =====================================
-// Ready
-// =====================================
 
 console.log(
     "Content Lock Manager Ready"
