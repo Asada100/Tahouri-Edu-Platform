@@ -1,13 +1,15 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 3.0
+// Version 3.1
 // Session Manager
-// Standard Architecture
+// Profile Scoped Session
 // =====================================
 
 const SessionManager = {
 
     STORAGE_KEY: "Tahouri_Session",
+
+    currentStorageKey: null,
 
     session: {
 
@@ -26,12 +28,84 @@ const SessionManager = {
     },
 
 
+    getStorageKey: function () {
+
+        if (
+            typeof ProfileContext === "undefined" ||
+            typeof ProfileContext.key !== "function"
+        ) {
+            return null;
+        }
+
+        return ProfileContext.key(
+            this.STORAGE_KEY
+        );
+
+    },
+
+
+    ensureProfileContext: function () {
+
+        const key =
+            this.getStorageKey();
+
+        if (key !== this.currentStorageKey) {
+
+            this.currentStorageKey = key;
+
+            if (key) {
+
+                this.load();
+
+            }
+            else {
+
+                this.session = {
+                    startTime: null,
+                    endTime: null,
+                    duration: 0,
+                    totalScore: 0,
+                    totalActivities: 0,
+                    completedActivities: 0
+                };
+
+            }
+
+        }
+
+        return !!key;
+
+    },
+
 
     start: function () {
 
-        const saved = SaveManager.load(
-            this.STORAGE_KEY
-        );
+        const key =
+            this.getStorageKey();
+
+        this.currentStorageKey = key;
+
+        if (!key) {
+
+            console.warn(
+                "Session Manager: No Active Profile"
+            );
+
+            this.session = {
+                startTime: null,
+                endTime: null,
+                duration: 0,
+                totalScore: 0,
+                totalActivities: 0,
+                completedActivities: 0
+            };
+
+            return;
+
+        }
+
+        const saved =
+            SaveManager.load(key);
 
         if (saved) {
 
@@ -54,8 +128,11 @@ const SessionManager = {
     },
 
 
-
     addActivity: function (score) {
+
+        if (!this.ensureProfileContext()) {
+            return;
+        }
 
         this.session.totalActivities++;
 
@@ -73,19 +150,24 @@ const SessionManager = {
     },
 
 
-
     finish: function () {
+
+        if (!this.ensureProfileContext()) {
+            return;
+        }
 
         this.session.endTime = Date.now();
 
-        this.session.duration = Math.floor(
+        if (this.session.startTime) {
 
-            (
-                this.session.endTime -
-                this.session.startTime
-            ) / 1000
+            this.session.duration = Math.floor(
+                (
+                    this.session.endTime -
+                    this.session.startTime
+                ) / 1000
+            );
 
-        );
+        }
 
         this.save();
 
@@ -97,35 +179,65 @@ const SessionManager = {
     },
 
 
-
     save: function () {
 
+        const key =
+            this.getStorageKey();
+
+        if (!key) {
+
+            console.warn(
+                "Session Manager: Save skipped, no active profile"
+            );
+
+            return false;
+        }
+
+        this.currentStorageKey = key;
+
         SaveManager.save(
-
-            this.STORAGE_KEY,
-
+            key,
             this.session
-
         );
+
+        return true;
 
     },
 
 
-
     load: function () {
 
-        const data = SaveManager.load(
-            this.STORAGE_KEY
-        );
+        const key =
+            this.getStorageKey();
+
+        this.currentStorageKey = key;
+
+        if (!key) {
+            return;
+        }
+
+        const data =
+            SaveManager.load(key);
 
         if (data) {
 
             this.session = data;
 
         }
+        else {
+
+            this.session = {
+                startTime: null,
+                endTime: null,
+                duration: 0,
+                totalScore: 0,
+                totalActivities: 0,
+                completedActivities: 0
+            };
+
+        }
 
     },
-
 
 
     reset: function () {
@@ -155,8 +267,9 @@ const SessionManager = {
     },
 
 
-
     get: function () {
+
+        this.ensureProfileContext();
 
         return this.session;
 
@@ -165,7 +278,6 @@ const SessionManager = {
 };
 
 
-
 console.log(
-    "Session Manager Ready"
+    "Session Manager v3.1 Ready"
 );
