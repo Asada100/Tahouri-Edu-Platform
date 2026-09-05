@@ -1,145 +1,174 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 1.0
+// Version 1.1
 // Progress Manager
+// Compatibility Facade
+// ProgressTracker is the single source of truth
 // =====================================
 
 const ProgressManager = {
 
     progress: {
-
         currentGrade: null,
-
         currentSubject: null,
-
         currentChapter: null,
-
         currentActivity: null,
-
         completedActivities: [],
-
         unlockedActivities: []
-
     },
 
 
+    sync: function () {
 
-    setCurrent:function(activity){
-
-        if(!activity){
-
-            return;
-
+        if (
+            typeof ProgressTracker === "undefined" ||
+            typeof ProgressTracker.getAll !== "function"
+        ) {
+            return this.progress;
         }
 
-        this.progress.currentGrade = activity.grade;
+        const tracked =
+            ProgressTracker.getAll() || {};
 
-        this.progress.currentSubject = activity.subject;
+        const completedActivities = [];
 
-        this.progress.currentChapter = activity.chapter;
+        Object.keys(tracked).forEach(
+            function (activityId) {
 
-        this.progress.currentActivity = activity.id;
+                const item =
+                    tracked[activityId];
 
-    },
+                if (
+                    item &&
+                    item.completed === true
+                ) {
+                    completedActivities.push(activityId);
+                }
 
-
-
-    complete:function(activityId){
-
-        if(
-
-            !this.progress.completedActivities.includes(
-
-                activityId
-
-            )
-
-        ){
-
-            this.progress.completedActivities.push(
-
-                activityId
-
-            );
-
-        }
-
-    },
-
-
-
-    unlock:function(activityId){
-
-        if(
-
-            !this.progress.unlockedActivities.includes(
-
-                activityId
-
-            )
-
-        ){
-
-            this.progress.unlockedActivities.push(
-
-                activityId
-
-            );
-
-        }
-
-    },
-
-
-
-    isCompleted:function(activityId){
-
-        return this.progress.completedActivities.includes(
-
-            activityId
-
+            }
         );
 
-    },
-
-
-
-    isUnlocked:function(activityId){
-
-        return this.progress.unlockedActivities.includes(
-
-            activityId
-
-        );
-
-    },
-
-
-
-    get:function(){
+        this.progress.completedActivities =
+            completedActivities;
 
         return this.progress;
 
     },
 
 
+    setCurrent: function (activity) {
 
-    reset:function(){
+        if (!activity) {
+            return;
+        }
+
+        this.progress.currentGrade = activity.grade;
+        this.progress.currentSubject = activity.subject;
+        this.progress.currentChapter = activity.chapter;
+        this.progress.currentActivity = activity.id;
+
+    },
+
+
+    complete: function (activityId) {
+
+        if (!activityId) {
+            return;
+        }
+
+        if (
+            typeof ProgressTracker !== "undefined" &&
+            typeof ProgressTracker.isCompleted === "function" &&
+            ProgressTracker.isCompleted(activityId)
+        ) {
+            this.sync();
+            return;
+        }
+
+        this.sync();
+
+    },
+
+
+    unlock: function (activityId) {
+
+        if (!activityId) {
+            return;
+        }
+
+        if (
+            !this.progress.unlockedActivities.includes(
+                activityId
+            )
+        ) {
+            this.progress.unlockedActivities.push(
+                activityId
+            );
+        }
+
+    },
+
+
+    isCompleted: function (activityId) {
+
+        if (!activityId) {
+            return false;
+        }
+
+        if (
+            typeof ProgressTracker !== "undefined" &&
+            typeof ProgressTracker.isCompleted === "function"
+        ) {
+            return ProgressTracker.isCompleted(
+                activityId
+            );
+        }
+
+        return false;
+
+    },
+
+
+    isUnlocked: function (activityId) {
+
+        if (!activityId) {
+            return false;
+        }
+
+        if (
+            typeof ContentLockManager !== "undefined" &&
+            typeof ContentLockManager.isLocked === "function"
+        ) {
+            return !ContentLockManager.isLocked(
+                activityId
+            );
+        }
+
+        return this.progress.unlockedActivities.includes(
+            activityId
+        );
+
+    },
+
+
+    get: function () {
+
+        this.sync();
+
+        return this.progress;
+
+    },
+
+
+    reset: function () {
 
         this.progress = {
-
             currentGrade: null,
-
             currentSubject: null,
-
             currentChapter: null,
-
             currentActivity: null,
-
             completedActivities: [],
-
             unlockedActivities: []
-
         };
 
     }
@@ -147,9 +176,10 @@ const ProgressManager = {
 };
 
 
+window.ProgressManager =
+    ProgressManager;
+
 
 console.log(
-
-    "Progress Manager Ready"
-
+    "Progress Manager v1.1 Ready (Compatibility Facade)"
 );
