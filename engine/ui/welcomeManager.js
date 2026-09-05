@@ -1,18 +1,19 @@
 // =====================================
 // Tahouri Edu Platform
-// Welcome Manager v1.0
+// Welcome Manager v1.1
 //
 // Purpose:
-// - Personalize the Home welcome message
+// - Show the active student's greeting beside the profile icon
+// - Keep the platform title area free for the future program logo/image
 // - Use the active Student Profile as source of truth
 // - Do not create duplicate profile storage
-// - Keep existing Screen / Daily Message behavior intact
+// - Keep existing Daily Message behavior intact
 // =====================================
 
 
 const WelcomeManager = {
 
-    VERSION: "1.0",
+    VERSION: "1.1",
 
 
     // =====================================
@@ -77,14 +78,37 @@ const WelcomeManager = {
             this.getActiveProfileName();
 
 
-        // The first direct paragraph under
-        // the Home .screen is the existing
-        // generic welcome message.
-        const welcomeElement =
-            app.querySelector(".screen > p");
+        // =====================================
+        // REMOVE GENERIC HOME GREETING
+        //
+        // The area below the platform title is
+        // intentionally kept free for the future
+        // program logo / image.
+        // =====================================
+
+        const genericWelcome =
+            app.querySelector(".screen > h1 + p");
+
+        if (genericWelcome) {
+
+            genericWelcome.remove();
+
+        }
 
 
-        if (!welcomeElement) {
+        // =====================================
+        // PROFILE GREETING
+        //
+        // The existing profile button already has
+        // the profile icon. We place the student's
+        // greeting directly beside that icon.
+        // =====================================
+
+        const profileButton =
+            document.getElementById("profileBtn");
+
+
+        if (!profileButton) {
 
             return;
 
@@ -93,20 +117,20 @@ const WelcomeManager = {
 
         if (name) {
 
-            welcomeElement.textContent =
-                `سلام ${name} عزیز 🌷`;
+            profileButton.textContent =
+                `👤 ${name} عزیز 🌷`;
 
         }
         else {
 
-            welcomeElement.textContent =
-                "به مرکز کنترل پلتفرم خوش آمدید";
+            profileButton.textContent =
+                "👤 پروفایل من";
 
         }
 
 
         console.log(
-            "WelcomeManager: Home personalized",
+            "WelcomeManager: Profile greeting positioned",
             {
                 profileName: name || null
             }
@@ -170,7 +194,7 @@ const WelcomeManager = {
 
 
         console.log(
-            "WelcomeManager v1.0 Ready"
+            "WelcomeManager v1.1 Ready"
         );
 
     }
