@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Edu Platform
-// Welcome Manager v1.2
+// Welcome Manager v1.3
 //
 // Purpose:
 // - Show the active student's greeting on the Dashboard
@@ -14,12 +14,8 @@
 
 const WelcomeManager = {
 
-    VERSION: "1.2",
+    VERSION: "1.3",
 
-
-    // =====================================
-    // GET ACTIVE PROFILE NAME
-    // =====================================
 
     getActiveProfileName: function () {
 
@@ -59,10 +55,6 @@ const WelcomeManager = {
     },
 
 
-    // =====================================
-    // PERSONALIZE HOME
-    // =====================================
-
     personalizeHome: function () {
 
         const app =
@@ -77,7 +69,6 @@ const WelcomeManager = {
 
         const name =
             this.getActiveProfileName();
-
 
         const welcomeElement =
             app.querySelector(".screen > p");
@@ -167,8 +158,6 @@ const WelcomeManager = {
         }
 
 
-        // Remove the old separator belonging to the
-        // standalone welcome block.
         if (
             welcome.nextElementSibling &&
             welcome.nextElementSibling.tagName === "HR"
@@ -205,10 +194,7 @@ const WelcomeManager = {
         );
 
 
-        // IMPORTANT:
-        // The profile button is NOT personalized here.
-        // Its label remains "پروفایل من".
-
+        // The profile button must remain a profile control.
         const profileButton =
             document.getElementById("profileBtn");
 
@@ -228,6 +214,115 @@ const WelcomeManager = {
 
 
     // =====================================
+    // DASHBOARD STYLES
+    // =====================================
+
+    dashboardStyles: function () {
+
+        const styleId =
+            "tahouriWelcomeManagerStyles";
+
+        const old =
+            document.getElementById(styleId);
+
+        if (old) {
+
+            return;
+
+        }
+
+
+        const style =
+            document.createElement("style");
+
+        style.id =
+            styleId;
+
+
+        style.textContent = `
+
+            .dashboard-welcome-message-row {
+
+                display: grid;
+
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+
+                gap: 15px;
+
+                width: 100%;
+
+                margin: 0 0 18px 0;
+
+                align-items: stretch;
+
+            }
+
+
+            .dashboard-welcome-message-row .dashboard-card {
+
+                margin: 0;
+
+                height: 100%;
+
+                box-sizing: border-box;
+
+            }
+
+
+            .dashboard-welcome-panel {
+
+                box-sizing: border-box;
+
+                height: 100%;
+
+                margin: 0;
+
+                padding: 18px;
+
+                border-radius: 12px;
+
+                background: #ffffff;
+
+                border: 1px solid #e1e4e8;
+
+            }
+
+
+            .dashboard-welcome-panel h1 {
+
+                margin-top: 0;
+
+            }
+
+
+            .dashboard-message-panel {
+
+                box-sizing: border-box;
+
+            }
+
+
+            @media (max-width: 700px) {
+
+                .dashboard-welcome-message-row {
+
+                    grid-template-columns: 1fr;
+
+                    gap: 10px;
+
+                }
+
+            }
+
+        `;
+
+
+        document.head.appendChild(style);
+
+    },
+
+
+    // =====================================
     // DASHBOARD OBSERVER
     // =====================================
 
@@ -241,6 +336,9 @@ const WelcomeManager = {
             return;
 
         }
+
+
+        this.dashboardStyles();
 
 
         const process =
@@ -338,7 +436,7 @@ const WelcomeManager = {
 
 
         console.log(
-            "WelcomeManager v1.2 Ready"
+            "WelcomeManager v1.3 Ready"
         );
 
     }
