@@ -1,21 +1,23 @@
 // =====================================
 // Tahouri Edu Platform
-// Welcome Manager v1.3
+// Welcome Manager v2.0
 //
 // Purpose:
-// - Show the active student's greeting on the Dashboard
-// - Keep the profile button as a profile control only
-// - Place the greeting beside the daily motivational message
-// - Use the active Student Profile as source of truth
-// - Do not create duplicate profile storage
-// - Keep existing Daily Message behavior intact
+// - Show the active student's greeting NEXT TO the daily message
+// - Keep the Profile button unchanged
+// - Do not move the greeting to Dashboard cards
+// - Do not modify ProfileManager or DailyMessageManager
 // =====================================
 
 
 const WelcomeManager = {
 
-    VERSION: "1.3",
+    VERSION: "2.0",
 
+
+    // =====================================
+    // ACTIVE PROFILE NAME
+    // =====================================
 
     getActiveProfileName: function () {
 
@@ -31,7 +33,8 @@ const WelcomeManager = {
 
                 if (
                     profile &&
-                    typeof profile.name === "string"
+                    typeof profile.name === "string" &&
+                    profile.name.trim()
                 ) {
 
                     return profile.name.trim();
@@ -44,16 +47,20 @@ const WelcomeManager = {
         catch (error) {
 
             console.error(
-                "WelcomeManager: Failed to read active profile",
+                "WelcomeManager: Profile read failed",
                 error
             );
 
         }
 
-        return "";
+        return "دانش‌آموز";
 
     },
 
+
+    // =====================================
+    // HOME GREETING + DAILY MESSAGE
+    // =====================================
 
     personalizeHome: function () {
 
@@ -67,89 +74,24 @@ const WelcomeManager = {
         }
 
 
-        const name =
-            this.getActiveProfileName();
+        const screen =
+            app.querySelector(".screen");
 
-        const welcomeElement =
-            app.querySelector(".screen > p");
-
-
-        if (!welcomeElement) {
-
-            return;
-
-        }
+        const dailyMessage =
+            app.querySelector(".daily-message-home");
 
 
-        if (name) {
-
-            welcomeElement.textContent =
-                `سلام ${name} عزیز 🌷`;
-
-        }
-        else {
-
-            welcomeElement.textContent =
-                "به مرکز کنترل پلتفرم خوش آمدید";
-
-        }
-
-
-        console.log(
-            "WelcomeManager: Home personalized",
-            {
-                profileName: name || null
-            }
-        );
-
-    },
-
-
-    // =====================================
-    // PERSONALIZE DASHBOARD
-    // =====================================
-
-    personalizeDashboard: function () {
-
-        const dashboard =
-            document.querySelector(".dashboard-screen");
-
-        if (!dashboard) {
+        if (!screen || !dailyMessage) {
 
             return;
 
         }
 
 
-        const welcome =
-            dashboard.querySelector(".dashboard-welcome");
-
-        const message =
-            dashboard.querySelector(".dashboard-message");
-
-        const messageCard =
-            message
-                ? message.closest(".dashboard-card")
-                : null;
-
-        const calendarCard =
-            dashboard.querySelector(".learning-calendar-card");
-
-
+        // Already arranged.
         if (
-            !welcome ||
-            !messageCard ||
-            !calendarCard
-        ) {
-
-            return;
-
-        }
-
-
-        if (
-            dashboard.querySelector(
-                ".dashboard-welcome-message-row"
+            app.querySelector(
+                ".welcome-daily-message-row"
             )
         ) {
 
@@ -158,43 +100,110 @@ const WelcomeManager = {
         }
 
 
-        if (
-            welcome.nextElementSibling &&
-            welcome.nextElementSibling.tagName === "HR"
-        ) {
+        // The original Home greeting is the first
+        // paragraph immediately after the main H1.
+        const heading =
+            screen.querySelector("h1");
 
-            welcome.nextElementSibling.remove();
+        const oldGreeting =
+            heading
+                ? heading.nextElementSibling
+                : null;
 
-        }
+
+        // Create the greeting panel exactly beside
+        // the existing "پیام امروز" panel.
+        const greeting =
+            document.createElement("div");
+
+        greeting.className =
+            "welcome-daily-greeting";
+
+        greeting.innerHTML = `
+
+            <div class="welcome-daily-greeting-icon">
+                👋
+            </div>
+
+            <div>
+
+                <h2>
+                    سلام ${this.getActiveProfileName()} عزیز
+                </h2>
+
+                <p>
+                    خوش آمدی! آماده‌ای امروز هم یاد بگیری؟ 🌱
+                </p>
+
+            </div>
+
+        `;
 
 
         const row =
             document.createElement("div");
 
         row.className =
-            "dashboard-welcome-message-row";
+            "welcome-daily-message-row";
 
 
-        welcome.classList.add(
-            "dashboard-welcome-panel"
-        );
-
-        messageCard.classList.add(
-            "dashboard-message-panel"
-        );
+        row.appendChild(greeting);
+        row.appendChild(dailyMessage);
 
 
-        row.appendChild(welcome);
-        row.appendChild(messageCard);
+        // Remove the old standalone greeting paragraph.
+        if (
+            oldGreeting &&
+            oldGreeting.tagName === "P"
+        ) {
+
+            oldGreeting.remove();
+
+        }
 
 
-        dashboard.insertBefore(
+        // The original HR immediately after the greeting
+        // should not remain between the greeting and message.
+        const hr =
+            row.previousElementSibling;
+
+
+        if (
+            hr &&
+            hr.tagName === "HR"
+        ) {
+
+            hr.remove();
+
+        }
+
+
+        // Put the combined row exactly where the
+        // daily-message section originally started.
+        screen.insertBefore(
             row,
-            calendarCard
+            dailyMessage
         );
 
 
-        // The profile button must remain a profile control.
+        // The old daily message is now inside row,
+        // so remove any immediately following duplicate HR
+        // that belonged only to the old standalone message.
+        const next =
+            row.nextElementSibling;
+
+        if (
+            next &&
+            next.tagName === "HR"
+        ) {
+
+            next.remove();
+
+        }
+
+
+        // IMPORTANT:
+        // Never change the profile button text.
         const profileButton =
             document.getElementById("profileBtn");
 
@@ -207,25 +216,24 @@ const WelcomeManager = {
 
 
         console.log(
-            "WelcomeManager: Dashboard greeting placed beside daily message"
+            "WelcomeManager v2.0: Greeting placed beside daily message"
         );
 
     },
 
 
     // =====================================
-    // DASHBOARD STYLES
+    // STYLES
     // =====================================
 
-    dashboardStyles: function () {
+    styles: function () {
 
         const styleId =
-            "tahouriWelcomeManagerStyles";
+            "tahouriWelcomeManagerV2Styles";
 
-        const old =
-            document.getElementById(styleId);
-
-        if (old) {
+        if (
+            document.getElementById(styleId)
+        ) {
 
             return;
 
@@ -238,73 +246,105 @@ const WelcomeManager = {
         style.id =
             styleId;
 
-
         style.textContent = `
 
-            .dashboard-welcome-message-row {
+            .welcome-daily-message-row {
 
                 display: grid;
 
-                grid-template-columns: repeat(2, minmax(0, 1fr));
+                grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
 
                 gap: 15px;
 
                 width: 100%;
 
-                margin: 0 0 18px 0;
+                margin: 18px 0;
 
                 align-items: stretch;
 
             }
 
 
-            .dashboard-welcome-message-row .dashboard-card {
+            .welcome-daily-greeting,
+            .welcome-daily-message-row .daily-message-home {
 
-                margin: 0;
+                box-sizing: border-box;
+
+                min-width: 0;
 
                 height: 100%;
 
-                box-sizing: border-box;
+                margin: 0;
+
+                border-radius: 14px;
 
             }
 
 
-            .dashboard-welcome-panel {
+            .welcome-daily-greeting {
 
-                box-sizing: border-box;
+                display: flex;
 
-                height: 100%;
+                align-items: center;
 
-                margin: 0;
+                gap: 12px;
 
                 padding: 18px;
-
-                border-radius: 12px;
 
                 background: #ffffff;
 
                 border: 1px solid #e1e4e8;
 
+                box-shadow: 0 3px 12px rgba(0,0,0,.05);
+
+                direction: rtl;
+
+                text-align: right;
+
             }
 
 
-            .dashboard-welcome-panel h1 {
+            .welcome-daily-greeting-icon {
 
-                margin-top: 0;
+                font-size: 30px;
+
+                flex: 0 0 auto;
 
             }
 
 
-            .dashboard-message-panel {
+            .welcome-daily-greeting h2 {
 
-                box-sizing: border-box;
+                margin: 0 0 7px 0;
+
+                font-size: 19px;
+
+            }
+
+
+            .welcome-daily-greeting p {
+
+                margin: 0;
+
+                font-size: 13px;
+
+                opacity: .72;
+
+                line-height: 1.8;
+
+            }
+
+
+            .welcome-daily-message-row .daily-message-home {
+
+                width: 100%;
 
             }
 
 
             @media (max-width: 700px) {
 
-                .dashboard-welcome-message-row {
+                .welcome-daily-message-row {
 
                     grid-template-columns: 1fr;
 
@@ -316,58 +356,49 @@ const WelcomeManager = {
 
         `;
 
-
         document.head.appendChild(style);
 
     },
 
 
     // =====================================
-    // DASHBOARD OBSERVER
+    // OBSERVE HOME RENDERING
     // =====================================
 
-    observeDashboard: function () {
+    observe: function () {
 
         const app =
             document.getElementById("app");
 
-        if (!app || this.dashboardObserver) {
+        if (!app || this.observer) {
 
             return;
 
         }
 
 
-        this.dashboardStyles();
+        this.styles();
 
 
-        const process =
-            function () {
-
-                if (
-                    document.querySelector(
-                        ".dashboard-screen"
-                    )
-                ) {
-
-                    WelcomeManager.personalizeDashboard();
-
-                }
-
-            };
-
-
-        this.dashboardObserver =
+        this.observer =
             new MutationObserver(
                 function () {
 
-                    process();
+                    if (
+                        document.querySelector(
+                            ".daily-message-home"
+                        )
+                    ) {
+
+                        WelcomeManager.personalizeHome();
+
+                    }
 
                 }
             );
 
 
-        this.dashboardObserver.observe(
+        this.observer.observe(
             app,
             {
                 childList: true,
@@ -376,67 +407,21 @@ const WelcomeManager = {
         );
 
 
-        process();
+        this.personalizeHome();
 
     },
 
 
     // =====================================
-    // INTEGRATE WITH SCREEN
+    // INIT
     // =====================================
 
     init: function () {
 
-        if (
-            typeof Screen === "undefined" ||
-            typeof Screen.showHome !== "function"
-        ) {
-
-            console.error(
-                "WelcomeManager: Screen.showHome not available"
-            );
-
-            return;
-
-        }
-
-
-        if (!Screen.showHome.__welcomeManagerWrapped) {
-
-            const originalShowHome =
-                Screen.showHome;
-
-
-            const personalizedShowHome =
-                function () {
-
-                    originalShowHome.apply(
-                        Screen,
-                        arguments
-                    );
-
-                    WelcomeManager.personalizeHome();
-
-                };
-
-
-            personalizedShowHome.__welcomeManagerWrapped = true;
-
-            personalizedShowHome.__originalShowHome =
-                originalShowHome;
-
-
-            Screen.showHome =
-                personalizedShowHome;
-
-        }
-
-
-        this.observeDashboard();
-
+        this.observe();
 
         console.log(
-            "WelcomeManager v1.3 Ready"
+            "WelcomeManager v2.0 Ready"
         );
 
     }
