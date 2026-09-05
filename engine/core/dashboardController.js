@@ -1,9 +1,10 @@
 // =====================================
 // Tahouri Edu Platform
 // Dashboard Controller
-// Version 6.0
+// Version 6.1
 //
 // Student Friendly Dashboard
+// ProgressTracker as source of truth
 // =====================================
 
 
@@ -185,6 +186,8 @@ const DashboardController = {
 
         // =====================================
         // COMPLETED ACTIVITIES
+        // ProgressTracker is the single source
+        // of truth for activity completion.
         // =====================================
 
         let completedCount = 0;
@@ -213,52 +216,18 @@ const DashboardController = {
             let completed = false;
 
 
-            // ---------------------------------
-            // ProgressManager
-            // ---------------------------------
-
             if (
-                typeof ProgressManager !==
-                "undefined"
+                typeof ProgressTracker !==
+                "undefined" &&
+
+                typeof ProgressTracker.isCompleted ===
+                "function"
             ) {
 
-                if (
-                    typeof ProgressManager.isCompleted ===
-                    "function"
-                ) {
-
-                    completed =
-                        ProgressManager.isCompleted(
-                            activity.id
-                        );
-
-                }
-
-                else if (
-                    typeof ProgressManager.get ===
-                    "function"
-                ) {
-
-                    const progress =
-                        ProgressManager.get();
-
-
-                    if (
-                        progress &&
-                        Array.isArray(
-                            progress.completedActivities
-                        )
-                    ) {
-
-                        completed =
-                            progress.completedActivities
-                                .includes(
-                                    activity.id
-                                );
-
-                    }
-
-                }
+                completed =
+                    ProgressTracker.isCompleted(
+                        activity.id
+                    );
 
             }
 
@@ -333,47 +302,17 @@ const DashboardController = {
 
 
             if (
-                typeof ProgressManager !==
-                "undefined"
+                typeof ProgressTracker !==
+                "undefined" &&
+
+                typeof ProgressTracker.isCompleted ===
+                "function"
             ) {
 
-                if (
-                    typeof ProgressManager.isCompleted ===
-                    "function"
-                ) {
-
-                    completed =
-                        ProgressManager.isCompleted(
-                            activity.id
-                        );
-
-                }
-
-                else if (
-                    typeof ProgressManager.get ===
-                    "function"
-                ) {
-
-                    const progress =
-                        ProgressManager.get();
-
-
-                    if (
-                        progress &&
-                        Array.isArray(
-                            progress.completedActivities
-                        )
-                    ) {
-
-                        completed =
-                            progress.completedActivities
-                                .includes(
-                                    activity.id
-                                );
-
-                    }
-
-                }
+                completed =
+                    ProgressTracker.isCompleted(
+                        activity.id
+                    );
 
             }
 
@@ -560,5 +499,5 @@ window.DashboardController =
 // =====================================
 
 console.log(
-    "Dashboard Controller v6.0 Ready"
+    "Dashboard Controller v6.1 Ready"
 );
