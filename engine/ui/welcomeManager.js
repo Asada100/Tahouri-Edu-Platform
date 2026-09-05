@@ -1,18 +1,20 @@
 // =====================================
 // Tahouri Edu Platform
-// Welcome Manager v1.0
+// Welcome Manager v1.1
 //
 // Purpose:
-// - Personalize the Home welcome message
+// - Show the active student's greeting on the Dashboard
+// - Keep the profile button as a profile control only
+// - Place the greeting beside the daily motivational message
 // - Use the active Student Profile as source of truth
 // - Do not create duplicate profile storage
-// - Keep existing Screen / Daily Message behavior intact
+// - Keep existing Daily Message behavior intact
 // =====================================
 
 
 const WelcomeManager = {
 
-    VERSION: "1.0",
+    VERSION: "1.1",
 
 
     // =====================================
@@ -77,9 +79,6 @@ const WelcomeManager = {
             this.getActiveProfileName();
 
 
-        // The first direct paragraph under
-        // the Home .screen is the existing
-        // generic welcome message.
         const welcomeElement =
             app.querySelector(".screen > p");
 
@@ -116,6 +115,120 @@ const WelcomeManager = {
 
 
     // =====================================
+    // PERSONALIZE DASHBOARD
+    // =====================================
+
+    personalizeDashboard: function () {
+
+        const dashboard =
+            document.querySelector(".dashboard-screen");
+
+        if (!dashboard) {
+
+            return;
+
+        }
+
+
+        const welcome =
+            dashboard.querySelector(".dashboard-welcome");
+
+        const message =
+            dashboard.querySelector(".dashboard-message");
+
+        const messageCard =
+            message
+                ? message.closest(".dashboard-card")
+                : null;
+
+        const calendarCard =
+            dashboard.querySelector(".learning-calendar-card");
+
+
+        if (
+            !welcome ||
+            !messageCard ||
+            !calendarCard
+        ) {
+
+            return;
+
+        }
+
+
+        // Prevent duplicate arrangement if the dashboard
+        // is refreshed more than once during the session.
+        if (
+            dashboard.querySelector(
+                ".dashboard-welcome-message-row"
+            )
+        ) {
+
+            return;
+
+        }
+
+
+        // Remove the old separator that belonged to the
+        // standalone welcome section.
+        if (
+            welcome.nextElementSibling &&
+            welcome.nextElementSibling.tagName === "HR"
+        ) {
+
+            welcome.nextElementSibling.remove();
+
+        }
+
+
+        const row =
+            document.createElement("div");
+
+        row.className =
+            "dashboard-welcome-message-row";
+
+
+        // The greeting and the motivational message are
+        // now two neighboring panels at the top of the dashboard.
+        welcome.classList.add(
+            "dashboard-welcome-panel"
+        );
+
+        messageCard.classList.add(
+            "dashboard-message-panel"
+        );
+
+
+        row.appendChild(welcome);
+        row.appendChild(messageCard);
+
+
+        dashboard.insertBefore(
+            row,
+            calendarCard
+        );
+
+
+        // The profile button must remain only a profile control.
+        const profileButton =
+            document.getElementById("profileBtn");
+
+        if (profileButton) {
+
+            profileButton.textContent =
+                "👤 پروفایل من";
+
+        }
+
+
+        console.log(
+            "WelcomeManager: Dashboard greeting placed beside daily message"
+        );
+
+    },
+
+
+    // =====================================
     // INTEGRATE WITH SCREEN
     // =====================================
 
@@ -135,42 +248,75 @@ const WelcomeManager = {
         }
 
 
-        if (Screen.showHome.__welcomeManagerWrapped) {
+        if (!Screen.showHome.__welcomeManagerWrapped) {
 
-            return;
+            const originalShowHome =
+                Screen.showHome;
+
+
+            const personalizedShowHome =
+                function () {
+
+                    originalShowHome.apply(
+                        Screen,
+                        arguments
+                    );
+
+                    WelcomeManager.personalizeHome();
+
+                };
+
+
+            personalizedShowHome.__welcomeManagerWrapped = true;
+
+            personalizedShowHome.__originalShowHome =
+                originalShowHome;
+
+
+            Screen.showHome =
+                personalizedShowHome;
 
         }
 
 
-        const originalShowHome =
-            Screen.showHome;
+        // Dashboard is rendered by Screen/DashboardController.
+        // Arrange its existing welcome and message blocks after render.
+        if (
+            typeof Screen.showDashboard === "function" &&
+            !Screen.showDashboard.__welcomeManagerWrapped
+        ) {
+
+            const originalShowDashboard =
+                Screen.showDashboard;
 
 
-        const personalizedShowHome =
-            function () {
+            const personalizedShowDashboard =
+                function () {
 
-                originalShowHome.apply(
-                    Screen,
-                    arguments
-                );
+                    originalShowDashboard.apply(
+                        Screen,
+                        arguments
+                    );
 
-                WelcomeManager.personalizeHome();
+                    WelcomeManager.personalizeDashboard();
 
-            };
-
-
-        personalizedShowHome.__welcomeManagerWrapped = true;
-
-        personalizedShowHome.__originalShowHome =
-            originalShowHome;
+                };
 
 
-        Screen.showHome =
-            personalizedShowHome;
+            personalizedShowDashboard.__welcomeManagerWrapped = true;
+
+            personalizedShowDashboard.__originalShowDashboard =
+                originalShowDashboard;
+
+
+            Screen.showDashboard =
+                personalizedShowDashboard;
+
+        }
 
 
         console.log(
-            "WelcomeManager v1.0 Ready"
+            "WelcomeManager v1.1 Ready"
         );
 
     }
