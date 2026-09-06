@@ -53,13 +53,23 @@ const WelcomeManager = {
             message.insertBefore(greeting, icon);
         }
 
-        greeting.textContent =
+        const greetingText =
             `سلام ${this.getActiveProfileName()} عزیز 🌷`;
+
+        // Avoid writing the same text repeatedly.
+        // #app is observed by MutationObserver, so unnecessary writes
+        // can create a mutation loop and freeze the application.
+        if (greeting.textContent !== greetingText) {
+            greeting.textContent = greetingText;
+        }
 
         const profileButton =
             document.getElementById("profileBtn");
 
-        if (profileButton) {
+        if (
+            profileButton &&
+            profileButton.textContent !== "👤 پروفایل من"
+        ) {
             profileButton.textContent = "👤 پروفایل من";
         }
     },

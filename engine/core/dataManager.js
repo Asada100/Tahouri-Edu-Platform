@@ -8,8 +8,6 @@ const DataManager = {
 
     cache:{},
 
-
-
     loadJSON:async function(path){
 
         if(this.cache[path]){
@@ -20,6 +18,14 @@ const DataManager = {
 
         const response = await fetch(path);
 
+        if (!response.ok) {
+
+            throw new Error(
+                `Failed to load ${path}: HTTP ${response.status}`
+            );
+
+        }
+
         const data = await response.json();
 
         this.cache[path] = data;
@@ -28,15 +34,11 @@ const DataManager = {
 
     },
 
-
-
     getActivityFolder:function(activity){
 
         return activity.path;
 
     },
-
-
 
     getQuestions:async function(activity){
 
@@ -50,8 +52,6 @@ const DataManager = {
 
     },
 
-
-
     getCards:async function(activity){
 
         return await this.loadJSON(
@@ -63,8 +63,6 @@ const DataManager = {
         );
 
     },
-
-
 
     clearCache:function(){
 
