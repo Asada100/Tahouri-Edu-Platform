@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 4.2
+// Version 4.3
 // Reports Controller
 // Independent Performance Reports
 // Report ViewModel Adapter
@@ -8,34 +8,14 @@
 
 const ReportsController = {
 
-    // =====================================
-    // باز کردن صفحه گزارش
-    // =====================================
-
     open: function () {
 
-        console.log(
-            "Reports Controller Opening"
-        );
+        console.log("Reports Controller Opening");
 
-        // =================================
-        // بررسی StatisticsManager
-        // =================================
-
-        if (
-            typeof StatisticsManager === "undefined"
-        ) {
-
-            console.error(
-                "StatisticsManager Not Found"
-            );
-
+        if (typeof StatisticsManager === "undefined") {
+            console.error("StatisticsManager Not Found");
             return;
         }
-
-        // =================================
-        // دریافت آمار خام
-        // =================================
 
         const statistics =
             typeof StatisticsManager.get === "function"
@@ -52,17 +32,9 @@ const ReportsController = {
                 ? (StatisticsManager.getActivities() || {})
                 : (statistics.activities || {});
 
-        const rawChapters =
-            statistics.chapters || {};
+        const rawChapters = statistics.chapters || {};
 
-        // =================================
-        // پایه فعال
-        // =================================
-        // StatisticsManager برای حفظ سابقه پایه‌ها از کلیدهایی
-        // مانند grade6:math و grade6:math:chapter1:evenOdd
-        // استفاده می‌کند. این کلیدها فقط برای Storage هستند.
-        // ReportsScreen باید یک ViewModel ساده و قابل نمایش دریافت کند.
-
+        // فقط آمار پایه فعال باید در گزارش این پروفایل نمایش داده شود.
         let activeGrade = null;
 
         if (
@@ -72,20 +44,48 @@ const ReportsController = {
             activeGrade = ProfileManager.getGrade();
         }
 
-        // =================================
-        // Helpers
-        // =================================
+        const subjectTitles = {
+            math: "ریاضی",
+            mathematics: "ریاضی",
+            persian: "فارسی",
+            farsi: "فارسی",
+            science: "علوم",
+            computer: "رایانه",
+            computerScience: "رایانه"
+        };
+
+        const chapterTitles = {
+            chapter1: "فصل اول",
+            chapter2: "فصل دوم",
+            chapter3: "فصل سوم",
+            chapter4: "فصل چهارم",
+            chapter5: "فصل پنجم",
+            chapter6: "فصل ششم",
+            chapter7: "فصل هفتم",
+            chapter8: "فصل هشتم"
+        };
+
+        const activityTitles = {
+            evenOdd: "اعداد زوج و فرد",
+            divisibleBy2: "بخش‌پذیری بر ۲",
+            divisibleBy3: "بخش‌پذیری بر ۳",
+            divisibleBy5: "بخش‌پذیری بر ۵",
+            divisibleBy6: "بخش‌پذیری بر ۶",
+            divisibleBy9: "بخش‌پذیری بر ۹",
+            divisibleBy10: "بخش‌پذیری بر ۱۰",
+            divisibleBy100: "بخش‌پذیری بر ۱۰۰",
+            memoryDemo: "بازی حافظه"
+        };
 
         function entries(value) {
-
             if (Array.isArray(value)) {
                 return value.map(function (item, index) {
                     return [
                         item && (
-                            item.activityId ||
+                            item.id ||
                             item.subjectId ||
                             item.chapterId ||
-                            item.id ||
+                            item.activityId ||
                             String(index)
                         ),
                         item || {}
@@ -103,175 +103,167 @@ const ReportsController = {
         }
 
         function belongsToActiveGrade(item) {
+            if (!activeGrade) return true;
 
-            if (!activeGrade) {
-                return true;
-            }
+            const grade = item && (
+                item.gradeId ||
+                item.grade
+            );
 
-            const grade =
-                item && (
-                    item.gradeId ||
-                    item.grade
-                );
-
-            // سوابق قدیمی ممکن است grade نداشته باشند.
-            // آن‌ها را حذف نمی‌کنیم.
+            // داده‌های قدیمی ممکن است grade نداشته باشند.
             return !grade || grade === activeGrade;
         }
 
+        function extractId(key, item, field) {
+            if (item && item[field]) {
+                return item[field];
+            }
+
+            const parts = String(key).split(":");
+            return parts[parts.length - 1];
+        }
+
         // =================================
-        // Subjects ViewModel
+        // Subjects
         // =================================
 
-        const subjects = {};
+        // آرایه عمداً استفاده می‌شود تا کلید grade6:math وارد UI نشود.
+        // هر آیتم شناسه ساده subjectId را نگه می‌دارد.
+        const subjects = [];
+        const subjectSeen = {};
 
         entries(rawSubjects).forEach(function (entry) {
-
             const key = entry[0];
             const item = entry[1] || {};
 
-            if (!belongsToActiveGrade(item)) {
-                return;
-            }
+            if (!belongsToActiveGrade(item)) return;
 
-            const subjectId =
-                item.subjectId ||
-                item.subject ||
-                (
-                    String(key).indexOf(":") >= 0
-                        ? String(key).split(":").pop()
-                        : key
-                );
+            const subjectId = extractId(key, item, "subjectId");
+            if (!subjectId || subjectSeen[subjectId]) return;
 
-            if (!subjectId) {
-                return;
-            }
+            subjectSeen[subjectId] = true;
 
-            // کلید ViewModel ساده است؛ grade در خود item حفظ می‌شود.
-            subjects[subjectId] = {
+            subjects.push({
                 ...item,
                 subjectId: subjectId,
-                gradeId: item.gradeId || item.grade || activeGrade || "unknown"
-            };
+                gradeId: item.gradeId || item.grade || activeGrade || "unknown",
+                title: subjectTitles[subjectId] || item.title || subjectId
+            });
         });
 
         // =================================
-        // Chapters ViewModel
+        // Chapters
         // =================================
 
-        const chapters = {};
+        // آرایه باعث می‌شود chapterId همیشه شناسه واقعی فصل باشد،
+        // نه کلید ذخیره‌سازی مانند grade6:math:chapter1.
+        const chapters = [];
+        const chapterSeen = {};
 
         entries(rawChapters).forEach(function (entry) {
-
             const key = entry[0];
             const item = entry[1] || {};
 
-            if (!belongsToActiveGrade(item)) {
-                return;
-            }
+            if (!belongsToActiveGrade(item)) return;
 
-            const chapterId =
-                item.chapterId ||
-                item.chapter ||
-                (
-                    String(key).indexOf(":") >= 0
-                        ? String(key).split(":").pop()
-                        : key
-                );
-
+            const chapterId = extractId(key, item, "chapterId");
             const subjectId =
                 item.subjectId ||
                 item.subject ||
                 null;
 
-            if (!chapterId) {
-                return;
-            }
+            if (!chapterId) return;
 
-            // برای جلوگیری از برخورد فصل‌های همنام در درس‌های مختلف،
-            // کلید داخلی ViewModel ترکیبی است؛ خود chapterId ساده باقی می‌ماند.
-            const viewKey =
+            // یک فصل با همان شناسه می‌تواند در درس‌های مختلف وجود داشته باشد.
+            // ترکیب grade + subject + chapter فقط برای حذف رکورد تکراری داخلی است.
+            const uniqueKey =
+                String(item.gradeId || item.grade || activeGrade || "unknown") + ":" +
                 String(subjectId || "unknown") + ":" +
                 String(chapterId);
 
-            chapters[viewKey] = {
+            if (chapterSeen[uniqueKey]) return;
+            chapterSeen[uniqueKey] = true;
+
+            chapters.push({
                 ...item,
                 chapterId: chapterId,
                 subjectId: subjectId || "unknown",
-                gradeId: item.gradeId || item.grade || activeGrade || "unknown"
-            };
+                gradeId: item.gradeId || item.grade || activeGrade || "unknown",
+                title: chapterTitles[chapterId] || item.title || chapterId
+            });
         });
 
         // =================================
-        // Activities ViewModel
+        // Activities
         // =================================
 
-        const activities = {};
+        const activities = [];
+        const activitySeen = {};
 
         entries(rawActivities).forEach(function (entry) {
-
             const key = entry[0];
             const item = entry[1] || {};
 
-            if (!belongsToActiveGrade(item)) {
-                return;
-            }
+            if (!belongsToActiveGrade(item)) return;
 
-            const activityId =
-                item.activityId ||
-                item.id ||
-                (
-                    String(key).split(":").pop()
-                );
+            const activityId = extractId(key, item, "activityId");
+            if (!activityId) return;
 
-            if (!activityId) {
-                return;
-            }
+            const subjectId =
+                item.subjectId ||
+                item.subject ||
+                "unknown";
 
-            activities[activityId] = {
+            const chapterId =
+                item.chapterId ||
+                item.chapter ||
+                "unknown";
+
+            const gradeId =
+                item.gradeId ||
+                item.grade ||
+                activeGrade ||
+                "unknown";
+
+            const uniqueKey =
+                String(gradeId) + ":" +
+                String(subjectId) + ":" +
+                String(chapterId) + ":" +
+                String(activityId);
+
+            if (activitySeen[uniqueKey]) return;
+            activitySeen[uniqueKey] = true;
+
+            activities.push({
                 ...item,
                 activityId: activityId,
-                subjectId:
-                    item.subjectId ||
-                    item.subject ||
-                    "unknown",
-                chapterId:
-                    item.chapterId ||
-                    item.chapter ||
-                    "unknown",
-                gradeId:
-                    item.gradeId ||
-                    item.grade ||
-                    activeGrade ||
-                    "unknown"
-            };
+                subjectId: subjectId,
+                chapterId: chapterId,
+                gradeId: gradeId,
+                title: activityTitles[activityId] || item.title || activityId
+            });
         });
 
         // =================================
-        // اگر StatisticsManager فصل‌ها را نداشت،
-        // فصل‌ها از روی Activity ViewModel ساخته می‌شوند.
+        // اگر chapter statistics هنوز وجود نداشت،
+        // فصل‌ها از activity statistics بازسازی می‌شوند.
         // =================================
 
-        if (Object.keys(chapters).length === 0) {
+        if (!chapters.length && activities.length) {
+            const rebuilt = {};
 
-            Object.keys(activities).forEach(function (activityId) {
+            activities.forEach(function (activity) {
+                if (!activity.chapterId || activity.chapterId === "unknown") return;
 
-                const activity = activities[activityId];
-                const chapterId = activity.chapterId;
-                const subjectId = activity.subjectId;
+                const key =
+                    String(activity.gradeId) + ":" +
+                    String(activity.subjectId) + ":" +
+                    String(activity.chapterId);
 
-                if (!chapterId || chapterId === "unknown") {
-                    return;
-                }
-
-                const viewKey =
-                    String(subjectId) + ":" +
-                    String(chapterId);
-
-                if (!chapters[viewKey]) {
-                    chapters[viewKey] = {
-                        chapterId: chapterId,
-                        subjectId: subjectId,
+                if (!rebuilt[key]) {
+                    rebuilt[key] = {
+                        chapterId: activity.chapterId,
+                        subjectId: activity.subjectId,
                         gradeId: activity.gradeId,
                         totalActivities: 0,
                         totalScore: 0,
@@ -279,52 +271,37 @@ const ReportsController = {
                         bestScore: 0,
                         totalCorrect: 0,
                         totalWrong: 0,
-                        bestPercentage: 0
+                        bestPercentage: 0,
+                        title:
+                            chapterTitles[activity.chapterId] ||
+                            activity.chapterId
                     };
                 }
 
-                const chapter = chapters[viewKey];
+                const chapter = rebuilt[key];
 
-                chapter.totalActivities +=
-                    Number(activity.totalActivities || 0);
-
-                chapter.totalScore +=
-                    Number(activity.totalScore || 0);
-
-                chapter.totalCorrect +=
-                    Number(activity.totalCorrect || 0);
-
-                chapter.totalWrong +=
-                    Number(activity.totalWrong || 0);
-
+                chapter.totalActivities += Number(activity.totalActivities || 0);
+                chapter.totalScore += Number(activity.totalScore || 0);
+                chapter.totalCorrect += Number(activity.totalCorrect || 0);
+                chapter.totalWrong += Number(activity.totalWrong || 0);
                 chapter.bestScore = Math.max(
                     chapter.bestScore,
                     Number(activity.bestScore || 0)
                 );
-
                 chapter.bestPercentage = Math.max(
                     chapter.bestPercentage,
                     Number(activity.bestPercentage || 0)
                 );
             });
 
-            Object.keys(chapters).forEach(function (key) {
-
-                const chapter = chapters[key];
-
-                chapter.averageScore =
-                    chapter.totalActivities > 0
-                        ? Math.round(
-                            chapter.totalScore /
-                            chapter.totalActivities
-                        )
-                        : 0;
+            Object.keys(rebuilt).forEach(function (key) {
+                const chapter = rebuilt[key];
+                chapter.averageScore = chapter.totalActivities > 0
+                    ? Math.round(chapter.totalScore / chapter.totalActivities)
+                    : 0;
+                chapters.push(chapter);
             });
         }
-
-        // =================================
-        // ساخت اطلاعات گزارش
-        // =================================
 
         const reportData = {
             overall: statistics.overall || {},
@@ -333,55 +310,22 @@ const ReportsController = {
             activities: activities
         };
 
-        // =================================
-        // بررسی ReportsScreen
-        // =================================
-
-        if (
-            typeof ReportsScreen === "undefined"
-        ) {
-
-            console.error(
-                "ReportsScreen Not Found"
-            );
-
+        if (typeof ReportsScreen === "undefined") {
+            console.error("ReportsScreen Not Found");
             return;
         }
 
-        if (
-            typeof ReportsScreen.show !==
-            "function"
-        ) {
-
-            console.error(
-                "ReportsScreen.show Not Found"
-            );
-
+        if (typeof ReportsScreen.show !== "function") {
+            console.error("ReportsScreen.show Not Found");
             return;
         }
 
-        ReportsScreen.show(
-            reportData
-        );
+        ReportsScreen.show(reportData);
 
-        console.log(
-            "Reports Controller Ready",
-            reportData
-        );
+        console.log("Reports Controller Ready", reportData);
     }
 };
 
-// =====================================
-// دسترسی سراسری
-// =====================================
+window.ReportsController = ReportsController;
 
-window.ReportsController =
-    ReportsController;
-
-// =====================================
-// آماده بودن Controller
-// =====================================
-
-console.log(
-    "Reports Controller Ready"
-);
+console.log("Reports Controller Ready");
