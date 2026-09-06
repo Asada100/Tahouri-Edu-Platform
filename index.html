@@ -1,36 +1,15 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
-
 <head>
-
     <meta charset="UTF-8">
-
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-
-    <title>
-        Tahouri Edu Platform
-    </title>
-
-    <link
-        rel="stylesheet"
-        href="style.css"
-    >
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tahouri Edu Platform</title>
+    <link rel="stylesheet" href="style.css">
 </head>
-
-
 <body>
-
-
 <div id="app">
-
     در حال بارگذاری پلتفرم طهوری...
-
 </div>
-
 
 <!-- ===================================== -->
 <!-- TEMPORARY MOBILE DEBUG TOOL           -->
@@ -41,11 +20,9 @@
     eruda.init();
 </script>
 
-
 <!-- ===================================== -->
 <!-- CORE SYSTEM                            -->
 <!-- ===================================== -->
-
 <script src="engine/core/state.js"></script>
 <script src="engine/activity/profileManager.js"></script>
 <script src="engine/core/eventManager.js"></script>
@@ -62,52 +39,40 @@
 <script src="engine/core/progressManager.js"></script>
 <script src="engine/core/contentLockManager.js"></script>
 
-
 <!-- ===================================== -->
 <!-- REPORTS SYSTEM                         -->
 <!-- ===================================== -->
-
 <script src="engine/ui/reportsScreen.js"></script>
 <script src="engine/core/reportsController.js"></script>
-
 
 <!-- ===================================== -->
 <!-- NAVIGATION SYSTEM                      -->
 <!-- ===================================== -->
-
 <script src="engine/ui/navigation.js"></script>
-
 
 <!-- ===================================== -->
 <!-- BASE ACTIVITY SYSTEM                   -->
 <!-- ===================================== -->
-
 <script src="engine/activity/BaseActivityEngine.js"></script>
 <script src="engine/activity/activityResult.js"></script>
-
 
 <!-- ===================================== -->
 <!-- SCORE & RESULT SYSTEM                  -->
 <!-- ===================================== -->
-
 <script src="engine/score/scoreManager.js"></script>
 <script src="engine/result/resultManager.js"></script>
-
 
 <!-- ===================================== -->
 <!-- QUESTION PROVIDERS                     -->
 <!-- ===================================== -->
-
 <script src="engine/question/quizProvider.js"></script>
 <script src="engine/question/memoryProvider.js"></script>
 <script src="engine/question/puzzleProvider.js"></script>
 <script src="engine/question/questionProvider.js"></script>
 
-
 <!-- ===================================== -->
 <!-- PUZZLE TYPE SYSTEM                     -->
 <!-- ===================================== -->
-
 <script src="engine/activity/puzzleTypes/puzzleTypeRegistry.js"></script>
 <script src="engine/activity/puzzleTypes/sequencePuzzle.js"></script>
 <script src="engine/activity/puzzleTypes/orderingPuzzle.js"></script>
@@ -118,44 +83,34 @@
 <script src="engine/activity/puzzleTypes/wordGridPuzzle.js"></script>
 <script src="engine/activity/puzzleTypes/crossGridPuzzle.js"></script>
 
-
 <!-- ===================================== -->
 <!-- ACTIVITY ENGINES                      -->
 <!-- ===================================== -->
-
 <script src="engine/activity/puzzleEngine.js"></script>
 <script src="engine/activity/quizEngine.js"></script>
 <script src="engine/activity/memoryEngine.js"></script>
 
-
 <!-- ===================================== -->
 <!-- ENGINE MANAGER                        -->
 <!-- ===================================== -->
-
 <script src="engine/core/engineManager.js"></script>
-
 
 <!-- ===================================== -->
 <!-- APPLICATION CONTROLLER                -->
 <!-- ===================================== -->
-
 <script src="engine/core/appController.js"></script>
-
 
 <!-- ===================================== -->
 <!-- ACTIVITY SYSTEM                       -->
 <!-- ===================================== -->
-
 <script src="engine/activity/activityState.js"></script>
 <script src="engine/activity/activityRegistry.js"></script>
 <script src="engine/activity/activityManager.js"></script>
 <script src="engine/activity/activityLifecycle.js"></script>
 
-
 <!-- ===================================== -->
 <!-- USER INTERFACE                        -->
 <!-- ===================================== -->
-
 <script src="engine/ui/difficultyModal.js"></script>
 <script src="engine/ui/puzzleScreen.js"></script>
 <script src="engine/ui/quizScreen.js"></script>
@@ -166,62 +121,47 @@
 <script src="engine/ui/memoryScreen.js"></script>
 <script src="engine/ui/screen.js"></script>
 
-
 <!-- ===================================== -->
 <!-- WELCOME SYSTEM                        -->
 <!-- ===================================== -->
-
 <script src="engine/ui/welcomeManager.js?v=3.0"></script>
-
 
 <!-- ===================================== -->
 <!-- RESULT MODAL                          -->
 <!-- ===================================== -->
-
 <script src="engine/ui/resultModal.js"></script>
-
 
 <!-- ===================================== -->
 <!-- DASHBOARD SYSTEM                      -->
 <!-- ===================================== -->
-
 <script src="engine/ui/dashboardScreen.js"></script>
 <script src="engine/ui/dailyMessageScreen.js"></script>
 <script src="engine/core/dashboardController.js"></script>
 
-
 <!-- ===================================== -->
 <!-- PROGRESS SYSTEM                       -->
 <!-- ===================================== -->
-
 <script src="engine/progress/progressTracker.js"></script>
-
 
 <!-- ===================================== -->
 <!-- LICENSE & ACTIVATION                  -->
 <!-- ===================================== -->
-
+<!-- History must capture licenses before LicenseManager performs annual cleanup. -->
+<script src="engine/core/licenseHistoryManager.js"></script>
 <script src="engine/core/licenseManager.js"></script>
 <script src="engine/ui/licenseScreen.js"></script>
 <script src="engine/core/activationGate.js"></script>
 
-
 <!-- ===================================== -->
-<!-- REMINDER SYSTEM                       -->
+<!-- REMINDER SYSTEM                        -->
 <!-- ===================================== -->
-
 <script src="engine/core/reminderManager.js"></script>
 <script src="engine/core/notificationManager.js"></script>
 <script src="engine/core/dailyMessageManager.js"></script>
 
-
 <!-- ===================================== -->
 <!-- MAIN APPLICATION                      -->
 <!-- ===================================== -->
-
 <script src="app.js"></script>
-
-
 </body>
-
 </html>
