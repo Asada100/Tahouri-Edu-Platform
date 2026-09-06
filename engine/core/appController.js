@@ -44,14 +44,10 @@ const App = {
 
         }
 
-        // =================================
-        // Activation Gate owns the startup
-        // entry screen. Do NOT show Home here.
-        // =================================
-
-        console.log(
-            "App startup data ready. Activation Gate controls entry."
-        );
+        // ActivationGate remains the visible startup entry screen.
+        // Home is rendered underneath it so that after a successful
+        // gate entry the initial loading text is replaced immediately.
+        Screen.showHome();
 
         return true;
 
