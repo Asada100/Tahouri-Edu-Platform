@@ -1,9 +1,10 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 4.3
+// Version 4.4
 // Reports Controller
 // Independent Performance Reports
 // Report ViewModel Adapter
+// Overall Fallback From Activity Statistics
 // =====================================
 
 const ReportsController = {
@@ -32,7 +33,10 @@ const ReportsController = {
                 ? (StatisticsManager.getActivities() || {})
                 : (statistics.activities || {});
 
-        const rawChapters = statistics.chapters || {};
+        const rawChapters =
+            typeof StatisticsManager.getChapters === "function"
+                ? (StatisticsManager.getChapters() || {})
+                : (statistics.chapters || {});
 
         // فقط آمار پایه فعال باید در گزارش این پروفایل نمایش داده شود.
         let activeGrade = null;
@@ -127,8 +131,6 @@ const ReportsController = {
         // Subjects
         // =================================
 
-        // آرایه عمداً استفاده می‌شود تا کلید grade6:math وارد UI نشود.
-        // هر آیتم شناسه ساده subjectId را نگه می‌دارد.
         const subjects = [];
         const subjectSeen = {};
 
@@ -155,8 +157,6 @@ const ReportsController = {
         // Chapters
         // =================================
 
-        // آرایه باعث می‌شود chapterId همیشه شناسه واقعی فصل باشد،
-        // نه کلید ذخیره‌سازی مانند grade6:math:chapter1.
         const chapters = [];
         const chapterSeen = {};
 
@@ -174,8 +174,6 @@ const ReportsController = {
 
             if (!chapterId) return;
 
-            // یک فصل با همان شناسه می‌تواند در درس‌های مختلف وجود داشته باشد.
-            // ترکیب grade + subject + chapter فقط برای حذف رکورد تکراری داخلی است.
             const uniqueKey =
                 String(item.gradeId || item.grade || activeGrade || "unknown") + ":" +
                 String(subjectId || "unknown") + ":" +
@@ -245,66 +243,72 @@ const ReportsController = {
         });
 
         // =================================
-        // اگر chapter statistics هنوز وجود نداشت،
-        // فصل‌ها از activity statistics بازسازی می‌شوند.
+        // Overall Fallback
         // =================================
+        //
+        // در نسخه‌های قدیمی ممکن است statistics.overall
+        // با آمار جزئی فعالیت‌ها همگام نشده باشد.
+        // در این حالت، عملکرد کلی را از activity statistics
+        // همان پایه بازسازی می‌کنیم؛ بدون حذف یا تغییر سوابق.
+        //
+        const storedOverall = statistics.overall || {};
+        const activityOverall = {
+            totalActivities: 0,
+            totalScore: 0,
+            averageScore: 0,
+            bestScore: 0,
+            totalCorrect: 0,
+            totalWrong: 0
+        };
 
-        if (!chapters.length && activities.length) {
-            const rebuilt = {};
+        activities.forEach(function (activity) {
+            activityOverall.totalActivities += Number(
+                activity.totalActivities || 0
+            );
+            activityOverall.totalScore += Number(
+                activity.totalScore || 0
+            );
+            activityOverall.totalCorrect += Number(
+                activity.totalCorrect || 0
+            );
+            activityOverall.totalWrong += Number(
+                activity.totalWrong || 0
+            );
+            activityOverall.bestScore = Math.max(
+                activityOverall.bestScore,
+                Number(activity.bestScore || 0)
+            );
+        });
 
-            activities.forEach(function (activity) {
-                if (!activity.chapterId || activity.chapterId === "unknown") return;
+        activityOverall.averageScore =
+            activityOverall.totalActivities > 0
+                ? Math.round(
+                    activityOverall.totalScore /
+                    activityOverall.totalActivities
+                )
+                : 0;
 
-                const key =
-                    String(activity.gradeId) + ":" +
-                    String(activity.subjectId) + ":" +
-                    String(activity.chapterId);
+        // اگر activity statistics داده معتبر داشته باشد،
+        // همان داده برای گزارش کلی اولویت دارد.
+        const hasActivityStatistics =
+            activityOverall.totalActivities > 0;
 
-                if (!rebuilt[key]) {
-                    rebuilt[key] = {
-                        chapterId: activity.chapterId,
-                        subjectId: activity.subjectId,
-                        gradeId: activity.gradeId,
-                        totalActivities: 0,
-                        totalScore: 0,
-                        averageScore: 0,
-                        bestScore: 0,
-                        totalCorrect: 0,
-                        totalWrong: 0,
-                        bestPercentage: 0,
-                        title:
-                            chapterTitles[activity.chapterId] ||
-                            activity.chapterId
-                    };
-                }
-
-                const chapter = rebuilt[key];
-
-                chapter.totalActivities += Number(activity.totalActivities || 0);
-                chapter.totalScore += Number(activity.totalScore || 0);
-                chapter.totalCorrect += Number(activity.totalCorrect || 0);
-                chapter.totalWrong += Number(activity.totalWrong || 0);
-                chapter.bestScore = Math.max(
-                    chapter.bestScore,
-                    Number(activity.bestScore || 0)
-                );
-                chapter.bestPercentage = Math.max(
-                    chapter.bestPercentage,
-                    Number(activity.bestPercentage || 0)
-                );
-            });
-
-            Object.keys(rebuilt).forEach(function (key) {
-                const chapter = rebuilt[key];
-                chapter.averageScore = chapter.totalActivities > 0
-                    ? Math.round(chapter.totalScore / chapter.totalActivities)
-                    : 0;
-                chapters.push(chapter);
-            });
-        }
+        const overall = hasActivityStatistics
+            ? {
+                ...storedOverall,
+                totalActivities: activityOverall.totalActivities,
+                totalScore: activityOverall.totalScore,
+                averageScore: activityOverall.averageScore,
+                bestScore: activityOverall.bestScore,
+                totalCorrect: activityOverall.totalCorrect,
+                totalWrong: activityOverall.totalWrong
+            }
+            : {
+                ...storedOverall
+            };
 
         const reportData = {
-            overall: statistics.overall || {},
+            overall: overall,
             subjects: subjects,
             chapters: chapters,
             activities: activities
