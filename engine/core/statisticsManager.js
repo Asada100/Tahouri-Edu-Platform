@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Statistics Manager
-// Version 3.5
+// Version 3.6
 // Profile Scoped Statistics
 // Safe Legacy Migration
 // Consistent Overall + Subject + Chapter + Activity Statistics
@@ -10,7 +10,7 @@
 const StatisticsManager = {
 
     STORAGE_KEY: "Tahouri_Statistics",
-    MIGRATION_KEY_PREFIX: "Tahouri_Statistics_ProfileMigration_v1:",
+    LEGACY_MIGRATION_KEY: "Tahouri_Statistics_LegacyMigrated_v2",
 
     statistics: null,
     currentStorageKey: null,
@@ -40,10 +40,6 @@ const StatisticsManager = {
         return ProfileContext.key(this.STORAGE_KEY);
     },
 
-    getMigrationKey: function (profileKey) {
-        return this.MIGRATION_KEY_PREFIX + String(profileKey || "");
-    },
-
     createActivityKey: function (activityId, subjectId, gradeId, chapterId) {
         return String(gradeId || "unknown") + ":" +
             String(subjectId || "unknown") + ":" +
@@ -65,15 +61,21 @@ const StatisticsManager = {
     migrateLegacyStatistics: function (profileKey) {
         if (!profileKey) return;
 
-        const migrationKey = this.getMigrationKey(profileKey);
-        if (localStorage.getItem(migrationKey) === "true") return;
+        // The old unscoped key has no profile owner. It must therefore be
+        // migrated at most once, to the active profile at migration time.
+        // A per-profile migration flag would duplicate one student's old
+        // history into every later profile.
+        if (localStorage.getItem(this.LEGACY_MIGRATION_KEY) === "true") {
+            return;
+        }
 
         const legacy = localStorage.getItem(this.STORAGE_KEY);
         if (!legacy) return;
 
-        // Never overwrite already existing profile data.
+        // Never overwrite an existing profile dataset. Mark the legacy
+        // source as handled so it cannot later leak into another profile.
         if (localStorage.getItem(profileKey) !== null) {
-            localStorage.setItem(migrationKey, "true");
+            localStorage.setItem(this.LEGACY_MIGRATION_KEY, "true");
             return;
         }
 
@@ -88,7 +90,7 @@ const StatisticsManager = {
                 parsed.activities
             ) {
                 localStorage.setItem(profileKey, legacy);
-                localStorage.setItem(migrationKey, "true");
+                localStorage.setItem(this.LEGACY_MIGRATION_KEY, "true");
                 console.log("Legacy Statistics Migrated To Active Profile");
             }
         }
@@ -136,14 +138,8 @@ const StatisticsManager = {
                 };
             }
 
-            // Chapters are derived from activity aggregates. Rebuilding them
-            // is safe because no activity history is removed or changed.
             this.rebuildChapters();
-
-            // Older versions could leave overall stale while activity
-            // statistics were already correct. Reconcile it once on load.
             this.rebuildOverallFromActivities();
-
             this.save();
         }
         catch (error) {
@@ -274,8 +270,6 @@ const StatisticsManager = {
         const activities = this.statistics.activities;
 
         if (!activities[key]) {
-            // Migrate the matching old simple activityId record only when
-            // its hierarchy proves that it belongs to this exact activity.
             const old = activities[activityId];
             if (
                 old &&
@@ -345,9 +339,6 @@ const StatisticsManager = {
             ? Math.round(aggregate.totalScore / aggregate.totalActivities)
             : 0;
 
-        // If activity-level data exists, it is the authoritative detailed
-        // record. This repairs stale overall aggregates without touching
-        // individual activity history.
         if (aggregate.totalActivities > 0) {
             this.statistics.overall = aggregate;
         }
@@ -407,11 +398,7 @@ const StatisticsManager = {
 
     save: function () {
         if (!this.ensureProfileContext()) return false;
-
-        return SaveManager.save(
-            this.currentStorageKey,
-            this.statistics
-        );
+        return SaveManager.save(this.currentStorageKey, this.statistics);
     },
 
     load: function () {
@@ -465,8 +452,6 @@ const StatisticsManager = {
                 ? ProfileContext.getGrade()
                 : null;
 
-        // Prefer the complete hierarchy key. The fallback search supports
-        // callers that historically passed only chapterId.
         if (subjectId) {
             const exactKey = this.createChapterKey(chapterId, subjectId, gradeId);
             if (this.statistics.chapters[exactKey]) {
@@ -536,7 +521,6 @@ const StatisticsManager = {
 
     reset: function () {
         if (!this.ensureProfileContext()) return false;
-
         this.statistics = this.getDefaultStatistics();
         return this.save();
     },
