@@ -207,7 +207,7 @@ const ProfileScreen = {
 
         <div class="profile-setting-item">
 
-            <label>
+            <label for="profileThemeSelect">
                 🌓 محیط برنامه
             </label>
 
@@ -247,7 +247,7 @@ const ProfileScreen = {
 
         <div class="profile-setting-item">
 
-            <label>
+            <label for="profileMusicSelect">
 
                 🎵 موسیقی
 
@@ -289,7 +289,7 @@ const ProfileScreen = {
 
         <div class="profile-setting-item">
 
-            <label>
+            <label for="profileProgramSoundSelect">
 
                 🔊 صدای برنامه
 
@@ -331,7 +331,7 @@ const ProfileScreen = {
 
         <div class="profile-setting-item">
 
-            <label>
+            <label for="profileNotificationsSelect">
 
                 🔔 اعلان‌ها
 
@@ -373,7 +373,7 @@ const ProfileScreen = {
 
         <div class="profile-setting-item">
 
-            <label>
+            <label for="profileSoundFeedbackSelect">
 
                 🎯 بازخورد صوتی
 
