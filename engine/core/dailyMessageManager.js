@@ -1,6 +1,6 @@
 /* ============================================
    Tahouri Edu Platform
-   Daily Message Manager v1.0
+   Daily Message Manager v1.1
    ============================================ */
 
 class DailyMessageManager {
@@ -49,6 +49,36 @@ class DailyMessageManager {
         const day = String(now.getDate()).padStart(2, "0");
 
         return `${year}-${month}-${day}`;
+    }
+
+
+    /* ============================================
+       Get Active Profile ID
+       ============================================ */
+
+    static getActiveProfileId() {
+
+        if (
+            typeof ProfileManager !== "undefined" &&
+            typeof ProfileManager.getStudentId === "function"
+        ) {
+
+            return ProfileManager.getStudentId();
+        }
+
+        if (
+            typeof ProfileManager !== "undefined" &&
+            typeof ProfileManager.get === "function"
+        ) {
+
+            const profile = ProfileManager.get();
+
+            return profile && profile.studentId
+                ? profile.studentId
+                : null;
+        }
+
+        return null;
     }
 
 
@@ -138,6 +168,63 @@ class DailyMessageManager {
 
 
     /* ============================================
+       Normalize Viewed Profiles
+       ============================================ */
+
+    static normalizeViewedBy(stored) {
+
+        if (
+            !stored ||
+            typeof stored !== "object"
+        ) {
+
+            return {};
+        }
+
+        if (
+            !stored.viewedBy ||
+            typeof stored.viewedBy !== "object" ||
+            Array.isArray(stored.viewedBy)
+        ) {
+
+            stored.viewedBy = {};
+        }
+
+        return stored.viewedBy;
+    }
+
+
+    /* ============================================
+       Sync Home Button State
+       ============================================
+       The message remains visible for everyone.
+       Only the active profile's button state
+       is synchronized.
+       ============================================ */
+
+    static syncHomeButtonState() {
+
+        const button =
+            document.getElementById("dailyMessageHomeBtn");
+
+        if (!button) {
+            return;
+        }
+
+        if (this.isViewedToday()) {
+
+            button.textContent = "✓ مشاهده شد";
+            button.disabled = true;
+
+        } else {
+
+            button.textContent = "متوجه شدم";
+            button.disabled = false;
+        }
+    }
+
+
+    /* ============================================
        Get Today Message
        ============================================ */
 
@@ -152,6 +239,16 @@ class DailyMessageManager {
             stored.message
         ) {
 
+            // Home is rendered after this method returns.
+            // Sync on the next tick so repeated returns to Home
+            // cannot reactivate an already-used button.
+            setTimeout(
+                function () {
+                    DailyMessageManager.syncHomeButtonState();
+                },
+                0
+            );
+
             return stored.message;
         }
 
@@ -164,8 +261,7 @@ class DailyMessageManager {
         const data = {
             date: today,
             message: message,
-            viewed: false,
-            viewedAt: null
+            viewedBy: {}
         };
 
         this.saveData(data);
@@ -175,34 +271,82 @@ class DailyMessageManager {
             message
         );
 
+        setTimeout(
+            function () {
+                DailyMessageManager.syncHomeButtonState();
+            },
+            0
+        );
+
         return message;
     }
 
 
     /* ============================================
        Mark As Viewed
+       ============================================
+       Viewed state is per profile and per day.
+       The message itself remains global.
        ============================================ */
 
     static markAsViewed() {
 
         const today = this.getTodayKey();
-        const stored = this.getStoredData();
+        const profileId = this.getActiveProfileId();
 
-        if (!stored || stored.date !== today) {
+        if (!profileId) {
 
-            this.getTodayMessage();
+            console.warn(
+                "DailyMessageManager: Cannot mark message without an active profile."
+            );
 
-            return this.markAsViewed();
+            return false;
         }
 
-        stored.viewed = true;
-        stored.viewedAt = new Date().toISOString();
+        let stored = this.getStoredData();
 
-        this.saveData(stored);
+        if (
+            !stored ||
+            stored.date !== today ||
+            !stored.message
+        ) {
 
-        console.log(
-            "DailyMessageManager: Message marked as viewed"
-        );
+            this.getTodayMessage();
+            stored = this.getStoredData();
+        }
+
+        if (
+            !stored ||
+            stored.date !== today ||
+            !stored.message
+        ) {
+
+            return false;
+        }
+
+        const viewedBy =
+            this.normalizeViewedBy(stored);
+
+        viewedBy[profileId] = {
+            viewed: true,
+            viewedAt: new Date().toISOString()
+        };
+
+        stored.viewedBy = viewedBy;
+
+        const saved = this.saveData(stored);
+
+        if (saved) {
+
+            console.log(
+                "DailyMessageManager: Message marked as viewed for profile",
+                profileId
+            );
+
+            this.syncHomeButtonState();
+        }
+
+        return saved;
     }
 
 
@@ -213,12 +357,28 @@ class DailyMessageManager {
     static isViewedToday() {
 
         const today = this.getTodayKey();
+        const profileId = this.getActiveProfileId();
         const stored = this.getStoredData();
 
+        if (
+            !profileId ||
+            !stored ||
+            stored.date !== today
+        ) {
+
+            return false;
+        }
+
+        // Old storage format used one global boolean.
+        // It is intentionally not treated as a profile-specific
+        // confirmation because we cannot know which profile clicked it.
+        if (!stored.viewedBy) {
+            return false;
+        }
+
         return !!(
-            stored &&
-            stored.date === today &&
-            stored.viewed === true
+            stored.viewedBy[profileId] &&
+            stored.viewedBy[profileId].viewed === true
         );
     }
 
@@ -232,6 +392,7 @@ class DailyMessageManager {
         const today = this.getTodayKey();
         const message = this.getTodayMessage();
         const viewed = this.isViewedToday();
+        const profileId = this.getActiveProfileId();
 
         console.log(
             "DailyMessageManager.test()"
@@ -243,17 +404,23 @@ class DailyMessageManager {
         );
 
         console.log(
+            "Active Profile:",
+            profileId
+        );
+
+        console.log(
             "Message:",
             message
         );
 
         console.log(
-            "Viewed Today:",
+            "Viewed Today By Active Profile:",
             viewed
         );
 
         return {
             date: today,
+            profileId: profileId,
             message: message,
             viewed: viewed
         };
@@ -264,5 +431,5 @@ class DailyMessageManager {
 window.DailyMessageManager = DailyMessageManager;
 
 console.log(
-    "Daily Message Manager v1.0 Ready"
+    "Daily Message Manager v1.1 Ready"
 );
