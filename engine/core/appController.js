@@ -15,17 +15,12 @@
 // loads activity.json.
 // =====================================
 
-
 const App = {
 
     grades: [],
-
     subjects: [],
-
     chapters: [],
-
     activities: [],
-
 
     // =====================================
     // START APPLICATION
@@ -37,14 +32,23 @@ const App = {
             "App Controller Started"
         );
 
+        const loaded = await this.loadData();
 
-        await this.loadData();
+        if (!loaded) {
 
+            console.error(
+                "App startup stopped because required data could not be loaded."
+            );
+
+            return false;
+
+        }
 
         Screen.showHome();
 
-    },
+        return true;
 
+    },
 
     // =====================================
     // LOAD DATA
@@ -59,24 +63,20 @@ const App = {
                     "data/grades.json"
                 );
 
-
             this.subjects =
                 await DataManager.loadJSON(
                     "data/subjects.json"
                 );
-
 
             this.chapters =
                 await DataManager.loadJSON(
                     "data/chapters.json"
                 );
 
-
             this.activities =
                 await DataManager.loadJSON(
                     "data/activities.json"
                 );
-
 
             // =================================
             // Legacy Global Data Compatibility
@@ -94,10 +94,11 @@ const App = {
             activities =
                 this.activities;
 
-
             console.log(
                 "All Data Loaded"
             );
+
+            return true;
 
         }
 
@@ -108,10 +109,11 @@ const App = {
                 error
             );
 
+            return false;
+
         }
 
     },
-
 
     // =====================================
     // NAVIGATION
@@ -123,13 +125,11 @@ const App = {
 
     },
 
-
     showGrades: function () {
 
         Screen.showGrades();
 
     },
-
 
     showSubjects: function () {
 
@@ -138,7 +138,6 @@ const App = {
         );
 
     },
-
 
     showChapters: function () {
 
@@ -149,7 +148,6 @@ const App = {
 
     },
 
-
     showActivities: function () {
 
         Screen.showActivities(
@@ -159,7 +157,6 @@ const App = {
         );
 
     },
-
 
     // =====================================
     // START ACTIVITY
@@ -203,17 +200,8 @@ const App = {
 
         }
 
-
         // =================================
         // Resolve Activity ID
-        // =================================
-        //
-        // Dashboard may send only:
-        //
-        // "divisibleBy100"
-        //
-        // Convert it to the complete
-        // activity object.
         // =================================
 
         if (
@@ -224,12 +212,10 @@ const App = {
             const activityId =
                 activity;
 
-
             console.log(
                 "App: Resolving Activity ID:",
                 activityId
             );
-
 
             const foundActivity =
                 this.activities.find(
@@ -244,7 +230,6 @@ const App = {
                     }
                 );
 
-
             if (!foundActivity) {
 
                 console.error(
@@ -256,12 +241,10 @@ const App = {
 
             }
 
-
             activity =
                 foundActivity;
 
         }
-
 
         // =================================
         // Validate Activity Object
@@ -281,7 +264,6 @@ const App = {
 
         }
 
-
         if (
             !activity.id
         ) {
@@ -295,16 +277,10 @@ const App = {
 
         }
 
-
-        // =================================
-        // Log
-        // =================================
-
         console.log(
             "App: Starting Activity:",
             activity.id
         );
-
 
         // =================================
         // Unified Entry
@@ -322,18 +298,15 @@ const App = {
                 activity
             );
 
-
             return;
 
         }
-
 
         console.error(
             "ActivityManager Not Available"
         );
 
     },
-
 
     // =====================================
     // RESTART ACTIVITY
@@ -353,7 +326,6 @@ const App = {
 
         }
 
-
         const activity =
             this.activities.find(
                 function (item) {
@@ -367,7 +339,6 @@ const App = {
                 }
             );
 
-
         if (!activity) {
 
             console.error(
@@ -379,13 +350,11 @@ const App = {
 
         }
 
-
         await this.startActivity(
             activity
         );
 
     },
-
 
     // =====================================
     // DASHBOARD
@@ -397,7 +366,6 @@ const App = {
 
     },
 
-
     // =====================================
     // REPORTS
     // =====================================
@@ -407,7 +375,6 @@ const App = {
         Screen.showReports();
 
     },
-
 
     // =====================================
     // HOME
@@ -421,28 +388,15 @@ const App = {
 
 };
 
-
 // =====================================
 // GLOBAL ACCESS
-// =====================================
-//
-// Main name:
-// App
-//
-// Compatibility name:
-// AppController
-//
-// Dashboard and other existing systems
-// can therefore use AppController.
 // =====================================
 
 window.App =
     App;
 
-
 window.AppController =
     App;
-
 
 // =====================================
 // READY
@@ -451,4 +405,3 @@ window.AppController =
 console.log(
     "App Controller v5.2 Ready"
 );
-
