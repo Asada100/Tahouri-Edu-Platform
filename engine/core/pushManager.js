@@ -1,13 +1,15 @@
 // =====================================
 // Tahouri Edu Platform
 // Push Manager
-// Version 1.2
+// Version 1.3
+// Lazy / Optional Initialization
 // =====================================
 
 const TahouriPushManager = {
 
     SW_PATH: "service-worker.js",
     _registration: null,
+    _initializing: null,
 
     isSupported: function () {
         return (
@@ -28,18 +30,27 @@ const TahouriPushManager = {
             return false;
         }
 
-        try {
-            this._registration = await navigator.serviceWorker.register(
-                this.SW_PATH,
-                { scope: "./" }
-            );
-            await navigator.serviceWorker.ready;
-            console.log("TahouriPushManager: Service Worker Ready");
-            return true;
-        } catch (error) {
-            console.error("TahouriPushManager: Service Worker Registration Failed", error);
-            return false;
-        }
+        if (this._registration) return true;
+        if (this._initializing) return this._initializing;
+
+        this._initializing = (async function () {
+            try {
+                this._registration = await navigator.serviceWorker.register(
+                    this.SW_PATH,
+                    { scope: "./" }
+                );
+                await navigator.serviceWorker.ready;
+                console.log("TahouriPushManager: Service Worker Ready");
+                return true;
+            } catch (error) {
+                console.error("TahouriPushManager: Service Worker Registration Failed", error);
+                return false;
+            } finally {
+                this._initializing = null;
+            }
+        }.call(this));
+
+        return this._initializing;
     },
 
     requestPermission: async function () {
@@ -130,12 +141,7 @@ const TahouriPushManager = {
 
 window.TahouriPushManager = TahouriPushManager;
 
-if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", function () {
-        TahouriPushManager.initialize();
-    });
-} else {
-    TahouriPushManager.initialize();
-}
-
-console.log("Tahouri Push Manager v1.2 Ready");
+// Push is an optional capability. It must never initialize automatically
+// during application startup. Call initialize()/subscribe() from an
+// explicit push-settings or opt-in flow instead.
+console.log("Tahouri Push Manager v1.3 Ready (lazy initialization)");
