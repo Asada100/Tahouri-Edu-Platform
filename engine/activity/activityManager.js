@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 6.1
+// Version 6.2
 // Activity Manager
 //
 // Responsibilities:
@@ -13,6 +13,7 @@
 // - Activity Lifecycle
 // - Activity Ready Event
 // - Safe Runtime Reset
+// - Unfinished Attempt Protection
 // =====================================
 
 const ActivityManager = {
@@ -33,9 +34,6 @@ const ActivityManager = {
                 ? activityData.settings.difficulty
                 : null;
 
-        this.currentActivity = activityData;
-        ActivityState.set("started");
-
         EventManager.emit("activityLoaded", activityData);
 
         return await this.start(activityData, selectedDifficulty);
@@ -54,8 +52,60 @@ const ActivityManager = {
             return null;
         }
 
+        // =====================================
+        // UNFINISHED ATTEMPT GUARD
+        // =====================================
+        // A resumable/active attempt for the same activity must never be
+        // replaced by a fresh attempt. This protects learning history from
+        // being bypassed by restarting the activity from the activity list.
+        if (
+            typeof ActivitySessionManager !== "undefined" &&
+            typeof ActivitySessionManager.hasUnfinished === "function" &&
+            ActivitySessionManager.hasUnfinished(fullActivity.id)
+        ) {
+            console.warn(
+                "ActivityManager: New attempt blocked; unfinished session exists.",
+                fullActivity.id
+            );
+
+            if (
+                typeof ActivitySessionManager.showBlockedStartNotice === "function"
+            ) {
+                ActivitySessionManager.showBlockedStartNotice(fullActivity);
+            }
+            else {
+                alert(
+                    "این فعالیت یک بازی ناتمام دارد. ابتدا از مسیر «ادامه فعالیت» آن را ادامه دهید."
+                );
+            }
+
+            return null;
+        }
+
         this.currentActivity = fullActivity;
         ActivityHistory.set(fullActivity);
+
+        // =====================================
+        // CREATE THE ATTEMPT BEFORE ENGINE START
+        // =====================================
+        // Quiz/Memory/Puzzle engines may reset their runtime inside start().
+        // The session must therefore exist before engine.start() is called.
+        if (
+            typeof ActivitySessionManager !== "undefined" &&
+            typeof ActivitySessionManager.begin === "function"
+        ) {
+            const session = ActivitySessionManager.begin(fullActivity);
+
+            if (!session) {
+                console.error(
+                    "ActivityManager: Activity session could not be created",
+                    fullActivity.id
+                );
+                this.currentActivity = null;
+                ActivityHistory.clear();
+                return null;
+            }
+        }
 
         const engineName = fullActivity.engine || fullActivity.type;
         console.log("Requested Engine:", engineName);
@@ -200,9 +250,6 @@ const ActivityManager = {
 
     // =====================================
     // RUNTIME RESET
-    //
-    // Used only after a resumable snapshot
-    // has already been persisted.
     // =====================================
 
     resetRuntime: function () {
@@ -231,9 +278,7 @@ const ActivityManager = {
             QuizEngine.reset();
         }
 
-        if (
-            typeof window.MemoryEngine !== "undefined"
-        ) {
+        if (typeof window.MemoryEngine !== "undefined") {
             MemoryEngine.cards = [];
             MemoryEngine.firstCard = null;
             MemoryEngine.secondCard = null;
@@ -257,4 +302,4 @@ const ActivityManager = {
 };
 
 window.ActivityManager = ActivityManager;
-console.log("Activity Manager v6.1 Ready");
+console.log("Activity Manager v6.2 Ready");
