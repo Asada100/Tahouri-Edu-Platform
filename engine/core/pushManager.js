@@ -1,10 +1,10 @@
 // =====================================
 // Tahouri Edu Platform
 // Push Manager
-// Version 1.0
+// Version 1.1
 // =====================================
 
-const PushManager = {
+const TahouriPushManager = {
 
     SW_PATH: "service-worker.js",
     _registration: null,
@@ -24,34 +24,33 @@ const PushManager = {
 
     initialize: async function () {
         if (!this.isSupported()) {
-            console.warn("PushManager: Push Not Supported");
+            console.warn("TahouriPushManager: Push Not Supported");
             return false;
         }
 
         try {
-            this._registration =
-                await navigator.serviceWorker.register(this.SW_PATH, { scope: "./" });
-
+            this._registration = await navigator.serviceWorker.register(
+                this.SW_PATH,
+                { scope: "./" }
+            );
             await navigator.serviceWorker.ready;
-
-            console.log("PushManager: Service Worker Ready");
+            console.log("TahouriPushManager: Service Worker Ready");
             return true;
         } catch (error) {
-            console.error("PushManager: Service Worker Registration Failed", error);
+            console.error("TahouriPushManager: Service Worker Registration Failed", error);
             return false;
         }
     },
 
     requestPermission: async function () {
         if (!("Notification" in window)) return "unsupported";
-
         if (Notification.permission === "granted") return "granted";
         if (Notification.permission === "denied") return "denied";
 
         try {
             return await Notification.requestPermission();
         } catch (error) {
-            console.error("PushManager: Permission Request Failed", error);
+            console.error("TahouriPushManager: Permission Request Failed", error);
             return "denied";
         }
     },
@@ -65,7 +64,7 @@ const PushManager = {
         try {
             return await this._registration.pushManager.getSubscription();
         } catch (error) {
-            console.error("PushManager: Get Subscription Failed", error);
+            console.error("TahouriPushManager: Get Subscription Failed", error);
             return null;
         }
     },
@@ -75,9 +74,7 @@ const PushManager = {
         if (permission !== "granted") return null;
 
         if (!applicationServerKey) {
-            console.warn(
-                "PushManager: No VAPID public key configured. Remote Push is not activated yet."
-            );
+            console.warn("TahouriPushManager: No VAPID public key configured. Remote Push is not activated yet.");
             return null;
         }
 
@@ -87,21 +84,18 @@ const PushManager = {
         }
 
         try {
-            const existing =
-                await this._registration.pushManager.getSubscription();
-
+            const existing = await this._registration.pushManager.getSubscription();
             if (existing) return existing;
 
-            const subscription =
-                await this._registration.pushManager.subscribe({
-                    userVisibleOnly: true,
-                    applicationServerKey: applicationServerKey
-                });
+            const subscription = await this._registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: applicationServerKey
+            });
 
-            console.log("PushManager: Subscription Created");
+            console.log("TahouriPushManager: Subscription Created");
             return subscription;
         } catch (error) {
-            console.error("PushManager: Subscribe Failed", error);
+            console.error("TahouriPushManager: Subscribe Failed", error);
             return null;
         }
     },
@@ -112,10 +106,10 @@ const PushManager = {
 
         try {
             const result = await subscription.unsubscribe();
-            console.log("PushManager: Subscription Removed", result);
+            console.log("TahouriPushManager: Subscription Removed", result);
             return result;
         } catch (error) {
-            console.error("PushManager: Unsubscribe Failed", error);
+            console.error("TahouriPushManager: Unsubscribe Failed", error);
             return false;
         }
     },
@@ -134,6 +128,6 @@ const PushManager = {
     }
 };
 
-window.PushManager = PushManager;
+window.TahouriPushManager = TahouriPushManager;
 
-console.log("Push Manager v1.0 Ready");
+console.log("Tahouri Push Manager v1.1 Ready");
