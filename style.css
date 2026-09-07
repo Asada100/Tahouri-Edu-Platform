@@ -1,13 +1,23 @@
 /* =====================================
    Tahouri Edu Platform
-   UI Messaging Layer v1.0
+   UI Messaging Layer v1.1
+   Scoped / Non-invasive
    ===================================== */
-
-* { box-sizing: border-box; }
 
 body {
     margin: 0;
     font-family: "B Yekan", "Tahoma", sans-serif;
+}
+
+.tahouri-app-header,
+.tahouri-app-header *,
+.notification-center-screen,
+.notification-center-screen *,
+.tahouri-toast-container,
+.tahouri-toast-container *,
+.tahouri-home-banner,
+.tahouri-home-banner * {
+    box-sizing: border-box;
 }
 
 .tahouri-app-header {
