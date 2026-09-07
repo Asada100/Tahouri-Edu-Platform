@@ -1,19 +1,24 @@
 // =====================================
 // Tahouri Edu Platform
-// Activity Session Manager v1.1
+// Activity Session Manager v1.2
 //
 // Responsibilities:
 // - Profile-scoped resumable activity sessions
+// - One independent session per activity
 // - Pause / Exit / Resume lifecycle
 // - Engine state snapshot / restore
 // - Generic gameplay exit overlay
 // - Dashboard resume bridge
 //
 // IMPORTANT:
-// - This is intentionally separate from SessionManager.
 // - SessionManager = platform usage session.
-// - ActivitySessionManager = one in-progress activity session.
-// - It does not change ActivityState semantics.
+// - ActivitySessionManager = in-progress activity sessions.
+// - ActivityState semantics are unchanged.
+//
+// STORAGE v1.2:
+// - A profile can keep multiple resumable activities.
+// - The previous v1.1 single-session object is migrated safely on read.
+// - Dashboard still surfaces only the most recently updated resumable session.
 //
 // MEMORY RESUME RULE:
 // - Matched cards remain revealed.
@@ -24,7 +29,7 @@
 const ActivitySessionManager = {
 
     BASE_KEY: "Tahouri_ActivitySession",
-    VERSION: "1.1",
+    VERSION: "1.2",
     currentSession: null,
     exitControlId: "activitySessionControl",
     overlayId: "activitySessionOverlay",
@@ -36,72 +41,114 @@ const ActivitySessionManager = {
     // =====================================
 
     storageKey: function () {
-
         if (
             typeof ProfileContext === "undefined" ||
             typeof ProfileContext.key !== "function"
         ) {
             return null;
         }
-
         return ProfileContext.key(this.BASE_KEY);
-
     },
 
-    load: function () {
-
+    loadAll: function () {
         const key = this.storageKey();
-
         if (!key || typeof SaveManager === "undefined") {
-            return null;
+            return {};
         }
 
-        const session = SaveManager.load(key);
-
-        if (!session || !session.activityId) {
-            return null;
+        const stored = SaveManager.load(key);
+        if (!stored) {
+            return {};
         }
 
+        // v1.2 format: { version, sessions: { [activityId]: session } }
+        if (stored.sessions && typeof stored.sessions === "object") {
+            return stored.sessions;
+        }
+
+        // v1.1 migration: the old value was the session itself.
+        if (stored.activityId) {
+            const migrated = {};
+            migrated[stored.activityId] = stored;
+
+            const envelope = {
+                version: this.VERSION,
+                sessions: migrated,
+                updatedAt: Date.now()
+            };
+
+            // Persist migration immediately so the old single-session value
+            // cannot overwrite the new multi-session structure later.
+            SaveManager.save(key, envelope);
+            return migrated;
+        }
+
+        return {};
+    },
+
+    saveAll: function (sessions) {
+        const key = this.storageKey();
+        if (!key || typeof SaveManager === "undefined") {
+            return false;
+        }
+
+        const envelope = {
+            version: this.VERSION,
+            sessions: sessions || {},
+            updatedAt: Date.now()
+        };
+
+        return SaveManager.save(key, envelope);
+    },
+
+    load: function (activityId) {
+        const sessions = this.loadAll();
+
+        if (activityId) {
+            const session = sessions[activityId] || null;
+            this.currentSession = session;
+            return session;
+        }
+
+        const list = Object.values(sessions).filter(Boolean);
+        list.sort(function (a, b) {
+            return Number(b.updatedAt || 0) - Number(a.updatedAt || 0);
+        });
+
+        const session = list.length ? list[0] : null;
         this.currentSession = session;
         return session;
-
     },
 
     save: function (session) {
-
-        const key = this.storageKey();
-
-        if (!key || typeof SaveManager === "undefined") {
+        if (!session || !session.activityId) {
             return false;
         }
 
-        if (!session) {
-            return false;
-        }
-
+        const sessions = this.loadAll();
         session.version = this.VERSION;
         session.updatedAt = Date.now();
+        sessions[session.activityId] = session;
 
-        const ok = SaveManager.save(key, session);
-
+        const ok = this.saveAll(sessions);
         if (ok) {
             this.currentSession = session;
         }
-
         return ok;
-
     },
 
-    clear: function () {
+    clear: function (activityId) {
+        const sessions = this.loadAll();
+        const id = activityId || (this.currentSession && this.currentSession.activityId);
 
-        const key = this.storageKey();
-
-        if (key && typeof SaveManager !== "undefined") {
-            SaveManager.remove(key);
+        if (id && Object.prototype.hasOwnProperty.call(sessions, id)) {
+            delete sessions[id];
+            this.saveAll(sessions);
         }
 
-        this.currentSession = null;
-
+        if (!activityId || (this.currentSession && this.currentSession.activityId === id)) {
+            this.currentSession = null;
+        }
     },
 
     // =====================================
@@ -109,7 +156,6 @@ const ActivitySessionManager = {
     // =====================================
 
     getEngine: function (activityType) {
-
         if (typeof EngineManager === "undefined") {
             return null;
         }
@@ -121,17 +167,13 @@ const ActivitySessionManager = {
             console.error("ActivitySessionManager: Engine resolution failed", error);
             return null;
         }
-
     },
 
     getActivityType: function (activity) {
-
         if (!activity) {
             return null;
         }
-
         return activity.engine || activity.type || null;
-
     },
 
     // =====================================
@@ -139,7 +181,6 @@ const ActivitySessionManager = {
     // =====================================
 
     snapshotEngine: function (activity) {
-
         const engineName = this.getActivityType(activity);
         const engine = this.getEngine(engineName);
 
@@ -147,9 +188,6 @@ const ActivitySessionManager = {
             return null;
         }
 
-        // Future engines can provide a native serializer without changing
-        // this manager. Current engines are captured through their public
-        // state fields so their existing execution code remains untouched.
         if (typeof engine.getSessionState === "function") {
             return engine.getSessionState();
         }
@@ -195,15 +233,8 @@ const ActivitySessionManager = {
                 ? JSON.parse(JSON.stringify(engine.cards))
                 : [];
 
-            // A resumable Memory session never preserves an unfinished turn.
-            // Matched cards stay revealed; every unmatched card is hidden.
             cards.forEach(function (card) {
-                if (card.matched) {
-                    card.flipped = true;
-                }
-                else {
-                    card.flipped = false;
-                }
+                card.flipped = !!card.matched;
             });
 
             return {
@@ -225,7 +256,6 @@ const ActivitySessionManager = {
 
         console.warn("ActivitySessionManager: No serializer for engine", engineName);
         return null;
-
     },
 
     // =====================================
@@ -233,24 +263,25 @@ const ActivitySessionManager = {
     // =====================================
 
     begin: function (activity) {
-
         if (!activity || !activity.id) {
             return null;
         }
 
-        const existing = this.load();
+        const existing = this.load(activity.id);
 
-        // A session for the same activity is allowed to continue.
+        // A resumable session for the same activity remains available.
+        // Starting the activity normally may still reset its engine; if the
+        // user exits again, the new state simply replaces that activity's
+        // previous snapshot. Other activities are never affected.
         if (
             existing &&
-            existing.activityId === activity.id &&
             existing.status === "resumable"
         ) {
+            this.currentSession = existing;
+            this.gameplayActive = true;
             return existing;
         }
 
-        // Starting a different activity replaces the surfaced resumable
-        // session. The dashboard always exposes the most recent one.
         const session = {
             version: this.VERSION,
             id: "activity-session-" + activity.id + "-" + Date.now(),
@@ -269,7 +300,6 @@ const ActivitySessionManager = {
         this.save(session);
         this.gameplayActive = true;
         return session;
-
     },
 
     // =====================================
@@ -277,7 +307,6 @@ const ActivitySessionManager = {
     // =====================================
 
     capture: function (status) {
-
         const activity =
             typeof ActivityManager !== "undefined"
                 ? ActivityManager.getCurrent()
@@ -287,13 +316,14 @@ const ActivitySessionManager = {
             return false;
         }
 
-        let session = this.currentSession;
+        let session = this.load(activity.id);
 
-        if (
-            !session ||
-            session.activityId !== activity.id
-        ) {
+        if (!session || session.status !== "active") {
             session = this.begin(activity);
+        }
+
+        if (!session) {
+            return false;
         }
 
         const engineState = this.snapshotEngine(activity);
@@ -313,7 +343,6 @@ const ActivitySessionManager = {
         session.updatedAt = Date.now();
 
         return this.save(session);
-
     },
 
     // =====================================
@@ -321,7 +350,6 @@ const ActivitySessionManager = {
     // =====================================
 
     exit: function () {
-
         const saved = this.capture("resumable");
 
         if (!saved) {
@@ -332,7 +360,6 @@ const ActivitySessionManager = {
         this.hideOverlay();
         this.removeExitControl();
 
-        // Reset runtime state only after the snapshot has been persisted.
         if (
             typeof ActivityManager !== "undefined" &&
             typeof ActivityManager.resetRuntime === "function"
@@ -356,7 +383,6 @@ const ActivitySessionManager = {
         }
 
         return true;
-
     },
 
     // =====================================
@@ -364,23 +390,21 @@ const ActivitySessionManager = {
     // =====================================
 
     getResumable: function () {
+        const sessions = this.loadAll();
+        const resumable = Object.values(sessions).filter(function (session) {
+            return session && session.status === "resumable" && session.engineState;
+        });
 
-        const session = this.load();
+        resumable.sort(function (a, b) {
+            return Number(b.updatedAt || 0) - Number(a.updatedAt || 0);
+        });
 
-        if (
-            !session ||
-            session.status !== "resumable" ||
-            !session.engineState
-        ) {
-            return null;
-        }
-
+        const session = resumable.length ? resumable[0] : null;
+        this.currentSession = session;
         return session;
-
     },
 
     resume: async function () {
-
         const session = this.getResumable();
 
         if (!session) {
@@ -399,7 +423,7 @@ const ActivitySessionManager = {
 
         if (!activity) {
             console.error("ActivitySessionManager: Activity not found", session.activityId);
-            this.clear();
+            this.clear(session.activityId);
             return false;
         }
 
@@ -418,11 +442,9 @@ const ActivitySessionManager = {
         this.installExitControl();
 
         return true;
-
     },
 
     restoreEngine: async function (activity, session) {
-
         const data = session.engineState;
         const engineName = session.activityType || this.getActivityType(activity);
         const engine = this.getEngine(engineName);
@@ -449,7 +471,6 @@ const ActivitySessionManager = {
             if (typeof PuzzleScreen !== "undefined" && typeof PuzzleScreen.show === "function") {
                 PuzzleScreen.show(engine.getState());
             }
-
             return true;
         }
 
@@ -490,7 +511,6 @@ const ActivitySessionManager = {
                     question: question
                 });
             }
-
             return true;
         }
 
@@ -503,14 +523,8 @@ const ActivitySessionManager = {
                 ? JSON.parse(JSON.stringify(data.cards))
                 : [];
 
-            // Always resume Memory on a clean turn. Preserve only real matches.
             engine.cards.forEach(function (card) {
-                if (card.matched) {
-                    card.flipped = true;
-                }
-                else {
-                    card.flipped = false;
-                }
+                card.flipped = !!card.matched;
             });
 
             engine.firstCard = null;
@@ -537,33 +551,30 @@ const ActivitySessionManager = {
                     cards: engine.cards
                 });
             }
-
             return true;
         }
 
         console.error("ActivitySessionManager: Unsupported restore type", engineName);
         return false;
-
     },
 
     // =====================================
     // COMPLETE
     // =====================================
 
-    complete: function () {
+    complete: function (activityId) {
+        const id = activityId || (this.currentSession && this.currentSession.activityId);
 
-        const session = this.currentSession || this.load();
-
-        if (session) {
-            session.status = "completed";
-            session.updatedAt = Date.now();
+        if (id) {
+            this.clear(id);
+        }
+        else {
+            this.currentSession = null;
         }
 
-        this.clear();
         this.gameplayActive = false;
         this.hideOverlay();
         this.removeExitControl();
-
     },
 
     // =====================================
@@ -571,7 +582,6 @@ const ActivitySessionManager = {
     // =====================================
 
     installExitControl: function () {
-
         this.removeExitControl();
 
         if (!this.gameplayActive) {
@@ -601,23 +611,17 @@ const ActivitySessionManager = {
         };
 
         document.body.appendChild(control);
-
     },
 
     removeExitControl: function () {
-
         const control = document.getElementById(this.exitControlId);
-
         if (control) {
             control.remove();
         }
-
     },
 
     showOverlay: function () {
-
         this.capture("resumable");
-
         this.hideOverlay();
 
         const overlay = document.createElement("div");
@@ -660,17 +664,13 @@ const ActivitySessionManager = {
         document.getElementById("activitySessionExitBtn").onclick = function () {
             ActivitySessionManager.exit();
         };
-
     },
 
     hideOverlay: function () {
-
         const overlay = document.getElementById(this.overlayId);
-
         if (overlay) {
             overlay.remove();
         }
-
     },
 
     // =====================================
@@ -678,7 +678,6 @@ const ActivitySessionManager = {
     // =====================================
 
     connect: function () {
-
         if (this.initialized) {
             return;
         }
@@ -695,8 +694,12 @@ const ActivitySessionManager = {
             ActivitySessionManager.installExitControl();
         });
 
-        EventManager.on("activityFinished", function () {
-            ActivitySessionManager.complete();
+        EventManager.on("activityFinished", function (payload) {
+            const activityId = payload && payload.activity
+                ? payload.activity.id
+                : (payload && payload.activityId ? payload.activityId : null);
+
+            ActivitySessionManager.complete(activityId);
         });
 
         document.addEventListener("visibilitychange", function () {
@@ -714,8 +717,7 @@ const ActivitySessionManager = {
             }
         });
 
-        console.log("Activity Session Manager v1.1 Ready");
-
+        console.log("Activity Session Manager v1.2 Ready");
     }
 
 };
