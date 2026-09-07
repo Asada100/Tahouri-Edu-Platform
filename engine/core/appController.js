@@ -1,18 +1,6 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 5.3
-// App Controller
-//
-// Responsibilities:
-// - Application Initialization
-// - Global Data Loading
-// - Navigation Bridge
-// - Unified Activity Entry
-// - Dashboard Continue Learning Bridge
-//
-// Important:
-// ActivityManager is the ONLY place that
-// loads activity.json.
+// App Controller v5.4
 // =====================================
 
 const App = {
@@ -22,10 +10,6 @@ const App = {
     chapters: [],
     activities: [],
 
-    // =====================================
-    // START APPLICATION
-    // =====================================
-
     init: async function () {
 
         console.log("App Controller Started");
@@ -33,16 +17,10 @@ const App = {
         const loaded = await this.loadData();
 
         if (!loaded) {
-            console.error(
-                "App startup stopped because required data could not be loaded."
-            );
+            console.error("App startup stopped because required data could not be loaded.");
             return false;
         }
 
-        // Content locks are loaded asynchronously from the repository.
-        // Do not finish application startup until their initial state has
-        // been resolved. This prevents a fast user click from racing the
-        // lock fetch and seeing an incorrect temporary lock state.
         if (
             typeof ContentLockManager !== "undefined" &&
             typeof ContentLockManager.waitUntilReady === "function"
@@ -56,17 +34,9 @@ const App = {
             }
         }
 
-        // ActivationGate remains the visible startup entry screen.
-        // Home is rendered underneath it so that after a successful
-        // gate entry the initial loading text is replaced immediately.
         Screen.showHome();
-
         return true;
     },
-
-    // =====================================
-    // LOAD DATA
-    // =====================================
 
     loadData: async function () {
 
@@ -75,10 +45,6 @@ const App = {
             this.subjects = await DataManager.loadJSON("data/subjects.json");
             this.chapters = await DataManager.loadJSON("data/chapters.json");
             this.activities = await DataManager.loadJSON("data/activities.json");
-
-            // =================================
-            // Legacy Global Data Compatibility
-            // =================================
 
             grades = this.grades;
             subjects = this.subjects;
@@ -93,10 +59,6 @@ const App = {
             return false;
         }
     },
-
-    // =====================================
-    // NAVIGATION
-    // =====================================
 
     showHome: function () {
         Screen.showHome();
@@ -122,10 +84,6 @@ const App = {
         );
     },
 
-    // =====================================
-    // START ACTIVITY
-    // =====================================
-
     startActivity: async function (activity) {
 
         if (!activity) {
@@ -135,7 +93,6 @@ const App = {
 
         if (typeof activity === "string") {
             const activityId = activity;
-            console.log("App: Resolving Activity ID:", activityId);
 
             const foundActivity = this.activities.find(function (item) {
                 return item && item.id === activityId;
@@ -173,18 +130,28 @@ const App = {
     },
 
     // =====================================
-    // RESTART ACTIVITY
+    // ACTIVITY RESOLVER
     // =====================================
 
+    resolveActivityById: function (activityId) {
+
+        if (!activityId || !Array.isArray(this.activities)) {
+            return null;
+        }
+
+        return this.activities.find(function (activity) {
+            return activity && activity.id === activityId;
+        }) || null;
+    },
+
     restartActivity: async function () {
+
         if (!AppState.activity) {
             console.error("No Current Activity");
             return;
         }
 
-        const activity = this.activities.find(function (item) {
-            return item && item.id === AppState.activity;
-        });
+        const activity = this.resolveActivityById(AppState.activity);
 
         if (!activity) {
             console.error("Activity Not Found:", AppState.activity);
@@ -194,40 +161,20 @@ const App = {
         await this.startActivity(activity);
     },
 
-    // =====================================
-    // DASHBOARD
-    // =====================================
-
     openDashboard: function () {
         Navigation.openDashboard();
     },
 
-    // =====================================
-    // REPORTS
-    // =====================================
-
     openReports: function () {
         Screen.showReports();
     },
-
-    // =====================================
-    // HOME
-    // =====================================
 
     goHome: function () {
         Screen.showHome();
     }
 };
 
-// =====================================
-// GLOBAL ACCESS
-// =====================================
-
 window.App = App;
 window.AppController = App;
 
-// =====================================
-// READY
-// =====================================
-
-console.log("App Controller v5.3 Ready");
+console.log("App Controller v5.4 Ready");
