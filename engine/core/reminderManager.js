@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Reminder Manager
-// Version 3.0
+// Version 3.1
 // =====================================
 
 const ReminderManager = {
@@ -165,109 +165,102 @@ const ReminderManager = {
     // CHECK TODAY ACTIVITY
     // =====================================
 
+    hasActivityToday: function () {
 
-// =====================================
-// CHECK TODAY ACTIVITY
-// =====================================
+        // ---------------------------------
+        // Reminder State
+        // ---------------------------------
 
-hasActivityToday: function () {
-
-    // ---------------------------------
-    // Reminder State
-    // ---------------------------------
-
-    const state =
-        this.getState();
-
-    if (
-        state &&
-        state.date === this.getTodayKey() &&
-        state.activityDone === true
-    ) {
-
-        return true;
-
-    }
-
-
-    // ---------------------------------
-    // Statistics
-    // ---------------------------------
-
-    if (
-        typeof StatisticsManager !== "undefined" &&
-        typeof StatisticsManager.get === "function"
-    ) {
-
-        const statistics =
-            StatisticsManager.get();
+        const state =
+            this.getState();
 
         if (
-            statistics &&
-            typeof statistics === "object"
+            state &&
+            state.date === this.getTodayKey() &&
+            state.activityDone === true
         ) {
 
+            return true;
+
+        }
+
+
+        // ---------------------------------
+        // Statistics
+        // ---------------------------------
+
+        if (
+            typeof StatisticsManager !== "undefined" &&
+            typeof StatisticsManager.get === "function"
+        ) {
+
+            const statistics =
+                StatisticsManager.get();
+
             if (
-                Array.isArray(
-                    statistics.todayActivities
-                ) &&
-                statistics.todayActivities.length > 0
+                statistics &&
+                typeof statistics === "object"
             ) {
 
-                return true;
+                if (
+                    Array.isArray(
+                        statistics.todayActivities
+                    ) &&
+                    statistics.todayActivities.length > 0
+                ) {
+
+                    return true;
+
+                }
 
             }
 
         }
 
-    }
 
-
-    // ---------------------------------
-    // Activity History
-    // ---------------------------------
-
-    if (
-        typeof ActivityHistory !== "undefined"
-    ) {
+        // ---------------------------------
+        // Activity History
+        // ---------------------------------
 
         if (
-            typeof ActivityHistory.hasActivityToday ===
-            "function"
+            typeof ActivityHistory !== "undefined"
         ) {
-
-            return !!ActivityHistory.hasActivityToday();
-
-        }
-
-
-        if (
-            typeof ActivityHistory.getToday ===
-            "function"
-        ) {
-
-            const today =
-                ActivityHistory.getToday();
 
             if (
-                Array.isArray(today) &&
-                today.length > 0
+                typeof ActivityHistory.hasActivityToday ===
+                "function"
             ) {
 
-                return true;
+                return !!ActivityHistory.hasActivityToday();
+
+            }
+
+
+            if (
+                typeof ActivityHistory.getToday ===
+                "function"
+            ) {
+
+                const today =
+                    ActivityHistory.getToday();
+
+                if (
+                    Array.isArray(today) &&
+                    today.length > 0
+                ) {
+
+                    return true;
+
+                }
 
             }
 
         }
 
-    }
 
+        return false;
 
-    return false;
-
-},
-
-
+    },
 
 
     // =====================================
@@ -396,14 +389,6 @@ hasActivityToday: function () {
         }
 
 
-        const state =
-            this.getState();
-
-        state.reminderShown = true;
-
-        this.saveState(state);
-
-
         // ---------------------------------
         // Notification Manager
         // ---------------------------------
@@ -413,16 +398,41 @@ hasActivityToday: function () {
             typeof NotificationManager.show === "function"
         ) {
 
-            NotificationManager.show(
-                "یادآوری طهوری",
-                "امروز هنوز فعالیت آموزشی انجام نداده‌ای. وقت یادگیریه! 📚"
+            const notification =
+                NotificationManager.show(
+                    "یادآوری طهوری",
+                    {
+                        body:
+                            "امروز هنوز فعالیت آموزشی انجام نداده‌ای. وقت یادگیریه! 📚",
+                        tag:
+                            "tahouri-daily-reminder"
+                    }
+                );
+
+            // فقط در صورت ساخته‌شدن واقعی Notification
+            // یادآوری را به‌عنوان نمایش‌داده‌شده ثبت می‌کنیم.
+            if (notification) {
+
+                const state =
+                    this.getState();
+
+                state.reminderShown = true;
+
+                this.saveState(state);
+
+                console.log(
+                    "ReminderManager: Reminder Sent"
+                );
+
+                return true;
+
+            }
+
+            console.warn(
+                "ReminderManager: Reminder Failed - Notification was not created"
             );
 
-            console.log(
-                "ReminderManager: Reminder Sent"
-            );
-
-            return true;
+            return false;
 
         }
 
@@ -550,5 +560,5 @@ window.ReminderManager =
 // =====================================
 
 console.log(
-    "Reminder Manager v3.0 Ready"
+    "Reminder Manager v3.1 Ready"
 );
