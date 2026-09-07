@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Push Manager
-// Version 1.1
+// Version 1.2
 // =====================================
 
 const TahouriPushManager = {
@@ -130,4 +130,12 @@ const TahouriPushManager = {
 
 window.TahouriPushManager = TahouriPushManager;
 
-console.log("Tahouri Push Manager v1.1 Ready");
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", function () {
+        TahouriPushManager.initialize();
+    });
+} else {
+    TahouriPushManager.initialize();
+}
+
+console.log("Tahouri Push Manager v1.2 Ready");
