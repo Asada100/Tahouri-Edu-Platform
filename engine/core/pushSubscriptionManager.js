@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Push Subscription Manager
-// Version 1.0
+// Version 1.1
 // Profile Isolated
 // =====================================
 
@@ -26,7 +26,6 @@ const PushSubscriptionManager = {
 
     save: function (subscription) {
         if (!subscription) return false;
-
         try {
             localStorage.setItem(this.getKey(), JSON.stringify({
                 subscription: subscription,
@@ -54,10 +53,10 @@ const PushSubscriptionManager = {
     },
 
     sync: async function (applicationServerKey) {
-        if (typeof PushManager === "undefined") return null;
+        if (typeof TahouriPushManager === "undefined") return null;
 
         const subscription =
-            await PushManager.subscribe(applicationServerKey);
+            await TahouriPushManager.subscribe(applicationServerKey);
 
         if (!subscription) return null;
 
@@ -68,4 +67,4 @@ const PushSubscriptionManager = {
 
 window.PushSubscriptionManager = PushSubscriptionManager;
 
-console.log("Push Subscription Manager v1.0 Ready");
+console.log("Push Subscription Manager v1.1 Ready");
