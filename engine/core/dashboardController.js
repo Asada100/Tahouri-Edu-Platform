@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Dashboard Controller
-// Version 6.2
+// Version 6.3
 //
 // Student Friendly Dashboard
 // ProgressTracker as source of truth
@@ -44,12 +44,6 @@ const DashboardController = {
         const currentChapter =
             typeof AppState !== "undefined" ? AppState.chapter : null;
 
-        console.log("Dashboard: Current Context:", {
-            grade: currentGrade,
-            subject: currentSubject,
-            chapter: currentChapter
-        });
-
         let activities = [];
 
         if (
@@ -68,9 +62,7 @@ const DashboardController = {
         let completedCount = 0;
 
         for (let i = 0; i < gradeActivities.length; i++) {
-
             const activity = gradeActivities[i];
-
             if (!activity || !activity.id) continue;
 
             let completed = false;
@@ -83,21 +75,16 @@ const DashboardController = {
             }
 
             if (completed) completedCount++;
-
         }
 
-        let progressPercentage = 0;
-
-        if (gradeActivities.length > 0) {
-            progressPercentage = Math.round(
-                (completedCount / gradeActivities.length) * 100
-            );
-        }
+        const progressPercentage =
+            gradeActivities.length > 0
+                ? Math.round((completedCount / gradeActivities.length) * 100)
+                : 0;
 
         // =====================================
         // CONTINUE LEARNING
-        // First unlocked + incomplete activity.
-        // This remains separate from resumable activity.
+        // Separate from an in-progress session.
         // =====================================
 
         let nextActivity = null;
@@ -105,7 +92,6 @@ const DashboardController = {
         for (let i = 0; i < gradeActivities.length; i++) {
 
             const activity = gradeActivities[i];
-
             if (!activity || !activity.id) continue;
 
             let completed = false;
@@ -120,21 +106,18 @@ const DashboardController = {
             let unlocked = true;
 
             if (typeof ContentLockManager !== "undefined") {
-
                 if (typeof ContentLockManager.isUnlocked === "function") {
                     unlocked = ContentLockManager.isUnlocked(activity.id);
                 }
                 else if (typeof ContentLockManager.isLocked === "function") {
                     unlocked = !ContentLockManager.isLocked(activity.id);
                 }
-
             }
 
             if (unlocked && !completed) {
                 nextActivity = activity;
                 break;
             }
-
         }
 
         let continueLearning = {};
@@ -188,6 +171,7 @@ const DashboardController = {
                         "Dashboard: Resumable activity no longer exists:",
                         session.activityId
                     );
+                    ActivitySessionManager.clear();
                 }
             }
         }
@@ -202,15 +186,13 @@ const DashboardController = {
             resumableActivity: resumableActivity
         });
 
-        // The existing DashboardScreen remains responsible for its own
-        // calendar/path layout. The resume card is added independently so
-        // that the existing dashboard architecture is not replaced.
-        if (
-            typeof ActivitySessionManager !== "undefined" &&
-            typeof ActivitySessionManager.renderDashboardResume === "function"
-        ) {
-            ActivitySessionManager.renderDashboardResume(resumableActivity);
-        }
+        // =====================================
+        // RESUME CARD
+        // Added after the existing dashboard renders so the existing
+        // calendar/path implementation remains untouched.
+        // =====================================
+
+        this.renderResumableActivity(resumableActivity);
 
         console.log("Dashboard Progress:", {
             completed: completedCount,
@@ -220,12 +202,78 @@ const DashboardController = {
 
         console.log("Dashboard Continue Learning:", continueLearning);
         console.log("Dashboard Resumable Activity:", resumableActivity);
-
     },
 
     // =====================================
-    // ACTIVITY RESOLVER
+    // RESUMABLE CARD
     // =====================================
+
+    renderResumableActivity: function (data) {
+
+        const oldCard = document.getElementById("activityResumeCard");
+        if (oldCard) oldCard.remove();
+
+        if (!data) return;
+
+        const app = document.getElementById("app");
+        if (!app) return;
+
+        const card = document.createElement("section");
+        card.id = "activityResumeCard";
+        card.className = "dashboard-card activity-resume-card";
+        card.dir = "rtl";
+
+        const title = document.createElement("h2");
+        title.textContent = "▶ ادامه فعالیت";
+
+        const activityTitle = document.createElement("p");
+        activityTitle.textContent = data.activityTitle;
+
+        const description = document.createElement("p");
+        description.textContent = "آخرین وضعیت فعالیت ذخیره شده و آماده ادامه است.";
+
+        const button = document.createElement("button");
+        button.id = "activityResumeBtn";
+        button.type = "button";
+        button.textContent = "ادامه فعالیت";
+
+        button.onclick = async function () {
+
+            if (
+                typeof ActivitySessionManager === "undefined" ||
+                typeof ActivitySessionManager.resume !== "function"
+            ) {
+                console.error("ActivitySessionManager is not available.");
+                return;
+            }
+
+            button.disabled = true;
+
+            const restored =
+                await ActivitySessionManager.resume();
+
+            if (!restored) {
+                button.disabled = false;
+                ActivitySessionManager.clear();
+                card.remove();
+                console.error("Dashboard: Activity resume failed.");
+            }
+        };
+
+        card.appendChild(title);
+        card.appendChild(activityTitle);
+        card.appendChild(description);
+        card.appendChild(button);
+
+        const screen = app.querySelector(".dashboard-screen");
+
+        if (screen) {
+            screen.insertBefore(card, screen.firstChild);
+        }
+        else {
+            app.insertBefore(card, app.firstChild);
+        }
+    },
 
     resolveActivityById: function (activityId) {
 
@@ -241,10 +289,8 @@ const DashboardController = {
         return App.activities.find(function (activity) {
             return activity && activity.id === activityId;
         }) || null;
-
     }
-
 };
 
 window.DashboardController = DashboardController;
-console.log("Dashboard Controller v6.2 Ready");
+console.log("Dashboard Controller v6.3 Ready");
