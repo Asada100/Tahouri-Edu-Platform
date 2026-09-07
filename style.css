@@ -1,10 +1,10 @@
 /* =====================================
    Tahouri Edu Platform
-   UI Foundation v2.0
+   UI Foundation v2.1
 
    IMPORTANT:
    - Platform UI styles are scoped.
-   - Activity/game screens are not targeted.
+   - Activity/game screens are not given platform cards/layout.
    - Quiz / Memory / Puzzle visual systems remain isolated.
    ===================================== */
 
@@ -12,18 +12,43 @@
    Base document
    ------------------------------------- */
 
+html,
 body {
+    width: 100%;
+    max-width: 100%;
     margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+}
+
+body {
     font-family: "B Yekan", "Tahoma", sans-serif;
     background: #f4f7fb;
     color: #1f2937;
 }
 
-/* Only the application shell gets box sizing.
-   No universal * selector is used. */
 #app,
 #app * {
     box-sizing: border-box;
+}
+
+#app {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+}
+
+/* Keep the generic screen from becoming wider than the viewport.
+   This is only a sizing/alignment safeguard; activity-specific
+   visual rules remain untouched. */
+#app > .screen {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 /* -------------------------------------
@@ -34,40 +59,41 @@ body {
    ------------------------------------- */
 
 #app > .screen:has(> .tahouri-app-header) {
-    width: min(1180px, 100%);
+    width: min(920px, 100%);
     min-height: 100vh;
     margin: 0 auto;
-    padding: 0 20px 40px;
+    padding: 0 18px 40px;
     direction: rtl;
 }
 
 #app > .screen:has(> .tahouri-app-header) > h1 {
-    margin: 34px auto 8px;
+    margin: 30px auto 8px;
     text-align: center;
-    font-size: clamp(24px, 3vw, 34px);
+    font-size: clamp(24px, 3vw, 32px);
     line-height: 1.35;
     font-weight: 800;
     color: #172033;
 }
 
-#app > .screen:has(> .tahouri-app-header) > h2 {
-    margin: 24px 0 12px;
-    color: #25324a;
-}
-
 #app > .screen:has(> .tahouri-app-header) > p {
     margin: 8px auto;
-    max-width: 820px;
+    max-width: 760px;
     line-height: 1.9;
     text-align: center;
     color: #667085;
 }
 
 #app > .screen:has(> .tahouri-app-header) > hr {
-    width: min(900px, 100%);
-    margin: 24px auto;
+    width: min(760px, 100%);
+    margin: 20px auto;
     border: 0;
     border-top: 1px solid #e4e9f0;
+}
+
+#app > .screen:has(> .tahouri-app-header) > .home-buttons,
+#app > .screen:has(> .tahouri-app-header) > .daily-message-home,
+#app > .screen:has(> .tahouri-app-header) > .tahouri-home-banner {
+    width: min(760px, 100%);
 }
 
 /* -------------------------------------
@@ -143,6 +169,7 @@ body {
 
 .tahouri-header-brand {
     flex: 1;
+    min-width: 0;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -173,22 +200,22 @@ body {
 }
 
 /* -------------------------------------
-   Home page
+   Home buttons
    ------------------------------------- */
 
 #app > .screen:has(> .tahouri-app-header) .home-buttons {
-    width: min(900px, 100%);
-    margin: 28px auto 0;
+    width: min(760px, 100%);
+    margin: 24px auto 0;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
+    gap: 12px;
 }
 
 #app > .screen:has(> .tahouri-app-header) .home-buttons button {
-    min-height: 76px;
-    padding: 16px 18px;
+    min-height: 70px;
+    padding: 14px 16px;
     border: 1px solid #e0e7ef;
-    border-radius: 18px;
+    border-radius: 17px;
     background: #ffffff;
     color: #25324a;
     font-family: inherit;
@@ -217,32 +244,34 @@ body {
 }
 
 /* -------------------------------------
-   Daily message on Home
+   Daily message
+   The action button is deliberately on a
+   separate full-width row below the message.
    ------------------------------------- */
 
 #app > .screen:has(> .tahouri-app-header) .daily-message-home {
-    width: min(900px, 100%);
-    margin: 22px auto;
-    padding: 20px;
+    width: min(760px, 100%);
+    margin: 20px auto;
+    padding: 18px;
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 16px;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    gap: 14px;
     direction: rtl;
     border: 1px solid #dbe4ee;
-    border-radius: 20px;
+    border-radius: 18px;
     background: #ffffff;
     box-shadow: 0 7px 24px rgba(31, 41, 55, .07);
 }
 
 .daily-message-home-icon {
-    width: 54px;
-    height: 54px;
+    width: 52px;
+    height: 52px;
     display: grid;
     place-items: center;
-    border-radius: 16px;
+    border-radius: 15px;
     background: #f3f7fb;
-    font-size: 29px;
+    font-size: 28px;
 }
 
 .daily-message-home-content {
@@ -250,7 +279,7 @@ body {
 }
 
 .daily-message-home-content h2 {
-    margin: 0 0 7px;
+    margin: 0 0 6px;
     font-size: 18px;
     line-height: 1.5;
     color: #25324a;
@@ -263,8 +292,10 @@ body {
 }
 
 .daily-message-home button {
-    min-width: 112px;
-    padding: 11px 14px;
+    grid-column: 1 / -1;
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 14px;
     border: 0;
     border-radius: 12px;
     background: #eef3f8;
@@ -292,11 +323,11 @@ body {
    ------------------------------------- */
 
 .tahouri-home-banner {
-    width: min(900px, 100%);
-    margin: 18px auto;
-    padding: 18px;
+    width: min(760px, 100%);
+    margin: 16px auto;
+    padding: 16px;
     border: 1px solid #dbe4ee;
-    border-radius: 18px;
+    border-radius: 17px;
     background: #ffffff;
     direction: rtl;
     box-shadow: 0 5px 20px rgba(31, 41, 55, .05);
@@ -351,8 +382,8 @@ body {
    ------------------------------------- */
 
 .notification-center-screen {
+    width: min(900px, 100%);
     direction: rtl;
-    max-width: 900px;
     margin: 0 auto;
     padding: 24px 20px 40px;
 }
@@ -459,30 +490,29 @@ body {
     }
 
     #app > .screen:has(> .tahouri-app-header) > h1 {
-        margin-top: 26px;
+        margin-top: 24px;
         font-size: 25px;
     }
 
     #app > .screen:has(> .tahouri-app-header) .home-buttons {
         grid-template-columns: 1fr;
-        gap: 11px;
-        margin-top: 22px;
+        gap: 10px;
+        margin-top: 20px;
     }
 
     #app > .screen:has(> .tahouri-app-header) .home-buttons button {
-        min-height: 64px;
+        min-height: 62px;
         font-size: 16px;
     }
 
     #app > .screen:has(> .tahouri-app-header) .daily-message-home {
         grid-template-columns: auto minmax(0, 1fr);
-        gap: 12px;
-        padding: 16px;
+        gap: 11px;
+        padding: 15px;
     }
 
     .daily-message-home button {
         grid-column: 1 / -1;
-        width: 100%;
     }
 
     .tahouri-home-banner-row {
@@ -516,7 +546,6 @@ body {
     }
 }
 
-/* Respect reduced-motion preferences without changing layout. */
 @media (prefers-reduced-motion: reduce) {
     .tahouri-header-menu,
     .tahouri-header-notification,
