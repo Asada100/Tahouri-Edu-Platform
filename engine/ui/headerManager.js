@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Header Manager
-// Version 1.1
+// Version 1.2
 // =====================================
 
 const HeaderManager = {
@@ -31,6 +31,12 @@ const HeaderManager = {
         return selectors.some(function (selector) {
             return !!screen.querySelector(selector);
         });
+    },
+
+    isHomeScreen: function (screen) {
+        if (!screen) return false;
+        return !!screen.querySelector("#gradesBtn") &&
+            !!screen.querySelector("#profileBtn");
     },
 
     enhance: function () {
@@ -77,7 +83,60 @@ const HeaderManager = {
             };
         }
 
+        if (this.isHomeScreen(screen)) {
+            this.injectHomeBanner(screen);
+        }
+
         this.updateBell();
+    },
+
+    injectHomeBanner: function (screen) {
+        if (screen.querySelector(":scope > .tahouri-home-banner")) return;
+        if (typeof HomeBannerManager === "undefined") return;
+
+        const banner = HomeBannerManager.get();
+        if (!banner || HomeBannerManager.isDismissed(banner.id)) return;
+
+        const element = document.createElement("section");
+        element.className = "tahouri-home-banner";
+        element.setAttribute("aria-label", "پیشنهاد طهوری");
+        element.innerHTML = `
+            <div class="tahouri-home-banner-row">
+                <div class="tahouri-home-banner-icon">${banner.icon}</div>
+                <div class="tahouri-home-banner-content">
+                    <h3>${banner.title}</h3>
+                    <p>${banner.text}</p>
+                </div>
+            </div>
+            <div class="tahouri-home-banner-actions">
+                <button type="button" data-banner-action="start">${banner.actionText}</button>
+                <button type="button" data-banner-action="dismiss">بعداً</button>
+            </div>
+        `;
+
+        const anchor = screen.querySelector(".daily-message-home");
+        if (anchor) {
+            anchor.parentNode.insertBefore(element, anchor);
+        } else {
+            headerInsertAfter(element, screen);
+        }
+
+        const start = element.querySelector("[data-banner-action='start']");
+        if (start) {
+            start.onclick = function () {
+                if (typeof Screen !== "undefined" && typeof Screen.showGrades === "function") {
+                    Screen.showGrades();
+                }
+            };
+        }
+
+        const dismiss = element.querySelector("[data-banner-action='dismiss']");
+        if (dismiss) {
+            dismiss.onclick = function () {
+                HomeBannerManager.dismiss(banner.id);
+                element.remove();
+            };
+        }
     },
 
     updateBell: function () {
@@ -90,6 +149,15 @@ const HeaderManager = {
     }
 };
 
+function headerInsertAfter(element, screen) {
+    const header = screen.querySelector(":scope > .tahouri-app-header");
+    if (header && header.nextSibling) {
+        screen.insertBefore(element, header.nextSibling);
+    } else {
+        screen.appendChild(element);
+    }
+}
+
 window.HeaderManager = HeaderManager;
 
 if (document.readyState === "loading") {
@@ -100,4 +168,4 @@ if (document.readyState === "loading") {
     HeaderManager.init();
 }
 
-console.log("Header Manager v1.1 Ready");
+console.log("Header Manager v1.2 Ready");
