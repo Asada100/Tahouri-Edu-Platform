@@ -1,17 +1,33 @@
 // =====================================
 // Tahouri Edu Platform
 // Notification Store
-// Version 1.0
+// Version 1.1
+// Profile Isolated
 // =====================================
 
 const NotificationStore = {
 
-    STORAGE_KEY: "tahouri_notifications",
+    STORAGE_PREFIX: "tahouri_notifications:",
     MAX_ITEMS: 50,
+
+    getProfileId: function () {
+        if (typeof ProfileManager !== "undefined" && typeof ProfileManager.getStudentId === "function") {
+            return ProfileManager.getStudentId();
+        }
+        if (typeof ProfileManager !== "undefined" && typeof ProfileManager.get === "function") {
+            const profile = ProfileManager.get();
+            return profile && profile.studentId ? profile.studentId : null;
+        }
+        return null;
+    },
+
+    getStorageKey: function () {
+        return this.STORAGE_PREFIX + (this.getProfileId() || "anonymous");
+    },
 
     get: function () {
         try {
-            const raw = localStorage.getItem(this.STORAGE_KEY);
+            const raw = localStorage.getItem(this.getStorageKey());
             const items = raw ? JSON.parse(raw) : [];
             return Array.isArray(items) ? items : [];
         } catch (error) {
@@ -22,10 +38,7 @@ const NotificationStore = {
 
     save: function (items) {
         try {
-            localStorage.setItem(
-                this.STORAGE_KEY,
-                JSON.stringify(items.slice(0, this.MAX_ITEMS))
-            );
+            localStorage.setItem(this.getStorageKey(), JSON.stringify(items.slice(0, this.MAX_ITEMS)));
             return true;
         } catch (error) {
             console.error("NotificationStore: Save Failed", error);
@@ -53,41 +66,31 @@ const NotificationStore = {
     markRead: function (id) {
         const items = this.get();
         let changed = false;
-
         items.forEach(function (item) {
             if (item.id === id && !item.read) {
                 item.read = true;
                 changed = true;
             }
         });
-
-        if (changed) {
-            this.save(items);
-        }
-
+        if (changed) this.save(items);
         return changed;
     },
 
     markAllRead: function () {
         const items = this.get();
-        items.forEach(function (item) {
-            item.read = true;
-        });
+        items.forEach(function (item) { item.read = true; });
         return this.save(items);
     },
 
     unreadCount: function () {
-        return this.get().filter(function (item) {
-            return !item.read;
-        }).length;
+        return this.get().filter(function (item) { return !item.read; }).length;
     },
 
     clear: function () {
-        localStorage.removeItem(this.STORAGE_KEY);
+        localStorage.removeItem(this.getStorageKey());
     }
-
 };
 
 window.NotificationStore = NotificationStore;
 
-console.log("Notification Store v1.0 Ready");
+console.log("Notification Store v1.1 Ready");
