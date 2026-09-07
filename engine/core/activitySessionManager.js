@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Edu Platform
-// Activity Session Manager v1.0
+// Activity Session Manager v1.1
 //
 // Responsibilities:
 // - Profile-scoped resumable activity sessions
@@ -14,12 +14,17 @@
 // - SessionManager = platform usage session.
 // - ActivitySessionManager = one in-progress activity session.
 // - It does not change ActivityState semantics.
+//
+// MEMORY RESUME RULE:
+// - Matched cards remain revealed.
+// - Unmatched/revealed cards are hidden on resume.
+// - Resume always starts Memory on a clean turn.
 // =====================================
 
 const ActivitySessionManager = {
 
     BASE_KEY: "Tahouri_ActivitySession",
-    VERSION: "1.0",
+    VERSION: "1.1",
     currentSession: null,
     exitControlId: "activitySessionControl",
     overlayId: "activitySessionOverlay",
@@ -186,12 +191,27 @@ const ActivitySessionManager = {
             engineName === "MemoryEngine" ||
             engineName === "memory"
         ) {
+            const cards = Array.isArray(engine.cards)
+                ? JSON.parse(JSON.stringify(engine.cards))
+                : [];
+
+            // A resumable Memory session never preserves an unfinished turn.
+            // Matched cards stay revealed; every unmatched card is hidden.
+            cards.forEach(function (card) {
+                if (card.matched) {
+                    card.flipped = true;
+                }
+                else {
+                    card.flipped = false;
+                }
+            });
+
             return {
                 kind: "memory",
                 activity: engine.activity || activity,
-                cards: Array.isArray(engine.cards) ? JSON.parse(JSON.stringify(engine.cards)) : [],
-                firstCardId: engine.firstCard ? engine.firstCard.id : null,
-                secondCardId: engine.secondCard ? engine.secondCard.id : null,
+                cards: cards,
+                firstCardId: null,
+                secondCardId: null,
                 lockBoard: false,
                 matchedPairs: Number(engine.matchedPairs || 0),
                 moves: Number(engine.moves || 0),
@@ -482,6 +502,17 @@ const ActivitySessionManager = {
             engine.cards = Array.isArray(data.cards)
                 ? JSON.parse(JSON.stringify(data.cards))
                 : [];
+
+            // Always resume Memory on a clean turn. Preserve only real matches.
+            engine.cards.forEach(function (card) {
+                if (card.matched) {
+                    card.flipped = true;
+                }
+                else {
+                    card.flipped = false;
+                }
+            });
+
             engine.firstCard = null;
             engine.secondCard = null;
             engine.lockBoard = false;
@@ -683,7 +714,7 @@ const ActivitySessionManager = {
             }
         });
 
-        console.log("Activity Session Manager v1.0 Ready");
+        console.log("Activity Session Manager v1.1 Ready");
 
     }
 
