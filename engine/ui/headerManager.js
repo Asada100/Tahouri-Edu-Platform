@@ -1,19 +1,24 @@
 // =====================================
 // Tahouri Edu Platform
 // Header Manager
-// Version 1.3
+// Version 1.4
 // =====================================
 
 const HeaderManager = {
 
     init: function () {
-        if (!document.body || !document.getElementById("app")) return;
+        const app = document.getElementById("app");
+        if (!document.body || !app) return;
         if (this._observer) return;
 
+        // Observe only screen replacement at the #app level.
+        // Do NOT observe the whole subtree: HeaderManager itself adds
+        // header/banner nodes and could otherwise retrigger on every
+        // internal DOM mutation made by screens or activities.
         this._observer = new MutationObserver(() => this.enhance());
-        this._observer.observe(document.getElementById("app"), {
+        this._observer.observe(app, {
             childList: true,
-            subtree: true
+            subtree: false
         });
 
         this.enhance();
@@ -186,4 +191,4 @@ if (document.readyState === "loading") {
     HeaderManager.init();
 }
 
-console.log("Header Manager v1.3 Ready");
+console.log("Header Manager v1.4 Ready");
