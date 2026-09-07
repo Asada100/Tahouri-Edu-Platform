@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 6.2
+// Version 6.3
 // Activity Manager
 //
 // Responsibilities:
@@ -14,6 +14,7 @@
 // - Activity Ready Event
 // - Safe Runtime Reset
 // - Unfinished Attempt Protection
+// - Safe Resume of Blocked Attempts
 // =====================================
 
 const ActivityManager = {
@@ -55,31 +56,30 @@ const ActivityManager = {
         // =====================================
         // UNFINISHED ATTEMPT GUARD
         // =====================================
-        // A resumable/active attempt for the same activity must never be
-        // replaced by a fresh attempt. This protects learning history from
-        // being bypassed by restarting the activity from the activity list.
-        if (
-            typeof ActivitySessionManager !== "undefined" &&
-            typeof ActivitySessionManager.hasUnfinished === "function" &&
-            ActivitySessionManager.hasUnfinished(fullActivity.id)
-        ) {
-            console.warn(
-                "ActivityManager: New attempt blocked; unfinished session exists.",
-                fullActivity.id
-            );
+        // Exactly one unfinished attempt is allowed for each activityId.
+        // It must be resumed; it can never be silently replaced by a new
+        // attempt from the activity list.
+        if (typeof ActivitySessionManager !== "undefined") {
 
-            if (
-                typeof ActivitySessionManager.showBlockedStartNotice === "function"
-            ) {
-                ActivitySessionManager.showBlockedStartNotice(fullActivity);
-            }
-            else {
-                alert(
-                    "این فعالیت یک بازی ناتمام دارد. ابتدا از مسیر «ادامه فعالیت» آن را ادامه دهید."
+            const existing =
+                typeof ActivitySessionManager.load === "function"
+                    ? ActivitySessionManager.load(fullActivity.id)
+                    : null;
+
+            const unfinished =
+                existing &&
+                (existing.status === "resumable" || existing.status === "active") &&
+                existing.engineState;
+
+            if (unfinished) {
+                console.warn(
+                    "ActivityManager: New attempt blocked; unfinished session exists.",
+                    fullActivity.id
                 );
-            }
 
-            return null;
+                this.showBlockedStartNotice(fullActivity, existing);
+                return null;
+            }
         }
 
         this.currentActivity = fullActivity;
@@ -88,8 +88,8 @@ const ActivityManager = {
         // =====================================
         // CREATE THE ATTEMPT BEFORE ENGINE START
         // =====================================
-        // Quiz/Memory/Puzzle engines may reset their runtime inside start().
-        // The session must therefore exist before engine.start() is called.
+        // The session must exist before engine.start() because the engine may
+        // reset its runtime while starting a new attempt.
         if (
             typeof ActivitySessionManager !== "undefined" &&
             typeof ActivitySessionManager.begin === "function"
@@ -249,6 +249,139 @@ const ActivityManager = {
     },
 
     // =====================================
+    // BLOCKED START / RESUME
+    // =====================================
+
+    showBlockedStartNotice: function (activity, session) {
+
+        if (!activity || !session) {
+            return false;
+        }
+
+        const overlayId = "unfinishedActivityGuardOverlay";
+        const existingOverlay = document.getElementById(overlayId);
+
+        if (existingOverlay) {
+            existingOverlay.remove();
+        }
+
+        const overlay = document.createElement("div");
+        overlay.id = overlayId;
+        overlay.dir = "rtl";
+        overlay.style.position = "fixed";
+        overlay.style.inset = "0";
+        overlay.style.zIndex = "10001";
+        overlay.style.background = "rgba(0,0,0,.55)";
+        overlay.style.display = "flex";
+        overlay.style.alignItems = "center";
+        overlay.style.justifyContent = "center";
+        overlay.style.padding = "20px";
+        overlay.style.boxSizing = "border-box";
+
+        const box = document.createElement("div");
+        box.style.background = "white";
+        box.style.borderRadius = "18px";
+        box.style.padding = "24px";
+        box.style.maxWidth = "400px";
+        box.style.width = "100%";
+        box.style.textAlign = "center";
+        box.style.boxSizing = "border-box";
+
+        const title = activity.title || "این فعالیت";
+
+        box.innerHTML = `
+            <h2>بازی ناتمام است</h2>
+            <p>
+                شما یک بازی ناتمام از «${title}» دارید.
+                امکان شروع بازی جدید وجود ندارد.
+            </p>
+            <p style="margin-top:10px;color:#666;">
+                ابتدا بازی قبلی را از مسیر «ادامه فعالیت» ادامه دهید.
+            </p>
+            <div style="display:flex;gap:10px;flex-direction:column;margin-top:18px;">
+                <button id="unfinishedActivityResumeBtn" type="button">ادامه فعالیت</button>
+                <button id="unfinishedActivityBackBtn" type="button">بازگشت</button>
+            </div>
+        `;
+
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+
+        const resumeButton = document.getElementById("unfinishedActivityResumeBtn");
+        const backButton = document.getElementById("unfinishedActivityBackBtn");
+
+        if (resumeButton) {
+            resumeButton.onclick = async function () {
+                overlay.remove();
+                await ActivityManager.resumeSession(session);
+            };
+        }
+
+        if (backButton) {
+            backButton.onclick = function () {
+                overlay.remove();
+            };
+        }
+
+        return true;
+    },
+
+    resumeSession: async function (session) {
+
+        if (!session || !session.activityId) {
+            return false;
+        }
+
+        if (
+            typeof ActivitySessionManager === "undefined" ||
+            typeof ActivitySessionManager.restoreEngine !== "function"
+        ) {
+            console.error("ActivityManager: Session restore is unavailable");
+            return false;
+        }
+
+        const activity =
+            typeof App !== "undefined" &&
+            typeof App.resolveActivityById === "function"
+                ? App.resolveActivityById(session.activityId)
+                : null;
+
+        if (!activity) {
+            console.error("ActivityManager: Activity not found for resume", session.activityId);
+            return false;
+        }
+
+        const restored = await ActivitySessionManager.restoreEngine(
+            activity,
+            session
+        );
+
+        if (!restored) {
+            console.error("ActivityManager: Failed to restore unfinished activity", session.activityId);
+            return false;
+        }
+
+        this.currentActivity = activity;
+        ActivityHistory.set(activity);
+
+        session.status = "active";
+        session.updatedAt = Date.now();
+        ActivitySessionManager.save(session);
+        ActivitySessionManager.currentSession = session;
+        ActivitySessionManager.gameplayActive = true;
+        ActivitySessionManager.installExitControl();
+
+        EventManager.emit("activityResumed", session);
+
+        console.log(
+            "ActivityManager: Unfinished activity resumed",
+            session.activityId
+        );
+
+        return true;
+    },
+
+    // =====================================
     // RUNTIME RESET
     // =====================================
 
@@ -302,4 +435,4 @@ const ActivityManager = {
 };
 
 window.ActivityManager = ActivityManager;
-console.log("Activity Manager v6.2 Ready");
+console.log("Activity Manager v6.3 Ready");
