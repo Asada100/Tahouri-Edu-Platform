@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Header Manager
-// Version 1.2
+// Version 1.3
 // =====================================
 
 const HeaderManager = {
@@ -33,6 +33,13 @@ const HeaderManager = {
         });
     },
 
+    isNotificationScreen: function (screen) {
+        return !!(
+            screen &&
+            screen.querySelector(".notification-center-screen")
+        );
+    },
+
     isHomeScreen: function (screen) {
         if (!screen) return false;
         return !!screen.querySelector("#gradesBtn") &&
@@ -45,6 +52,7 @@ const HeaderManager = {
 
         const screen = app.querySelector(":scope > .screen");
         if (!screen || this.isActivityScreen(screen)) return;
+        if (this.isNotificationScreen(screen)) return;
 
         let header = screen.querySelector(":scope > .tahouri-app-header");
 
@@ -67,20 +75,30 @@ const HeaderManager = {
 
             screen.insertBefore(header, screen.firstChild);
 
-            header.querySelector(".tahouri-header-notification").onclick = function () {
-                if (
-                    typeof NotificationScreen !== "undefined" &&
-                    typeof NotificationScreen.open === "function"
-                ) {
-                    NotificationScreen.open();
-                }
-            };
+            const notificationButton =
+                header.querySelector(".tahouri-header-notification");
 
-            header.querySelector(".tahouri-header-menu").onclick = function () {
-                if (typeof ToastManager !== "undefined") {
-                    ToastManager.info("منوی برنامه در حال آماده‌سازی است.");
-                }
-            };
+            if (notificationButton) {
+                notificationButton.onclick = function () {
+                    if (
+                        typeof NotificationScreen !== "undefined" &&
+                        typeof NotificationScreen.open === "function"
+                    ) {
+                        NotificationScreen.open();
+                    }
+                };
+            }
+
+            const menuButton =
+                header.querySelector(".tahouri-header-menu");
+
+            if (menuButton) {
+                menuButton.onclick = function () {
+                    if (typeof ToastManager !== "undefined") {
+                        ToastManager.info("منوی برنامه در حال آماده‌سازی است.");
+                    }
+                };
+            }
         }
 
         if (this.isHomeScreen(screen)) {
@@ -115,7 +133,7 @@ const HeaderManager = {
         `;
 
         const anchor = screen.querySelector(".daily-message-home");
-        if (anchor) {
+        if (anchor && anchor.parentNode) {
             anchor.parentNode.insertBefore(element, anchor);
         } else {
             headerInsertAfter(element, screen);
@@ -168,4 +186,4 @@ if (document.readyState === "loading") {
     HeaderManager.init();
 }
 
-console.log("Header Manager v1.2 Ready");
+console.log("Header Manager v1.3 Ready");
