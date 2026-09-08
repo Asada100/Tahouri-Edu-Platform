@@ -11,7 +11,6 @@ const DashboardPolish = {
         const style = document.createElement("style");
         style.id = "tahouriDashboardPolishStyles";
         style.textContent = `
-            /* Dashboard is a presentation screen: keep its content centered. */
             .dashboard-screen {
                 text-align: center !important;
             }
@@ -30,14 +29,14 @@ const DashboardPolish = {
 
             .dashboard-screen .learning-calendar-heading > div:first-child {
                 flex: 1;
+                text-align: center !important;
             }
 
-            /* The calendar itself already communicates what the user can do. */
             .dashboard-screen .learning-calendar-heading > div:first-child p {
                 display: none !important;
             }
 
-            /* Continue Learning: a clear primary action, not a small loose label. */
+            /* Continue Learning: a clear primary action. */
             .dashboard-screen .dashboard-small-action {
                 display: flex !important;
                 align-items: center;
@@ -64,30 +63,37 @@ const DashboardPolish = {
                 box-shadow: 0 5px 14px rgba(31, 41, 55, .08);
             }
 
-            /* Reports / grade / home are already available in the app shell. */
             .dashboard-screen .dashboard-actions {
                 display: none !important;
             }
 
             .dashboard-screen .dashboard-message {
-                justify-content: center;
+                justify-content: center !important;
             }
 
             .dashboard-screen .dashboard-message p {
-                max-width: 620px;
+                display: block !important;
+                width: 100% !important;
+                max-width: 620px !important;
                 margin: 0 auto !important;
+                text-align: center !important;
                 line-height: 1.9;
             }
 
+            .dashboard-screen .dashboard-message span {
+                flex: 0 0 auto;
+            }
+
             .dashboard-screen .dashboard-next-learning {
-                justify-content: center;
+                justify-content: center !important;
             }
 
             .dashboard-screen .dashboard-next-learning > div {
                 text-align: center !important;
             }
 
-            .dashboard-screen .dashboard-card > h2 {
+            .dashboard-screen .dashboard-card > h2,
+            .dashboard-screen .dashboard-card > p {
                 text-align: center !important;
             }
         `;
