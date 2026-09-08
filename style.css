@@ -1,6 +1,6 @@
 /* =====================================
    Tahouri Edu Platform
-   UI Foundation v2.1
+   UI Foundation v2.2
 
    IMPORTANT:
    - Platform UI styles are scoped.
@@ -25,6 +25,7 @@ body {
     font-family: "B Yekan", "Tahoma", sans-serif;
     background: #f4f7fb;
     color: #1f2937;
+    padding-bottom: 76px;
 }
 
 #app,
@@ -60,9 +61,9 @@ body {
 
 #app > .screen:has(> .tahouri-app-header) {
     width: min(920px, 100%);
-    min-height: 100vh;
+    min-height: calc(100vh - 76px);
     margin: 0 auto;
-    padding: 0 18px 40px;
+    padding: 0 18px 28px;
     direction: rtl;
 }
 
@@ -162,7 +163,8 @@ body {
 .tahouri-header-notification:focus-visible,
 .tahouri-home-button:focus-visible,
 .daily-message-home button:focus-visible,
-.tahouri-home-banner button:focus-visible {
+.tahouri-home-banner button:focus-visible,
+.tahouri-bottom-nav-item:focus-visible {
     outline: 3px solid rgba(37, 99, 235, .22);
     outline-offset: 2px;
 }
@@ -245,8 +247,6 @@ body {
 
 /* -------------------------------------
    Daily message
-   The action button is deliberately on a
-   separate full-width row below the message.
    ------------------------------------- */
 
 #app > .screen:has(> .tahouri-app-header) .daily-message-home {
@@ -360,197 +360,136 @@ body {
     color: #667085;
 }
 
-.tahouri-home-banner-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 14px;
-}
-
-.tahouri-home-banner-actions button {
-    border: 0;
-    border-radius: 11px;
-    padding: 9px 14px;
-    font-family: inherit;
-    font-size: 14px;
-    font-weight: 700;
-    cursor: pointer;
-}
-
 /* -------------------------------------
-   Notification center
+   Fixed bottom navigation
+   Five compact primary destinations.
+   This is deliberately outside #app so
+   Screen.show*() cannot remove it.
    ------------------------------------- */
 
-.notification-center-screen {
-    width: min(900px, 100%);
-    direction: rtl;
-    margin: 0 auto;
-    padding: 24px 20px 40px;
+.tahouri-bottom-navigation,
+.tahouri-bottom-navigation * {
+    box-sizing: border-box;
 }
 
-.notification-center-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 18px;
-}
-
-.notification-center-header h1 {
-    flex: 1;
-    margin: 0;
-    font-size: 22px;
-}
-
-.notification-center-header button {
-    border: 0;
-    border-radius: 10px;
-    padding: 8px 10px;
-    font-family: inherit;
-    cursor: pointer;
-}
-
-.notification-item {
-    width: 100%;
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    margin: 0 0 10px;
-    padding: 14px;
-    text-align: right;
-    direction: rtl;
-    border: 1px solid rgba(0, 0, 0, .08);
-    border-radius: 14px;
-    background: white;
-    cursor: pointer;
-}
-
-.notification-item.notification-unread {
-    border-width: 2px;
-}
-
-.notification-item-icon { font-size: 24px; }
-.notification-item-content { flex: 1; display: flex; flex-direction: column; gap: 4px; }
-.notification-item-content span { line-height: 1.7; }
-.notification-item-content small { opacity: .6; }
-.notification-dot {
-    width: 9px;
-    height: 9px;
-    margin-top: 7px;
-    border-radius: 50%;
-    background: #d32f2f;
-}
-
-.notification-empty {
-    padding: 40px 20px;
-    text-align: center;
-    opacity: .7;
-}
-
-/* -------------------------------------
-   Toast
-   ------------------------------------- */
-
-.tahouri-toast-container {
+.tahouri-bottom-navigation {
     position: fixed;
-    left: 16px;
-    right: 16px;
-    bottom: 18px;
-    z-index: 9999;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 2000;
+    width: 100%;
+    min-height: 68px;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    align-items: stretch;
+    direction: rtl;
+    padding: 5px 6px calc(5px + env(safe-area-inset-bottom, 0px));
+    background: rgba(255, 255, 255, .98);
+    border-top: 1px solid #e1e7ef;
+    box-shadow: 0 -4px 18px rgba(31, 41, 55, .08);
+    backdrop-filter: blur(12px);
+}
+
+.tahouri-bottom-nav-item {
+    min-width: 0;
+    min-height: 58px;
+    padding: 5px 2px 4px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
-    pointer-events: none;
-}
-
-.tahouri-toast {
-    max-width: min(520px, 100%);
-    padding: 11px 16px;
+    justify-content: center;
+    gap: 2px;
+    border: 0;
     border-radius: 12px;
-    background: rgba(30, 30, 30, .94);
-    color: white;
-    box-shadow: 0 6px 24px rgba(0, 0, 0, .18);
-    opacity: 1;
-    transform: translateY(0);
-    transition: opacity .25s ease, transform .25s ease;
+    background: transparent;
+    color: #7a8494;
+    font-family: inherit;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background .16s ease, color .16s ease, transform .16s ease;
 }
 
-.tahouri-toast.is-hiding {
-    opacity: 0;
-    transform: translateY(8px);
+.tahouri-bottom-nav-item:hover {
+    background: #f5f7fa;
 }
 
-/* -------------------------------------
-   Responsive layout
-   ------------------------------------- */
+.tahouri-bottom-nav-item:active {
+    transform: scale(.96);
+}
 
-@media (max-width: 700px) {
+.tahouri-bottom-nav-item.is-active {
+    background: #eef3f8;
+    color: #243b53;
+}
+
+.tahouri-bottom-nav-icon {
+    width: 25px;
+    height: 25px;
+    display: grid;
+    place-items: center;
+    font-size: 20px;
+    line-height: 1;
+}
+
+.tahouri-bottom-nav-label {
+    max-width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 11px;
+    line-height: 1.35;
+    font-weight: 700;
+}
+
+@media (min-width: 700px) {
+    .tahouri-bottom-navigation {
+        width: min(680px, calc(100% - 32px));
+        left: 50%;
+        right: auto;
+        transform: translateX(-50%);
+        border: 1px solid #e1e7ef;
+        border-bottom: 0;
+        border-radius: 18px 18px 0 0;
+    }
+}
+
+@media (max-width: 480px) {
+    body {
+        padding-bottom: 72px;
+    }
+
     #app > .screen:has(> .tahouri-app-header) {
-        padding: 0 12px 28px;
+        min-height: calc(100vh - 72px);
+        padding-left: 12px;
+        padding-right: 12px;
     }
 
-    #app > .screen:has(> .tahouri-app-header) > h1 {
-        margin-top: 24px;
-        font-size: 25px;
+    .tahouri-bottom-navigation {
+        min-height: 64px;
+        padding-left: 3px;
+        padding-right: 3px;
     }
 
-    #app > .screen:has(> .tahouri-app-header) .home-buttons {
-        grid-template-columns: 1fr;
-        gap: 10px;
-        margin-top: 20px;
+    .tahouri-bottom-nav-item {
+        min-height: 54px;
+        border-radius: 10px;
     }
 
-    #app > .screen:has(> .tahouri-app-header) .home-buttons button {
-        min-height: 62px;
-        font-size: 16px;
+    .tahouri-bottom-nav-icon {
+        font-size: 19px;
     }
 
-    #app > .screen:has(> .tahouri-app-header) .daily-message-home {
-        grid-template-columns: auto minmax(0, 1fr);
-        gap: 11px;
-        padding: 15px;
-    }
-
-    .daily-message-home button {
-        grid-column: 1 / -1;
-    }
-
-    .tahouri-home-banner-row {
-        align-items: flex-start;
-    }
-}
-
-@media (max-width: 430px) {
-    .tahouri-app-header {
-        min-height: 58px;
-        padding-inline: 5px;
-    }
-
-    .tahouri-header-brand {
-        font-size: 17px;
-    }
-
-    .tahouri-header-side,
-    .tahouri-header-notification,
-    .tahouri-header-menu,
-    .tahouri-header-notification {
-        width: 40px;
-        min-width: 40px;
-        height: 40px;
-    }
-
-    #app > .screen:has(> .tahouri-app-header) .daily-message-home-icon {
-        width: 46px;
-        height: 46px;
-        font-size: 25px;
+    .tahouri-bottom-nav-label {
+        font-size: 10px;
     }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .tahouri-header-menu,
-    .tahouri-header-notification,
-    #app > .screen:has(> .tahouri-app-header) .home-buttons button,
-    .daily-message-home button {
+    .tahouri-bottom-nav-item,
+    .tahouri-bottom-nav-item:active,
+    .tahouri-bottom-nav-item:hover {
         transition: none;
+        transform: none;
     }
 }
