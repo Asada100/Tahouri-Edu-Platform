@@ -1,6 +1,6 @@
 /* =====================================
    Tahouri Edu Platform
-   Profile UI Polish v1.8
+   Profile UI Polish v1.9
    ===================================== */
 
 .profile-screen {
@@ -16,7 +16,6 @@
     margin: 22px auto !important;
 }
 
-/* Profile information */
 .profile-screen .profile-card {
     width: min(760px, 100%);
     margin: 18px auto;
@@ -54,7 +53,6 @@
     color: #172033;
 }
 
-/* Profile actions */
 .profile-screen #profileDashboardBtn,
 .profile-screen #profileHomeBtn {
     display: none !important;
@@ -103,11 +101,10 @@
     box-shadow: 0 2px 7px rgba(31, 41, 55, .06) !important;
 }
 
-/* Edit / Create forms */
 .profile-edit-screen,
 .profile-create-screen {
     direction: rtl;
-    text-align: right;
+    text-align: center;
 }
 
 .profile-edit-screen > h1,
@@ -115,8 +112,6 @@
     margin-bottom: 4px !important;
 }
 
-/* Desktop: the four form lines become two compact rows:
-   نام + input / پایه + select. */
 @media (min-width: 701px) {
     .profile-edit-screen,
     .profile-create-screen {
@@ -128,6 +123,9 @@
         text-align: right;
     }
 
+    /* Header belongs to the screen and must always occupy the full row. */
+    .profile-edit-screen > .tahouri-app-header,
+    .profile-create-screen > .tahouri-app-header,
     .profile-edit-screen > h1,
     .profile-edit-screen > p,
     .profile-edit-screen > hr,
@@ -179,6 +177,15 @@
     .profile-create-screen > select {
         white-space: nowrap;
     }
+
+    /* Save/cancel stay compact and side-by-side on desktop. */
+    .profile-edit-screen #saveProfileBtn,
+    .profile-edit-screen #cancelProfileBtn,
+    .profile-create-screen #saveNewProfileBtn,
+    .profile-create-screen #cancelNewProfileBtn {
+        justify-self: center;
+        width: auto !important;
+    }
 }
 
 .profile-edit-screen > label,
@@ -217,7 +224,6 @@
     text-align: right;
 }
 
-/* Edit / Create action buttons */
 .profile-edit-screen #saveProfileBtn,
 .profile-edit-screen #cancelProfileBtn,
 .profile-create-screen #saveNewProfileBtn,
@@ -278,7 +284,6 @@
     font-size: 13px;
 }
 
-/* Personal settings */
 .profile-screen .profile-settings {
     width: min(760px, 100%);
     margin: 22px auto 0;
@@ -379,7 +384,6 @@
     .profile-screen .profile-setting-item label { font-size: 14px; }
     .profile-screen .profile-setting-item select { min-width: 104px; }
 
-    /* Mobile stays vertical as requested. */
     .profile-edit-screen,
     .profile-create-screen {
         display: block;
