@@ -1,6 +1,6 @@
 /* =====================================
    Tahouri Edu Platform
-   Profile UI Polish v1.7
+   Profile UI Polish v1.8
    ===================================== */
 
 .profile-screen {
@@ -107,7 +107,7 @@
 .profile-edit-screen,
 .profile-create-screen {
     direction: rtl;
-    text-align: center;
+    text-align: right;
 }
 
 .profile-edit-screen > h1,
@@ -115,16 +115,36 @@
     margin-bottom: 4px !important;
 }
 
-/* Desktop: keep each label + control on one line,
-   with the two fields occupying only two rows. */
+/* Desktop: the four form lines become two compact rows:
+   نام + input / پایه + select. */
 @media (min-width: 701px) {
+    .profile-edit-screen,
+    .profile-create-screen {
+        display: grid;
+        grid-template-columns: 120px 320px;
+        justify-content: center;
+        align-items: center;
+        column-gap: 14px;
+        text-align: right;
+    }
+
+    .profile-edit-screen > h1,
+    .profile-edit-screen > p,
+    .profile-edit-screen > hr,
+    .profile-edit-screen > .profile-edit-warning,
+    .profile-edit-screen > [id="profileMessage"],
+    .profile-create-screen > h1,
+    .profile-create-screen > p,
+    .profile-create-screen > hr,
+    .profile-create-screen > [id="profileCreateMessage"] {
+        grid-column: 1 / -1;
+    }
+
     .profile-edit-screen > label,
     .profile-create-screen > label {
-        display: inline-block;
-        box-sizing: border-box;
+        display: block;
         width: 120px;
-        margin: 12px 8px 7px 0;
-        vertical-align: middle;
+        margin: 7px 0;
         font-size: 14px;
         line-height: 1.7;
         font-weight: 700;
@@ -137,13 +157,12 @@
     .profile-edit-screen > select,
     .profile-create-screen > input,
     .profile-create-screen > select {
-        display: inline-block;
+        display: block;
         box-sizing: border-box;
-        width: 300px;
+        width: 320px;
         min-height: 46px;
-        margin: 12px 0 7px 0;
+        margin: 7px 0;
         padding: 10px 13px;
-        vertical-align: middle;
         border: 1px solid #d8e0ea;
         border-radius: 13px;
         outline: none;
@@ -154,23 +173,6 @@
         font-weight: 600;
         direction: rtl;
         text-align: right;
-    }
-
-    /* Start the second field on a new line. */
-    .profile-edit-screen > label:nth-of-type(2),
-    .profile-create-screen > label:nth-of-type(2) {
-        margin-right: 8px;
-    }
-
-    .profile-edit-screen > input:nth-of-type(1)::after,
-    .profile-create-screen > input:nth-of-type(1)::after {
-        content: "";
-    }
-
-    /* The first field occupies a full visual row; the second follows it. */
-    .profile-edit-screen > input:nth-of-type(1),
-    .profile-create-screen > input:nth-of-type(1) {
-        margin-left: 100%;
     }
 
     .profile-edit-screen > select,
@@ -215,7 +217,7 @@
     text-align: right;
 }
 
-/* Edit / Create action buttons: centered on desktop. */
+/* Edit / Create action buttons */
 .profile-edit-screen #saveProfileBtn,
 .profile-edit-screen #cancelProfileBtn,
 .profile-create-screen #saveNewProfileBtn,
@@ -377,8 +379,10 @@
     .profile-screen .profile-setting-item label { font-size: 14px; }
     .profile-screen .profile-setting-item select { min-width: 104px; }
 
+    /* Mobile stays vertical as requested. */
     .profile-edit-screen,
     .profile-create-screen {
+        display: block;
         text-align: right;
     }
 
@@ -413,6 +417,7 @@
     .profile-create-screen > input,
     .profile-create-screen > select {
         display: block;
+        box-sizing: border-box;
         margin: 0 auto 10px;
         min-height: 46px;
         padding: 10px 13px;
