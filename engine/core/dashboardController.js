@@ -1,11 +1,13 @@
 // =====================================
 // Tahouri Edu Platform
 // Dashboard Controller
-// Version 6.4
+// Version 6.5
 //
 // Student Friendly Dashboard
 // ProgressTracker as source of truth
 // Resumable Activity integration
+// Continue Learning = next uncompleted activity
+// Continue Activity = interrupted activity session
 // =====================================
 
 const DashboardController = {
@@ -83,8 +85,72 @@ const DashboardController = {
                 : 0;
 
         // =====================================
+        // RESUMABLE ACTIVITY
+        // =====================================
+
+        let resumableActivity = null;
+        let resumableActivityIds = {};
+
+        if (
+            typeof ActivitySessionManager !== "undefined" &&
+            typeof ActivitySessionManager.loadAll === "function"
+        ) {
+            const sessions = ActivitySessionManager.loadAll() || {};
+
+            Object.keys(sessions).forEach(function (activityId) {
+                const session = sessions[activityId];
+
+                if (
+                    session &&
+                    session.status === "resumable" &&
+                    session.engineState
+                ) {
+                    resumableActivityIds[activityId] = true;
+                }
+            });
+        }
+
+        if (
+            typeof ActivitySessionManager !== "undefined" &&
+            typeof ActivitySessionManager.getResumable === "function"
+        ) {
+            const session = ActivitySessionManager.getResumable();
+
+            if (session) {
+                const found = activities.find(function (activity) {
+                    return activity && activity.id === session.activityId;
+                });
+
+                if (found) {
+                    resumableActivity = {
+                        activityId: found.id,
+                        activityTitle:
+                            found.title ||
+                            found.name ||
+                            found.id,
+                        activityType:
+                            session.activityType ||
+                            found.engine ||
+                            found.type ||
+                            "",
+                        updatedAt: session.updatedAt || null
+                    };
+                }
+                else {
+                    console.warn(
+                        "Dashboard: Resumable activity no longer exists:",
+                        session.activityId
+                    );
+                    ActivitySessionManager.clear(session.activityId);
+                }
+            }
+        }
+
+        // =====================================
         // CONTINUE LEARNING
-        // Separate from an in-progress session.
+        // Must not select an activity that already has
+        // an interrupted/resumable session. That session
+        // belongs to the separate Continue Activity card.
         // =====================================
 
         let nextActivity = null;
@@ -93,6 +159,10 @@ const DashboardController = {
 
             const activity = gradeActivities[i];
             if (!activity || !activity.id) continue;
+
+            if (resumableActivityIds[activity.id]) {
+                continue;
+            }
 
             let completed = false;
 
@@ -134,48 +204,6 @@ const DashboardController = {
             };
         }
 
-        // =====================================
-        // RESUMABLE ACTIVITY
-        // =====================================
-
-        let resumableActivity = null;
-
-        if (
-            typeof ActivitySessionManager !== "undefined" &&
-            typeof ActivitySessionManager.getResumable === "function"
-        ) {
-            const session = ActivitySessionManager.getResumable();
-
-            if (session) {
-                const found = activities.find(function (activity) {
-                    return activity && activity.id === session.activityId;
-                });
-
-                if (found) {
-                    resumableActivity = {
-                        activityId: found.id,
-                        activityTitle:
-                            found.title ||
-                            found.name ||
-                            found.id,
-                        activityType:
-                            session.activityType ||
-                            found.engine ||
-                            found.type ||
-                            "",
-                        updatedAt: session.updatedAt || null
-                    };
-                }
-                else {
-                    console.warn(
-                        "Dashboard: Resumable activity no longer exists:",
-                        session.activityId
-                    );
-                    ActivitySessionManager.clear();
-                }
-            }
-        }
-
         DashboardScreen.show({
             overall: overall,
             currentGrade: currentGrade,
@@ -185,10 +213,6 @@ const DashboardController = {
             continueLearning: continueLearning,
             resumableActivity: resumableActivity
         });
-
-        // =====================================
-        // RESUME CARD
-        // =====================================
 
         this.renderResumableActivity(resumableActivity);
 
@@ -205,10 +229,6 @@ const DashboardController = {
     // =====================================
     // CONTINUE LEARNING
     // =====================================
-    // Starts the next unlocked, incomplete activity selected by open().
-    // This is intentionally separate from ActivitySessionManager.resume(),
-    // because Continue Learning means starting the next learning item,
-    // while Continue Activity means restoring an interrupted session.
 
     continueLearning: async function (data) {
 
@@ -351,4 +371,4 @@ const DashboardController = {
 };
 
 window.DashboardController = DashboardController;
-console.log("Dashboard Controller v6.4 Ready");
+console.log("Dashboard Controller v6.5 Ready");
