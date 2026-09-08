@@ -24,44 +24,21 @@
     -webkit-tap-highlight-color: transparent;
 }
 
-.tahouri-header-back:hover {
-    background: #f1f5f9;
-}
+.tahouri-header-back:hover { background: #f1f5f9; }
+.tahouri-header-back:active { transform: scale(.96); }
+.tahouri-header-back:focus-visible { outline: 3px solid rgba(37, 99, 235, .22); outline-offset: 2px; }
+.tahouri-header-section { display: block; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 
-.tahouri-header-back:active {
-    transform: scale(.96);
-}
-
-.tahouri-header-back:focus-visible {
-    outline: 3px solid rgba(37, 99, 235, .22);
-    outline-offset: 2px;
-}
-
-.tahouri-header-section {
-    display: block;
-    max-width: 100%;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-}
-
-/* Back navigation now lives in the fixed header, not inside the middle content. */
 #app > .screen:has(> .tahouri-app-header) #backHomeBtn,
 #app > .screen:has(> .tahouri-app-header) #backGradesBtn,
 #app > .screen:has(> .tahouri-app-header) #backSubjectsBtn,
-#app > .screen:has(> .tahouri-app-header) #backChaptersBtn {
-    display: none;
-}
+#app > .screen:has(> .tahouri-app-header) #backChaptersBtn { display: none; }
 
-/* Keep the middle content visually subordinate to the shell header. */
-#app > .screen:has(> .tahouri-app-header) > h1 {
-    margin-top: 22px;
-}
+#app > .screen:has(> .tahouri-app-header) > h1 { margin-top: 22px; }
 
 /* =====================================
    Learning: Grade Selection
    ===================================== */
-
 #app > .screen:has(> .tahouri-app-header) #gradesContainer {
     width: min(680px, 100%);
     margin: 28px auto 12px;
@@ -86,26 +63,13 @@
     transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
     -webkit-tap-highlight-color: transparent;
 }
-
-#app > .screen:has(> .tahouri-app-header) #gradesContainer .gradeBtn:hover {
-    transform: translateY(-2px);
-    border-color: #c7d5e5;
-    box-shadow: 0 12px 28px rgba(31, 41, 55, .10);
-}
-
-#app > .screen:has(> .tahouri-app-header) #gradesContainer .gradeBtn:active {
-    transform: translateY(0);
-}
-
-#app > .screen:has(> .tahouri-app-header) #gradesContainer .gradeBtn:focus-visible {
-    outline: 3px solid rgba(37, 99, 235, .20);
-    outline-offset: 3px;
-}
+#app > .screen:has(> .tahouri-app-header) #gradesContainer .gradeBtn:hover { transform: translateY(-2px); border-color: #c7d5e5; box-shadow: 0 12px 28px rgba(31, 41, 55, .10); }
+#app > .screen:has(> .tahouri-app-header) #gradesContainer .gradeBtn:active { transform: translateY(0); }
+#app > .screen:has(> .tahouri-app-header) #gradesContainer .gradeBtn:focus-visible { outline: 3px solid rgba(37, 99, 235, .20); outline-offset: 3px; }
 
 /* =====================================
    Learning: Subject Selection
    ===================================== */
-
 #app > .screen:has(> .tahouri-app-header) #subjectsContainer {
     width: min(760px, 100%);
     margin: 28px auto 18px;
@@ -135,99 +99,104 @@
     transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
     -webkit-tap-highlight-color: transparent;
 }
+#app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn::before { content: "📚"; display: block; margin-bottom: 8px; font-size: 30px; line-height: 1; }
+#app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn[data-id="math"]::before { content: "➗"; }
+#app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn[data-id="science"]::before { content: "🔬"; }
+#app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn[data-id="persian"]::before { content: "📖"; }
+#app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn:hover { transform: translateY(-2px); border-color: #c7d5e5; box-shadow: 0 12px 28px rgba(31, 41, 55, .10); }
+#app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn:active { transform: translateY(0); }
+#app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn:focus-visible { outline: 3px solid rgba(37, 99, 235, .20); outline-offset: 3px; }
 
-/* Every subject receives an icon. Unknown/future subjects use a neutral book icon. */
-#app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn::before {
-    content: "📚";
-    display: block;
-    margin-bottom: 8px;
-    font-size: 30px;
+/* =====================================
+   Learning: Chapter Roadmap
+   ===================================== */
+
+#app > .screen:has(> .tahouri-app-header) #chaptersContainer {
+    width: min(760px, 100%);
+    margin: 28px auto 20px;
+    padding: 6px 10px 10px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+    counter-reset: chapter;
+}
+
+/* Each chapter becomes a step in the learning path. Future chapters inherit this automatically. */
+#app > .screen:has(> .tahouri-app-header) #chaptersContainer .chapterBtn {
+    counter-increment: chapter;
+    position: relative;
+    width: 100%;
+    min-height: 82px;
+    padding: 18px 24px 18px 74px;
+    border: 1px solid #dbe4ef;
+    border-radius: 20px;
+    background: linear-gradient(135deg, #ffffff 0%, #f8fbff 100%);
+    color: #172033;
+    font-family: inherit;
+    font-size: clamp(17px, 2.6vw, 21px);
+    font-weight: 800;
+    line-height: 1.45;
+    text-align: center;
+    cursor: pointer;
+    box-shadow: 0 7px 20px rgba(31, 41, 55, .06);
+    transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Number badge makes the page feel like a path rather than a plain list. */
+#app > .screen:has(> .tahouri-app-header) #chaptersContainer .chapterBtn::before {
+    content: counter(chapter);
+    position: absolute;
+    top: 50%;
+    left: 18px;
+    transform: translateY(-50%);
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: #eef4fb;
+    color: #31506f;
+    font-size: 17px;
+    font-weight: 900;
     line-height: 1;
 }
 
-#app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn[data-id="math"]::before {
-    content: "➗";
+/* A small book marker reinforces the learning context without changing the chapter text. */
+#app > .screen:has(> .tahouri-app-header) #chaptersContainer .chapterBtn::after {
+    content: "📘";
+    position: absolute;
+    right: 18px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 24px;
+    line-height: 1;
 }
 
-#app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn[data-id="science"]::before {
-    content: "🔬";
-}
-
-#app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn[data-id="persian"]::before {
-    content: "📖";
-}
-
-#app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn:hover {
+#app > .screen:has(> .tahouri-app-header) #chaptersContainer .chapterBtn:hover {
     transform: translateY(-2px);
     border-color: #c7d5e5;
-    box-shadow: 0 12px 28px rgba(31, 41, 55, .10);
+    box-shadow: 0 11px 26px rgba(31, 41, 55, .09);
 }
-
-#app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn:active {
-    transform: translateY(0);
-}
-
-#app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn:focus-visible {
-    outline: 3px solid rgba(37, 99, 235, .20);
-    outline-offset: 3px;
-}
+#app > .screen:has(> .tahouri-app-header) #chaptersContainer .chapterBtn:active { transform: translateY(0); }
+#app > .screen:has(> .tahouri-app-header) #chaptersContainer .chapterBtn:focus-visible { outline: 3px solid rgba(37, 99, 235, .20); outline-offset: 3px; }
 
 @media (max-width: 520px) {
-    .tahouri-app-header {
-        min-height: 58px;
-        padding: 7px 8px;
-        gap: 6px;
-    }
+    .tahouri-app-header { min-height: 58px; padding: 7px 8px; gap: 6px; }
+    .tahouri-header-side, .tahouri-header-notification, .tahouri-header-menu, .tahouri-header-back { width: 40px; min-width: 40px; height: 40px; }
+    .tahouri-header-brand { font-size: 17px; gap: 5px; }
+    .tahouri-header-logo { font-size: 21px; }
+    .tahouri-header-back { flex-basis: 40px; font-size: 23px; }
 
-    .tahouri-header-side,
-    .tahouri-header-notification,
-    .tahouri-header-menu,
-    .tahouri-header-notification,
-    .tahouri-header-back {
-        width: 40px;
-        min-width: 40px;
-        height: 40px;
-    }
+    #app > .screen:has(> .tahouri-app-header) #gradesContainer { margin-top: 22px; }
+    #app > .screen:has(> .tahouri-app-header) #gradesContainer .gradeBtn { min-height: 82px; padding: 16px 18px; border-radius: 19px; }
 
-    .tahouri-header-brand {
-        font-size: 17px;
-        gap: 5px;
-    }
+    #app > .screen:has(> .tahouri-app-header) #subjectsContainer { grid-template-columns: 1fr; gap: 14px; margin-top: 22px; padding: 0 4px; }
+    #app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn { min-height: 96px; padding: 20px 18px 16px; border-radius: 19px; }
+    #app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn::before { font-size: 27px; margin-bottom: 6px; }
 
-    .tahouri-header-logo {
-        font-size: 21px;
-    }
-
-    .tahouri-header-back {
-        flex-basis: 40px;
-        font-size: 23px;
-    }
-
-    #app > .screen:has(> .tahouri-app-header) #gradesContainer {
-        margin-top: 22px;
-    }
-
-    #app > .screen:has(> .tahouri-app-header) #gradesContainer .gradeBtn {
-        min-height: 82px;
-        padding: 16px 18px;
-        border-radius: 19px;
-    }
-
-    #app > .screen:has(> .tahouri-app-header) #subjectsContainer {
-        grid-template-columns: 1fr;
-        gap: 14px;
-        margin-top: 22px;
-        padding: 0 4px;
-    }
-
-    #app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn {
-        min-height: 96px;
-        padding: 20px 18px 16px;
-        border-radius: 19px;
-    }
-
-    #app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn::before {
-        font-size: 27px;
-        margin-bottom: 6px;
-    }
+    #app > .screen:has(> .tahouri-app-header) #chaptersContainer { margin-top: 22px; padding: 4px 4px 10px; gap: 12px; }
+    #app > .screen:has(> .tahouri-app-header) #chaptersContainer .chapterBtn { min-height: 76px; padding: 16px 52px 16px 62px; border-radius: 18px; }
+    #app > .screen:has(> .tahouri-app-header) #chaptersContainer .chapterBtn::before { left: 14px; width: 36px; height: 36px; font-size: 16px; }
+    #app > .screen:has(> .tahouri-app-header) #chaptersContainer .chapterBtn::after { right: 14px; font-size: 21px; }
 }
