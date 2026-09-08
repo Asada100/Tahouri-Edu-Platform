@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Bottom Navigation Manager
-// Version 1.0
+// Version 1.1
 // Fixed app-level navigation shell
 // =====================================
 
@@ -46,7 +46,7 @@ const BottomNavigation = {
         this.initialized = true;
         this.updateActive();
 
-        console.log("Bottom Navigation v1.0 Ready");
+        console.log("Bottom Navigation v1.1 Ready");
     },
 
     bind: function (nav) {
@@ -113,7 +113,14 @@ const BottomNavigation = {
         const screen = app.querySelector(":scope > .screen");
 
         if (screen) {
+            // Home must be detected first because the original Home screen
+            // also contains buttons whose labels match other destinations.
             if (
+                screen.querySelector("#gradesBtn") &&
+                screen.querySelector("#profileBtn")
+            ) {
+                active = "home";
+            } else if (
                 screen.querySelector("[class*='report']") ||
                 screen.querySelector("[id*='report']")
             ) {
@@ -128,8 +135,6 @@ const BottomNavigation = {
                 screen.querySelector("#chaptersContainer")
             ) {
                 active = "learning";
-            } else if (screen.querySelector("#gradesBtn") && screen.querySelector("#profileBtn")) {
-                active = "home";
             }
         }
 
