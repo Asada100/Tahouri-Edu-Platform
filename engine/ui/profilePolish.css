@@ -1,6 +1,6 @@
 /* =====================================
    Tahouri Edu Platform
-   Profile UI Polish v1.3
+   Profile UI Polish v1.4
    ===================================== */
 
 .profile-screen {
@@ -104,6 +104,139 @@
     box-shadow: 0 2px 7px rgba(31, 41, 55, .06) !important;
 }
 
+/* Edit / Create forms */
+.profile-edit-screen,
+.profile-create-screen {
+    direction: rtl;
+    text-align: right;
+}
+
+.profile-edit-screen > h1,
+.profile-create-screen > h1 {
+    margin-bottom: 4px !important;
+}
+
+.profile-edit-screen > label,
+.profile-create-screen > label {
+    display: block;
+    margin: 12px auto 7px;
+    width: min(760px, 100%);
+    font-size: 14px;
+    line-height: 1.7;
+    font-weight: 700;
+    color: #475467;
+}
+
+.profile-edit-screen > input,
+.profile-edit-screen > select,
+.profile-create-screen > input,
+.profile-create-screen > select {
+    display: block;
+    box-sizing: border-box;
+    width: min(760px, 100%);
+    min-height: 46px;
+    margin: 0 auto 10px;
+    padding: 10px 13px;
+    border: 1px solid #d8e0ea;
+    border-radius: 13px;
+    outline: none;
+    background: #f8fafc;
+    color: #25324a;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    direction: rtl;
+    transition: border-color .18s ease, background .18s ease, box-shadow .18s ease;
+}
+
+.profile-edit-screen > input:hover,
+.profile-edit-screen > select:hover,
+.profile-create-screen > input:hover,
+.profile-create-screen > select:hover {
+    border-color: #c4cfdb;
+    background: #ffffff;
+}
+
+.profile-edit-screen > input:focus,
+.profile-edit-screen > select:focus,
+.profile-create-screen > input:focus,
+.profile-create-screen > select:focus {
+    border-color: #94a3b8;
+    background: #ffffff;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, .10);
+}
+
+.profile-edit-warning {
+    box-sizing: border-box;
+    width: min(760px, 100%);
+    margin: 12px auto 4px;
+    padding: 12px 14px;
+    border: 1px solid #e7dfc7;
+    border-radius: 13px;
+    background: #fffbeb;
+    color: #6b5b2a;
+    font-size: 13px;
+    line-height: 1.9;
+}
+
+.profile-edit-screen #saveProfileBtn,
+.profile-edit-screen #cancelProfileBtn,
+.profile-create-screen #saveNewProfileBtn,
+.profile-create-screen #cancelNewProfileBtn {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    min-height: 48px;
+    margin: 8px 5px 4px 0 !important;
+    padding: 10px 18px !important;
+    border: 1px solid #d8e0ea !important;
+    border-radius: 14px !important;
+    background: #ffffff !important;
+    color: #273449 !important;
+    box-shadow: 0 3px 12px rgba(31, 41, 55, .06) !important;
+    font-family: inherit !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    line-height: 1.5 !important;
+    cursor: pointer;
+    transition: transform .16s ease, box-shadow .16s ease,
+                border-color .16s ease, background .16s ease;
+}
+
+.profile-edit-screen #saveProfileBtn:hover,
+.profile-edit-screen #cancelProfileBtn:hover,
+.profile-create-screen #saveNewProfileBtn:hover,
+.profile-create-screen #cancelNewProfileBtn:hover {
+    transform: translateY(-1px);
+    border-color: #c8d2df !important;
+    background: #f8fafc !important;
+    box-shadow: 0 6px 16px rgba(31, 41, 55, .09) !important;
+}
+
+.profile-edit-screen #saveProfileBtn:active,
+.profile-edit-screen #cancelProfileBtn:active,
+.profile-create-screen #saveNewProfileBtn:active,
+.profile-create-screen #cancelNewProfileBtn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 7px rgba(31, 41, 55, .06) !important;
+}
+
+.profile-edit-screen #saveProfileBtn,
+.profile-create-screen #saveNewProfileBtn {
+    background: #f8fafc !important;
+}
+
+.profile-screen #settingsMessage,
+.profile-edit-screen #profileMessage,
+.profile-create-screen #profileCreateMessage {
+    min-height: 22px;
+    margin-top: 8px;
+    text-align: center;
+    color: #667085;
+    font-size: 13px;
+}
+
 /* Personal settings */
 .profile-screen .profile-settings {
     width: min(760px, 100%);
@@ -179,14 +312,6 @@
     box-shadow: 0 0 0 3px rgba(59, 130, 246, .10);
 }
 
-.profile-screen #settingsMessage {
-    min-height: 22px;
-    margin-top: 8px;
-    text-align: center;
-    color: #667085;
-    font-size: 13px;
-}
-
 @media (max-width: 700px) {
     .profile-screen .profile-card {
         grid-template-columns: 1fr;
@@ -213,6 +338,15 @@
     .profile-screen .profile-setting-item { gap: 10px; }
     .profile-screen .profile-setting-item label { font-size: 14px; }
     .profile-screen .profile-setting-item select { min-width: 104px; }
+
+    .profile-edit-screen #saveProfileBtn,
+    .profile-edit-screen #cancelProfileBtn,
+    .profile-create-screen #saveNewProfileBtn,
+    .profile-create-screen #cancelNewProfileBtn {
+        display: flex !important;
+        width: 100% !important;
+        margin: 6px 0 !important;
+    }
 }
 
 @media (max-width: 420px) {
