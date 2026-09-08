@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Header Manager
-// Version 1.6
+// Version 1.7
 // =====================================
 
 const HeaderManager = {
@@ -47,6 +47,26 @@ const HeaderManager = {
             !!screen.querySelector("#profileBtn");
     },
 
+    getSectionTitle: function (screen) {
+        if (!screen) return "طهوری";
+        if (this.isHomeScreen(screen)) return "طهوری";
+        if (screen.querySelector("#gradesContainer")) return "انتخاب پایه";
+        if (screen.querySelector("#subjectsContainer")) return "انتخاب درس";
+        if (screen.querySelector("#chaptersContainer")) return "انتخاب فصل";
+        if (screen.querySelector("#activityList")) return "انتخاب فعالیت";
+        if (
+            screen.querySelector(".report") ||
+            screen.querySelector("[class*='report']") ||
+            screen.querySelector("[id*='report']")
+        ) return "گزارش عملکرد";
+        return "طهوری";
+    },
+
+    updateSectionTitle: function (header, screen) {
+        const title = header.querySelector(".tahouri-header-section");
+        if (title) title.textContent = this.getSectionTitle(screen);
+    },
+
     getBackConfig: function (screen) {
         if (!screen || this.isHomeScreen(screen)) return null;
 
@@ -87,17 +107,14 @@ const HeaderManager = {
             };
         }
 
-        if (
-            typeof AppState !== "undefined" &&
-            AppState.chapter &&
-            !AppState.activity
-        ) {
+        if (screen.querySelector("#activityList")) {
             return {
                 label: "بازگشت به فصل",
                 action: function () {
                     if (
                         typeof Screen !== "undefined" &&
-                        typeof Screen.showChapters === "function"
+                        typeof Screen.showChapters === "function" &&
+                        typeof AppState !== "undefined"
                     ) {
                         Screen.showChapters(
                             AppState.grade,
@@ -113,7 +130,7 @@ const HeaderManager = {
             AppState.activity
         ) {
             return {
-                label: "بازگشت به درس‌ها",
+                label: "بازگشت به فعالیت‌ها",
                 action: function () {
                     if (
                         typeof Screen !== "undefined" &&
@@ -165,8 +182,8 @@ const HeaderManager = {
         if (!this.isHomeScreen(screen)) return;
 
         // Learning and Reports already have dedicated Bottom Navigation items.
-        // Settings will live in the Header menu. Keep profile/dashboard as
-        // Home-specific actions until those destinations receive their own shell entry points.
+        // Settings belongs to the Header menu. Keep profile/dashboard as
+        // Home-specific actions until their dedicated destinations are finalized.
         ["gradesBtn", "reportsBtn", "settingsBtn"].forEach(function (id) {
             const button = document.getElementById(id);
             if (button) button.remove();
@@ -226,6 +243,7 @@ const HeaderManager = {
         }
 
         this.cleanHomeActions(screen);
+        this.updateSectionTitle(header, screen);
         this.ensureBackButton(header, screen);
 
         if (homeScreen) {
@@ -234,8 +252,6 @@ const HeaderManager = {
 
         this.updateBell();
 
-        // HeaderManager can remove Home buttons after BottomNavigation's
-        // mutation callback. Synchronize the active item after all shell work.
         if (
             typeof BottomNavigation !== "undefined" &&
             typeof BottomNavigation.updateActive === "function"
@@ -322,4 +338,4 @@ if (document.readyState === "loading") {
     HeaderManager.init();
 }
 
-console.log("Header Manager v1.6 Ready");
+console.log("Header Manager v1.7 Ready");
