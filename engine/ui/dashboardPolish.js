@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Edu Platform
-// Dashboard UI Polish v2.0
+// Dashboard UI Polish v2.1
 // =====================================
 
 const DashboardPolish = {
@@ -36,38 +36,43 @@ const DashboardPolish = {
                 display: none !important;
             }
 
-            /* Continue Learning: make the action look like a real app CTA. */
+            /* Continue Learning: modern compact app action. */
             .dashboard-screen .dashboard-small-action {
-                display: flex !important;
+                display: inline-flex !important;
                 align-items: center !important;
                 justify-content: center !important;
-                width: min(340px, calc(100% - 24px)) !important;
-                max-width: 340px !important;
-                min-height: 50px !important;
-                margin: 16px auto 6px !important;
-                padding: 11px 22px !important;
-                border: 0 !important;
-                border-radius: 14px !important;
-                background: linear-gradient(135deg, #4f7cff, #6b8cff) !important;
-                color: #ffffff !important;
+                gap: 9px !important;
+                width: auto !important;
+                min-width: 190px !important;
+                max-width: calc(100% - 32px) !important;
+                min-height: 44px !important;
+                margin: 14px auto 6px !important;
+                padding: 9px 18px !important;
+                border: 1px solid rgba(72, 98, 145, .16) !important;
+                border-radius: 12px !important;
+                background: #ffffff !important;
+                color: #344b72 !important;
                 font-family: inherit !important;
-                font-size: 15px !important;
+                font-size: 14px !important;
                 font-weight: 700 !important;
-                line-height: 1.4 !important;
+                line-height: 1.35 !important;
                 text-align: center !important;
-                box-shadow: 0 6px 18px rgba(79, 124, 255, .20) !important;
+                box-shadow: 0 3px 12px rgba(38, 54, 77, .08) !important;
                 cursor: pointer !important;
-                transition: transform .16s ease, box-shadow .16s ease, filter .16s ease !important;
+                transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease !important;
+                box-sizing: border-box !important;
             }
 
             .dashboard-screen .dashboard-small-action:hover {
-                transform: translateY(-1px);
-                filter: brightness(.98);
-                box-shadow: 0 8px 20px rgba(79, 124, 255, .25) !important;
+                transform: translateY(-1px) !important;
+                background: #f8faff !important;
+                border-color: rgba(72, 98, 145, .26) !important;
+                box-shadow: 0 5px 16px rgba(38, 54, 77, .11) !important;
             }
 
             .dashboard-screen .dashboard-small-action:active {
-                transform: translateY(0);
+                transform: translateY(0) !important;
+                box-shadow: 0 2px 8px rgba(38, 54, 77, .08) !important;
             }
 
             .dashboard-screen .dashboard-actions {
@@ -186,9 +191,10 @@ const DashboardPolish = {
 
             @media (max-width: 600px) {
                 .dashboard-screen .dashboard-small-action {
-                    width: calc(100% - 20px) !important;
-                    max-width: 340px !important;
-                    min-height: 48px !important;
+                    min-width: 176px !important;
+                    min-height: 44px !important;
+                    max-width: calc(100% - 20px) !important;
+                    padding: 9px 16px !important;
                 }
 
                 .dashboard-screen .tahouri-daily-history-item {
@@ -295,7 +301,6 @@ const DashboardPolish = {
             legend.insertAdjacentElement("afterend", ticker);
         }
 
-        // Keep the ticker text synchronized if the dashboard is rendered again.
         const item = screen.querySelector(".tahouri-daily-history-item");
         if (item) {
             item.innerHTML = `<strong>امروز:</strong> ${this.getDailyMessage()}`;
@@ -306,4 +311,4 @@ const DashboardPolish = {
 window.DashboardPolish = DashboardPolish;
 DashboardPolish.init();
 
-console.log("Dashboard UI Polish v2.0 Ready");
+console.log("Dashboard UI Polish v2.1 Ready");
