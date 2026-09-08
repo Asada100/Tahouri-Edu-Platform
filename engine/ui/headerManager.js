@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Header Manager
-// Version 1.9
+// Version 2.0
 // =====================================
 
 const HeaderManager = {
@@ -57,10 +57,18 @@ const HeaderManager = {
         );
     },
 
+    isProfileListScreen: function (screen) {
+        return !!(
+            screen &&
+            screen.matches(".profiles-screen")
+        );
+    },
+
     getSectionTitle: function (screen) {
         if (!screen) return "طهوری";
         if (this.isHomeScreen(screen)) return "طهوری";
         if (this.isProfileEditScreen(screen)) return "ویرایش پروفایل";
+        if (this.isProfileListScreen(screen)) return "پروفایل‌های دانش‌آموزان";
         if (screen.querySelector(".profile-screen")) return "پروفایل من";
         if (screen.querySelector("#gradesContainer")) return "انتخاب پایه";
         if (screen.querySelector("#subjectsContainer")) return "انتخاب درس";
@@ -83,6 +91,20 @@ const HeaderManager = {
         if (!screen || this.isHomeScreen(screen)) return null;
 
         if (this.isProfileEditScreen(screen)) {
+            return {
+                label: "بازگشت به پروفایل من",
+                action: function () {
+                    if (
+                        typeof ProfileScreen !== "undefined" &&
+                        typeof ProfileScreen.show === "function"
+                    ) {
+                        ProfileScreen.show();
+                    }
+                }
+            };
+        }
+
+        if (this.isProfileListScreen(screen)) {
             return {
                 label: "بازگشت به پروفایل من",
                 action: function () {
@@ -207,9 +229,6 @@ const HeaderManager = {
     cleanHomeActions: function (screen) {
         if (!this.isHomeScreen(screen)) return;
 
-        // Learning and Reports already have dedicated Bottom Navigation items.
-        // Settings belongs to the Header menu. Keep profile/dashboard as
-        // Home-specific actions until their dedicated destinations are finalized.
         ["gradesBtn", "reportsBtn", "settingsBtn"].forEach(function (id) {
             const button = document.getElementById(id);
             if (button) button.remove();
@@ -364,4 +383,4 @@ if (document.readyState === "loading") {
     HeaderManager.init();
 }
 
-console.log("Header Manager v1.9 Ready");
+console.log("Header Manager v2.0 Ready");
