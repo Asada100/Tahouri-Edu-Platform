@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Edu Platform
-// Dashboard UI Polish v2.1
+// Dashboard UI Polish v2.2
 // =====================================
 
 const DashboardPolish = {
@@ -25,15 +25,6 @@ const DashboardPolish = {
 
             .dashboard-screen .learning-calendar-heading {
                 justify-content: center !important;
-            }
-
-            .dashboard-screen .learning-calendar-heading > div:first-child {
-                flex: 1;
-                text-align: center !important;
-            }
-
-            .dashboard-screen .learning-calendar-heading > div:first-child p {
-                display: none !important;
             }
 
             /* Continue Learning: modern compact app action. */
@@ -79,20 +70,22 @@ const DashboardPolish = {
                 display: none !important;
             }
 
+            /* Keep the motivational message compact and on one line when space allows. */
             .dashboard-screen .dashboard-message {
                 display: flex !important;
                 align-items: center !important;
                 justify-content: center !important;
-                flex-direction: column !important;
+                flex-direction: row !important;
+                gap: 10px !important;
                 width: 100% !important;
                 text-align: center !important;
             }
 
             .dashboard-screen .dashboard-message p {
-                display: block !important;
-                width: 100% !important;
+                display: inline-block !important;
+                width: auto !important;
                 max-width: 620px !important;
-                margin: 0 auto !important;
+                margin: 0 !important;
                 text-align: center !important;
                 line-height: 1.9 !important;
             }
@@ -197,6 +190,14 @@ const DashboardPolish = {
                     padding: 9px 16px !important;
                 }
 
+                .dashboard-screen .dashboard-message {
+                    gap: 7px !important;
+                }
+
+                .dashboard-screen .dashboard-message p {
+                    max-width: calc(100% - 34px) !important;
+                }
+
                 .dashboard-screen .tahouri-daily-history-item {
                     font-size: 13px;
                 }
@@ -278,11 +279,12 @@ const DashboardPolish = {
         const screen = document.querySelector("#app > .dashboard-screen");
         if (!screen) return;
 
-        const legend = screen.querySelector(".learning-calendar-legend");
-        if (!legend) return;
+        const calendarCard = screen.querySelector(".learning-calendar-card");
+        if (!calendarCard) return;
 
-        if (!screen.querySelector(".tahouri-daily-history")) {
-            const ticker = document.createElement("section");
+        let ticker = screen.querySelector(".tahouri-daily-history");
+        if (!ticker) {
+            ticker = document.createElement("section");
             ticker.className = "tahouri-daily-history";
             ticker.setAttribute("aria-label", "امروز در تاریخ");
             ticker.innerHTML = `
@@ -298,10 +300,10 @@ const DashboardPolish = {
                     </div>
                 </div>
             `;
-            legend.insertAdjacentElement("afterend", ticker);
+            calendarCard.parentNode.insertBefore(ticker, calendarCard);
         }
 
-        const item = screen.querySelector(".tahouri-daily-history-item");
+        const item = ticker.querySelector(".tahouri-daily-history-item");
         if (item) {
             item.innerHTML = `<strong>امروز:</strong> ${this.getDailyMessage()}`;
         }
@@ -311,4 +313,4 @@ const DashboardPolish = {
 window.DashboardPolish = DashboardPolish;
 DashboardPolish.init();
 
-console.log("Dashboard UI Polish v2.1 Ready");
+console.log("Dashboard UI Polish v2.2 Ready");
