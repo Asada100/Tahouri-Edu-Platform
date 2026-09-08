@@ -1,6 +1,6 @@
 /* =====================================
    Tahouri Edu Platform
-   Profile UI Polish v2.0
+   Profile UI Polish v2.1
    ===================================== */
 
 .profile-screen {
@@ -113,11 +113,13 @@
 }
 
 @media (min-width: 701px) {
-    /*
-       Desktop: keep the screen itself untouched so HeaderManager renders
-       the header exactly as it does on Home/Profile. Only the form fields
-       are made compact: each label and its control share one row.
-    */
+    /* Only the form's own line-break elements are suppressed on desktop.
+       The screen/header structure is intentionally left untouched. */
+    .profile-edit-screen > br,
+    .profile-create-screen > br {
+        display: none !important;
+    }
+
     .profile-edit-screen > label,
     .profile-create-screen > label {
         display: inline-block;
@@ -129,7 +131,7 @@
         line-height: 1.7;
         font-weight: 700;
         color: #475467;
-        text-align: right;
+        text-align: center;
         white-space: nowrap;
     }
 
