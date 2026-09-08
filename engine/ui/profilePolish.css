@@ -1,6 +1,6 @@
 /* =====================================
    Tahouri Edu Platform
-   Profile UI Polish v2.1
+   Profile UI Polish v2.2
    ===================================== */
 
 .profile-screen {
@@ -113,8 +113,6 @@
 }
 
 @media (min-width: 701px) {
-    /* Only the form's own line-break elements are suppressed on desktop.
-       The screen/header structure is intentionally left untouched. */
     .profile-edit-screen > br,
     .profile-create-screen > br {
         display: none !important;
@@ -335,17 +333,46 @@
 }
 
 @media (max-width: 700px) {
+    /* Mobile: keep the three profile facts compact so Settings becomes visible. */
     .profile-screen .profile-card {
         grid-template-columns: 1fr;
+        margin-top: 12px;
+        margin-bottom: 12px;
     }
 
     .profile-screen .profile-item {
-        padding: 15px 16px;
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 10px;
+        padding: 10px 14px;
+        min-height: 48px;
         border-left: 0;
         border-bottom: 1px solid #edf1f5;
     }
 
     .profile-screen .profile-item:last-child { border-bottom: 0; }
+
+    .profile-screen .profile-item h3 {
+        flex: 0 0 auto;
+        margin: 0;
+        font-size: 13px;
+        line-height: 1.6;
+        text-align: center;
+        white-space: nowrap;
+    }
+
+    .profile-screen .profile-item p {
+        flex: 1;
+        min-width: 0;
+        margin: 0;
+        font-size: 16px;
+        line-height: 1.6;
+        text-align: right;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
 
     .profile-screen #editProfileBtn,
     .profile-screen #switchProfileBtn,
@@ -355,7 +382,11 @@
         margin: 5px 0 !important;
     }
 
-    .profile-screen .profile-settings { padding: 16px; }
+    .profile-screen .profile-settings {
+        margin-top: 14px;
+        padding: 16px;
+    }
+
     .profile-screen .profile-setting-item { gap: 10px; }
     .profile-screen .profile-setting-item label { font-size: 14px; }
     .profile-screen .profile-setting-item select { min-width: 104px; }
