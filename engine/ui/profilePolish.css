@@ -1,6 +1,6 @@
 /* =====================================
    Tahouri Edu Platform
-   Profile UI Polish v1.9
+   Profile UI Polish v2.0
    ===================================== */
 
 .profile-screen {
@@ -113,34 +113,16 @@
 }
 
 @media (min-width: 701px) {
-    .profile-edit-screen,
-    .profile-create-screen {
-        display: grid;
-        grid-template-columns: 120px 320px;
-        justify-content: center;
-        align-items: center;
-        column-gap: 14px;
-        text-align: right;
-    }
-
-    /* Header belongs to the screen and must always occupy the full row. */
-    .profile-edit-screen > .tahouri-app-header,
-    .profile-create-screen > .tahouri-app-header,
-    .profile-edit-screen > h1,
-    .profile-edit-screen > p,
-    .profile-edit-screen > hr,
-    .profile-edit-screen > .profile-edit-warning,
-    .profile-edit-screen > [id="profileMessage"],
-    .profile-create-screen > h1,
-    .profile-create-screen > p,
-    .profile-create-screen > hr,
-    .profile-create-screen > [id="profileCreateMessage"] {
-        grid-column: 1 / -1;
-    }
-
+    /*
+       Desktop: keep the screen itself untouched so HeaderManager renders
+       the header exactly as it does on Home/Profile. Only the form fields
+       are made compact: each label and its control share one row.
+    */
     .profile-edit-screen > label,
     .profile-create-screen > label {
-        display: block;
+        display: inline-block;
+        vertical-align: middle;
+        box-sizing: border-box;
         width: 120px;
         margin: 7px 0;
         font-size: 14px;
@@ -155,7 +137,8 @@
     .profile-edit-screen > select,
     .profile-create-screen > input,
     .profile-create-screen > select {
-        display: block;
+        display: inline-block;
+        vertical-align: middle;
         box-sizing: border-box;
         width: 320px;
         min-height: 46px;
@@ -176,15 +159,6 @@
     .profile-edit-screen > select,
     .profile-create-screen > select {
         white-space: nowrap;
-    }
-
-    /* Save/cancel stay compact and side-by-side on desktop. */
-    .profile-edit-screen #saveProfileBtn,
-    .profile-edit-screen #cancelProfileBtn,
-    .profile-create-screen #saveNewProfileBtn,
-    .profile-create-screen #cancelNewProfileBtn {
-        justify-self: center;
-        width: auto !important;
     }
 }
 
