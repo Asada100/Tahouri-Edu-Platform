@@ -1,6 +1,6 @@
 /* =====================================
    Tahouri Edu Platform
-   Profile UI Polish v2.4
+   Profile UI Polish v2.5
    ===================================== */
 
 .profile-screen {
@@ -51,11 +51,6 @@
     line-height: 1.7;
     font-weight: 800;
     color: #172033;
-}
-
-.profile-screen #profileDashboardBtn,
-.profile-screen #profileHomeBtn {
-    display: none !important;
 }
 
 .profile-screen #editProfileBtn,
@@ -170,25 +165,6 @@
     cursor: default;
 }
 
-/* The header already provides the back navigation. */
-.profiles-screen #backToProfileBtn {
-    display: none !important;
-}
-
-.profiles-screen #newProfileFromListBtn {
-    min-width: 190px;
-    min-height: 44px;
-    padding: 9px 16px;
-    border: 1px solid #d8e0ea;
-    border-radius: 12px;
-    background: #ffffff;
-    color: #273449;
-    font-family: inherit;
-    font-size: 14px;
-    font-weight: 700;
-    cursor: pointer;
-}
-
 .profile-edit-screen,
 .profile-create-screen {
     direction: rtl;
@@ -272,7 +248,7 @@
     box-shadow: 0 0 0 3px rgba(59, 130, 246, .10);
 }
 
-.profile-edit-warning {
+.profile-grade-warning {
     box-sizing: border-box;
     width: min(600px, 100%);
     margin: 12px auto 4px;
@@ -337,8 +313,8 @@
 }
 
 .profile-screen #settingsMessage,
-.profile-edit-screen #profileMessage,
-.profile-create-screen #profileCreateMessage {
+.profile-edit-screen #editProfileMessage,
+.profile-create-screen #createProfileMessage {
     min-height: 22px;
     margin-top: 8px;
     text-align: center;
@@ -526,7 +502,7 @@
     .profile-edit-screen > select,
     .profile-create-screen > input,
     .profile-create-screen > select,
-    .profile-edit-warning {
+    .profile-grade-warning {
         width: 100%;
     }
 
