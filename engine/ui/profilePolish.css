@@ -1,6 +1,6 @@
 /* =====================================
    Tahouri Edu Platform
-   Profile UI Polish v2.2
+   Profile UI Polish v2.3
    ===================================== */
 
 .profile-screen {
@@ -333,20 +333,23 @@
 }
 
 @media (max-width: 700px) {
-    /* Mobile: keep the three profile facts compact so Settings becomes visible. */
     .profile-screen .profile-card {
         grid-template-columns: 1fr;
         margin-top: 12px;
         margin-bottom: 12px;
     }
 
+    /* Explicitly override any global profile-item width/display rules. */
     .profile-screen .profile-item {
-        display: flex;
-        align-items: center;
-        justify-content: flex-start;
-        gap: 10px;
-        padding: 10px 14px;
-        min-height: 48px;
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 8px !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+        padding: 9px 12px !important;
+        min-height: 46px;
         border-left: 0;
         border-bottom: 1px solid #edf1f5;
     }
@@ -354,22 +357,30 @@
     .profile-screen .profile-item:last-child { border-bottom: 0; }
 
     .profile-screen .profile-item h3 {
-        flex: 0 0 auto;
-        margin: 0;
-        font-size: 13px;
-        line-height: 1.6;
-        text-align: center;
-        white-space: nowrap;
+        display: block !important;
+        flex: 1 1 auto !important;
+        width: auto !important;
+        min-width: 0 !important;
+        margin: 0 !important;
+        font-size: 12.5px !important;
+        line-height: 1.5 !important;
+        text-align: right !important;
+        white-space: nowrap !important;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     .profile-screen .profile-item p {
-        flex: 1;
-        min-width: 0;
-        margin: 0;
-        font-size: 16px;
-        line-height: 1.6;
-        text-align: right;
-        white-space: nowrap;
+        display: block !important;
+        flex: 0 0 auto !important;
+        width: auto !important;
+        max-width: 45% !important;
+        min-width: 0 !important;
+        margin: 0 !important;
+        font-size: 14px !important;
+        line-height: 1.5 !important;
+        text-align: left !important;
+        white-space: nowrap !important;
         overflow: hidden;
         text-overflow: ellipsis;
     }
