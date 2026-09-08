@@ -239,10 +239,6 @@ const ProfileScreen = {
 
     <p>پروفایل دانش‌آموز موردنظر را انتخاب کنید.</p>
 
-    <button id="newProfileFromListBtn" type="button">
-        ➕ افزودن پروفایل جدید
-    </button>
-
     <hr>
 
     <div class="profiles-list">
@@ -290,10 +286,6 @@ const ProfileScreen = {
                 ProfileScreen.show();
             };
         });
-
-        document.getElementById("newProfileFromListBtn").onclick = function () {
-            ProfileScreen.showCreate();
-        };
 
         document.getElementById("backToProfileBtn").onclick = function () {
             ProfileScreen.show();
