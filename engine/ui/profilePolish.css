@@ -1,6 +1,6 @@
 /* =====================================
    Tahouri Edu Platform
-   Profile UI Polish v2.3
+   Profile UI Polish v2.4
    ===================================== */
 
 .profile-screen {
@@ -99,6 +99,94 @@
 .profile-screen #createProfileBtn:active {
     transform: translateY(0);
     box-shadow: 0 2px 7px rgba(31, 41, 55, .06) !important;
+}
+
+/* =====================================
+   Profile List / Switch Profile
+   ===================================== */
+
+.profiles-screen {
+    direction: rtl;
+    text-align: right;
+}
+
+.profiles-screen .profiles-list {
+    width: min(1000px, 100%);
+    margin: 18px auto;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    align-items: stretch;
+}
+
+.profiles-screen .profile-select-card {
+    box-sizing: border-box;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 18px;
+    border: 1px solid #e3e9f1;
+    border-radius: 17px;
+    background: #ffffff;
+    box-shadow: 0 5px 20px rgba(31, 41, 55, .06);
+    text-align: right;
+}
+
+.profiles-screen .profile-select-card h2 {
+    margin: 0 0 10px;
+    font-size: 18px;
+    line-height: 1.6;
+    font-weight: 800;
+    color: #172033;
+}
+
+.profiles-screen .profile-select-card p {
+    margin: 3px 0;
+    font-size: 14px;
+    line-height: 1.8;
+    color: #667085;
+}
+
+.profiles-screen .profile-select-card button {
+    width: 100%;
+    min-height: 42px;
+    margin-top: 13px;
+    padding: 8px 12px;
+    box-sizing: border-box;
+    border: 1px solid #d8e0ea;
+    border-radius: 12px;
+    background: #f8fafc;
+    color: #273449;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.5;
+    cursor: pointer;
+}
+
+.profiles-screen .profile-select-card button:disabled {
+    opacity: .75;
+    cursor: default;
+}
+
+/* The header already provides the back navigation. */
+.profiles-screen #backToProfileBtn {
+    display: none !important;
+}
+
+.profiles-screen #newProfileFromListBtn {
+    min-width: 190px;
+    min-height: 44px;
+    padding: 9px 16px;
+    border: 1px solid #d8e0ea;
+    border-radius: 12px;
+    background: #ffffff;
+    color: #273449;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
 }
 
 .profile-edit-screen,
@@ -332,6 +420,12 @@
     box-shadow: 0 0 0 3px rgba(59, 130, 246, .10);
 }
 
+@media (max-width: 1000px) and (min-width: 701px) {
+    .profiles-screen .profiles-list {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
 @media (max-width: 700px) {
     .profile-screen .profile-card {
         grid-template-columns: 1fr;
@@ -339,7 +433,6 @@
         margin-bottom: 12px;
     }
 
-    /* Explicitly override any global profile-item width/display rules. */
     .profile-screen .profile-item {
         display: flex !important;
         flex-direction: row !important;
@@ -383,6 +476,16 @@
         white-space: nowrap !important;
         overflow: hidden;
         text-overflow: ellipsis;
+    }
+
+    .profiles-screen .profiles-list {
+        grid-template-columns: 1fr;
+        gap: 12px;
+        margin-top: 12px;
+    }
+
+    .profiles-screen .profile-select-card {
+        padding: 15px;
     }
 
     .profile-screen #editProfileBtn,
