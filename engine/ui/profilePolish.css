@@ -1,6 +1,6 @@
 /* =====================================
    Tahouri Edu Platform
-   Profile UI Polish v1.5
+   Profile UI Polish v1.6
    ===================================== */
 
 .profile-screen {
@@ -179,6 +179,22 @@
     line-height: 1.9;
 }
 
+/* Edit / Create action buttons: centered on desktop. */
+.profile-edit-screen,
+.profile-create-screen {
+    text-align: center;
+}
+
+.profile-edit-screen > label,
+.profile-create-screen > label,
+.profile-edit-screen > input,
+.profile-edit-screen > select,
+.profile-create-screen > input,
+.profile-create-screen > select,
+.profile-edit-warning {
+    text-align: right;
+}
+
 .profile-edit-screen #saveProfileBtn,
 .profile-edit-screen #cancelProfileBtn,
 .profile-create-screen #saveNewProfileBtn,
@@ -189,7 +205,7 @@
     box-sizing: border-box;
     min-width: 145px;
     min-height: 46px;
-    margin: 10px 5px 4px 0 !important;
+    margin: 10px 5px 4px !important;
     padding: 9px 16px !important;
     border: 1px solid #d8e0ea !important;
     border-radius: 13px !important;
@@ -338,6 +354,11 @@
     .profile-screen .profile-setting-item { gap: 10px; }
     .profile-screen .profile-setting-item label { font-size: 14px; }
     .profile-screen .profile-setting-item select { min-width: 104px; }
+
+    .profile-edit-screen,
+    .profile-create-screen {
+        text-align: right;
+    }
 
     .profile-edit-screen #saveProfileBtn,
     .profile-edit-screen #cancelProfileBtn,
