@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Header Manager
-// Version 2.0
+// Version 2.1
 // =====================================
 
 const HeaderManager = {
@@ -64,11 +64,22 @@ const HeaderManager = {
         );
     },
 
+    isProfileCreateScreen: function (screen) {
+        return !!(
+            screen &&
+            (
+                screen.matches(".profile-create-screen") ||
+                screen.querySelector(".profile-create-screen")
+            )
+        );
+    },
+
     getSectionTitle: function (screen) {
         if (!screen) return "طهوری";
         if (this.isHomeScreen(screen)) return "طهوری";
         if (this.isProfileEditScreen(screen)) return "ویرایش پروفایل";
         if (this.isProfileListScreen(screen)) return "پروفایل‌های دانش‌آموزان";
+        if (this.isProfileCreateScreen(screen)) return "افزودن دانش‌آموز";
         if (screen.querySelector(".profile-screen")) return "پروفایل من";
         if (screen.querySelector("#gradesContainer")) return "انتخاب پایه";
         if (screen.querySelector("#subjectsContainer")) return "انتخاب درس";
@@ -105,6 +116,20 @@ const HeaderManager = {
         }
 
         if (this.isProfileListScreen(screen)) {
+            return {
+                label: "بازگشت به پروفایل من",
+                action: function () {
+                    if (
+                        typeof ProfileScreen !== "undefined" &&
+                        typeof ProfileScreen.show === "function"
+                    ) {
+                        ProfileScreen.show();
+                    }
+                }
+            };
+        }
+
+        if (this.isProfileCreateScreen(screen)) {
             return {
                 label: "بازگشت به پروفایل من",
                 action: function () {
@@ -240,147 +265,30 @@ const HeaderManager = {
         if (!app) return;
 
         const screen = app.querySelector(":scope > .screen");
-        if (!screen || this.isActivityScreen(screen)) return;
-        if (this.isNotificationScreen(screen)) return;
+        if (!screen) return;
 
-        const homeScreen = this.isHomeScreen(screen);
         let header = screen.querySelector(":scope > .tahouri-app-header");
 
         if (!header) {
             header = document.createElement("div");
             header.className = "tahouri-app-header";
             header.innerHTML = `
-                <div class="tahouri-header-side">
-                    <button class="tahouri-header-menu" type="button" aria-label="منو">☰</button>
-                </div>
-                <div class="tahouri-header-brand" aria-label="پلتفرم آموزشی طهوری">
-                    <span class="tahouri-header-logo">🌱</span>
-                    <span class="tahouri-header-section">طهوری</span>
-                </div>
-                <button class="tahouri-header-notification" type="button" aria-label="اعلان‌ها">
-                    <span class="tahouri-bell-icon">🔔</span>
-                    <span class="tahouri-notification-badge" hidden>0</span>
-                </button>
+                <button class="tahouri-header-menu" type="button" aria-label="منو">☰</button>
+                <div class="tahouri-header-logo">طهوری</div>
+                <div class="tahouri-header-section"></div>
+                <button class="tahouri-header-notification" type="button" aria-label="اعلان‌ها">🔔</button>
             `;
-
             screen.insertBefore(header, screen.firstChild);
-
-            const notificationButton = header.querySelector(".tahouri-header-notification");
-            if (notificationButton) {
-                notificationButton.onclick = function () {
-                    if (
-                        typeof NotificationScreen !== "undefined" &&
-                        typeof NotificationScreen.open === "function"
-                    ) {
-                        NotificationScreen.open();
-                    }
-                };
-            }
-
-            const menuButton = header.querySelector(".tahouri-header-menu");
-            if (menuButton) {
-                menuButton.onclick = function () {
-                    if (typeof ToastManager !== "undefined") {
-                        ToastManager.info("منوی برنامه در حال آماده‌سازی است.");
-                    }
-                };
-            }
         }
 
         this.cleanHomeActions(screen);
         this.updateSectionTitle(header, screen);
         this.ensureBackButton(header, screen);
 
-        if (homeScreen) {
-            this.injectHomeBanner(screen);
-        }
-
-        this.updateBell();
-
-        if (
-            typeof BottomNavigation !== "undefined" &&
-            typeof BottomNavigation.updateActive === "function"
-        ) {
+        if (typeof BottomNavigation !== "undefined" && typeof BottomNavigation.updateActive === "function") {
             BottomNavigation.updateActive();
         }
-    },
-
-    injectHomeBanner: function (screen) {
-        if (screen.querySelector(":scope > .tahouri-home-banner")) return;
-        if (typeof HomeBannerManager === "undefined") return;
-
-        const banner = HomeBannerManager.get();
-        if (!banner || HomeBannerManager.isDismissed(banner.id)) return;
-
-        const element = document.createElement("section");
-        element.className = "tahouri-home-banner";
-        element.setAttribute("aria-label", "پیشنهاد طهوری");
-        element.innerHTML = `
-            <div class="tahouri-home-banner-row">
-                <div class="tahouri-home-banner-icon">${banner.icon}</div>
-                <div class="tahouri-home-banner-content">
-                    <h3>${banner.title}</h3>
-                    <p>${banner.text}</p>
-                </div>
-            </div>
-            <div class="tahouri-home-banner-actions">
-                <button type="button" data-banner-action="start">${banner.actionText}</button>
-                <button type="button" data-banner-action="dismiss">بعداً</button>
-            </div>
-        `;
-
-        const anchor = screen.querySelector(".daily-message-home");
-        if (anchor && anchor.parentNode) {
-            anchor.parentNode.insertBefore(element, anchor);
-        } else {
-            headerInsertAfter(element, screen);
-        }
-
-        const start = element.querySelector("[data-banner-action='start']");
-        if (start) {
-            start.onclick = function () {
-                if (typeof Screen !== "undefined" && typeof Screen.showGrades === "function") {
-                    Screen.showGrades();
-                }
-            };
-        }
-
-        const dismiss = element.querySelector("[data-banner-action='dismiss']");
-        if (dismiss) {
-            dismiss.onclick = function () {
-                HomeBannerManager.dismiss(banner.id);
-                element.remove();
-            };
-        }
-    },
-
-    updateBell: function () {
-        const badge = document.querySelector(".tahouri-notification-badge");
-        if (!badge || typeof NotificationStore === "undefined") return;
-
-        const count = NotificationStore.unreadCount();
-        badge.textContent = count > 9 ? "۹+" : String(count);
-        badge.hidden = count === 0;
     }
 };
 
-function headerInsertAfter(element, screen) {
-    const header = screen.querySelector(":scope > .tahouri-app-header");
-    if (header && header.nextSibling) {
-        screen.insertBefore(element, header.nextSibling);
-    } else {
-        screen.appendChild(element);
-    }
-}
-
-window.HeaderManager = HeaderManager;
-
-if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", function () {
-        HeaderManager.init();
-    });
-} else {
-    HeaderManager.init();
-}
-
-console.log("Header Manager v2.0 Ready");
+console.log("Header Manager v2.1 Ready");
