@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Header Manager
-// Version 1.5
+// Version 1.6
 // =====================================
 
 const HeaderManager = {
@@ -11,10 +11,6 @@ const HeaderManager = {
         if (!document.body || !app) return;
         if (this._observer) return;
 
-        // Observe only screen replacement at the #app level.
-        // Do NOT observe the whole subtree: HeaderManager itself adds
-        // header nodes and could otherwise retrigger on every
-        // internal DOM mutation made by screens or activities.
         this._observer = new MutationObserver(() => this.enhance());
         this._observer.observe(app, {
             childList: true,
@@ -52,9 +48,7 @@ const HeaderManager = {
     },
 
     getBackConfig: function (screen) {
-        if (!screen) return null;
-
-        if (this.isHomeScreen(screen)) return null;
+        if (!screen || this.isHomeScreen(screen)) return null;
 
         if (screen.querySelector("#gradesContainer")) {
             return {
@@ -135,7 +129,6 @@ const HeaderManager = {
             };
         }
 
-        // Profile / dashboard / other platform screens return to Home.
         return {
             label: "بازگشت به خانه",
             action: function () {
@@ -171,8 +164,9 @@ const HeaderManager = {
     cleanHomeActions: function (screen) {
         if (!this.isHomeScreen(screen)) return;
 
-        // Home is now the landing area, not a second copy of Bottom Navigation.
-        // Learning, Reports and Settings already have dedicated entry points.
+        // Learning and Reports already have dedicated Bottom Navigation items.
+        // Settings will live in the Header menu. Keep profile/dashboard as
+        // Home-specific actions until those destinations receive their own shell entry points.
         ["gradesBtn", "reportsBtn", "settingsBtn"].forEach(function (id) {
             const button = document.getElementById(id);
             if (button) button.remove();
@@ -187,6 +181,7 @@ const HeaderManager = {
         if (!screen || this.isActivityScreen(screen)) return;
         if (this.isNotificationScreen(screen)) return;
 
+        const homeScreen = this.isHomeScreen(screen);
         let header = screen.querySelector(":scope > .tahouri-app-header");
 
         if (!header) {
@@ -198,7 +193,7 @@ const HeaderManager = {
                 </div>
                 <div class="tahouri-header-brand" aria-label="پلتفرم آموزشی طهوری">
                     <span class="tahouri-header-logo">🌱</span>
-                    <span>طهوری</span>
+                    <span class="tahouri-header-section">طهوری</span>
                 </div>
                 <button class="tahouri-header-notification" type="button" aria-label="اعلان‌ها">
                     <span class="tahouri-bell-icon">🔔</span>
@@ -233,11 +228,20 @@ const HeaderManager = {
         this.cleanHomeActions(screen);
         this.ensureBackButton(header, screen);
 
-        if (this.isHomeScreen(screen)) {
+        if (homeScreen) {
             this.injectHomeBanner(screen);
         }
 
         this.updateBell();
+
+        // HeaderManager can remove Home buttons after BottomNavigation's
+        // mutation callback. Synchronize the active item after all shell work.
+        if (
+            typeof BottomNavigation !== "undefined" &&
+            typeof BottomNavigation.updateActive === "function"
+        ) {
+            BottomNavigation.updateActive();
+        }
     },
 
     injectHomeBanner: function (screen) {
@@ -318,4 +322,4 @@ if (document.readyState === "loading") {
     HeaderManager.init();
 }
 
-console.log("Header Manager v1.5 Ready");
+console.log("Header Manager v1.6 Ready");
