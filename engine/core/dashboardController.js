@@ -1,13 +1,12 @@
 // =====================================
 // Tahouri Edu Platform
 // Dashboard Controller
-// Version 6.5
+// Version 6.6
 //
 // Student Friendly Dashboard
 // ProgressTracker as source of truth
-// Resumable Activity integration
-// Continue Learning = next uncompleted activity
-// Continue Activity = interrupted activity session
+// Single Continue Activity card
+// Resumable activity takes priority
 // =====================================
 
 const DashboardController = {
@@ -89,26 +88,6 @@ const DashboardController = {
         // =====================================
 
         let resumableActivity = null;
-        let resumableActivityIds = {};
-
-        if (
-            typeof ActivitySessionManager !== "undefined" &&
-            typeof ActivitySessionManager.loadAll === "function"
-        ) {
-            const sessions = ActivitySessionManager.loadAll() || {};
-
-            Object.keys(sessions).forEach(function (activityId) {
-                const session = sessions[activityId];
-
-                if (
-                    session &&
-                    session.status === "resumable" &&
-                    session.engineState
-                ) {
-                    resumableActivityIds[activityId] = true;
-                }
-            });
-        }
 
         if (
             typeof ActivitySessionManager !== "undefined" &&
@@ -133,6 +112,8 @@ const DashboardController = {
                             found.engine ||
                             found.type ||
                             "",
+                        subject: found.subject || "",
+                        chapter: found.chapter || "",
                         updatedAt: session.updatedAt || null
                     };
                 }
@@ -147,10 +128,7 @@ const DashboardController = {
         }
 
         // =====================================
-        // CONTINUE LEARNING
-        // Must not select an activity that already has
-        // an interrupted/resumable session. That session
-        // belongs to the separate Continue Activity card.
+        // NEXT UNCOMPLETED ACTIVITY
         // =====================================
 
         let nextActivity = null;
@@ -159,10 +137,6 @@ const DashboardController = {
 
             const activity = gradeActivities[i];
             if (!activity || !activity.id) continue;
-
-            if (resumableActivityIds[activity.id]) {
-                continue;
-            }
 
             let completed = false;
 
@@ -190,9 +164,28 @@ const DashboardController = {
             }
         }
 
+        // =====================================
+        // SINGLE CONTINUE CARD
+        //
+        // A resumable session always has priority.
+        // Otherwise show the next unlocked activity.
+        // This intentionally avoids two separate
+        // Continue cards on the dashboard.
+        // =====================================
+
         let continueLearning = {};
 
-        if (nextActivity) {
+        if (resumableActivity) {
+            continueLearning = {
+                activityId: resumableActivity.activityId,
+                activityTitle: resumableActivity.activityTitle,
+                activityType: resumableActivity.activityType,
+                subject: resumableActivity.subject,
+                chapter: resumableActivity.chapter,
+                mode: "resume"
+            };
+        }
+        else if (nextActivity) {
             continueLearning = {
                 activityId: nextActivity.id,
                 activityTitle:
@@ -200,21 +193,22 @@ const DashboardController = {
                     nextActivity.name ||
                     nextActivity.id,
                 subject: nextActivity.subject || "",
-                chapter: nextActivity.chapter || ""
+                chapter: nextActivity.chapter || "",
+                mode: "start"
             };
         }
 
         DashboardScreen.show({
             overall: overall,
             currentGrade: currentGrade,
+            currentSubject: currentSubject,
+            currentChapter: currentChapter,
             completedCount: completedCount,
             totalGradeActivities: gradeActivities.length,
             progressPercentage: progressPercentage,
             continueLearning: continueLearning,
             resumableActivity: resumableActivity
         });
-
-        this.renderResumableActivity(resumableActivity);
 
         console.log("Dashboard Progress:", {
             completed: completedCount,
@@ -227,7 +221,7 @@ const DashboardController = {
     },
 
     // =====================================
-    // CONTINUE LEARNING
+    // CONTINUE / START ACTIVITY
     // =====================================
 
     continueLearning: async function (data) {
@@ -250,107 +244,40 @@ const DashboardController = {
 
         if (!activity) {
             console.error(
-                "Dashboard: Continue Learning activity not found:",
+                "Dashboard: Activity not found:",
                 data.activityId
             );
             return false;
         }
 
         console.log(
-            "Dashboard: Continuing Learning Activity:",
+            data.mode === "resume"
+                ? "Dashboard: Resuming Activity:"
+                : "Dashboard: Starting Next Activity:",
             activity.id
         );
 
         try {
+            // App.startActivity / ActivityManager handles an existing
+            // unfinished session and resumes it instead of creating
+            // a duplicate attempt.
             await App.startActivity(activity);
             return true;
         }
         catch (error) {
             console.error(
-                "Dashboard: Continue Learning failed:",
+                "Dashboard: Activity start/resume failed:",
                 error
             );
             return false;
         }
     },
 
-    // =====================================
-    // RESUMABLE CARD
-    // =====================================
-
-    renderResumableActivity: function (data) {
-
+    // Kept for compatibility with older callers.
+    // The dashboard no longer renders a separate resumable card.
+    renderResumableActivity: function () {
         const oldCard = document.getElementById("activityResumeCard");
         if (oldCard) oldCard.remove();
-
-        if (!data) return;
-
-        const app = document.getElementById("app");
-        if (!app) return;
-
-        const card = document.createElement("section");
-        card.id = "activityResumeCard";
-        card.className = "dashboard-card activity-resume-card";
-        card.dir = "rtl";
-
-        const title = document.createElement("h2");
-        title.textContent = "▶ ادامه فعالیت";
-
-        const activityTitle = document.createElement("p");
-        activityTitle.textContent = data.activityTitle;
-
-        const description = document.createElement("p");
-        description.textContent = "آخرین وضعیت فعالیت ذخیره شده و آماده ادامه است.";
-
-        const button = document.createElement("button");
-        button.id = "activityResumeBtn";
-        button.type = "button";
-        button.textContent = "ادامه فعالیت";
-
-        button.onclick = async function () {
-
-            if (
-                typeof ActivitySessionManager === "undefined" ||
-                typeof ActivitySessionManager.resume !== "function"
-            ) {
-                console.error("ActivitySessionManager is not available.");
-                return;
-            }
-
-            button.disabled = true;
-
-            try {
-                const restored =
-                    await ActivitySessionManager.resume();
-
-                if (!restored) {
-                    button.disabled = false;
-                    console.error("Dashboard: Activity resume failed.");
-                    return;
-                }
-            }
-            catch (error) {
-                button.disabled = false;
-                console.error(
-                    "Dashboard: Activity resume threw an error:",
-                    error
-                );
-            }
-        };
-
-        card.appendChild(title);
-        card.appendChild(activityTitle);
-        card.appendChild(description);
-        card.appendChild(button);
-
-        const screen = app.querySelector(".dashboard-screen");
-
-        if (screen) {
-            screen.insertBefore(card, screen.firstChild);
-        }
-        else {
-            app.insertBefore(card, app.firstChild);
-        }
     },
 
     resolveActivityById: function (activityId) {
@@ -371,4 +298,4 @@ const DashboardController = {
 };
 
 window.DashboardController = DashboardController;
-console.log("Dashboard Controller v6.5 Ready");
+console.log("Dashboard Controller v6.6 Ready");
