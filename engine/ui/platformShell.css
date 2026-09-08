@@ -102,6 +102,76 @@
     outline-offset: 3px;
 }
 
+/* =====================================
+   Learning: Subject Selection
+   ===================================== */
+
+#app > .screen:has(> .tahouri-app-header) #subjectsContainer {
+    width: min(760px, 100%);
+    margin: 28px auto 18px;
+    padding: 0 8px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 18px;
+    justify-items: stretch;
+}
+
+#app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn {
+    position: relative;
+    min-height: 118px;
+    width: 100%;
+    padding: 28px 18px 18px;
+    border: 1px solid #dbe4ef;
+    border-radius: 22px;
+    background: linear-gradient(135deg, #ffffff 0%, #f7faff 100%);
+    color: #172033;
+    font-family: inherit;
+    font-size: clamp(18px, 2.8vw, 22px);
+    font-weight: 800;
+    line-height: 1.45;
+    text-align: center;
+    cursor: pointer;
+    box-shadow: 0 8px 24px rgba(31, 41, 55, .07);
+    transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Every subject receives an icon. Unknown/future subjects use a neutral book icon. */
+#app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn::before {
+    content: "📚";
+    display: block;
+    margin-bottom: 8px;
+    font-size: 30px;
+    line-height: 1;
+}
+
+#app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn[data-id="math"]::before {
+    content: "➗";
+}
+
+#app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn[data-id="science"]::before {
+    content: "🔬";
+}
+
+#app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn[data-id="persian"]::before {
+    content: "📖";
+}
+
+#app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn:hover {
+    transform: translateY(-2px);
+    border-color: #c7d5e5;
+    box-shadow: 0 12px 28px rgba(31, 41, 55, .10);
+}
+
+#app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn:active {
+    transform: translateY(0);
+}
+
+#app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn:focus-visible {
+    outline: 3px solid rgba(37, 99, 235, .20);
+    outline-offset: 3px;
+}
+
 @media (max-width: 520px) {
     .tahouri-app-header {
         min-height: 58px;
@@ -141,5 +211,23 @@
         min-height: 82px;
         padding: 16px 18px;
         border-radius: 19px;
+    }
+
+    #app > .screen:has(> .tahouri-app-header) #subjectsContainer {
+        grid-template-columns: 1fr;
+        gap: 14px;
+        margin-top: 22px;
+        padding: 0 4px;
+    }
+
+    #app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn {
+        min-height: 96px;
+        padding: 20px 18px 16px;
+        border-radius: 19px;
+    }
+
+    #app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn::before {
+        font-size: 27px;
+        margin-bottom: 6px;
     }
 }
