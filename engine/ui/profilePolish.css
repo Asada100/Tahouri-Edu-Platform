@@ -1,0 +1,245 @@
+/* =====================================
+   Tahouri Edu Platform
+   Profile UI Polish v1.0
+
+   Visual-only layer for the profile screen.
+   Does not change profile/settings logic.
+   ===================================== */
+
+.profile-screen {
+    direction: rtl;
+    text-align: right;
+}
+
+.profile-screen > h1 {
+    margin-bottom: 4px !important;
+}
+
+.profile-screen > p {
+    margin-top: 0 !important;
+}
+
+.profile-screen > hr {
+    border-top-color: #e6ebf2 !important;
+    margin: 22px auto !important;
+}
+
+/* -------------------------------------
+   Profile summary
+   ------------------------------------- */
+
+.profile-screen .profile-card {
+    width: min(760px, 100%);
+    margin: 18px auto;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    overflow: hidden;
+    border: 1px solid #e3e9f1;
+    border-radius: 18px;
+    background: #ffffff;
+    box-shadow: 0 6px 24px rgba(31, 41, 55, .06);
+}
+
+.profile-screen .profile-item {
+    min-width: 0;
+    padding: 20px 18px;
+    border-left: 1px solid #edf1f5;
+}
+
+.profile-screen .profile-item:last-child {
+    border-left: 0;
+}
+
+.profile-screen .profile-item h3 {
+    margin: 0 0 8px;
+    font-size: 14px;
+    line-height: 1.6;
+    font-weight: 700;
+    color: #667085;
+}
+
+.profile-screen .profile-item p {
+    margin: 0;
+    font-size: 18px;
+    line-height: 1.7;
+    font-weight: 800;
+    color: #172033;
+}
+
+/* -------------------------------------
+   The three old profile action buttons
+   are intentionally hidden for now.
+   Their underlying functionality is untouched.
+   ------------------------------------- */
+
+.profile-screen #editProfileBtn,
+.profile-screen #switchProfileBtn,
+.profile-screen #createProfileBtn {
+    display: none !important;
+}
+
+.profile-screen > hr:has(+ #editProfileBtn),
+.profile-screen #createProfileBtn + hr {
+    display: none !important;
+}
+
+/* -------------------------------------
+   Personal settings
+   ------------------------------------- */
+
+.profile-screen .profile-settings {
+    width: min(760px, 100%);
+    margin: 22px auto 0;
+    padding: 20px;
+    border: 1px solid #e3e9f1;
+    border-radius: 18px;
+    background: #ffffff;
+    box-shadow: 0 6px 24px rgba(31, 41, 55, .05);
+}
+
+.profile-screen .profile-settings h2 {
+    margin: 0 0 5px;
+    font-size: 19px;
+    line-height: 1.6;
+    font-weight: 800;
+    color: #172033;
+}
+
+.profile-screen .profile-settings > p {
+    margin: 0 0 14px;
+    color: #667085;
+    font-size: 13px;
+    line-height: 1.8;
+}
+
+.profile-screen .profile-setting-item {
+    min-height: 58px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 10px 0;
+    border-top: 1px solid #edf1f5;
+}
+
+.profile-screen .profile-setting-item label {
+    flex: 1;
+    min-width: 0;
+    font-size: 15px;
+    line-height: 1.7;
+    font-weight: 700;
+    color: #344054;
+}
+
+.profile-screen .profile-setting-item select {
+    flex: 0 0 auto;
+    min-width: 118px;
+    height: 42px;
+    padding: 0 12px;
+    border: 1px solid #d8e0ea;
+    border-radius: 12px;
+    outline: none;
+    background: #f8fafc;
+    color: #25324a;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    text-align: right;
+    direction: rtl;
+    cursor: pointer;
+    transition: border-color .18s ease, background .18s ease, box-shadow .18s ease;
+}
+
+.profile-screen .profile-setting-item select:hover {
+    border-color: #c4cfdb;
+    background: #ffffff;
+}
+
+.profile-screen .profile-setting-item select:focus {
+    border-color: #94a3b8;
+    background: #ffffff;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, .10);
+}
+
+.profile-screen #settingsMessage {
+    min-height: 22px;
+    margin-top: 8px;
+    text-align: center;
+    color: #667085;
+    font-size: 13px;
+}
+
+/* -------------------------------------
+   Navigation buttons at the bottom
+   ------------------------------------- */
+
+.profile-screen #profileDashboardBtn,
+.profile-screen #profileHomeBtn {
+    width: min(360px, 100%);
+    min-height: 46px;
+    margin: 7px auto;
+    display: block;
+    padding: 10px 16px;
+    border: 1px solid #e0e7ef;
+    border-radius: 13px;
+    background: #ffffff;
+    color: #344054;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 3px 12px rgba(31, 41, 55, .04);
+    transition: transform .18s ease, background .18s ease, border-color .18s ease;
+}
+
+.profile-screen #profileDashboardBtn:hover,
+.profile-screen #profileHomeBtn:hover {
+    transform: translateY(-1px);
+    border-color: #cbd5e1;
+    background: #f8fafc;
+}
+
+@media (max-width: 700px) {
+    .profile-screen .profile-card {
+        grid-template-columns: 1fr;
+    }
+
+    .profile-screen .profile-item {
+        padding: 15px 16px;
+        border-left: 0;
+        border-bottom: 1px solid #edf1f5;
+    }
+
+    .profile-screen .profile-item:last-child {
+        border-bottom: 0;
+    }
+
+    .profile-screen .profile-settings {
+        padding: 16px;
+    }
+
+    .profile-screen .profile-setting-item {
+        gap: 10px;
+    }
+
+    .profile-screen .profile-setting-item label {
+        font-size: 14px;
+    }
+
+    .profile-screen .profile-setting-item select {
+        min-width: 104px;
+    }
+}
+
+@media (max-width: 420px) {
+    .profile-screen .profile-setting-item {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 7px;
+    }
+
+    .profile-screen .profile-setting-item select {
+        width: 100%;
+    }
+}
