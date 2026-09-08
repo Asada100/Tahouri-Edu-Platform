@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Header Manager
-// Version 1.4
+// Version 1.5
 // =====================================
 
 const HeaderManager = {
@@ -13,7 +13,7 @@ const HeaderManager = {
 
         // Observe only screen replacement at the #app level.
         // Do NOT observe the whole subtree: HeaderManager itself adds
-        // header/banner nodes and could otherwise retrigger on every
+        // header nodes and could otherwise retrigger on every
         // internal DOM mutation made by screens or activities.
         this._observer = new MutationObserver(() => this.enhance());
         this._observer.observe(app, {
@@ -51,6 +51,134 @@ const HeaderManager = {
             !!screen.querySelector("#profileBtn");
     },
 
+    getBackConfig: function (screen) {
+        if (!screen) return null;
+
+        if (this.isHomeScreen(screen)) return null;
+
+        if (screen.querySelector("#gradesContainer")) {
+            return {
+                label: "بازگشت به خانه",
+                action: function () {
+                    if (typeof Screen !== "undefined" && typeof Screen.showHome === "function") {
+                        Screen.showHome();
+                    }
+                }
+            };
+        }
+
+        if (screen.querySelector("#subjectsContainer")) {
+            return {
+                label: "بازگشت به پایه",
+                action: function () {
+                    if (typeof Screen !== "undefined" && typeof Screen.showGrades === "function") {
+                        Screen.showGrades();
+                    }
+                }
+            };
+        }
+
+        if (screen.querySelector("#chaptersContainer")) {
+            return {
+                label: "بازگشت به درس‌ها",
+                action: function () {
+                    if (
+                        typeof Screen !== "undefined" &&
+                        typeof Screen.showSubjects === "function" &&
+                        typeof AppState !== "undefined"
+                    ) {
+                        Screen.showSubjects(AppState.grade);
+                    }
+                }
+            };
+        }
+
+        if (
+            typeof AppState !== "undefined" &&
+            AppState.chapter &&
+            !AppState.activity
+        ) {
+            return {
+                label: "بازگشت به فصل",
+                action: function () {
+                    if (
+                        typeof Screen !== "undefined" &&
+                        typeof Screen.showChapters === "function"
+                    ) {
+                        Screen.showChapters(
+                            AppState.grade,
+                            AppState.subject
+                        );
+                    }
+                }
+            };
+        }
+
+        if (
+            typeof AppState !== "undefined" &&
+            AppState.activity
+        ) {
+            return {
+                label: "بازگشت به درس‌ها",
+                action: function () {
+                    if (
+                        typeof Screen !== "undefined" &&
+                        typeof Screen.showActivities === "function"
+                    ) {
+                        Screen.showActivities(
+                            AppState.grade,
+                            AppState.subject,
+                            AppState.chapter
+                        );
+                    }
+                }
+            };
+        }
+
+        // Profile / dashboard / other platform screens return to Home.
+        return {
+            label: "بازگشت به خانه",
+            action: function () {
+                if (typeof Screen !== "undefined" && typeof Screen.showHome === "function") {
+                    Screen.showHome();
+                }
+            }
+        };
+    },
+
+    ensureBackButton: function (header, screen) {
+        let backButton = header.querySelector(".tahouri-header-back");
+        const config = this.getBackConfig(screen);
+
+        if (!config) {
+            if (backButton) backButton.remove();
+            return;
+        }
+
+        if (!backButton) {
+            backButton = document.createElement("button");
+            backButton.className = "tahouri-header-back";
+            backButton.type = "button";
+            backButton.innerHTML = "←";
+            header.appendChild(backButton);
+        }
+
+        backButton.setAttribute("aria-label", config.label);
+        backButton.title = config.label;
+        backButton.onclick = config.action;
+    },
+
+    cleanHomeActions: function (screen) {
+        if (!this.isHomeScreen(screen)) return;
+
+        // Home is now the landing area, not a second copy of Bottom Navigation.
+        // Learning, Reports and Settings already have dedicated entry points.
+        ["gradesBtn", "reportsBtn", "settingsBtn"].forEach(function (id) {
+            const button = document.getElementById(id);
+            if (button) button.remove();
+        });
+    },
+
     enhance: function () {
         const app = document.getElementById("app");
         if (!app) return;
@@ -80,9 +208,7 @@ const HeaderManager = {
 
             screen.insertBefore(header, screen.firstChild);
 
-            const notificationButton =
-                header.querySelector(".tahouri-header-notification");
-
+            const notificationButton = header.querySelector(".tahouri-header-notification");
             if (notificationButton) {
                 notificationButton.onclick = function () {
                     if (
@@ -94,9 +220,7 @@ const HeaderManager = {
                 };
             }
 
-            const menuButton =
-                header.querySelector(".tahouri-header-menu");
-
+            const menuButton = header.querySelector(".tahouri-header-menu");
             if (menuButton) {
                 menuButton.onclick = function () {
                     if (typeof ToastManager !== "undefined") {
@@ -105,6 +229,9 @@ const HeaderManager = {
                 };
             }
         }
+
+        this.cleanHomeActions(screen);
+        this.ensureBackButton(header, screen);
 
         if (this.isHomeScreen(screen)) {
             this.injectHomeBanner(screen);
@@ -191,4 +318,4 @@ if (document.readyState === "loading") {
     HeaderManager.init();
 }
 
-console.log("Header Manager v1.4 Ready");
+console.log("Header Manager v1.5 Ready");
