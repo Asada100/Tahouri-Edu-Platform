@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Header Manager
-// Version 1.7
+// Version 1.8
 // =====================================
 
 const HeaderManager = {
@@ -47,9 +47,18 @@ const HeaderManager = {
             !!screen.querySelector("#profileBtn");
     },
 
+    isProfileEditScreen: function (screen) {
+        return !!(
+            screen &&
+            screen.querySelector(".profile-edit-screen")
+        );
+    },
+
     getSectionTitle: function (screen) {
         if (!screen) return "طهوری";
         if (this.isHomeScreen(screen)) return "طهوری";
+        if (screen.querySelector(".profile-edit-screen")) return "ویرایش پروفایل";
+        if (screen.querySelector(".profile-screen")) return "پروفایل من";
         if (screen.querySelector("#gradesContainer")) return "انتخاب پایه";
         if (screen.querySelector("#subjectsContainer")) return "انتخاب درس";
         if (screen.querySelector("#chaptersContainer")) return "انتخاب فصل";
@@ -69,6 +78,20 @@ const HeaderManager = {
 
     getBackConfig: function (screen) {
         if (!screen || this.isHomeScreen(screen)) return null;
+
+        if (this.isProfileEditScreen(screen)) {
+            return {
+                label: "بازگشت به پروفایل من",
+                action: function () {
+                    if (
+                        typeof ProfileScreen !== "undefined" &&
+                        typeof ProfileScreen.show === "function"
+                    ) {
+                        ProfileScreen.show();
+                    }
+                }
+            };
+        }
 
         if (screen.querySelector("#gradesContainer")) {
             return {
@@ -338,4 +361,4 @@ if (document.readyState === "loading") {
     HeaderManager.init();
 }
 
-console.log("Header Manager v1.7 Ready");
+console.log("Header Manager v1.8 Ready");
