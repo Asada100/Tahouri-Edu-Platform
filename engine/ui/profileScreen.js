@@ -116,11 +116,6 @@ const ProfileScreen = {
 
         <div id="settingsMessage"></div>
     </div>
-
-    <hr>
-
-    <button id="profileDashboardBtn" type="button">📊 داشبورد</button>
-    <button id="profileHomeBtn" type="button">🏠 صفحه اصلی</button>
 </div>
         `;
 
@@ -134,14 +129,6 @@ const ProfileScreen = {
 
         document.getElementById("createProfileBtn").onclick = function () {
             ProfileScreen.showCreate();
-        };
-
-        document.getElementById("profileDashboardBtn").onclick = function () {
-            Navigation.openDashboard();
-        };
-
-        document.getElementById("profileHomeBtn").onclick = function () {
-            Screen.showHome();
         };
 
         this.bindSettings();
@@ -270,10 +257,6 @@ const ProfileScreen = {
             }).join("")
         }
     </div>
-
-    <button id="backToProfileBtn" type="button">
-        ↩ بازگشت
-    </button>
 </div>
         `;
 
@@ -286,10 +269,6 @@ const ProfileScreen = {
                 ProfileScreen.show();
             };
         });
-
-        document.getElementById("backToProfileBtn").onclick = function () {
-            ProfileScreen.show();
-        };
 
         console.log("Profile List Displayed:", profiles);
     },
@@ -353,7 +332,7 @@ const ProfileScreen = {
             }
 
             try {
-                const profile = ProfileManager.create({ name: name, grade: grade });
+                const profile = ProfileManager.createProfile({ name: name, grade: grade });
 
                 if (!profile) {
                     message.innerHTML = "⚠ ایجاد پروفایل انجام نشد.";
