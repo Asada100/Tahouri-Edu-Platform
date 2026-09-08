@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Bottom Navigation Manager
-// Version 1.1
+// Version 1.2
 // Fixed app-level navigation shell
 // =====================================
 
@@ -46,7 +46,7 @@ const BottomNavigation = {
         this.initialized = true;
         this.updateActive();
 
-        console.log("Bottom Navigation v1.1 Ready");
+        console.log("Bottom Navigation v1.2 Ready");
     },
 
     bind: function (nav) {
@@ -109,37 +109,43 @@ const BottomNavigation = {
         const app = document.getElementById("app");
         if (!nav || !app) return;
 
-        let active = "home";
+        // Important: not every screen belongs to a Bottom Navigation destination.
+        // Dashboard is a secondary destination opened from Home, so it must not
+        // activate Learning (or any other primary destination).
+        let active = null;
         const screen = app.querySelector(":scope > .screen");
 
         if (screen) {
-            // Home must be detected first because the original Home screen
-            // also contains buttons whose labels match other destinations.
-            if (
+            if (screen.classList.contains("dashboard-screen")) {
+                active = null;
+            } else if (
                 screen.querySelector("#gradesBtn") &&
                 screen.querySelector("#profileBtn")
             ) {
+                // Home must be detected before generic report/learning selectors.
                 active = "home";
             } else if (
+                screen.querySelector(".report") ||
                 screen.querySelector("[class*='report']") ||
                 screen.querySelector("[id*='report']")
             ) {
                 active = "reports";
             } else if (
+                screen.querySelector("#gradesContainer") ||
+                screen.querySelector("#subjectsContainer") ||
+                screen.querySelector("#chaptersContainer") ||
+                screen.querySelector("#activityList") ||
                 screen.querySelector("[id*='quiz']") ||
                 screen.querySelector("[id*='memory']") ||
                 screen.querySelector("[id*='puzzle']") ||
-                screen.querySelector("[id*='activity']") ||
-                screen.querySelector("#gradesContainer") ||
-                screen.querySelector("#subjectsContainer") ||
-                screen.querySelector("#chaptersContainer")
+                screen.querySelector("[id*='activity']")
             ) {
                 active = "learning";
             }
         }
 
         nav.querySelectorAll("[data-nav]").forEach(function (button) {
-            const isActive = button.dataset.nav === active;
+            const isActive = active !== null && button.dataset.nav === active;
             button.classList.toggle("is-active", isActive);
             button.setAttribute("aria-current", isActive ? "page" : "false");
         });
