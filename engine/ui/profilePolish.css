@@ -1,6 +1,6 @@
 /* =====================================
    Tahouri Edu Platform
-   Profile UI Polish v1.0
+   Profile UI Polish v1.1
 
    Visual-only layer for the profile screen.
    Does not change profile/settings logic.
@@ -23,10 +23,6 @@
     border-top-color: #e6ebf2 !important;
     margin: 22px auto !important;
 }
-
-/* -------------------------------------
-   Profile summary
-   ------------------------------------- */
 
 .profile-screen .profile-card {
     width: min(760px, 100%);
@@ -68,20 +64,21 @@
 }
 
 /* -------------------------------------
-   The three old profile action buttons
-   are intentionally hidden for now.
-   Their underlying functionality is untouched.
+   Profile actions
+   Keep the three profile-management actions.
+   Hide only the redundant navigation buttons
+   already provided by the fixed bottom navigation.
    ------------------------------------- */
+
+.profile-screen #profileDashboardBtn,
+.profile-screen #profileHomeBtn {
+    display: none !important;
+}
 
 .profile-screen #editProfileBtn,
 .profile-screen #switchProfileBtn,
 .profile-screen #createProfileBtn {
-    display: none !important;
-}
-
-.profile-screen > hr:has(+ #editProfileBtn),
-.profile-screen #createProfileBtn + hr {
-    display: none !important;
+    display: inline-flex !important;
 }
 
 /* -------------------------------------
@@ -168,36 +165,6 @@
     text-align: center;
     color: #667085;
     font-size: 13px;
-}
-
-/* -------------------------------------
-   Navigation buttons at the bottom
-   ------------------------------------- */
-
-.profile-screen #profileDashboardBtn,
-.profile-screen #profileHomeBtn {
-    width: min(360px, 100%);
-    min-height: 46px;
-    margin: 7px auto;
-    display: block;
-    padding: 10px 16px;
-    border: 1px solid #e0e7ef;
-    border-radius: 13px;
-    background: #ffffff;
-    color: #344054;
-    font-family: inherit;
-    font-size: 15px;
-    font-weight: 700;
-    cursor: pointer;
-    box-shadow: 0 3px 12px rgba(31, 41, 55, .04);
-    transition: transform .18s ease, background .18s ease, border-color .18s ease;
-}
-
-.profile-screen #profileDashboardBtn:hover,
-.profile-screen #profileHomeBtn:hover {
-    transform: translateY(-1px);
-    border-color: #cbd5e1;
-    background: #f8fafc;
 }
 
 @media (max-width: 700px) {
