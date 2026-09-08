@@ -1,16 +1,12 @@
 /* =====================================
    Tahouri Edu Platform
-   UI Foundation v2.2
+   UI Foundation v2.1
 
    IMPORTANT:
    - Platform UI styles are scoped.
    - Activity/game screens are not given platform cards/layout.
    - Quiz / Memory / Puzzle visual systems remain isolated.
    ===================================== */
-
-/* -------------------------------------
-   Base document
-   ------------------------------------- */
 
 html,
 body {
@@ -41,9 +37,6 @@ body {
     padding: 0;
 }
 
-/* Keep the generic screen from becoming wider than the viewport.
-   This is only a sizing/alignment safeguard; activity-specific
-   visual rules remain untouched. */
 #app > .screen {
     width: 100%;
     max-width: 100%;
@@ -52,18 +45,11 @@ body {
     margin-right: auto;
 }
 
-/* -------------------------------------
-   Platform screen shell
-   HeaderManager adds the header only to
-   non-activity screens. Therefore this
-   selector deliberately depends on it.
-   ------------------------------------- */
-
 #app > .screen:has(> .tahouri-app-header) {
     width: min(920px, 100%);
     min-height: calc(100vh - 76px);
     margin: 0 auto;
-    padding: 0 18px 28px;
+    padding: 0 18px 40px;
     direction: rtl;
 }
 
@@ -96,10 +82,6 @@ body {
 #app > .screen:has(> .tahouri-app-header) > .tahouri-home-banner {
     width: min(760px, 100%);
 }
-
-/* -------------------------------------
-   Header
-   ------------------------------------- */
 
 .tahouri-app-header,
 .tahouri-app-header *,
@@ -201,10 +183,6 @@ body {
     font-weight: 700;
 }
 
-/* -------------------------------------
-   Home buttons
-   ------------------------------------- */
-
 #app > .screen:has(> .tahouri-app-header) .home-buttons {
     width: min(760px, 100%);
     margin: 24px auto 0;
@@ -244,10 +222,6 @@ body {
     cursor: not-allowed;
     transform: none;
 }
-
-/* -------------------------------------
-   Daily message
-   ------------------------------------- */
 
 #app > .screen:has(> .tahouri-app-header) .daily-message-home {
     width: min(760px, 100%);
@@ -318,10 +292,6 @@ body {
     transform: none;
 }
 
-/* -------------------------------------
-   Home banner
-   ------------------------------------- */
-
 .tahouri-home-banner {
     width: min(760px, 100%);
     margin: 16px auto;
@@ -360,11 +330,120 @@ body {
     color: #667085;
 }
 
+.tahouri-home-banner-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.tahouri-home-banner-actions button {
+    border: 0;
+    border-radius: 11px;
+    padding: 9px 14px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.notification-center-screen {
+    width: min(900px, 100%);
+    direction: rtl;
+    margin: 0 auto;
+    padding: 24px 20px 40px;
+}
+
+.notification-center-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 18px;
+}
+
+.notification-center-header h1 {
+    flex: 1;
+    margin: 0;
+    font-size: 22px;
+}
+
+.notification-center-header button {
+    border: 0;
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.notification-item {
+    width: 100%;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 0 0 10px;
+    padding: 14px;
+    text-align: right;
+    direction: rtl;
+    border: 1px solid rgba(0, 0, 0, .08);
+    border-radius: 14px;
+    background: white;
+    cursor: pointer;
+}
+
+.notification-item.notification-unread {
+    border-width: 2px;
+}
+
+.notification-item-icon { font-size: 24px; }
+.notification-item-content { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.notification-item-content span { line-height: 1.7; }
+.notification-item-content small { opacity: .6; }
+.notification-dot {
+    width: 9px;
+    height: 9px;
+    margin-top: 7px;
+    border-radius: 50%;
+    background: #d32f2f;
+}
+
+.notification-empty {
+    padding: 40px 20px;
+    text-align: center;
+    opacity: .7;
+}
+
+.tahouri-toast-container {
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    bottom: 18px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    pointer-events: none;
+}
+
+.tahouri-toast {
+    max-width: min(520px, 100%);
+    padding: 11px 16px;
+    border-radius: 12px;
+    background: rgba(30, 30, 30, .94);
+    color: white;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, .18);
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity .25s ease, transform .25s ease;
+}
+
+.tahouri-toast.is-hiding {
+    opacity: 0;
+    transform: translateY(8px);
+}
+
 /* -------------------------------------
    Fixed bottom navigation
-   Five compact primary destinations.
-   This is deliberately outside #app so
-   Screen.show*() cannot remove it.
    ------------------------------------- */
 
 .tahouri-bottom-navigation,
@@ -442,6 +521,42 @@ body {
     font-weight: 700;
 }
 
+@media (max-width: 700px) {
+    #app > .screen:has(> .tahouri-app-header) {
+        padding: 0 12px 28px;
+    }
+
+    #app > .screen:has(> .tahouri-app-header) > h1 {
+        margin-top: 24px;
+        font-size: 25px;
+    }
+
+    #app > .screen:has(> .tahouri-app-header) .home-buttons {
+        grid-template-columns: 1fr;
+        gap: 10px;
+        margin-top: 20px;
+    }
+
+    #app > .screen:has(> .tahouri-app-header) .home-buttons button {
+        min-height: 62px;
+        font-size: 16px;
+    }
+
+    #app > .screen:has(> .tahouri-app-header) .daily-message-home {
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 11px;
+        padding: 15px;
+    }
+
+    .daily-message-home button {
+        grid-column: 1 / -1;
+    }
+
+    .tahouri-home-banner-row {
+        align-items: flex-start;
+    }
+}
+
 @media (min-width: 700px) {
     .tahouri-bottom-navigation {
         width: min(680px, calc(100% - 32px));
@@ -485,11 +600,43 @@ body {
     }
 }
 
+@media (max-width: 430px) {
+    .tahouri-app-header {
+        min-height: 58px;
+        padding-inline: 5px;
+    }
+
+    .tahouri-header-brand {
+        font-size: 17px;
+    }
+
+    .tahouri-header-side,
+    .tahouri-header-notification,
+    .tahouri-header-menu,
+    .tahouri-header-notification {
+        width: 40px;
+        min-width: 40px;
+        height: 40px;
+    }
+
+    #app > .screen:has(> .tahouri-app-header) .daily-message-home-icon {
+        width: 46px;
+        height: 46px;
+        font-size: 25px;
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
-    .tahouri-bottom-nav-item,
+    .tahouri-header-menu,
+    .tahouri-header-notification,
+    #app > .screen:has(> .tahouri-app-header) .home-buttons button,
+    .daily-message-home button,
+    .tahouri-bottom-nav-item {
+        transition: none;
+    }
+
     .tahouri-bottom-nav-item:active,
     .tahouri-bottom-nav-item:hover {
-        transition: none;
         transform: none;
     }
 }
