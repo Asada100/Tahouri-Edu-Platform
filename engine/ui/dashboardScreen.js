@@ -1,24 +1,22 @@
 // =====================================
 // Tahouri Edu Platform
-// Dashboard Screen v10.2
+// Dashboard Screen v11.0
 //
+// Lightweight Dashboard
 // Persian Learning Calendar
-// Compact Calendar Grid
-// Clickable Calendar Grid
-// Daily Report Page
+// Single Continue Activity card
+// Cultural / historical ticker is provided by DashboardPolish
 //
-// IMPORTANT:
-// - No external CSS required
-// - Does not modify DailyLearningStreak
-// - Does not modify StatisticsManager
-// - Does not modify ProgressManager
-// - Does not modify ContentLockManager
-// - Single Continue Activity card
+// Removed legacy dashboard actions and daily-report screen.
 // =====================================
 
 const DashboardScreen = {
 
     calendarState: null,
+
+    // =====================================
+    // DATE HELPERS
+    // =====================================
 
     dateKey: function (date) {
         return (
@@ -42,38 +40,16 @@ const DashboardScreen = {
             ).formatToParts(date);
 
             const result = {};
-
             parts.forEach(function (part) {
-                if (
-                    part.type === "year" ||
-                    part.type === "month" ||
-                    part.type === "day"
-                ) {
+                if (part.type === "year" || part.type === "month" || part.type === "day") {
                     result[part.type] = Number(part.value);
                 }
             });
-
             return result;
         }
         catch (error) {
             console.error("Persian Date Error:", error);
             return null;
-        }
-    },
-
-    pdate: function (date) {
-        try {
-            return new Intl.DateTimeFormat(
-                "fa-IR-u-ca-persian",
-                {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric"
-                }
-            ).format(date);
-        }
-        catch (error) {
-            return "";
         }
     },
 
@@ -83,40 +59,32 @@ const DashboardScreen = {
             "مرداد", "شهریور", "مهر", "آبان",
             "آذر", "دی", "بهمن", "اسفند"
         ];
-
         return months[month - 1] || "";
     },
 
-    pweekday: function (date) {
-        const days = [
-            "یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه",
-            "پنجشنبه", "جمعه", "شنبه"
-        ];
-
-        return days[date.getDay()] || "";
+    getState: function () {
+        const parts = this.pparts(new Date());
+        return parts
+            ? { year: parts.year, month: parts.month }
+            : { year: 1405, month: 6 };
     },
 
     findMonthStart: function (year, month) {
         const now = new Date();
         const current = this.pparts(now);
-
         if (!current) return null;
 
-        let approximate = new Date(now);
-        const yearDifference = year - current.year;
-        const monthDifference = month - current.month;
-
+        const approximate = new Date(now);
         approximate.setDate(
             approximate.getDate() +
-            (yearDifference * 365) +
-            (monthDifference * 30) -
+            ((year - current.year) * 365) +
+            ((month - current.month) * 30) -
             (current.day - 1)
         );
 
         for (let offset = -45; offset <= 45; offset++) {
             const candidate = new Date(approximate);
             candidate.setDate(candidate.getDate() + offset);
-
             const parts = this.pparts(candidate);
 
             if (
@@ -134,10 +102,7 @@ const DashboardScreen = {
 
     monthDays: function (year, month) {
         const start = this.findMonthStart(year, month);
-
-        if (!start) {
-            return month <= 6 ? 31 : 30;
-        }
+        if (!start) return month <= 6 ? 31 : 30;
 
         const nextYear = month === 12 ? year + 1 : year;
         const nextMonth = month === 12 ? 1 : month + 1;
@@ -152,18 +117,9 @@ const DashboardScreen = {
         return Math.round((next - start) / 86400000);
     },
 
-    getState: function () {
-        const parts = this.pparts(new Date());
-
-        if (!parts) {
-            return { year: 1405, month: 6 };
-        }
-
-        return {
-            year: parts.year,
-            month: parts.month
-        };
-    },
+    // =====================================
+    // LEARNING DATA
+    // =====================================
 
     getDayData: function (key) {
         try {
@@ -177,9 +133,12 @@ const DashboardScreen = {
         catch (error) {
             console.error("Daily Learning Streak getDay Error:", error);
         }
-
         return null;
     },
+
+    // =====================================
+    // CALENDAR
+    // =====================================
 
     calendar: function () {
         const state = this.calendarState || this.getState();
@@ -189,21 +148,17 @@ const DashboardScreen = {
         const total = this.monthDays(state.year, state.month);
 
         if (!first) {
-            return `
-                <div class="learning-calendar-error">
-                    خطا در نمایش تقویم
-                </div>
-            `;
+            return '<div class="learning-calendar-error">خطا در نمایش تقویم</div>';
         }
 
         let cells = "";
         const lead = (first.getDay() + 1) % 7;
 
         for (let i = 0; i < lead; i++) {
-            cells += `
-                <div class="learning-calendar-cell empty-cell"></div>
-            `;
+            cells += '<div class="learning-calendar-cell empty-cell"></div>';
         }
+
+        const todayKey = this.dateKey(new Date());
 
         for (let dayNumber = 1; dayNumber <= total; dayNumber++) {
             const date = new Date(first);
@@ -212,7 +167,7 @@ const DashboardScreen = {
             const key = this.dateKey(date);
             const day = this.getDayData(key);
             const status = day && day.status ? day.status : "empty";
-            const today = key === this.dateKey(new Date());
+            const today = key === todayKey;
 
             let icon = "";
             if (status === "completed") icon = "🔥";
@@ -220,31 +175,21 @@ const DashboardScreen = {
             else if (status === "freeze") icon = "❄️";
 
             let classes = "learning-calendar-cell";
-
             if (status === "completed") classes += " calendar-completed";
             else if (status === "partial") classes += " calendar-partial";
             else if (status === "freeze") classes += " calendar-freeze";
             else classes += " calendar-empty";
-
             if (today) classes += " calendar-today";
 
             const activityCount = Number(day?.activityCount || 0);
 
             cells += `
-                <div
-                    class="${classes}"
-                    data-learning-date="${key}"
-                    role="button"
-                    tabindex="0"
-                    title="گزارش ${dayNumber} ${this.pmonth(state.month)}"
-                >
+                <div class="${classes}">
                     <span class="calendar-day-number">${dayNumber}</span>
                     <span class="calendar-day-icon">${icon}</span>
-                    ${
-                        activityCount > 0
-                            ? `<span class="calendar-day-count">${activityCount}</span>`
-                            : ""
-                    }
+                    ${activityCount > 0
+                        ? `<span class="calendar-day-count">${activityCount}</span>`
+                        : ""}
                 </div>
             `;
         }
@@ -260,18 +205,10 @@ const DashboardScreen = {
             </div>
 
             <div class="learning-calendar-weekdays">
-                <span>ش</span>
-                <span>ی</span>
-                <span>د</span>
-                <span>س</span>
-                <span>چ</span>
-                <span>پ</span>
-                <span>ج</span>
+                <span>ش</span><span>ی</span><span>د</span><span>س</span><span>چ</span><span>پ</span><span>ج</span>
             </div>
 
-            <div class="learning-calendar-grid">
-                ${cells}
-            </div>
+            <div class="learning-calendar-grid">${cells}</div>
 
             <div class="learning-calendar-legend">
                 <span>🔥 فعالیت کامل</span>
@@ -281,16 +218,18 @@ const DashboardScreen = {
         `;
     },
 
+    // =====================================
+    // SHOW DASHBOARD
+    // =====================================
+
     show: function (data) {
         const app = document.getElementById("app");
-
         if (!app) {
             console.error("App Container Not Found");
             return;
         }
 
         data = data || {};
-
         const overall = data.overall || {};
         const continueLearning = data.continueLearning || {};
 
@@ -301,36 +240,26 @@ const DashboardScreen = {
                 : {};
 
         const studentName = profile.name || "دانش‌آموز";
-
         const gradeTitles = {
-            grade1: "پایه اول",
-            grade2: "پایه دوم",
-            grade3: "پایه سوم",
-            grade4: "پایه چهارم",
-            grade5: "پایه پنجم",
-            grade6: "پایه ششم",
-            grade7: "پایه هفتم",
-            grade8: "پایه هشتم",
-            grade9: "پایه نهم"
+            grade1: "پایه اول", grade2: "پایه دوم", grade3: "پایه سوم",
+            grade4: "پایه چهارم", grade5: "پایه پنجم", grade6: "پایه ششم",
+            grade7: "پایه هفتم", grade8: "پایه هشتم", grade9: "پایه نهم"
         };
+        const gradeTitle = gradeTitles[profile.grade] || profile.grade || "";
 
-        const gradeTitle =
-            gradeTitles[profile.grade] ||
-            profile.grade ||
-            "";
-
-        const totalActivities = Number(overall.totalActivities || 0);
+        const totalActivities = Number(
+            data.totalGradeActivities ?? overall.totalActivities ?? 0
+        );
+        const completedCount = Number(data.completedCount || 0);
+        const progressPercentage = Number(data.progressPercentage || 0);
 
         let streak = 0;
-
         try {
             if (
                 window.DailyLearningStreak &&
                 typeof window.DailyLearningStreak.getCurrentStreak === "function"
             ) {
-                streak = Number(
-                    window.DailyLearningStreak.getCurrentStreak() || 0
-                );
+                streak = Number(window.DailyLearningStreak.getCurrentStreak() || 0);
             }
         }
         catch (error) {
@@ -339,25 +268,12 @@ const DashboardScreen = {
 
         this.calendarState = null;
 
-        const hasContinueActivity =
-            !!(
-                continueLearning &&
-                continueLearning.activityId
-            );
-
-        const isResume =
-            continueLearning.mode === "resume";
-
         app.innerHTML = `
             <div class="screen dashboard-screen">
 
                 <div class="dashboard-welcome">
                     <h1>👋 سلام ${studentName}</h1>
-                    ${
-                        gradeTitle
-                            ? `<p>🎓 ${gradeTitle}</p>`
-                            : ""
-                    }
+                    ${gradeTitle ? `<p>🎓 ${gradeTitle}</p>` : ""}
                 </div>
 
                 <hr>
@@ -366,16 +282,10 @@ const DashboardScreen = {
                     <div class="learning-calendar-heading">
                         <div>
                             <h2>📅 تقویم مسیر یادگیری</h2>
-                            <p>
-                                برای دیدن گزارش هر روز،
-                                روی خانه همان روز کلیک کن.
-                            </p>
+                            <p>تقویم فعالیت‌های یادگیری</p>
                         </div>
-
                         <div class="streak-badge">
-                            🔥
-                            <strong>${streak}</strong>
-                            <span>روز</span>
+                            🔥 <strong>${streak}</strong> <span>روز</span>
                         </div>
                     </div>
 
@@ -384,104 +294,58 @@ const DashboardScreen = {
                     </div>
                 </div>
 
-                <!-- ========================= -->
-                <!-- SINGLE CONTINUE ACTIVITY -->
-                <!-- ========================= -->
-
-                <div class="dashboard-card dashboard-continue-card">
+                <div class="dashboard-card">
                     <h2>🧭 ادامه مسیر من</h2>
 
-                    ${
-                        hasContinueActivity
-                            ? `
-                                <div class="dashboard-next-learning">
-                                    <span>${isResume ? "▶" : "🎯"}</span>
-                                    <div>
-                                        <strong>
-                                            ${
-                                                continueLearning.activityTitle ||
-                                                "فعالیت بعدی"
-                                            }
-                                        </strong>
+                    ${continueLearning && continueLearning.activityId
+                        ? `
+                            <div class="dashboard-next-learning">
+                                <span>🎯</span>
+                                <div>
+                                    <strong>${continueLearning.activityTitle || "فعالیت بعدی"}</strong>
+                                    ${continueLearning.subject
+                                        ? `<small>${this.subjectTitle(continueLearning.subject)}</small>`
+                                        : ""}
+                                </div>
+                            </div>
 
-                                        ${
-                                            continueLearning.subject
-                                                ? `
-                                                    <small>
-                                                        ${this.subjectTitle(
-                                                            continueLearning.subject
-                                                        )}
-                                                    </small>
-                                                `
-                                                : ""
-                                        }
-                                    </div>
-                                </div>
-
-                                <div
-                                    id="dashboardContinueBtn"
-                                    class="dashboard-small-action"
-                                    role="button"
-                                    tabindex="0"
-                                >
-                                    ${
-                                        isResume
-                                            ? "▶️ ادامه فعالیت"
-                                            : "▶️ شروع فعالیت بعدی"
-                                    }
-                                </div>
-                            `
-                            : `
-                                <div class="dashboard-empty">
-                                    🎉 مسیر فعلی را کامل کردی!
-                                </div>
-                            `
-                    }
+                            <div id="dashboardContinueBtn" class="dashboard-small-action" role="button" tabindex="0">
+                                ▶️ ${continueLearning.mode === "resume" ? "ادامه فعالیت" : "شروع فعالیت بعدی"}
+                            </div>
+                        `
+                        : `
+                            <div class="dashboard-empty">🎉 مسیر فعلی را کامل کردی!</div>
+                        `}
                 </div>
 
                 <div class="dashboard-card">
                     <h2>💬 یک جمله برای تو</h2>
                     <div class="dashboard-message">
                         <span>🚀</span>
-                        <p>
-                            قدم‌به‌قدم داری جلو می‌ری.
-                            با همین تمرکز ادامه بده!
-                        </p>
+                        <p>قدم‌به‌قدم داری جلو می‌ری. با همین تمرکز ادامه بده!</p>
                     </div>
                 </div>
 
                 <div class="dashboard-card">
                     <h2>🏅 وضعیت من</h2>
                     <p>
-                        تا اینجا
-                        <strong>${totalActivities}</strong>
-                        بار در فعالیت‌هایت تلاش کرده‌ای.
+                        ${completedCount} فعالیت از ${totalActivities} فعالیت کامل شده است.
+                        <strong>${progressPercentage}%</strong>
                     </p>
                 </div>
 
-                <hr>
-
-                <div class="dashboard-actions">
-                    <div id="dashboardReportsBtn" class="dashboard-action-item" role="button" tabindex="0">
-                        📈 <span>گزارش عملکرد</span>
-                    </div>
-
-                    <div id="dashboardGradesBtn" class="dashboard-action-item" role="button" tabindex="0">
-                        🎓 <span>انتخاب پایه</span>
-                    </div>
-
-                    <div id="dashboardHomeBtn" class="dashboard-action-item" role="button" tabindex="0">
-                        🏠 <span>صفحه اصلی</span>
-                    </div>
-                </div>
             </div>
         `;
 
-        this.styles();
         this.bind(continueLearning);
+        this.styles();
 
-        console.log("Dashboard Screen v10.2 Ready");
+        console.log("Dashboard Screen v11.0 Ready");
     },
+
+    // =====================================
+    // SUBJECT TITLE
+    // =====================================
 
     subjectTitle: function (subject) {
         const titles = {
@@ -493,22 +357,18 @@ const DashboardScreen = {
             arabic: "عربی",
             english: "زبان انگلیسی"
         };
-
         return titles[subject] || subject || "";
     },
+
+    // =====================================
+    // EVENTS
+    // =====================================
 
     bind: function (continueLearning) {
         const calendar = document.getElementById("learningCalendarContainer");
 
         if (calendar) {
             calendar.onclick = function (event) {
-                const day = event.target.closest("[data-learning-date]");
-
-                if (day) {
-                    DashboardScreen.showDailyReport(day.dataset.learningDate);
-                    return;
-                }
-
                 const previous = event.target.closest("#learningCalendarPrev");
                 if (previous) {
                     DashboardScreen.changeMonth(-1);
@@ -516,39 +376,24 @@ const DashboardScreen = {
                 }
 
                 const next = event.target.closest("#learningCalendarNext");
-                if (next) {
-                    DashboardScreen.changeMonth(1);
-                }
+                if (next) DashboardScreen.changeMonth(1);
             };
 
             calendar.onkeydown = function (event) {
                 if (event.key !== "Enter" && event.key !== " ") return;
 
                 const target = event.target.closest(
-                    "[data-learning-date], #learningCalendarPrev, #learningCalendarNext"
+                    "#learningCalendarPrev, #learningCalendarNext"
                 );
-
                 if (!target) return;
+
                 event.preventDefault();
-
-                if (target.dataset && target.dataset.learningDate) {
-                    DashboardScreen.showDailyReport(target.dataset.learningDate);
-                    return;
-                }
-
-                if (target.id === "learningCalendarPrev") {
-                    DashboardScreen.changeMonth(-1);
-                    return;
-                }
-
-                if (target.id === "learningCalendarNext") {
-                    DashboardScreen.changeMonth(1);
-                }
+                if (target.id === "learningCalendarPrev") DashboardScreen.changeMonth(-1);
+                else DashboardScreen.changeMonth(1);
             };
         }
 
         const continueButton = document.getElementById("dashboardContinueBtn");
-
         if (continueButton) {
             continueButton.onclick = function () {
                 if (
@@ -558,126 +403,198 @@ const DashboardScreen = {
                     window.DashboardController.continueLearning(continueLearning);
                 }
             };
-        }
 
-        const reports = document.getElementById("dashboardReportsBtn");
-
-        if (reports) {
-            reports.onclick = function () {
-                if (
-                    window.ReportsController &&
-                    typeof window.ReportsController.open === "function"
-                ) {
-                    window.ReportsController.open();
-                }
-            };
-        }
-
-        const grades = document.getElementById("dashboardGradesBtn");
-
-        if (grades) {
-            grades.onclick = function () {
-                if (
-                    window.Screen &&
-                    typeof window.Screen.showGrades === "function"
-                ) {
-                    window.Screen.showGrades();
-                }
-            };
-        }
-
-        const home = document.getElementById("dashboardHomeBtn");
-
-        if (home) {
-            home.onclick = function () {
-                if (
-                    window.Screen &&
-                    typeof window.Screen.showHome === "function"
-                ) {
-                    window.Screen.showHome();
+            continueButton.onkeydown = function (event) {
+                if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    continueButton.click();
                 }
             };
         }
     },
 
+    // =====================================
+    // CHANGE MONTH
+    // =====================================
+
     changeMonth: function (step) {
         const state = this.calendarState || this.getState();
-
         state.month += step;
 
         if (state.month < 1) {
             state.month = 12;
             state.year--;
         }
-
-        if (state.month > 12) {
+        else if (state.month > 12) {
             state.month = 1;
             state.year++;
         }
 
         this.calendarState = state;
-
         const container = document.getElementById("learningCalendarContainer");
-
-        if (container) {
-            container.innerHTML = this.calendar();
-        }
-
-        this.bind(this.currentContinueLearning || {});
+        if (container) container.innerHTML = this.calendar();
     },
 
-    showDailyReport: function (dateKey) {
-        if (
-            window.DailyLearningStreak &&
-            typeof window.DailyLearningStreak.getDay === "function"
-        ) {
-            const day = window.DailyLearningStreak.getDay(dateKey) || {};
-
-            const report = document.createElement("div");
-            report.className = "daily-report-overlay";
-            report.dir = "rtl";
-
-            report.innerHTML = `
-                <div class="daily-report-card">
-                    <button type="button" class="daily-report-close">×</button>
-                    <h2>گزارش روزانه</h2>
-                    <p>${dateKey}</p>
-                    <p>فعالیت‌ها: ${Number(day.activityCount || 0)}</p>
-                </div>
-            `;
-
-            report.querySelector(".daily-report-close").onclick = function () {
-                report.remove();
-            };
-
-            document.body.appendChild(report);
-        }
-    },
+    // =====================================
+    // INLINE STYLES
+    // =====================================
 
     styles: function () {
-        if (document.getElementById("dashboardScreenStyles")) return;
+        const styleId = "tahouriDashboardV11Styles";
+        const old = document.getElementById(styleId);
+        if (old) old.remove();
 
         const style = document.createElement("style");
-        style.id = "dashboardScreenStyles";
+        style.id = styleId;
         style.textContent = `
-            .dashboard-continue-card {
-                position: relative;
+            .learning-calendar-card { overflow: hidden; }
+            .learning-calendar-heading {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 15px;
             }
-
-            .dashboard-continue-card .dashboard-small-action {
+            .learning-calendar-heading h2 { margin: 0 0 5px; }
+            .learning-calendar-heading p { margin: 0; opacity: .65; font-size: 13px; }
+            .streak-badge {
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                padding: 7px 11px;
+                border-radius: 12px;
+                background: #fff3e0;
+                font-size: 13px;
+                white-space: nowrap;
+            }
+            .streak-badge strong { font-size: 16px; }
+            #learningCalendarContainer { width: 100%; max-width: 430px; margin: 0 auto; }
+            .learning-calendar-header {
+                display: grid;
+                grid-template-columns: 34px 1fr 34px;
+                align-items: center;
+                width: 100%;
+                margin: 16px 0 10px;
+            }
+            .calendar-month-title { text-align: center; font-weight: bold; font-size: 17px; }
+            .calendar-month-title span { margin-right: 5px; }
+            .calendar-month-arrow {
+                width: 28px;
+                height: 28px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 8px;
+                background: #f1f3f5;
                 cursor: pointer;
                 user-select: none;
+                font-size: 20px;
+                line-height: 1;
             }
-
-            .dashboard-continue-card .dashboard-small-action:focus {
-                outline: 2px solid currentColor;
-                outline-offset: 3px;
+            .calendar-month-arrow:hover { background: #e4e7eb; }
+            .learning-calendar-weekdays,
+            .learning-calendar-grid {
+                display: grid;
+                grid-template-columns: repeat(7, minmax(0, 1fr));
+                gap: 5px;
+                width: 100%;
+            }
+            .learning-calendar-weekdays {
+                margin-bottom: 5px;
+                text-align: center;
+                font-size: 11px;
+                opacity: .6;
+            }
+            .learning-calendar-cell {
+                position: relative;
+                width: 100%;
+                height: 48px;
+                box-sizing: border-box;
+                border: 1px solid #e1e4e8;
+                border-radius: 9px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                user-select: none;
+                background: #fff;
+            }
+            .empty-cell { border: 0; background: transparent; }
+            .calendar-day-number { font-size: 14px; font-weight: 600; line-height: 16px; }
+            .calendar-day-icon { height: 17px; line-height: 17px; font-size: 14px; }
+            .calendar-day-count {
+                position: absolute;
+                top: 3px;
+                left: 4px;
+                min-width: 13px;
+                height: 13px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 8px;
+                border-radius: 50%;
+                background: #eee;
+            }
+            .calendar-completed { background: #fff8df; border-color: #e7c75c; }
+            .calendar-partial { background: #eef7ff; border-color: #9dccf5; }
+            .calendar-freeze { background: #f4f7f9; border-color: #d8dfe5; }
+            .calendar-empty { background: #fff; }
+            .calendar-today { box-shadow: inset 0 0 0 2px #7c4dff; }
+            .learning-calendar-legend {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                gap: 12px;
+                flex-wrap: wrap;
+                width: 100%;
+                margin-top: 10px;
+                font-size: 10px;
+                opacity: .75;
+            }
+            .learning-calendar-error { text-align: center; padding: 20px; color: #b00020; }
+            .dashboard-next-learning {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 10px;
+                margin: 10px 0;
+            }
+            .dashboard-next-learning > span { font-size: 24px; }
+            .dashboard-next-learning strong { display: block; }
+            .dashboard-next-learning small { display: block; margin-top: 3px; opacity: .65; }
+            .dashboard-small-action {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                padding: 7px 12px;
+                margin-top: 8px;
+                border-radius: 8px;
+                background: #f1f3f5;
+                cursor: pointer;
+                font-size: 13px;
+                user-select: none;
+            }
+            .dashboard-small-action:hover { background: #e5e7ea; }
+            .dashboard-message {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-direction: column;
+                gap: 10px;
+            }
+            .dashboard-message span { font-size: 25px; }
+            .dashboard-message p { margin: 0; }
+            @media (max-width: 700px) {
+                .learning-calendar-heading { align-items: flex-start; flex-direction: column; }
+                #learningCalendarContainer { max-width: 100%; }
+                .learning-calendar-cell { height: 43px; border-radius: 7px; }
+                .calendar-day-number, .calendar-day-icon { font-size: 12px; }
+                .learning-calendar-weekdays { font-size: 9px; }
+                .learning-calendar-legend { font-size: 9px; }
             }
         `;
-
         document.head.appendChild(style);
     }
 };
 
 window.DashboardScreen = DashboardScreen;
-console.log("Dashboard Screen v10.2 Ready");
+console.log("Dashboard Screen v11.0 Ready");
