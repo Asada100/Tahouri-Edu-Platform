@@ -44,8 +44,15 @@
     text-overflow: ellipsis;
 }
 
-/* The header is the shell; content begins beneath it without a second
-   large platform title competing with the header identity. */
+/* Back navigation now lives in the fixed header, not inside the middle content. */
+#app > .screen:has(> .tahouri-app-header) #backHomeBtn,
+#app > .screen:has(> .tahouri-app-header) #backGradesBtn,
+#app > .screen:has(> .tahouri-app-header) #backSubjectsBtn,
+#app > .screen:has(> .tahouri-app-header) #backChaptersBtn {
+    display: none;
+}
+
+/* Keep the middle content visually subordinate to the shell header. */
 #app > .screen:has(> .tahouri-app-header) > h1 {
     margin-top: 22px;
 }
