@@ -25,8 +25,7 @@ const DivisibilityScreen = {
                 : false;
 
             // The activity title already contains the rule number.
-            // Keep the icon language-neutral and visually cleaner: use the
-            // mathematical divisibility symbol instead of Persian numerals.
+            // Use a language-neutral mathematical symbol for a cleaner UI.
             const icon = locked ? "🔒" : "÷";
 
             return `
@@ -52,7 +51,6 @@ a                </button>
             </div>
         `;
 
-        // Remove the accidental whitespace marker from the hidden legacy button.
         const legacyBack = document.getElementById("backToActivitiesBtn");
         if (legacyBack) legacyBack.textContent = "← بازگشت به فعالیت‌ها";
 
