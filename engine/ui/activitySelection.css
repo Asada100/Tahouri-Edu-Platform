@@ -23,17 +23,17 @@
     width: 100%;
     min-height: 84px;
     padding: 16px 68px 16px 58px;
-    border: 1px solid #dbe4ef;
-    border-radius: 20px;
-    background: linear-gradient(135deg, #ffffff 0%, #f8fbff 100%);
-    color: #172033;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-card);
+    background: linear-gradient(135deg, var(--ui-surface) 0%, var(--ui-surface-soft) 100%);
+    color: var(--ui-text);
     font-family: inherit;
     font-size: clamp(17px, 2.5vw, 21px);
     font-weight: 800;
     line-height: 1.45;
     text-align: center;
     cursor: pointer;
-    box-shadow: 0 7px 20px rgba(31, 41, 55, .06);
+    box-shadow: var(--ui-shadow-card);
     transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease, background .18s ease;
     -webkit-tap-highlight-color: transparent;
 }
@@ -77,7 +77,7 @@
 #app > .screen.activityScreen:has(> .tahouri-app-header) .activityGroupBtn:hover {
     transform: translateY(-2px);
     border-color: #c7d5e5;
-    box-shadow: 0 11px 26px rgba(31, 41, 55, .09);
+    box-shadow: var(--ui-shadow-card-hover);
 }
 
 #app > .screen.activityScreen:has(> .tahouri-app-header) .activitySelectBtn:active,
@@ -97,7 +97,7 @@
 
 #app > .screen.activityScreen:has(> .tahouri-app-header) .activitySelectBtn:focus-visible,
 #app > .screen.activityScreen:has(> .tahouri-app-header) .activityGroupBtn:focus-visible {
-    outline: 3px solid rgba(37, 99, 235, .20);
+    outline: 3px solid var(--ui-focus);
     outline-offset: 3px;
 }
 
@@ -106,7 +106,7 @@
     margin: 28px auto;
     padding: 24px 18px;
     text-align: center;
-    color: #667085;
+    color: var(--ui-muted);
     border: 1px dashed #d5dee9;
     border-radius: 18px;
     background: #fbfcfe;
