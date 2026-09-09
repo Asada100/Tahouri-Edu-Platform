@@ -1,0 +1,13 @@
+/* =====================================
+   Memory Engine — visual ownership boundary
+   =====================================
+   Memory-specific visual rules belong here.
+   Do not place Memory styles in platformShell.css or Learning page CSS.
+   New Memory activities reuse this stylesheet automatically.
+*/
+
+.memoryScreen {
+    --memory-ui-surface: #ffffff;
+    --memory-ui-text: #172033;
+    --memory-ui-muted: #667085;
+}
