@@ -1,10 +1,10 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 3.6
+// Version 3.7
 // Result Modal
 // Quiz + Memory Compatible
 // Navigation Buttons
-// Dashboard Button
+// Reports + Activity List Targets
 // CSS owned by activityRuntime.css
 // =====================================
 
@@ -93,18 +93,78 @@ const ResultModal = {
 
         if(backButton){
             backButton.onclick = function(){
+                const activity =
+                    typeof ActivityManager !== "undefined" &&
+                    typeof ActivityManager.getCurrent === "function"
+                        ? ActivityManager.getCurrent()
+                        : (
+                            typeof ActivityHistory !== "undefined" &&
+                            typeof ActivityHistory.get === "function"
+                                ? ActivityHistory.get()
+                                : null
+                        );
+
+                const profile =
+                    typeof ProfileManager !== "undefined" &&
+                    typeof ProfileManager.get === "function"
+                        ? ProfileManager.get()
+                        : null;
+
+                const gradeId =
+                    activity && (activity.grade || activity.gradeId)
+                        ? (activity.grade || activity.gradeId)
+                        : (profile && profile.grade ? profile.grade : null);
+
+                const subjectId =
+                    activity && (activity.subject || activity.subjectId)
+                        ? (activity.subject || activity.subjectId)
+                        : null;
+
+                const chapterId =
+                    activity && (activity.chapter || activity.chapterId)
+                        ? (activity.chapter || activity.chapterId)
+                        : null;
+
                 ResultModal.close();
-                if(typeof NavigationController !== "undefined" && typeof NavigationController.back === "function"){
-                    NavigationController.back();
+
+                if(
+                    gradeId &&
+                    subjectId &&
+                    chapterId &&
+                    typeof Screen !== "undefined" &&
+                    typeof Screen.showActivities === "function"
+                ){
+                    Screen.showActivities(
+                        gradeId,
+                        subjectId,
+                        chapterId
+                    );
+                    return;
                 }
+
+                console.error(
+                    "ResultModal: Activity navigation context is unavailable."
+                );
             };
         }
 
         if(dashboardButton){
             dashboardButton.onclick = function(){
                 ResultModal.close();
-                if(typeof Navigation !== "undefined" && typeof Navigation.openDashboard === "function"){
-                    Navigation.openDashboard();
+                if(
+                    typeof ReportsController !== "undefined" &&
+                    typeof ReportsController.open === "function"
+                ){
+                    ReportsController.open();
+                }
+                else if(
+                    typeof Screen !== "undefined" &&
+                    typeof Screen.showReports === "function"
+                ){
+                    Screen.showReports();
+                }
+                else{
+                    console.error("ReportsController Not Available");
                 }
             };
         }
