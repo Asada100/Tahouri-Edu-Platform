@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Bottom Navigation Manager
-// Version 1.2
+// Version 1.3
 // Fixed app-level navigation shell
 // =====================================
 
@@ -10,7 +10,14 @@ const BottomNavigation = {
     initialized: false,
 
     init: function () {
-        if (this.initialized) return;
+        // The navigation is a persistent app-level shell. If a screen/runtime
+        // removed its DOM node, initialized=true must not prevent rebuilding it.
+        const existingNav = document.getElementById("tahouri-bottom-navigation");
+        if (existingNav) {
+            this.initialized = true;
+            this.updateActive();
+            return;
+        }
 
         const nav = document.createElement("nav");
         nav.id = "tahouri-bottom-navigation";
@@ -46,7 +53,7 @@ const BottomNavigation = {
         this.initialized = true;
         this.updateActive();
 
-        console.log("Bottom Navigation v1.2 Ready");
+        console.log("Bottom Navigation v1.3 Ready");
     },
 
     bind: function (nav) {
@@ -109,9 +116,6 @@ const BottomNavigation = {
         const app = document.getElementById("app");
         if (!nav || !app) return;
 
-        // Important: not every screen belongs to a Bottom Navigation destination.
-        // Dashboard is a secondary destination opened from Home, so it must not
-        // activate Learning (or any other primary destination).
         let active = null;
         const screen = app.querySelector(":scope > .screen");
 
@@ -122,7 +126,6 @@ const BottomNavigation = {
                 screen.querySelector("#gradesBtn") &&
                 screen.querySelector("#profileBtn")
             ) {
-                // Home must be detected before generic report/learning selectors.
                 active = "home";
             } else if (
                 screen.querySelector(".report") ||
