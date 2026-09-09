@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Dashboard Controller
-// Version 6.6
+// Version 6.7
 //
 // Student Friendly Dashboard
 // ProgressTracker as source of truth
@@ -14,6 +14,22 @@ const DashboardController = {
     open: function () {
 
         console.log("Opening Dashboard...");
+
+        // Dashboard is a normal platform screen, never an activity runtime.
+        // Clear activity-only body state before rendering it so runtime CSS
+        // cannot hide the shared bottom navigation or alter page spacing.
+        document.body.classList.remove("activity-playing");
+        document.body.classList.remove("activity-result-open");
+
+        // The navigation shell lives on <body>, outside #app. Normally it is
+        // persistent, but re-create it safely if it was removed by a runtime
+        // or by a previous page lifecycle.
+        if (
+            typeof BottomNavigation !== "undefined" &&
+            typeof BottomNavigation.init === "function"
+        ) {
+            BottomNavigation.init();
+        }
 
         if (typeof DashboardScreen === "undefined") {
             console.error("DashboardScreen Not Available");
@@ -210,6 +226,15 @@ const DashboardController = {
             resumableActivity: resumableActivity
         });
 
+        // updateActive is intentionally called after rendering because the
+        // observer on #app may run before the new dashboard DOM is complete.
+        if (
+            typeof BottomNavigation !== "undefined" &&
+            typeof BottomNavigation.updateActive === "function"
+        ) {
+            BottomNavigation.updateActive();
+        }
+
         console.log("Dashboard Progress:", {
             completed: completedCount,
             total: gradeActivities.length,
@@ -298,4 +323,3 @@ const DashboardController = {
 };
 
 window.DashboardController = DashboardController;
-console.log("Dashboard Controller v6.6 Ready");
