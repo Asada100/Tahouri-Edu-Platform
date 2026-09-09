@@ -1,15 +1,6 @@
 /* =====================================
    Activity Runtime UI
    Shared by all activity engines
-
-   Owns:
-   - in-game exit control
-   - exit/resume overlay
-   - unfinished-activity notice
-   - result modal
-   - bottom-navigation suppression while playing/results are open
-
-   Engine-specific game controls stay in each engine stylesheet.
    ===================================== */
 
 body.activity-playing #tahouri-bottom-navigation,
@@ -17,14 +8,12 @@ body.activity-result-open #tahouri-bottom-navigation {
     display: none !important;
 }
 
-body.activity-playing {
-    padding-bottom: 0;
-}
+body.activity-playing { padding-bottom: 0; }
 
 #activitySessionControl {
     position: fixed;
-    top: 12px;
-    right: 12px;
+    top: 18px;
+    right: max(18px, calc((100vw - 680px) / 2 + 10px));
     z-index: 10020;
     width: 44px;
     height: 44px;
@@ -36,11 +25,22 @@ body.activity-playing {
     color: #263238;
     box-shadow: 0 5px 18px rgba(0,0,0,.18);
     font-size: 20px;
+    line-height: 1;
     cursor: pointer;
+    transition: transform .15s ease, box-shadow .15s ease;
 }
 
 #activitySessionControl:hover {
     transform: translateY(-1px);
+    box-shadow: 0 7px 20px rgba(0,0,0,.20);
+}
+
+#activitySessionControl:focus-visible,
+.activityRuntimeActions button:focus-visible,
+.unfinishedActivityGuardActions button:focus-visible,
+.resultModalActions button:focus-visible {
+    outline: 3px solid rgba(37,99,235,.25);
+    outline-offset: 2px;
 }
 
 #activitySessionOverlay,
@@ -73,16 +73,11 @@ body.activity-playing {
 .activityRuntimeModal h2,
 .unfinishedActivityGuardModal h2,
 .resultModalWindow h1,
-.resultModalWindow h2 {
-    margin: 0 0 12px;
-}
+.resultModalWindow h2 { margin: 0 0 12px; }
 
 .activityRuntimeModal p,
 .unfinishedActivityGuardModal p,
-.resultModalWindow p {
-    margin: 8px 0;
-    line-height: 1.8;
-}
+.resultModalWindow p { margin: 8px 0; line-height: 1.8; }
 
 .activityRuntimeActions,
 .unfinishedActivityGuardActions,
@@ -98,43 +93,54 @@ body.activity-playing {
     width: 100%;
     min-height: 48px;
     padding: 11px 16px;
-    border: 0;
+    border: 1px solid #dbe4ef;
     border-radius: 14px;
-    background: #f1f5f9;
+    background: #f8fafc;
     color: #172033;
     font: inherit;
     font-weight: 700;
     cursor: pointer;
-    transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+    box-sizing: border-box;
+    transition: transform .15s ease, box-shadow .15s ease, background .15s ease, border-color .15s ease;
 }
 
 .activityRuntimeActions button:hover,
 .unfinishedActivityGuardActions button:hover,
 .resultModalActions button:hover {
     transform: translateY(-1px);
+    border-color: #c4d3e6;
     box-shadow: 0 5px 14px rgba(15,23,42,.10);
+    background: #ffffff;
 }
 
-.resultModalActions #retryActivityBtn {
+.activityRuntimeActions button:first-child,
+.unfinishedActivityGuardActions button:first-child {
     background: #e8f5e9;
+    border-color: #c8e6c9;
 }
 
-.resultModalActions #backActivitiesBtn {
+.activityRuntimeActions button:last-child,
+.unfinishedActivityGuardActions button:last-child {
     background: #e3f2fd;
+    border-color: #bbdefb;
 }
 
-.resultModalActions #dashboardBtn {
-    background: #fff3e0;
-}
-
-.resultModalActions #homeBtn {
-    background: #f3e5f5;
-}
+.resultModalActions #retryActivityBtn { background: #e8f5e9; border-color: #c8e6c9; }
+.resultModalActions #backActivitiesBtn { background: #e3f2fd; border-color: #bbdefb; }
+.resultModalActions #dashboardBtn { background: #fff3e0; border-color: #ffe0b2; }
+.resultModalActions #homeBtn { background: #f3e5f5; border-color: #e1bee7; }
 
 .resultModalStars {
     margin: 12px 0 18px;
     font-size: 28px;
     letter-spacing: 2px;
+}
+
+@media (min-width: 481px) {
+    .activityRuntimeActions,
+    .unfinishedActivityGuardActions {
+        grid-template-columns: 1fr 1fr;
+    }
 }
 
 @media (max-width: 480px) {
@@ -144,7 +150,6 @@ body.activity-playing {
         width: 42px;
         height: 42px;
     }
-
     .activityRuntimeModal,
     .unfinishedActivityGuardModal,
     .resultModalWindow {
@@ -157,7 +162,5 @@ body.activity-playing {
     #activitySessionControl,
     .activityRuntimeActions button,
     .unfinishedActivityGuardActions button,
-    .resultModalActions button {
-        transition: none;
-    }
+    .resultModalActions button { transition: none; }
 }
