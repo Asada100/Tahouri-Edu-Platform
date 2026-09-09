@@ -1,0 +1,13 @@
+/* =====================================
+   Puzzle Engine — visual ownership boundary
+   =====================================
+   Puzzle-specific visual rules belong here.
+   Do not place Puzzle styles in platformShell.css or Learning page CSS.
+   New Puzzle activities reuse this stylesheet automatically.
+*/
+
+.puzzleScreen {
+    --puzzle-ui-surface: #ffffff;
+    --puzzle-ui-text: #172033;
+    --puzzle-ui-muted: #667085;
+}
