@@ -85,16 +85,16 @@ body.activity-playing { padding-bottom: 0; }
 .unfinishedActivityGuardActions,
 .resultModalActions {
     display: grid;
-    gap: 10px;
-    margin-top: 20px;
+    gap: 12px;
+    margin-top: 22px;
 }
 
 .activityRuntimeActions button,
 .unfinishedActivityGuardActions button,
 .resultModalActions button {
     width: 100%;
-    min-height: 48px;
-    padding: 11px 16px;
+    min-height: 52px;
+    padding: 12px 18px;
     border: 1px solid #dbe4ef;
     border-radius: 14px;
     background: #f8fafc;
@@ -115,16 +115,33 @@ body.activity-playing { padding-bottom: 0; }
     background: #ffffff;
 }
 
+/* Modern action buttons for the pause/exit modal */
 .activityRuntimeActions button:first-child,
 .unfinishedActivityGuardActions button:first-child {
-    background: #e8f5e9;
-    border-color: #c8e6c9;
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #ffffff;
+    box-shadow: 0 6px 16px rgba(37,99,235,.20);
+}
+
+.activityRuntimeActions button:first-child:hover,
+.unfinishedActivityGuardActions button:first-child:hover {
+    background: #1d4ed8;
+    border-color: #1d4ed8;
+    box-shadow: 0 8px 20px rgba(37,99,235,.26);
 }
 
 .activityRuntimeActions button:last-child,
 .unfinishedActivityGuardActions button:last-child {
-    background: #e3f2fd;
-    border-color: #bbdefb;
+    background: #ffffff;
+    border-color: #d5deea;
+    color: #344054;
+}
+
+.activityRuntimeActions button:last-child:hover,
+.unfinishedActivityGuardActions button:last-child:hover {
+    background: #f8fafc;
+    border-color: #b8c6d8;
 }
 
 .resultModalActions #retryActivityBtn { background: #e8f5e9; border-color: #c8e6c9; }
