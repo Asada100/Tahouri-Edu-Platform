@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 2.4
+// Version 2.5
 // Divisibility Group Screen
 // =====================================
 
@@ -24,11 +24,10 @@ const DivisibilityScreen = {
                 ? ContentLockManager.isLocked(activity.id)
                 : false;
 
-            // Activity titles use Persian digits (۲، ۳، ۵، ...), while the
-            // old expression only matched ASCII digits (0-9). As a result
-            // the icon fell back to "?" for every divisibility activity.
-            const numberMatch = String(activity.title || "").match(/[0-9۰-۹]+/);
-            const icon = locked ? "🔒" : (numberMatch ? numberMatch[0] : "؟");
+            // The activity title already contains the rule number.
+            // Keep the icon language-neutral and visually cleaner: use the
+            // mathematical divisibility symbol instead of Persian numerals.
+            const icon = locked ? "🔒" : "÷";
 
             return `
                 <button class="activityBtn divisibilityChildBtn"
@@ -49,15 +48,18 @@ const DivisibilityScreen = {
                 </div>
                 <button id="backToActivitiesBtn" type="button" class="legacyDivisibilityBack">
                     ← بازگشت به فعالیت‌ها
-                </button>
+a                </button>
             </div>
         `;
 
+        // Remove the accidental whitespace marker from the hidden legacy button.
+        const legacyBack = document.getElementById("backToActivitiesBtn");
+        if (legacyBack) legacyBack.textContent = "← بازگشت به فعالیت‌ها";
+
         this.bindActivityButtons(divisibilityActivities);
 
-        const backButton = document.getElementById("backToActivitiesBtn");
-        if (backButton) {
-            backButton.onclick = function () {
+        if (legacyBack) {
+            legacyBack.onclick = function () {
                 Screen.showActivities(gradeId, subjectId, chapterId);
             };
         }
@@ -119,4 +121,4 @@ Screen.showDivisibility = function (gradeId, subjectId, chapterId) {
     }
 };
 
-console.log("Divisibility Screen v2.4 Ready");
+console.log("Divisibility Screen v2.5 Ready");
