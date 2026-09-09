@@ -62,14 +62,17 @@
     text-align: center;
 }
 
+/* دو گزینهٔ پاسخ در یک ردیف */
 .quizOptions {
     width: min(520px, 100%);
     margin: 18px auto;
     display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
 }
 
 .quizOptionBtn {
+    width: 100%;
     min-height: 54px;
     padding: 13px 18px;
     border: 2px solid #dbe4ef;
@@ -100,5 +103,10 @@
         width: 100%;
         min-height: 96px;
         padding: 16px;
+    }
+
+    .quizOptions {
+        width: 100%;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
