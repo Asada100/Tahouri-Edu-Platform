@@ -1,10 +1,11 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 3.7
+// Version 3.8
 // Result Modal
 // Quiz + Memory Compatible
 // Navigation Buttons
 // Reports + Activity List Targets
+// Return Home After Report Close
 // CSS owned by activityRuntime.css
 // =====================================
 
@@ -151,20 +152,53 @@ const ResultModal = {
         if(dashboardButton){
             dashboardButton.onclick = function(){
                 ResultModal.close();
-                if(
-                    typeof ReportsController !== "undefined" &&
-                    typeof ReportsController.open === "function"
-                ){
-                    ReportsController.open();
-                }
-                else if(
-                    typeof Screen !== "undefined" &&
-                    typeof Screen.showReports === "function"
-                ){
-                    Screen.showReports();
-                }
-                else{
+
+                const openReport = function(){
+                    if(
+                        typeof ReportsController !== "undefined" &&
+                        typeof ReportsController.open === "function"
+                    ){
+                        ReportsController.open();
+                        return true;
+                    }
+
+                    if(
+                        typeof Screen !== "undefined" &&
+                        typeof Screen.showReports === "function"
+                    ){
+                        Screen.showReports();
+                        return true;
+                    }
+
                     console.error("ReportsController Not Available");
+                    return false;
+                };
+
+                if(!openReport()) return;
+
+                const reportsModal = document.getElementById("reportsModal");
+
+                if(
+                    reportsModal &&
+                    typeof MutationObserver !== "undefined"
+                ){
+                    const observer = new MutationObserver(function(){
+                        if(!document.body.contains(reportsModal)){
+                            observer.disconnect();
+
+                            if(
+                                typeof App !== "undefined" &&
+                                typeof App.goHome === "function"
+                            ){
+                                App.goHome();
+                            }
+                        }
+                    });
+
+                    observer.observe(document.body, {
+                        childList: true,
+                        subtree: true
+                    });
                 }
             };
         }
