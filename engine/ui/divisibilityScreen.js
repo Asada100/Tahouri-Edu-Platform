@@ -23,8 +23,12 @@ const DivisibilityScreen = {
             const locked = typeof ContentLockManager !== "undefined"
                 ? ContentLockManager.isLocked(activity.id)
                 : false;
-            const numberMatch = String(activity.title || "").match(/\d+/);
-            const icon = locked ? "🔒" : (numberMatch ? numberMatch[0] : "?");
+
+            // Activity titles use Persian digits (۲، ۳، ۵، ...), while the
+            // old expression only matched ASCII digits (0-9). As a result
+            // the icon fell back to "?" for every divisibility activity.
+            const numberMatch = String(activity.title || "").match(/[0-9۰-۹]+/);
+            const icon = locked ? "🔒" : (numberMatch ? numberMatch[0] : "؟");
 
             return `
                 <button class="activityBtn divisibilityChildBtn"
