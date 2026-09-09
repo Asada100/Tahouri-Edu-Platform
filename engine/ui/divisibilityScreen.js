@@ -23,9 +23,6 @@ const DivisibilityScreen = {
             const locked = typeof ContentLockManager !== "undefined"
                 ? ContentLockManager.isLocked(activity.id)
                 : false;
-
-            // The activity title already contains the rule number.
-            // Use a language-neutral mathematical symbol for a cleaner UI.
             const icon = locked ? "🔒" : "÷";
 
             return `
@@ -47,17 +44,15 @@ const DivisibilityScreen = {
                 </div>
                 <button id="backToActivitiesBtn" type="button" class="legacyDivisibilityBack">
                     ← بازگشت به فعالیت‌ها
-a                </button>
+                </button>
             </div>
         `;
 
-        const legacyBack = document.getElementById("backToActivitiesBtn");
-        if (legacyBack) legacyBack.textContent = "← بازگشت به فعالیت‌ها";
-
         this.bindActivityButtons(divisibilityActivities);
 
-        if (legacyBack) {
-            legacyBack.onclick = function () {
+        const backButton = document.getElementById("backToActivitiesBtn");
+        if (backButton) {
+            backButton.onclick = function () {
                 Screen.showActivities(gradeId, subjectId, chapterId);
             };
         }
