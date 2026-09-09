@@ -360,6 +360,11 @@ const ActivitySessionManager = {
         this.hideOverlay();
         this.removeExitControl();
 
+        // Always clear the gameplay-only body state before returning home.
+        // This prevents activity CSS (including hidden bottom navigation)
+        // from leaking into the dashboard/home screen.
+        document.body.classList.remove("activity-playing");
+
         if (
             typeof ActivityManager !== "undefined" &&
             typeof ActivityManager.resetRuntime === "function"
