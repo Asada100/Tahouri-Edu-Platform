@@ -108,18 +108,5 @@
         "locked": true,
         "requires": "divisibleBy10",
         "path": "content/grades/grade6/math/chapter1/divisibility/divisibleBy100"
-    },
-
-    {
-        "id": "memoryDemo",
-        "title": "حافظه تصویری",
-        "grade": "grade6",
-        "subject": "math",
-        "chapter": "chapter1",
-        "type": "memory",
-        "engine": "MemoryEngine",
-        "locked": true,
-        "requires": "evenOdd",
-        "path": "content/grades/grade6/math/chapter1/memoryDemo"
     }
 ]
