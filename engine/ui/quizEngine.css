@@ -1,0 +1,13 @@
+/* =====================================
+   Quiz Engine — visual ownership boundary
+   =====================================
+   Quiz-specific visual rules belong here.
+   Do not place Quiz styles in platformShell.css or Learning page CSS.
+   New Quiz activities reuse this stylesheet automatically.
+*/
+
+.quizScreen {
+    --quiz-ui-surface: #ffffff;
+    --quiz-ui-text: #172033;
+    --quiz-ui-muted: #667085;
+}
