@@ -1,361 +1,134 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 3.5
+// Version 3.6
 // Result Modal
 // Quiz + Memory Compatible
 // Navigation Buttons
 // Dashboard Button
+// CSS owned by activityRuntime.css
 // =====================================
 
 const ResultModal = {
 
     show: function(result){
 
-        const oldModal =
-        document.getElementById(
-            "resultModal"
-        );
+        const oldModal = document.getElementById("resultModal");
+        if(oldModal) oldModal.remove();
 
+        document.body.classList.remove("activity-playing");
+        document.body.classList.add("activity-result-open");
 
-        if(oldModal){
+        const percentage = result && result.percentage !== undefined
+            ? result.percentage
+            : 0;
 
-            oldModal.remove();
-
-        }
-
-
-        const percentage =
-
-        result.percentage !== undefined
-
-        ?
-
-        result.percentage
-
-        :
-
-        0;
-
-
-        const stars =
-
-        Math.round(
-            percentage / 20
-        );
-
-
+        const stars = Math.round(percentage / 20);
         let starText = "";
 
-        for(
-            let i = 0;
-            i < 5;
-            i++
-        ){
-
-            starText +=
-
-            i < stars
-
-            ?
-
-            "⭐"
-
-            :
-
-            "☆";
-
+        for(let i = 0; i < 5; i++){
+            starText += i < stars ? "⭐" : "☆";
         }
 
-
-        const modal =
-
-        document.createElement(
-            "div"
-        );
-
-
-        modal.id =
-        "resultModal";
-
-
-        modal.style.position="fixed";
-        modal.style.top="0";
-        modal.style.left="0";
-        modal.style.width="100%";
-        modal.style.height="100%";
-        modal.style.background="rgba(0,0,0,0.5)";
-        modal.style.display="flex";
-        modal.style.justifyContent="center";
-        modal.style.alignItems="center";
-        modal.style.zIndex="9999";
-
+        const modal = document.createElement("div");
+        modal.id = "resultModal";
+        modal.setAttribute("role", "dialog");
+        modal.setAttribute("aria-modal", "true");
+        modal.dir = "rtl";
 
         modal.innerHTML = `
-
-        <div class="resultModalWindow"
-
-        style="
-        background:white;
-        padding:30px;
-        border-radius:15px;
-        text-align:center;
-        min-width:320px;
-        ">
-
-
-        <h1>
-        🎉 نتیجه فعالیت
-        </h1>
-
-
-        <hr>
-
-
-        <h2>
-        ${result.title || "فعالیت آموزشی"}
-        </h2>
-
-
-        <p>
-        امتیاز:
-
-        <strong>
-        ${result.score || 0}
-        </strong>
-
-        </p>
-
-
-        <p>
-
-        درصد موفقیت:
-
-        <strong>
-        ${percentage}%
-        </strong>
-
-        </p>
-
-
-        <h2>
-        ${starText}
-        </h2>
-
-
-        ${
-            result.correctAnswers !== undefined
-
-            ?
-
-            `
-            <p>
-            پاسخ صحیح:
-            ${result.correctAnswers}
-            </p>
-            `
-
-            :
-
-            ""
-
-        }
-
-
-        ${
-            result.wrongAnswers !== undefined
-
-            ?
-
-            `
-            <p>
-            پاسخ اشتباه:
-            ${result.wrongAnswers}
-            </p>
-            `
-
-            :
-
-            ""
-
-        }
-
-
-        ${
-            result.pairs !== undefined
-
-            ?
-
-            `
-            <p>
-            جفت پیدا شده:
-            ${result.pairs}
-            </p>
-            `
-
-            :
-
-            ""
-
-        }
-
-
-        ${
-            result.moves !== undefined
-
-            ?
-
-            `
-            <p>
-            تعداد حرکت:
-            ${result.moves}
-            </p>
-            `
-
-            :
-
-            ""
-
-        }
-
-
-        <p>
-
-        ${result.message || ""}
-
-        </p>
-
-
-        <br>
-
-
-        <button id="retryActivityBtn">
-
-        🔄 دوباره بازی کن
-
-        </button>
-
-
-        <button id="backActivitiesBtn">
-
-        📚 بازگشت به فعالیت‌ها
-
-        </button>
-
-
-        <button id="dashboardBtn">
-
-        📊 گزارش عملکرد من
-
-        </button>
-
-
-        <button id="homeBtn">
-
-        🏠 صفحه اصلی
-
-        </button>
-
-
-        </div>
-
+            <div class="resultModalWindow">
+                <h1>🎉 نتیجه فعالیت</h1>
+                <hr>
+                <h2>${result.title || "فعالیت آموزشی"}</h2>
+
+                <p>امتیاز: <strong>${result.score || 0}</strong></p>
+                <p>درصد موفقیت: <strong>${percentage}%</strong></p>
+
+                <div class="resultModalStars" aria-label="${stars} ستاره از 5">
+                    ${starText}
+                </div>
+
+                ${result.correctAnswers !== undefined
+                    ? `<p>پاسخ صحیح: ${result.correctAnswers}</p>`
+                    : ""}
+
+                ${result.wrongAnswers !== undefined
+                    ? `<p>پاسخ اشتباه: ${result.wrongAnswers}</p>`
+                    : ""}
+
+                ${result.pairs !== undefined
+                    ? `<p>جفت پیدا شده: ${result.pairs}</p>`
+                    : ""}
+
+                ${result.moves !== undefined
+                    ? `<p>تعداد حرکت: ${result.moves}</p>`
+                    : ""}
+
+                <p>${result.message || ""}</p>
+
+                <div class="resultModalActions">
+                    <button id="retryActivityBtn" type="button">🔄 دوباره بازی کن</button>
+                    <button id="backActivitiesBtn" type="button">📚 بازگشت به فعالیت‌ها</button>
+                    <button id="dashboardBtn" type="button">📊 گزارش عملکرد من</button>
+                    <button id="homeBtn" type="button">🏠 صفحه اصلی</button>
+                </div>
+            </div>
         `;
 
+        document.body.appendChild(modal);
 
-        document.body.appendChild(
-            modal
-        );
+        const retryButton = document.getElementById("retryActivityBtn");
+        const backButton = document.getElementById("backActivitiesBtn");
+        const dashboardButton = document.getElementById("dashboardBtn");
+        const homeButton = document.getElementById("homeBtn");
 
-
-        // =====================================
-        // دوباره بازی
-        // =====================================
-
-        document
-        .getElementById(
-            "retryActivityBtn"
-        )
-        .onclick=function(){
-
-            modal.remove();
-
-            ActivityManager.restart();
-
-        };
-
-
-        // =====================================
-        // بازگشت به فعالیت‌ها
-        // =====================================
-
-        document
-        .getElementById(
-            "backActivitiesBtn"
-        )
-        .onclick=function(){
-
-            modal.remove();
-
-            NavigationController.back();
-
-        };
-
-
-        // =====================================
-        // گزارش عملکرد
-        // =====================================
-
-        document
-        .getElementById(
-            "dashboardBtn"
-        )
-        .onclick=function(){
-
-            modal.remove();
-
-            Navigation.openDashboard();
-
-        };
-
-
-        // =====================================
-        // صفحه اصلی
-        // =====================================
-
-        document
-        .getElementById(
-            "homeBtn"
-        )
-        .onclick=function(){
-
-            modal.remove();
-
-            App.goHome();
-
-        };
-
-    },
-
-
-    hide: function(){
-
-        const modal =
-
-        document.getElementById(
-            "resultModal"
-        );
-
-
-        if(modal){
-
-            modal.remove();
-
+        if(retryButton){
+            retryButton.onclick = async function(){
+                ResultModal.close();
+                if(typeof ActivityManager !== "undefined" && typeof ActivityManager.restart === "function"){
+                    await ActivityManager.restart();
+                }
+            };
         }
 
-    }
+        if(backButton){
+            backButton.onclick = function(){
+                ResultModal.close();
+                if(typeof NavigationController !== "undefined" && typeof NavigationController.back === "function"){
+                    NavigationController.back();
+                }
+            };
+        }
 
+        if(dashboardButton){
+            dashboardButton.onclick = function(){
+                ResultModal.close();
+                if(typeof Navigation !== "undefined" && typeof Navigation.openDashboard === "function"){
+                    Navigation.openDashboard();
+                }
+            };
+        }
+
+        if(homeButton){
+            homeButton.onclick = function(){
+                ResultModal.close();
+                if(typeof App !== "undefined" && typeof App.goHome === "function"){
+                    App.goHome();
+                }
+            };
+        }
+    },
+
+    close: function(){
+        const modal = document.getElementById("resultModal");
+        if(modal) modal.remove();
+        document.body.classList.remove("activity-result-open");
+    },
+
+    hide: function(){
+        this.close();
+    }
 };
 
-
-console.log(
-    "Result Modal Ready"
-);
+window.ResultModal = ResultModal;
+console.log("Result Modal Ready");
