@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Header Manager
-// Version 2.4
+// Version 2.5
 // =====================================
 
 const HeaderManager = {
@@ -16,18 +16,11 @@ const HeaderManager = {
 
     isActivityScreen: function (screen) {
         if (!screen) return true;
-        const selectors = [
-            "[id*='quiz']", "[id*='puzzle']", "[id*='memory']",
-            "[class*='quiz']", "[class*='puzzle']", "[class*='memory']"
-        ];
-        return selectors.some(function (selector) {
-            return !!screen.querySelector(selector);
-        });
+        const selectors = ["[id*='quiz']", "[id*='puzzle']", "[id*='memory']", "[class*='quiz']", "[class*='puzzle']", "[class*='memory']"];
+        return selectors.some(function (selector) { return !!screen.querySelector(selector); });
     },
 
-    isNotificationScreen: function (screen) {
-        return !!(screen && screen.querySelector(".notification-center-screen"));
-    },
+    isNotificationScreen: function (screen) { return !!(screen && screen.querySelector(".notification-center-screen")); },
 
     isHomeScreen: function (screen) {
         if (!screen) return false;
@@ -35,19 +28,18 @@ const HeaderManager = {
     },
 
     isDashboardScreen: function (screen) {
-        return !!(screen && (
-            screen.classList.contains("dashboard-screen") ||
-            screen.querySelector(".dashboard-screen")
-        ));
+        return !!(screen && (screen.classList.contains("dashboard-screen") || screen.querySelector(".dashboard-screen")));
+    },
+
+    isDivisibilityScreen: function (screen) {
+        return !!(screen && (screen.classList.contains("divisibilityScreen") || screen.querySelector(".divisibilityScreen")));
     },
 
     isProfileEditScreen: function (screen) {
         return !!(screen && (screen.matches(".profile-edit-screen") || screen.querySelector(".profile-edit-screen")));
     },
 
-    isProfileListScreen: function (screen) {
-        return !!(screen && screen.matches(".profiles-screen"));
-    },
+    isProfileListScreen: function (screen) { return !!(screen && screen.matches(".profiles-screen")); },
 
     isProfileCreateScreen: function (screen) {
         return !!(screen && (screen.matches(".profile-create-screen") || screen.querySelector(".profile-create-screen")));
@@ -55,6 +47,7 @@ const HeaderManager = {
 
     getSectionTitle: function (screen) {
         if (!screen) return "طهوری";
+        if (this.isDivisibilityScreen(screen)) return "بخش‌پذیری";
         if (this.isDashboardScreen(screen)) return "داشبورد";
         if (this.isHomeScreen(screen)) return "طهوری";
         if (this.isProfileEditScreen(screen)) return "ویرایش پروفایل";
@@ -65,7 +58,6 @@ const HeaderManager = {
         if (screen.querySelector("#subjectsContainer")) return "انتخاب درس";
         if (screen.querySelector("#chaptersContainer")) return "انتخاب فصل";
         if (screen.querySelector("#activityList")) return "انتخاب فعالیت";
-        if (screen.querySelector(".divisibilityScreen")) return "بخش‌پذیری";
         if (screen.querySelector(".report") || screen.querySelector("[class*='report']") || screen.querySelector("[id*='report']")) return "گزارش عملکرد";
         return "طهوری";
     },
@@ -77,21 +69,21 @@ const HeaderManager = {
 
     getBackConfig: function (screen) {
         if (!screen || this.isHomeScreen(screen)) return null;
-        if (this.isDashboardScreen(screen)) {
+        if (this.isDivisibilityScreen(screen)) {
             return {
-                label: "بازگشت به خانه",
+                label: "بازگشت به فعالیت‌ها",
                 action: function () {
-                    if (typeof Screen !== "undefined" && typeof Screen.showHome === "function") Screen.showHome();
+                    if (typeof Screen !== "undefined" && typeof Screen.showActivities === "function" && typeof AppState !== "undefined") {
+                        Screen.showActivities(AppState.grade, AppState.subject, AppState.chapter);
+                    }
                 }
             };
         }
+        if (this.isDashboardScreen(screen)) {
+            return { label: "بازگشت به خانه", action: function () { if (typeof Screen !== "undefined" && typeof Screen.showHome === "function") Screen.showHome(); } };
+        }
         if (this.isProfileEditScreen(screen) || this.isProfileListScreen(screen) || this.isProfileCreateScreen(screen)) {
-            return {
-                label: "بازگشت به پروفایل من",
-                action: function () {
-                    if (typeof ProfileScreen !== "undefined" && typeof ProfileScreen.show === "function") ProfileScreen.show();
-                }
-            };
+            return { label: "بازگشت به پروفایل من", action: function () { if (typeof ProfileScreen !== "undefined" && typeof ProfileScreen.show === "function") ProfileScreen.show(); } };
         }
         if (screen.querySelector("#gradesContainer")) {
             return { label: "بازگشت به خانه", action: function () { if (typeof Screen !== "undefined" && typeof Screen.showHome === "function") Screen.showHome(); } };
@@ -100,36 +92,13 @@ const HeaderManager = {
             return { label: "بازگشت به پایه", action: function () { if (typeof Screen !== "undefined" && typeof Screen.showGrades === "function") Screen.showGrades(); } };
         }
         if (screen.querySelector("#chaptersContainer")) {
-            return {
-                label: "بازگشت به درس‌ها",
-                action: function () {
-                    if (typeof Screen !== "undefined" && typeof Screen.showSubjects === "function" && typeof AppState !== "undefined") Screen.showSubjects(AppState.grade);
-                }
-            };
+            return { label: "بازگشت به درس‌ها", action: function () { if (typeof Screen !== "undefined" && typeof Screen.showSubjects === "function" && typeof AppState !== "undefined") Screen.showSubjects(AppState.grade); } };
         }
         if (screen.querySelector("#activityList")) {
-            return {
-                label: "بازگشت به فصل",
-                action: function () {
-                    if (typeof Screen !== "undefined" && typeof Screen.showChapters === "function" && typeof AppState !== "undefined") Screen.showChapters(AppState.grade, AppState.subject);
-                }
-            };
-        }
-        if (screen.querySelector(".divisibilityScreen")) {
-            return {
-                label: "بازگشت به فعالیت‌ها",
-                action: function () {
-                    if (typeof Screen !== "undefined" && typeof Screen.showActivities === "function" && typeof AppState !== "undefined") Screen.showActivities(AppState.grade, AppState.subject, AppState.chapter);
-                }
-            };
+            return { label: "بازگشت به فصل", action: function () { if (typeof Screen !== "undefined" && typeof Screen.showChapters === "function" && typeof AppState !== "undefined") Screen.showChapters(AppState.grade, AppState.subject); } };
         }
         if (typeof AppState !== "undefined" && AppState.activity) {
-            return {
-                label: "بازگشت به فعالیت‌ها",
-                action: function () {
-                    if (typeof Screen !== "undefined" && typeof Screen.showActivities === "function") Screen.showActivities(AppState.grade, AppState.subject, AppState.chapter);
-                }
-            };
+            return { label: "بازگشت به فعالیت‌ها", action: function () { if (typeof Screen !== "undefined" && typeof Screen.showActivities === "function") Screen.showActivities(AppState.grade, AppState.subject, AppState.chapter); } };
         }
         return { label: "بازگشت به خانه", action: function () { if (typeof Screen !== "undefined" && typeof Screen.showHome === "function") Screen.showHome(); } };
     },
@@ -222,4 +191,4 @@ function headerInsertAfter(element, screen) {
 window.HeaderManager = HeaderManager;
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", function () { HeaderManager.init(); });
 else HeaderManager.init();
-console.log("Header Manager v2.4 Ready");
+console.log("Header Manager v2.5 Ready");
