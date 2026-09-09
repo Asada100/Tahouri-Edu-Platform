@@ -3,6 +3,8 @@
    Shared by all activity engines
    ===================================== */
 
+/* While an engine is running, the platform shell is completely hidden. */
+body.activity-playing .tahouri-app-header,
 body.activity-playing #tahouri-bottom-navigation,
 body.activity-result-open #tahouri-bottom-navigation {
     display: none !important;
