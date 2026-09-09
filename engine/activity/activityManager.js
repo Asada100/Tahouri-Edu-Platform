@@ -62,9 +62,16 @@ const ActivityManager = {
         if (!engine) { console.error("Engine Not Found:", engineName); ActivityState.set("error"); return null; }
 
         ActivityState.set("playing");
+        document.body.classList.add("activity-playing");
+
         let result;
         try { result = await engine.start(fullActivity); }
-        catch (error) { console.error("ActivityManager: Engine Start Error:", error); ActivityState.set("error"); return null; }
+        catch (error) {
+            document.body.classList.remove("activity-playing");
+            console.error("ActivityManager: Engine Start Error:", error);
+            ActivityState.set("error");
+            return null;
+        }
 
         this.publishActivityReady(engineName, engine, result, fullActivity);
         return result;
