@@ -1,10 +1,27 @@
 /* =====================================
    Tahouri Edu Platform
-   UI Foundation v2.2
+   UI Foundation v2.3
 
    This file contains only global foundation rules.
    Page / shell / engine styles live in their owned stylesheets.
    ===================================== */
+
+:root {
+    --ui-bg: #f4f7fb;
+    --ui-surface: #ffffff;
+    --ui-surface-soft: #f8fbff;
+    --ui-text: #172033;
+    --ui-text-body: #1f2937;
+    --ui-muted: #667085;
+    --ui-border: #dbe4ef;
+    --ui-border-soft: #e4e9f0;
+    --ui-focus: rgba(37, 99, 235, .20);
+    --ui-radius-card: 20px;
+    --ui-radius-card-large: 22px;
+    --ui-shadow-card: 0 7px 20px rgba(31, 41, 55, .06);
+    --ui-shadow-card-hover: 0 11px 26px rgba(31, 41, 55, .09);
+    --ui-shell-bottom-space: 76px;
+}
 
 html,
 body {
@@ -17,9 +34,9 @@ body {
 
 body {
     font-family: "B Yekan", "Tahoma", sans-serif;
-    background: #f4f7fb;
-    color: #1f2937;
-    padding-bottom: 76px;
+    background: var(--ui-bg);
+    color: var(--ui-text-body);
+    padding-bottom: var(--ui-shell-bottom-space);
 }
 
 #app,
@@ -45,19 +62,19 @@ body {
 
 #app > .screen:has(> .tahouri-app-header) {
     width: min(920px, 100%);
-    min-height: calc(100vh - 76px);
+    min-height: calc(100vh - var(--ui-shell-bottom-space));
     margin: 0 auto;
     padding: 0 18px 40px;
     direction: rtl;
 }
 
 #app > .screen:has(> .tahouri-app-header) > h1 {
-    margin: 30px auto 8px;
+    margin: 22px auto 8px;
     text-align: center;
     font-size: clamp(24px, 3vw, 32px);
     line-height: 1.35;
     font-weight: 800;
-    color: #172033;
+    color: var(--ui-text);
 }
 
 #app > .screen:has(> .tahouri-app-header) > p {
@@ -65,14 +82,14 @@ body {
     max-width: 760px;
     line-height: 1.9;
     text-align: center;
-    color: #667085;
+    color: var(--ui-muted);
 }
 
 #app > .screen:has(> .tahouri-app-header) > hr {
     width: min(760px, 100%);
     margin: 20px auto;
     border: 0;
-    border-top: 1px solid #e4e9f0;
+    border-top: 1px solid var(--ui-border-soft);
 }
 
 #app > .screen:has(> .tahouri-app-header) > .home-buttons,
@@ -93,12 +110,16 @@ body {
 }
 
 @media (max-width: 480px) {
+    :root {
+        --ui-shell-bottom-space: 72px;
+    }
+
     body {
-        padding-bottom: 72px;
+        padding-bottom: var(--ui-shell-bottom-space);
     }
 
     #app > .screen:has(> .tahouri-app-header) {
-        min-height: calc(100vh - 72px);
+        min-height: calc(100vh - var(--ui-shell-bottom-space));
         padding-left: 12px;
         padding-right: 12px;
     }
