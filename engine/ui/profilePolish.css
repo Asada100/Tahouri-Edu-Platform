@@ -8,8 +8,8 @@
     text-align: right;
 }
 
-.profile-screen > h1 { margin-bottom: 4px !important; }
-.profile-screen > p { margin-top: 0 !important; }
+.profile-screen > h1 { margin-bottom: 4px; }
+.profile-screen > p { margin-top: 0; }
 
 .profile-screen > hr {
     border-top-color: #e6ebf2 !important;
@@ -173,7 +173,7 @@
 
 .profile-edit-screen > h1,
 .profile-create-screen > h1 {
-    margin-bottom: 4px !important;
+    margin-bottom: 4px;
 }
 
 @media (min-width: 701px) {
