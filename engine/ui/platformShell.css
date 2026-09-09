@@ -16,8 +16,3 @@
 #app > .screen:has(> .tahouri-app-header) #backChaptersBtn {
     display: none;
 }
-
-/* Keep the approved spacing between the fixed header and screen title. */
-#app > .screen:has(> .tahouri-app-header) > h1 {
-    margin-top: 22px;
-}
