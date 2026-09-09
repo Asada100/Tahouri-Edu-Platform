@@ -15,10 +15,10 @@
     width: min(520px, 100%);
     min-height: 92px;
     padding: 18px 24px;
-    border: 1px solid #dbe4ef;
-    border-radius: 22px;
-    background: linear-gradient(135deg, #ffffff 0%, #f7faff 100%);
-    color: #172033;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-card-large);
+    background: linear-gradient(135deg, var(--ui-surface) 0%, #f7faff 100%);
+    color: var(--ui-text);
     font-family: inherit;
     font-size: clamp(19px, 3vw, 23px);
     font-weight: 800;
@@ -31,7 +31,7 @@
 
 #app > .screen:has(> .tahouri-app-header) #gradesContainer .gradeBtn:hover { transform: translateY(-2px); border-color: #c7d5e5; box-shadow: 0 12px 28px rgba(31, 41, 55, .10); }
 #app > .screen:has(> .tahouri-app-header) #gradesContainer .gradeBtn:active { transform: translateY(0); }
-#app > .screen:has(> .tahouri-app-header) #gradesContainer .gradeBtn:focus-visible { outline: 3px solid rgba(37, 99, 235, .20); outline-offset: 3px; }
+#app > .screen:has(> .tahouri-app-header) #gradesContainer .gradeBtn:focus-visible { outline: 3px solid var(--ui-focus); outline-offset: 3px; }
 
 @media (max-width: 520px) {
     #app > .screen:has(> .tahouri-app-header) #gradesContainer { margin-top: 22px; }
