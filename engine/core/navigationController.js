@@ -94,7 +94,9 @@ const NavigationController = {
 
             case "dashboard":
 
-                App.start();
+                // App.start() no longer exists in the current
+                // App Controller. Use the supported Home route.
+                App.goHome();
 
                 break;
 
