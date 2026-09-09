@@ -1,20 +1,253 @@
 // =====================================
 // Tahouri Edu Platform
 // Dashboard Controller
+// Version 6.7
+//
+// Student Friendly Dashboard
+// ProgressTracker as source of truth
+// Single Continue Activity card
+// Resumable activity takes priority
 // =====================================
 
 const DashboardController = {
 
     open: function () {
-        if (typeof DashboardScreen === "undefined" || typeof DashboardScreen.show !== "function") {
-            console.error("Dashboard: DashboardScreen unavailable.");
-            return false;
+
+        console.log("Opening Dashboard...");
+
+        // Dashboard is a normal platform screen, never an activity runtime.
+        // Clear activity-only body state before rendering it so runtime CSS
+        // cannot hide the shared bottom navigation or alter page spacing.
+        document.body.classList.remove("activity-playing");
+        document.body.classList.remove("activity-result-open");
+
+        // The navigation shell lives on <body>, outside #app. Normally it is
+        // persistent, but re-create it safely if it was removed by a runtime
+        // or by a previous page lifecycle.
+        if (
+            typeof BottomNavigation !== "undefined" &&
+            typeof BottomNavigation.init === "function"
+        ) {
+            BottomNavigation.init();
         }
 
-        console.log("Dashboard Controller Opening");
-        DashboardScreen.show();
-        return true;
+        if (typeof DashboardScreen === "undefined") {
+            console.error("DashboardScreen Not Available");
+            return;
+        }
+
+        let overall = {};
+
+        if (
+            typeof StatisticsManager !== "undefined" &&
+            typeof StatisticsManager.get === "function"
+        ) {
+            overall = StatisticsManager.get() || {};
+        }
+
+        const currentGrade =
+            typeof AppState !== "undefined"
+                ? AppState.grade
+                : (
+                    typeof ProfileManager !== "undefined" &&
+                    typeof ProfileManager.get === "function"
+                        ? (ProfileManager.get() || {}).grade
+                        : null
+                );
+
+        const currentSubject =
+            typeof AppState !== "undefined" ? AppState.subject : null;
+
+        const currentChapter =
+            typeof AppState !== "undefined" ? AppState.chapter : null;
+
+        let activities = [];
+
+        if (
+            typeof App !== "undefined" &&
+            Array.isArray(App.activities)
+        ) {
+            activities = App.activities;
+        }
+
+        const gradeActivities = activities.filter(function (activity) {
+            if (!activity) return false;
+            if (!currentGrade) return true;
+            return activity.grade === currentGrade;
+        });
+
+        let completedCount = 0;
+
+        for (let i = 0; i < gradeActivities.length; i++) {
+            const activity = gradeActivities[i];
+            if (!activity || !activity.id) continue;
+
+            let completed = false;
+
+            if (
+                typeof ProgressTracker !== "undefined" &&
+                typeof ProgressTracker.isCompleted === "function"
+            ) {
+                completed = ProgressTracker.isCompleted(activity.id);
+            }
+
+            if (completed) completedCount++;
+        }
+
+        const progressPercentage =
+            gradeActivities.length > 0
+                ? Math.round((completedCount / gradeActivities.length) * 100)
+                : 0;
+
+        // =====================================
+        // RESUMABLE ACTIVITY
+        // =====================================
+
+        let resumableActivity = null;
+
+        if (
+            typeof ActivitySessionManager !== "undefined" &&
+            typeof ActivitySessionManager.getResumable === "function"
+        ) {
+            const session = ActivitySessionManager.getResumable();
+
+            if (session) {
+                const found = activities.find(function (activity) {
+                    return activity && activity.id === session.activityId;
+                });
+
+                if (found) {
+                    resumableActivity = {
+                        activityId: found.id,
+                        activityTitle:
+                            found.title ||
+                            found.name ||
+                            found.id,
+                        activityType:
+                            session.activityType ||
+                            found.engine ||
+                            found.type ||
+                            "",
+                        subject: found.subject || "",
+                        chapter: found.chapter || "",
+                        updatedAt: session.updatedAt || null
+                    };
+                }
+                else {
+                    console.warn(
+                        "Dashboard: Resumable activity no longer exists:",
+                        session.activityId
+                    );
+                    ActivitySessionManager.clear(session.activityId);
+                }
+            }
+        }
+
+        // =====================================
+        // NEXT UNCOMPLETED ACTIVITY
+        // =====================================
+
+        let nextActivity = null;
+
+        for (let i = 0; i < gradeActivities.length; i++) {
+
+            const activity = gradeActivities[i];
+            if (!activity || !activity.id) continue;
+
+            let completed = false;
+
+            if (
+                typeof ProgressTracker !== "undefined" &&
+                typeof ProgressTracker.isCompleted === "function"
+            ) {
+                completed = ProgressTracker.isCompleted(activity.id);
+            }
+
+            let unlocked = true;
+
+            if (typeof ContentLockManager !== "undefined") {
+                if (typeof ContentLockManager.isUnlocked === "function") {
+                    unlocked = ContentLockManager.isUnlocked(activity.id);
+                }
+                else if (typeof ContentLockManager.isLocked === "function") {
+                    unlocked = !ContentLockManager.isLocked(activity.id);
+                }
+            }
+
+            if (unlocked && !completed) {
+                nextActivity = activity;
+                break;
+            }
+        }
+
+        // =====================================
+        // SINGLE CONTINUE CARD
+        //
+        // A resumable session always has priority.
+        // Otherwise show the next unlocked activity.
+        // This intentionally avoids two separate
+        // Continue cards on the dashboard.
+        // =====================================
+
+        let continueLearning = {};
+
+        if (resumableActivity) {
+            continueLearning = {
+                activityId: resumableActivity.activityId,
+                activityTitle: resumableActivity.activityTitle,
+                activityType: resumableActivity.activityType,
+                subject: resumableActivity.subject,
+                chapter: resumableActivity.chapter,
+                mode: "resume"
+            };
+        }
+        else if (nextActivity) {
+            continueLearning = {
+                activityId: nextActivity.id,
+                activityTitle:
+                    nextActivity.title ||
+                    nextActivity.name ||
+                    nextActivity.id,
+                subject: nextActivity.subject || "",
+                chapter: nextActivity.chapter || "",
+                mode: "start"
+            };
+        }
+
+        DashboardScreen.show({
+            overall: overall,
+            currentGrade: currentGrade,
+            currentSubject: currentSubject,
+            currentChapter: currentChapter,
+            completedCount: completedCount,
+            totalGradeActivities: gradeActivities.length,
+            progressPercentage: progressPercentage,
+            continueLearning: continueLearning,
+            resumableActivity: resumableActivity
+        });
+
+        // updateActive is intentionally called after rendering because the
+        // observer on #app may run before the new dashboard DOM is complete.
+        if (
+            typeof BottomNavigation !== "undefined" &&
+            typeof BottomNavigation.updateActive === "function"
+        ) {
+            BottomNavigation.updateActive();
+        }
+
+        console.log("Dashboard Progress:", {
+            completed: completedCount,
+            total: gradeActivities.length,
+            percentage: progressPercentage
+        });
+
+        console.log("Dashboard Continue Learning:", continueLearning);
+        console.log("Dashboard Resumable Activity:", resumableActivity);
     },
+
+    // =====================================
+    // CONTINUE / START ACTIVITY
+    // =====================================
 
     continueLearning: async function (data) {
 
@@ -31,7 +264,8 @@ const DashboardController = {
             return false;
         }
 
-        const activity = App.resolveActivityById(data.activityId);
+        const activity =
+            App.resolveActivityById(data.activityId);
 
         if (!activity) {
             console.error(
@@ -49,15 +283,15 @@ const DashboardController = {
         );
 
         try {
-            // An unfinished activity must keep its existing session and
-            // difficulty, so resume continues through the normal restore path.
+            // An unfinished activity must continue through the existing
+            // restore path so its saved difficulty and progress are preserved.
             if (data.mode === "resume") {
                 await App.startActivity(activity);
                 return true;
             }
 
-            // A new activity started from Continue Learning must use the same
-            // difficulty-selection flow as direct activity entry.
+            // A genuinely new activity must use the same difficulty-selection
+            // flow as direct activity entry.
             if (
                 typeof DifficultyModal !== "undefined" &&
                 typeof DifficultyModal.open === "function"
@@ -87,8 +321,30 @@ const DashboardController = {
             );
             return false;
         }
+    },
+
+    // Kept for compatibility with older callers.
+    // The dashboard no longer renders a separate resumable card.
+    renderResumableActivity: function () {
+        const oldCard = document.getElementById("activityResumeCard");
+        if (oldCard) oldCard.remove();
+    },
+
+    resolveActivityById: function (activityId) {
+
+        if (!activityId) return null;
+
+        if (
+            typeof App === "undefined" ||
+            !Array.isArray(App.activities)
+        ) {
+            return null;
+        }
+
+        return App.activities.find(function (activity) {
+            return activity && activity.id === activityId;
+        }) || null;
     }
 };
 
 window.DashboardController = DashboardController;
-console.log("Dashboard Controller Ready");
