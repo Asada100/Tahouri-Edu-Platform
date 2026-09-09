@@ -40,7 +40,9 @@ body.activity-playing { padding-bottom: 0; }
 #activitySessionControl:focus-visible,
 .activityRuntimeActions button:focus-visible,
 .unfinishedActivityGuardActions button:focus-visible,
-.resultModalActions button:focus-visible {
+.resultModalActions button:focus-visible,
+#activitySessionResumeBtn:focus-visible,
+#activitySessionExitBtn:focus-visible {
     outline: 3px solid rgba(37,99,235,.25);
     outline-offset: 2px;
 }
@@ -115,7 +117,6 @@ body.activity-playing { padding-bottom: 0; }
     background: #ffffff;
 }
 
-/* Modern action buttons for the pause/exit modal */
 .activityRuntimeActions button:first-child,
 .unfinishedActivityGuardActions button:first-child {
     background: #2563eb;
@@ -142,6 +143,50 @@ body.activity-playing { padding-bottom: 0; }
 .unfinishedActivityGuardActions button:last-child:hover {
     background: #f8fafc;
     border-color: #b8c6d8;
+}
+
+/* Pause/exit modal buttons are rendered with IDs by ActivitySessionManager. */
+#activitySessionResumeBtn,
+#activitySessionExitBtn {
+    display: block;
+    width: 100%;
+    min-height: 52px;
+    padding: 12px 18px;
+    box-sizing: border-box;
+    border: 1px solid #dbe4ef;
+    border-radius: 14px;
+    font: inherit;
+    font-weight: 700;
+    line-height: 1.4;
+    cursor: pointer;
+    transition: transform .15s ease, box-shadow .15s ease, background .15s ease, border-color .15s ease;
+}
+
+#activitySessionResumeBtn {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #ffffff;
+    box-shadow: 0 6px 16px rgba(37,99,235,.20);
+}
+
+#activitySessionResumeBtn:hover {
+    transform: translateY(-1px);
+    background: #1d4ed8;
+    border-color: #1d4ed8;
+    box-shadow: 0 8px 20px rgba(37,99,235,.26);
+}
+
+#activitySessionExitBtn {
+    background: #ffffff;
+    border-color: #d5deea;
+    color: #344054;
+}
+
+#activitySessionExitBtn:hover {
+    transform: translateY(-1px);
+    background: #f8fafc;
+    border-color: #b8c6d8;
+    box-shadow: 0 5px 14px rgba(15,23,42,.10);
 }
 
 .resultModalActions #retryActivityBtn { background: #e8f5e9; border-color: #c8e6c9; }
@@ -181,5 +226,7 @@ body.activity-playing { padding-bottom: 0; }
     #activitySessionControl,
     .activityRuntimeActions button,
     .unfinishedActivityGuardActions button,
-    .resultModalActions button { transition: none; }
+    .resultModalActions button,
+    #activitySessionResumeBtn,
+    #activitySessionExitBtn { transition: none; }
 }
