@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Header Manager
-// Version 2.3
+// Version 2.4
 // =====================================
 
 const HeaderManager = {
@@ -16,8 +16,6 @@ const HeaderManager = {
 
     isActivityScreen: function (screen) {
         if (!screen) return true;
-        // Divisibility selection is a learning screen. Running divisibility
-        // games use QuizScreen and are still treated as activity screens.
         const selectors = [
             "[id*='quiz']", "[id*='puzzle']", "[id*='memory']",
             "[class*='quiz']", "[class*='puzzle']", "[class*='memory']"
@@ -36,6 +34,13 @@ const HeaderManager = {
         return !!screen.querySelector("#gradesBtn") && !!screen.querySelector("#profileBtn");
     },
 
+    isDashboardScreen: function (screen) {
+        return !!(screen && (
+            screen.classList.contains("dashboard-screen") ||
+            screen.querySelector(".dashboard-screen")
+        ));
+    },
+
     isProfileEditScreen: function (screen) {
         return !!(screen && (screen.matches(".profile-edit-screen") || screen.querySelector(".profile-edit-screen")));
     },
@@ -50,6 +55,7 @@ const HeaderManager = {
 
     getSectionTitle: function (screen) {
         if (!screen) return "طهوری";
+        if (this.isDashboardScreen(screen)) return "داشبورد";
         if (this.isHomeScreen(screen)) return "طهوری";
         if (this.isProfileEditScreen(screen)) return "ویرایش پروفایل";
         if (this.isProfileListScreen(screen)) return "پروفایل‌های دانش‌آموزان";
@@ -71,6 +77,14 @@ const HeaderManager = {
 
     getBackConfig: function (screen) {
         if (!screen || this.isHomeScreen(screen)) return null;
+        if (this.isDashboardScreen(screen)) {
+            return {
+                label: "بازگشت به خانه",
+                action: function () {
+                    if (typeof Screen !== "undefined" && typeof Screen.showHome === "function") Screen.showHome();
+                }
+            };
+        }
         if (this.isProfileEditScreen(screen) || this.isProfileListScreen(screen) || this.isProfileCreateScreen(screen)) {
             return {
                 label: "بازگشت به پروفایل من",
@@ -208,4 +222,4 @@ function headerInsertAfter(element, screen) {
 window.HeaderManager = HeaderManager;
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", function () { HeaderManager.init(); });
 else HeaderManager.init();
-console.log("Header Manager v2.3 Ready");
+console.log("Header Manager v2.4 Ready");
