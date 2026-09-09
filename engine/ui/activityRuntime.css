@@ -23,8 +23,8 @@ body.activity-playing { padding-bottom: 0; }
     border-radius: 50%;
     display: grid;
     place-items: center;
-    background: #ffffff;
-    color: #263238;
+    background: #2563eb;
+    color: #ffffff;
     box-shadow: 0 5px 18px rgba(0,0,0,.18);
     font-size: 20px;
     line-height: 1;
