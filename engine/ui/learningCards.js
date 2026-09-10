@@ -1,12 +1,12 @@
 // =====================================
 // Tahouri Edu Platform
-// Learning Cards Image Adapter v1.0
+// Learning Cards Background Adapter v2.0
 //
 // Responsibilities:
-// - Add prepared subject/chapter images to existing buttons
+// - Apply prepared subject/chapter images to existing buttons as backgrounds
 // - Derive image names from grade + subject + chapter
-// - Keep existing button/navigation behavior untouched
-// - Support jpg/png/webp/jpeg assets
+// - Preserve existing icons, labels and navigation behavior
+// - Do not create image elements or alter button contents
 //
 // No navigation logic
 // No data mutation
@@ -36,17 +36,14 @@ const LearningCards = {
                 ? Screen.getProfileGrade()
                 : null;
 
-        const gradeNumber =
-            this.getGradeNumber(gradeId);
+        const gradeNumber = this.getGradeNumber(gradeId);
 
         if (!gradeNumber) {
             return null;
         }
 
         if (type === "subject") {
-            const subjectPrefix =
-                this.getSubjectPrefix(button.dataset.id);
-
+            const subjectPrefix = this.getSubjectPrefix(button.dataset.id);
             return subjectPrefix
                 ? `${subjectPrefix}${gradeNumber}`
                 : null;
@@ -58,9 +55,7 @@ const LearningCards = {
                     ? AppState.subject
                     : null;
 
-            const subjectPrefix =
-                this.getSubjectPrefix(subjectId);
-
+            const subjectPrefix = this.getSubjectPrefix(subjectId);
             const chapterMatch =
                 String(button.dataset.id || "").match(/(\d+)$/);
 
@@ -74,106 +69,63 @@ const LearningCards = {
         return null;
     },
 
-    addImage: function (button, type) {
-        if (!button || button.dataset.learningCardReady === "true") {
+    applyBackground: function (button, type) {
+        if (!button) {
             return;
         }
 
-        const imageKey =
-            this.getImageKey(button, type);
+        const imageKey = this.getImageKey(button, type);
 
         if (!imageKey) {
             return;
         }
 
-        const title =
-            button.textContent.trim();
+        if (button.dataset.learningCardKey === imageKey) {
+            return;
+        }
 
-        button.textContent = "";
         button.dataset.imageKey = imageKey;
-        button.dataset.learningCardReady = "true";
+        button.dataset.learningCardKey = imageKey;
         button.classList.add("learning-image-card");
 
-        const media =
-            document.createElement("span");
-
-        media.className = "learning-card-media";
-        media.setAttribute("aria-hidden", "true");
-
-        const image =
-            document.createElement("img");
-
-        image.className = "learning-card-image";
-        image.alt = "";
-        image.loading = "lazy";
-
-        const extensions = ["jpg", "png", "webp", "jpeg"];
-        let extensionIndex = 0;
-
-        image.src =
-            `assets/images/${imageKey}.${extensions[extensionIndex]}`;
-
-        image.onerror = function () {
-            extensionIndex += 1;
-
-            if (extensionIndex < extensions.length) {
-                image.src =
-                    `assets/images/${imageKey}.${extensions[extensionIndex]}`;
-                return;
-            }
-
-            media.classList.add("is-empty");
-        };
-
-        media.appendChild(image);
-
-        const label =
-            document.createElement("span");
-
-        label.className = "learning-card-label";
-        label.textContent = title;
-
-        button.appendChild(media);
-        button.appendChild(label);
+        // Images are prepared as JPG assets using the agreed naming convention.
+        // The image is the card background; existing button children/pseudo-icons remain untouched.
+        button.style.backgroundImage =
+            `url("assets/images/${imageKey}.jpg")`;
+        button.style.backgroundSize = "cover";
+        button.style.backgroundPosition = "center";
+        button.style.backgroundRepeat = "no-repeat";
     },
 
     enhance: function () {
         document
             .querySelectorAll("#subjectsContainer .subjectBtn")
-            .forEach((button) => {
-                this.addImage(button, "subject");
-            });
+            .forEach((button) => this.applyBackground(button, "subject"));
 
         document
             .querySelectorAll("#chaptersContainer .chapterBtn")
-            .forEach((button) => {
-                this.addImage(button, "chapter");
-            });
+            .forEach((button) => this.applyBackground(button, "chapter"));
     },
 
     start: function () {
         this.enhance();
 
-        const app =
-            document.getElementById("app");
+        const app = document.getElementById("app");
 
         if (!app) {
             return;
         }
 
-        const observer =
-            new MutationObserver(() => {
-                this.enhance();
-            });
+        const observer = new MutationObserver(() => {
+            this.enhance();
+        });
 
         observer.observe(app, {
             childList: true,
             subtree: true
         });
 
-        console.log(
-            "Learning Cards Image Adapter v1.0 Ready"
-        );
+        console.log("Learning Cards Background Adapter v2.0 Ready");
     }
 };
 
