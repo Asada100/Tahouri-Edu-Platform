@@ -480,4 +480,11 @@ const MatchingScreen = {
 window.MatchingScreen = MatchingScreen;
 
 
+// =====================================
+// CONNECT EVENT
+// =====================================
+
+MatchingScreen.init();
+
+
 console.log("Matching Screen Ready v1.0");
