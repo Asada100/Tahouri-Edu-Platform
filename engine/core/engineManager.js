@@ -1,9 +1,9 @@
 // =====================================
 // Tahouri Edu Platform
 // Engine Manager
-// Version 1.4
+// Version 1.5
 // Engine Name Resolver
-// Quiz + Memory + Puzzle
+// Quiz + Memory + Puzzle + Matching
 // =====================================
 
 
@@ -47,10 +47,6 @@ const EngineManager = {
         }
 
 
-        // =================================
-        // Direct Name
-        // =================================
-
         if(
             this.engines[id]
         ){
@@ -59,10 +55,6 @@ const EngineManager = {
 
         }
 
-
-        // =================================
-        // Normalize Engine Name
-        // =================================
 
         const normalized =
 
@@ -103,11 +95,8 @@ const EngineManager = {
         ){
 
             this.register(
-
                 "quiz",
-
                 window.QuizEngine
-
             );
 
         }
@@ -122,11 +111,8 @@ const EngineManager = {
         ){
 
             this.register(
-
                 "memory",
-
                 window.MemoryEngine
-
             );
 
         }
@@ -141,11 +127,24 @@ const EngineManager = {
         ){
 
             this.register(
-
                 "puzzle",
-
                 window.PuzzleEngine
+            );
 
+        }
+
+
+        // =================================
+        // Matching Engine
+        // =================================
+
+        if(
+            window.MatchingEngine
+        ){
+
+            this.register(
+                "matching",
+                window.MatchingEngine
             );
 
         }
