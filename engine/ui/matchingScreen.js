@@ -469,4 +469,11 @@ const MatchingScreen = {
 
 window.MatchingScreen = MatchingScreen;
 
+// =====================================
+// INITIALIZE MATCHING SCREEN
+// =====================================
+// The activityReady listener must be connected before the first
+// Matching activity starts. Loading this file alone does not call init().
+MatchingScreen.init();
+
 console.log("Matching Screen Ready v1.2");
