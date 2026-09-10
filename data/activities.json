@@ -73,6 +73,8 @@
         "title": "بخش‌پذیری بر ۹",
         "grade": "grade6",
         "subject": "math",
+        "chapter": "chapter1",
+        "type": "quiz",
         "engine": "QuizEngine",
         "group": "divisibility",
         "locked": true,
