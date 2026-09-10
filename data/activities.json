@@ -73,8 +73,6 @@
         "title": "بخش‌پذیری بر ۹",
         "grade": "grade6",
         "subject": "math",
-        "chapter": "chapter1",
-        "type": "quiz",
         "engine": "QuizEngine",
         "group": "divisibility",
         "locked": true,
@@ -108,5 +106,18 @@
         "locked": true,
         "requires": "divisibleBy10",
         "path": "content/grades/grade6/math/chapter1/divisibility/divisibleBy100"
+    },
+
+    {
+        "id": "matchingManyToOne",
+        "title": "اتصال چندگانه",
+        "grade": "grade6",
+        "subject": "math",
+        "chapter": "chapter1",
+        "type": "matching",
+        "engine": "matching",
+        "locked": false,
+        "requires": null,
+        "path": "content/grades/grade6/math/chapter1/matchingManyToOne"
     }
 ]
