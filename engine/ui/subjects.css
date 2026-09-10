@@ -17,7 +17,7 @@
     position: relative;
     min-height: 96px;
     width: 100%;
-    padding: 18px 74px 18px 52px;
+    padding: 18px 52px;
     border: 1px solid var(--ui-border);
     border-radius: var(--ui-radius-card);
     background: linear-gradient(135deg, var(--ui-surface) 0%, #f7faff 100%);
@@ -27,6 +27,11 @@
     font-weight: 800;
     line-height: 1.45;
     text-align: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    direction: rtl;
     cursor: pointer;
     box-shadow: var(--ui-shadow-card);
     transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
@@ -35,12 +40,11 @@
 
 #app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn::before {
     content: "📚";
-    position: absolute;
-    right: 18px;
-    top: 50%;
-    transform: translateY(-50%);
+    position: static;
+    transform: none;
     font-size: 30px;
     line-height: 1;
+    flex: 0 0 auto;
 }
 
 #app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn[data-id="math"]::before { content: "➗"; }
@@ -66,12 +70,12 @@
 
     #app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn {
         min-height: 88px;
-        padding: 16px 62px 16px 46px;
+        padding: 16px 40px;
         border-radius: 18px;
+        gap: 8px;
     }
 
     #app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn::before {
-        right: 14px;
         font-size: 27px;
     }
 }
