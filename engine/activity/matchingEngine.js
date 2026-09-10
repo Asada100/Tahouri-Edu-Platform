@@ -67,7 +67,11 @@ const MatchingEngine = {
             return null;
         }
 
-        const handlerType = matching.matchingType || matching.type || "basic";
+        const requestedType = matching.matchingType;
+        const registeredType = matching.type && MatchingTypeRegistry.has(matching.type)
+            ? matching.type
+            : null;
+        const handlerType = requestedType || registeredType || "basic";
         const handler = MatchingTypeRegistry.get(handlerType);
 
         if (!handler || typeof handler.prepare !== "function") {
