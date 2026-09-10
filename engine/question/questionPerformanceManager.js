@@ -122,18 +122,27 @@ const QuestionPerformanceManager = {
         }
     },
 
-    getQuestionKey: function (question) {
+    getQuestionKey: function (question, activityId) {
 
         if (!question) {
             return null;
         }
 
+        const resolvedActivityId =
+            activityId ||
+            this.currentActivityId ||
+            "unknown-activity";
+
         if (question.id !== undefined && question.id !== null) {
-            return String(question.id);
+            return (
+                String(resolvedActivityId) +
+                "|id:" +
+                String(question.id)
+            );
         }
 
         const parts = [
-            this.currentActivityId || "unknown-activity",
+            resolvedActivityId,
             question.type || "quiz",
             question.mode || "",
             question.number !== undefined ? question.number : "",
@@ -233,16 +242,12 @@ const QuestionPerformanceManager = {
             return null;
         }
 
-        const previousActivityId = this.currentActivityId;
+        const key = this.getQuestionKey(
+            question,
+            activityId
+        );
 
-        if (activityId) {
-            this.currentActivityId = activityId;
-        }
-
-        const key = this.getQuestionKey(question);
         const data = this.load();
-
-        this.currentActivityId = previousActivityId;
 
         return key ? (data[key] || null) : null;
     },
