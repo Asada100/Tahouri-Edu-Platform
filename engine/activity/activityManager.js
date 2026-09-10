@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 6.3
+// Version 6.4
 // Activity Manager
 //
 // Responsibilities:
@@ -209,6 +209,9 @@ const ActivityManager = {
             MemoryEngine.totalPairs = 0;
             MemoryEngine.finished = false;
         }
+        if (typeof window.MatchingEngine !== "undefined" && typeof MatchingEngine.reset === "function") {
+            MatchingEngine.reset();
+        }
         console.log("Activity Manager Runtime Reset");
     },
 
@@ -216,4 +219,4 @@ const ActivityManager = {
 };
 
 window.ActivityManager = ActivityManager;
-console.log("Activity Manager v6.3 Ready");
+console.log("Activity Manager v6.4 Ready");
