@@ -1,0 +1,165 @@
+/* =====================================
+   Tahouri Edu Platform
+   Matching Engine UI
+   Version 1.0
+
+   Owns only Matching Screen presentation.
+   ===================================== */
+
+.matchingScreen {
+    width: min(920px, 100%);
+    margin: 0 auto;
+    padding: 24px 18px 40px;
+    text-align: center;
+}
+
+.matchingScreen h1 {
+    margin: 0 0 10px;
+    font-size: clamp(24px, 3vw, 32px);
+    line-height: 1.4;
+    font-weight: 800;
+}
+
+.matchingInstruction {
+    margin: 0 auto 22px;
+    max-width: 720px;
+    color: var(--ui-muted, #667085);
+    line-height: 1.9;
+}
+
+.matchingBoard {
+    width: min(760px, 100%);
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 18px;
+    direction: ltr;
+    align-items: start;
+}
+
+.matchingColumn {
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid var(--ui-border, #dbe4ef);
+    border-radius: var(--ui-radius-card, 20px);
+    background: var(--ui-surface, #ffffff);
+    box-shadow: var(--ui-shadow-card, 0 7px 20px rgba(31, 41, 55, .06));
+    direction: rtl;
+}
+
+.matchingColumnTitle {
+    margin-bottom: 12px;
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--ui-text, #172033);
+}
+
+.matchingItems {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.matchingItem {
+    width: 100%;
+    min-height: 58px;
+    padding: 12px 14px;
+    border: 1px solid var(--ui-border, #dbe4ef);
+    border-radius: 14px;
+    background: var(--ui-surface-soft, #f8fbff);
+    color: var(--ui-text-body, #1f2937);
+    font: inherit;
+    font-weight: 700;
+    line-height: 1.6;
+    text-align: center;
+    cursor: pointer;
+    transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease, background-color .16s ease;
+}
+
+.matchingItem:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: var(--ui-shadow-card-hover, 0 11px 26px rgba(31, 41, 55, .09));
+}
+
+.matchingItem.selected {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px var(--ui-focus, rgba(37, 99, 235, .20));
+}
+
+.matchingItem.matched {
+    cursor: default;
+    opacity: .72;
+}
+
+.matchingItem:disabled {
+    cursor: default;
+}
+
+.matchingItemImageWrap {
+    display: block;
+    width: 100%;
+}
+
+.matchingItemImage {
+    display: block;
+    width: 100%;
+    max-height: 120px;
+    object-fit: contain;
+    margin: 0 auto;
+}
+
+.matchingStatus {
+    margin: 18px auto 0;
+    color: var(--ui-muted, #667085);
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.matchingMessage {
+    width: min(600px, 100%);
+    margin: 12px auto 0;
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-weight: 700;
+}
+
+.matchingMessage.success {
+    background: #ecfdf3;
+    color: #166534;
+}
+
+.matchingMessage.error {
+    background: #fef2f2;
+    color: #b91c1c;
+}
+
+@media (max-width: 560px) {
+    .matchingScreen {
+        padding: 18px 10px 28px;
+    }
+
+    .matchingBoard {
+        gap: 10px;
+    }
+
+    .matchingColumn {
+        padding: 10px;
+        border-radius: 16px;
+    }
+
+    .matchingColumnTitle {
+        margin-bottom: 9px;
+        font-size: 14px;
+    }
+
+    .matchingItems {
+        gap: 8px;
+    }
+
+    .matchingItem {
+        min-height: 52px;
+        padding: 10px 8px;
+        border-radius: 12px;
+        font-size: 14px;
+    }
+}
