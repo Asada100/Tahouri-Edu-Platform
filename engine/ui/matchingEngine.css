@@ -1,7 +1,7 @@
 /* =====================================
    Tahouri Edu Platform
    Matching Engine UI
-   Version 1.0
+   Version 1.1
 
    Owns only Matching Screen presentation.
    ===================================== */
@@ -35,6 +35,25 @@
     gap: 18px;
     direction: ltr;
     align-items: start;
+    position: relative;
+}
+
+.matchingConnections {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.matchingPairConnection {
+    pointer-events: none;
+}
+
+.matchingPreviewConnection {
+    pointer-events: none;
 }
 
 .matchingColumn {
@@ -45,6 +64,8 @@
     background: var(--ui-surface, #ffffff);
     box-shadow: var(--ui-shadow-card, 0 7px 20px rgba(31, 41, 55, .06));
     direction: rtl;
+    position: relative;
+    z-index: 2;
 }
 
 .matchingColumnTitle {
@@ -74,6 +95,8 @@
     text-align: center;
     cursor: pointer;
     transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease, background-color .16s ease;
+    position: relative;
+    z-index: 3;
 }
 
 .matchingItem:hover:not(:disabled) {
