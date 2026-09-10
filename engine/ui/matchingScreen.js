@@ -1,10 +1,11 @@
 // =====================================
 // Tahouri Edu Platform
 // Matching Screen
-// Version 1.2
+// Version 1.3
 //
 // Supports one-to-one and many-to-one Matching.
 // Right-side targets remain reusable.
+// Uses Pointer Events for mouse + touch.
 // =====================================
 
 const MatchingScreen = {
@@ -18,7 +19,8 @@ const MatchingScreen = {
         side: null,
         itemId: null,
         moveHandler: null,
-        upHandler: null
+        upHandler: null,
+        cancelHandler: null
     },
 
     init: function () {
@@ -63,7 +65,7 @@ const MatchingScreen = {
             return;
         }
 
-        this.cancelMouseConnection();
+        this.cancelPointerConnection();
 
         const app = this.getApp();
         if (!app) return;
@@ -199,14 +201,18 @@ const MatchingScreen = {
         const buttons = document.querySelectorAll("[data-matching-side][data-matching-id]");
 
         buttons.forEach(function (button) {
-            button.addEventListener("mousedown", function (event) {
-                MatchingScreen.beginMouseConnection(event, button);
+            button.addEventListener("pointerdown", function (event) {
+                MatchingScreen.beginPointerConnection(event, button);
             });
         });
     },
 
-    beginMouseConnection: function (event, button) {
-        if (!event || event.button !== 0 || !button || button.disabled) return;
+    beginPointerConnection: function (event, button) {
+        if (!event || !button || button.disabled) return;
+
+        // Pointer Events use button=0 for mouse. Touch pointers do not have
+        // a mouse button value, so only reject non-primary mouse buttons.
+        if (event.pointerType === "mouse" && event.button !== 0) return;
 
         const side = button.getAttribute("data-matching-side");
         const itemId = button.getAttribute("data-matching-id");
@@ -214,27 +220,44 @@ const MatchingScreen = {
 
         event.preventDefault();
         event.stopPropagation();
-        this.cancelMouseConnection();
+        this.cancelPointerConnection();
 
         this.connection.active = true;
         this.connection.side = side;
         this.connection.itemId = itemId;
 
+        if (typeof button.setPointerCapture === "function" && event.pointerId !== undefined) {
+            try {
+                button.setPointerCapture(event.pointerId);
+            } catch (error) {
+                // Pointer capture is optional; document-level listeners still handle the drag.
+            }
+        }
+
         this.connection.moveHandler = function (moveEvent) {
+            if (moveEvent.pointerId !== event.pointerId) return;
+            moveEvent.preventDefault();
             MatchingScreen.updatePreviewConnection(moveEvent.clientX, moveEvent.clientY);
         };
 
         this.connection.upHandler = function (upEvent) {
-            MatchingScreen.finishMouseConnection(upEvent);
+            if (upEvent.pointerId !== event.pointerId) return;
+            MatchingScreen.finishPointerConnection(upEvent);
         };
 
-        document.addEventListener("mousemove", this.connection.moveHandler);
-        document.addEventListener("mouseup", this.connection.upHandler, true);
+        this.connection.cancelHandler = function (cancelEvent) {
+            if (cancelEvent.pointerId !== event.pointerId) return;
+            MatchingScreen.cancelPointerConnection();
+        };
+
+        document.addEventListener("pointermove", this.connection.moveHandler, {passive: false});
+        document.addEventListener("pointerup", this.connection.upHandler, true);
+        document.addEventListener("pointercancel", this.connection.cancelHandler, true);
 
         this.updatePreviewConnection(event.clientX, event.clientY);
     },
 
-    finishMouseConnection: function (event) {
+    finishPointerConnection: function (event) {
         if (!this.connection.active) return;
 
         const startSide = this.connection.side;
@@ -257,7 +280,7 @@ const MatchingScreen = {
             targetSide !== startSide &&
             String(targetId) !== String(startId);
 
-        this.cancelMouseConnection();
+        this.cancelPointerConnection();
         if (!validTarget) return;
 
         if (typeof MatchingEngine === "undefined" || typeof MatchingEngine.select !== "function") {
@@ -271,13 +294,17 @@ const MatchingScreen = {
         this.handleSelection(targetSide, targetId);
     },
 
-    cancelMouseConnection: function () {
+    cancelPointerConnection: function () {
         if (this.connection.moveHandler) {
-            document.removeEventListener("mousemove", this.connection.moveHandler);
+            document.removeEventListener("pointermove", this.connection.moveHandler, {passive: false});
         }
 
         if (this.connection.upHandler) {
-            document.removeEventListener("mouseup", this.connection.upHandler, true);
+            document.removeEventListener("pointerup", this.connection.upHandler, true);
+        }
+
+        if (this.connection.cancelHandler) {
+            document.removeEventListener("pointercancel", this.connection.cancelHandler, true);
         }
 
         this.connection.active = false;
@@ -285,12 +312,18 @@ const MatchingScreen = {
         this.connection.itemId = null;
         this.connection.moveHandler = null;
         this.connection.upHandler = null;
+        this.connection.cancelHandler = null;
 
         const svg = document.querySelector(".matchingConnections");
         if (svg) {
             const preview = svg.querySelector(".matchingPreviewConnection");
             if (preview) preview.remove();
         }
+    },
+
+    // Backward-compatible name for any existing internal/external callers.
+    cancelMouseConnection: function () {
+        this.cancelPointerConnection();
     },
 
     updatePreviewConnection: function (clientX, clientY) {
@@ -472,8 +505,6 @@ window.MatchingScreen = MatchingScreen;
 // =====================================
 // INITIALIZE MATCHING SCREEN
 // =====================================
-// The activityReady listener must be connected before the first
-// Matching activity starts. Loading this file alone does not call init().
 MatchingScreen.init();
 
-console.log("Matching Screen Ready v1.2");
+console.log("Matching Screen Ready v1.3");
