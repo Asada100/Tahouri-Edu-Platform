@@ -3,6 +3,11 @@
         "id": "math",
         "title": "ریاضی",
         "grades": [
+            "grade1",
+            "grade2",
+            "grade3",
+            "grade4",
+            "grade5",
             "grade6"
         ]
     },
@@ -10,6 +15,11 @@
         "id": "science",
         "title": "علوم",
         "grades": [
+            "grade1",
+            "grade2",
+            "grade3",
+            "grade4",
+            "grade5",
             "grade6"
         ]
     },
@@ -17,6 +27,11 @@
         "id": "persian",
         "title": "فارسی",
         "grades": [
+            "grade1",
+            "grade2",
+            "grade3",
+            "grade4",
+            "grade5",
             "grade6"
         ]
     }
