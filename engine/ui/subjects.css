@@ -6,21 +6,20 @@
 
 #app > .screen:has(> .tahouri-app-header) #subjectsContainer {
     width: min(760px, 100%);
-    margin: 28px auto 18px;
-    padding: 0 8px;
+    margin: 28px auto 20px;
+    padding: 6px 10px 10px;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-    gap: 18px;
-    justify-items: stretch;
+    grid-template-columns: 1fr;
+    gap: 14px;
 }
 
 #app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn {
     position: relative;
-    min-height: 118px;
+    min-height: 96px;
     width: 100%;
-    padding: 28px 18px 18px;
+    padding: 18px 74px 18px 52px;
     border: 1px solid var(--ui-border);
-    border-radius: var(--ui-radius-card-large);
+    border-radius: var(--ui-radius-card);
     background: linear-gradient(135deg, var(--ui-surface) 0%, #f7faff 100%);
     color: var(--ui-text);
     font-family: inherit;
@@ -29,21 +28,50 @@
     line-height: 1.45;
     text-align: center;
     cursor: pointer;
-    box-shadow: 0 8px 24px rgba(31, 41, 55, .07);
+    box-shadow: var(--ui-shadow-card);
     transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
     -webkit-tap-highlight-color: transparent;
 }
 
-#app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn::before { content: "📚"; display: block; margin-bottom: 8px; font-size: 30px; line-height: 1; }
+#app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn::before {
+    content: "📚";
+    position: absolute;
+    right: 18px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 30px;
+    line-height: 1;
+}
+
 #app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn[data-id="math"]::before { content: "➗"; }
 #app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn[data-id="science"]::before { content: "🔬"; }
 #app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn[data-id="persian"]::before { content: "📖"; }
-#app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn:hover { transform: translateY(-2px); border-color: #c7d5e5; box-shadow: 0 12px 28px rgba(31, 41, 55, .10); }
+
+#app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn:hover {
+    transform: translateY(-2px);
+    border-color: #c7d5e5;
+    box-shadow: var(--ui-shadow-card-hover);
+}
+
 #app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn:active { transform: translateY(0); }
 #app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn:focus-visible { outline: 3px solid var(--ui-focus); outline-offset: 3px; }
 
 @media (max-width: 520px) {
-    #app > .screen:has(> .tahouri-app-header) #subjectsContainer { grid-template-columns: 1fr; gap: 14px; margin-top: 22px; padding: 0 4px; }
-    #app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn { min-height: 96px; padding: 20px 18px 16px; border-radius: 19px; }
-    #app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn::before { font-size: 27px; margin-bottom: 6px; }
+    #app > .screen:has(> .tahouri-app-header) #subjectsContainer {
+        grid-template-columns: 1fr;
+        gap: 12px;
+        margin-top: 22px;
+        padding: 4px 4px 10px;
+    }
+
+    #app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn {
+        min-height: 88px;
+        padding: 16px 62px 16px 46px;
+        border-radius: 18px;
+    }
+
+    #app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn::before {
+        right: 14px;
+        font-size: 27px;
+    }
 }
