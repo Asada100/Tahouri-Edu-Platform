@@ -34,5 +34,9 @@
     {
         "id": "memoryDemo",
         "locked": true
+    },
+    {
+        "id": "matchingManyToOne",
+        "locked": false
     }
 ]
