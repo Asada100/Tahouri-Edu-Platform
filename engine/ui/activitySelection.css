@@ -22,7 +22,7 @@
     position: relative;
     width: 100%;
     min-height: 84px;
-    padding: 16px 24px 16px 58px;
+    padding: 16px 50px 16px 58px;
     border: 1px solid var(--ui-border);
     border-radius: var(--ui-radius-card);
     background: linear-gradient(135deg, var(--ui-surface) 0%, var(--ui-surface-soft) 100%);
@@ -32,35 +32,33 @@
     font-weight: 800;
     line-height: 1.45;
     text-align: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    direction: rtl;
     cursor: pointer;
     box-shadow: var(--ui-shadow-card);
     transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease, background .18s ease;
     -webkit-tap-highlight-color: transparent;
 }
 
-#app > .screen.activityScreen:has(> .tahouri-app-header) .activitySelectBtn[data-id="evenOdd"],
-#app > .screen.activityScreen:has(> .tahouri-app-header) .activityGroupBtn {
-    padding-right: 68px;
-}
-
 #app > .screen.activityScreen:has(> .tahouri-app-header) .activitySelectBtn[data-id="evenOdd"]::before {
     content: "🔢";
-    position: absolute;
-    top: 50%;
-    right: 18px;
-    transform: translateY(-50%);
+    position: static;
+    transform: none;
     font-size: 27px;
     line-height: 1;
+    flex: 0 0 auto;
 }
 
 #app > .screen.activityScreen:has(> .tahouri-app-header) .activityGroupBtn::before {
     content: "➗";
-    position: absolute;
-    top: 50%;
-    right: 18px;
-    transform: translateY(-50%);
+    position: static;
+    transform: none;
     font-size: 27px;
     line-height: 1;
+    flex: 0 0 auto;
 }
 
 #app > .screen.activityScreen:has(> .tahouri-app-header) .activitySelectBtn::after,
@@ -100,9 +98,9 @@
     content: "🔒";
     position: absolute;
     top: 50%;
-    right: 18px;
+    right: 14px;
     transform: translateY(-50%);
-    font-size: 27px;
+    font-size: 24px;
     line-height: 1;
 }
 
@@ -126,13 +124,11 @@
 @media (max-width: 520px) {
     #app > .screen.activityScreen:has(> .tahouri-app-header) #activityList { margin-top: 20px; padding: 0 4px; gap: 12px; }
     #app > .screen.activityScreen:has(> .tahouri-app-header) .activitySelectBtn,
-    #app > .screen.activityScreen:has(> .tahouri-app-header) .activityGroupBtn { min-height: 76px; padding: 14px 20px 14px 48px; border-radius: 18px; }
-    #app > .screen.activityScreen:has(> .tahouri-app-header) .activitySelectBtn[data-id="evenOdd"],
-    #app > .screen.activityScreen:has(> .tahouri-app-header) .activityGroupBtn { padding-right: 58px; }
+    #app > .screen.activityScreen:has(> .tahouri-app-header) .activityGroupBtn { min-height: 76px; padding: 14px 42px 14px 48px; border-radius: 18px; gap: 7px; }
     #app > .screen.activityScreen:has(> .tahouri-app-header) .activitySelectBtn[data-id="evenOdd"]::before,
-    #app > .screen.activityScreen:has(> .tahouri-app-header) .activityGroupBtn::before,
+    #app > .screen.activityScreen:has(> .tahouri-app-header) .activityGroupBtn::before { font-size: 23px; }
     #app > .screen.activityScreen:has(> .tahouri-app-header) .activitySelectBtn:disabled::before,
-    #app > .screen.activityScreen:has(> .tahouri-app-header) .activityGroupBtn:disabled::before { right: 14px; font-size: 23px; }
+    #app > .screen.activityScreen:has(> .tahouri-app-header) .activityGroupBtn:disabled::before { right: 12px; font-size: 22px; }
     #app > .screen.activityScreen:has(> .tahouri-app-header) .activitySelectBtn::after,
     #app > .screen.activityScreen:has(> .tahouri-app-header) .activityGroupBtn::after { left: 16px; font-size: 25px; }
 }
