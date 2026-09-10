@@ -19,7 +19,7 @@
     position: relative;
     width: 100%;
     min-height: 82px;
-    padding: 18px 74px;
+    padding: 18px 24px 18px 74px;
     border: 1px solid var(--ui-border);
     border-radius: var(--ui-radius-card);
     background: linear-gradient(135deg, var(--ui-surface) 0%, var(--ui-surface-soft) 100%);
@@ -62,23 +62,12 @@
     line-height: 1;
 }
 
-#app > .screen:has(> .tahouri-app-header) #chaptersContainer .chapterBtn::after {
-    content: "📘";
-    position: absolute;
-    right: 18px;
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: 24px;
-    line-height: 1;
-}
-
 #app > .screen:has(> .tahouri-app-header) #chaptersContainer .chapterBtn:hover { transform: translateY(-2px); border-color: #c7d5e5; box-shadow: var(--ui-shadow-card-hover); }
 #app > .screen:has(> .tahouri-app-header) #chaptersContainer .chapterBtn:active { transform: translateY(0); }
 #app > .screen:has(> .tahouri-app-header) #chaptersContainer .chapterBtn:focus-visible { outline: 3px solid var(--ui-focus); outline-offset: 3px; }
 
 @media (max-width: 520px) {
     #app > .screen:has(> .tahouri-app-header) #chaptersContainer { margin-top: 22px; padding: 4px 4px 10px; gap: 12px; }
-    #app > .screen:has(> .tahouri-app-header) #chaptersContainer .chapterBtn { min-height: 76px; padding: 16px 52px 16px 62px; border-radius: 18px; }
+    #app > .screen:has(> .tahouri-app-header) #chaptersContainer .chapterBtn { min-height: 76px; padding: 16px 20px 16px 62px; border-radius: 18px; }
     #app > .screen:has(> .tahouri-app-header) #chaptersContainer .chapterBtn::before { left: 14px; width: 36px; height: 36px; font-size: 16px; }
-    #app > .screen:has(> .tahouri-app-header) #chaptersContainer .chapterBtn::after { right: 14px; font-size: 21px; }
 }
