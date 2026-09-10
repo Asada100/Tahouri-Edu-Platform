@@ -1,29 +1,26 @@
 // =====================================
 // Tahouri Edu Platform
-// Smart Question Selector v1.0
-// Smart Content — Adaptive Question Ordering
+// Smart Question Selector v2.0
+// Smart Content — Skill-Aware Adaptive Ordering
 //
 // Responsibilities:
 // - Use question-level performance data
+// - Use skill/concept-level performance data
 // - Prioritize previously weak questions
-// - Keep unseen questions in the middle
-// - Keep well-mastered questions later
+// - Give unseen questions higher priority when their skill is weak
+// - Keep all generated/bank questions; change order only
 //
 // Scope:
 // - Quiz questions only
 // - Does not modify QuizEngine
+// - Does not modify Question Generator
 // - Does not modify Memory / Puzzle
 // - Does not modify Statistics / Progress
-//
-// Important:
-// This selector changes ORDER only.
-// It never removes questions and never changes
-// the educational content itself.
 // =====================================
 
 const SmartQuestionSelector = {
 
-    VERSION: "1.0",
+    VERSION: "2.0",
 
     initialized: false,
 
@@ -72,7 +69,7 @@ const SmartQuestionSelector = {
         this.initialized = true;
 
         console.log(
-            "Smart Question Selector v1.0 Ready"
+            "Smart Question Selector v2.0 Ready"
         );
     },
 
@@ -151,9 +148,50 @@ const SmartQuestionSelector = {
             return null;
         }
 
-        // Unseen questions are deliberately kept below
-        // known weak questions but above mastered questions.
+        const skill =
+            typeof QuestionPerformanceManager.getSkill === "function"
+                ? QuestionPerformanceManager.getSkill(
+                    question,
+                    activityId
+                )
+                : null;
+
+        let skillPerformance = null;
+
+        if (
+            skill &&
+            typeof QuestionPerformanceManager.getSkillPerformance === "function"
+        ) {
+            try {
+                skillPerformance =
+                    QuestionPerformanceManager.getSkillPerformance(skill);
+            }
+            catch (error) {
+                console.warn(
+                    "SmartQuestionSelector: Skill performance lookup failed",
+                    error
+                );
+            }
+        }
+
+        // Unseen questions receive a stronger priority when the
+        // student has demonstrated weakness in the same skill.
         if (!record) {
+
+            if (skillPerformance) {
+
+                const accuracy =
+                    skillPerformance.accuracy;
+
+                if (accuracy < 0.60) {
+                    return 80;
+                }
+
+                if (accuracy < 0.80) {
+                    return 65;
+                }
+            }
+
             return 50;
         }
 
@@ -175,20 +213,29 @@ const SmartQuestionSelector = {
 
         // Priority range:
         // 100 = repeatedly wrong
-        // 50  = unseen
+        // 50  = neutral / unseen
         // 0   = fully mastered
         let priority =
             Math.round((1 - accuracy) * 100);
 
-        // A recent wrong answer receives a small additional
-        // priority so the system revisits it sooner.
         if (record.lastAnswerCorrect === false) {
             priority += 15;
         }
 
-        // Repeated wrong attempts are a stronger signal.
         if (wrong >= 2) {
             priority += 10;
+        }
+
+        // Skill weakness gives previously attempted questions
+        // an additional, bounded boost without changing content.
+        if (skillPerformance) {
+
+            if (skillPerformance.accuracy < 0.60) {
+                priority += 10;
+            }
+            else if (skillPerformance.accuracy < 0.80) {
+                priority += 5;
+            }
         }
 
         return Math.min(

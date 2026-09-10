@@ -1,22 +1,24 @@
 // =====================================
 // Tahouri Edu Platform
-// Question Performance Manager v1.0
-// Smart Content — Question-Level Data Layer
+// Question Performance Manager v2.0
+// Smart Content — Question & Skill Data Layer
 //
 // Responsibilities:
 // - Record question-level correct / wrong results
+// - Derive and record the learning skill/concept
+// - Aggregate performance by skill for adaptive content
 // - Keep data isolated per active profile
-// - Preserve activity/question metadata for future adaptive selection
 //
-// This module is intentionally independent from:
+// This module remains independent from:
 // - QuizEngine execution
 // - StatisticsManager aggregates
+// - ProgressManager
 // - Memory / Puzzle engines
 // =====================================
 
 const QuestionPerformanceManager = {
 
-    VERSION: "1.0",
+    VERSION: "2.0",
 
     STORAGE_KEY: "Tahouri_QuestionPerformance",
 
@@ -56,7 +58,7 @@ const QuestionPerformanceManager = {
 
         this.initialized = true;
 
-        console.log("Question Performance Manager v1.0 Ready");
+        console.log("Question Performance Manager v2.0 Ready");
     },
 
     getStorageKey: function () {
@@ -122,6 +124,55 @@ const QuestionPerformanceManager = {
         }
     },
 
+    // -------------------------------------
+    // SKILL / CONCEPT IDENTITY
+    // -------------------------------------
+
+    getSkill: function (question, activityId) {
+
+        if (!question && !activityId) {
+            return null;
+        }
+
+        if (question && question.skill) {
+            return String(question.skill);
+        }
+
+        if (question && question.concept) {
+            return String(question.concept);
+        }
+
+        const resolvedActivityId =
+            activityId ||
+            this.currentActivityId ||
+            null;
+
+        const mode =
+            question && question.mode
+                ? String(question.mode)
+                : "";
+
+        if (mode === "divisibility") {
+            const divisor =
+                question && question.divisor !== undefined
+                    ? String(question.divisor)
+                    : "unknown";
+
+            return "divisibility:" + divisor;
+        }
+
+        if (
+            mode === "evenOdd" ||
+            resolvedActivityId === "evenOdd"
+        ) {
+            return "evenOdd";
+        }
+
+        return resolvedActivityId
+            ? "activity:" + String(resolvedActivityId)
+            : null;
+    },
+
     getQuestionKey: function (question, activityId) {
 
         if (!question) {
@@ -184,6 +235,10 @@ const QuestionPerformanceManager = {
         existing.activityId =
             existing.activityId || this.currentActivityId;
 
+        existing.skill =
+            existing.skill ||
+            this.getSkill(question, existing.activityId);
+
         existing.attempts += 1;
 
         if (isCorrect) {
@@ -198,10 +253,6 @@ const QuestionPerformanceManager = {
 
         if (question.difficulty !== undefined) {
             existing.difficulty = question.difficulty;
-        }
-
-        if (question.skill !== undefined) {
-            existing.skill = question.skill;
         }
 
         if (question.concept !== undefined) {
@@ -229,6 +280,7 @@ const QuestionPerformanceManager = {
                 "Question Performance Recorded:",
                 this.currentActivityId,
                 questionKey,
+                existing.skill,
                 isCorrect ? "correct" : "wrong"
             );
         }
@@ -250,6 +302,70 @@ const QuestionPerformanceManager = {
         const data = this.load();
 
         return key ? (data[key] || null) : null;
+    },
+
+    getSkillPerformance: function (skill) {
+
+        if (!skill) {
+            return null;
+        }
+
+        const data = this.load();
+
+        let attempts = 0;
+        let correct = 0;
+        let wrong = 0;
+        let questionCount = 0;
+        let lastAnswerCorrect = null;
+        let lastSeenAt = null;
+
+        Object.keys(data).forEach((key) => {
+
+            const record = data[key];
+
+            if (!record) {
+                return;
+            }
+
+            const recordSkill =
+                record.skill ||
+                this.getSkill(record, record.activityId);
+
+            if (recordSkill !== skill) {
+                return;
+            }
+
+            questionCount += 1;
+            attempts += Number(record.attempts) || 0;
+            correct += Number(record.correct) || 0;
+            wrong += Number(record.wrong) || 0;
+
+            if (
+                record.lastSeenAt &&
+                (!lastSeenAt || record.lastSeenAt > lastSeenAt)
+            ) {
+                lastSeenAt = record.lastSeenAt;
+                lastAnswerCorrect =
+                    record.lastAnswerCorrect === undefined
+                        ? null
+                        : record.lastAnswerCorrect;
+            }
+        });
+
+        if (attempts === 0) {
+            return null;
+        }
+
+        return {
+            skill: skill,
+            attempts: attempts,
+            correct: correct,
+            wrong: wrong,
+            accuracy: correct / attempts,
+            questionCount: questionCount,
+            lastAnswerCorrect: lastAnswerCorrect,
+            lastSeenAt: lastSeenAt
+        };
     },
 
     getAll: function () {
