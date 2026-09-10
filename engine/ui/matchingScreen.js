@@ -1,12 +1,12 @@
 // =====================================
 // Tahouri Edu Platform
 // Matching Screen
-// Version 1.0
+// Version 1.1
 //
 // Responsibilities:
 // - Matching UI Rendering
 // - Left / Right Item Display
-// - User Selection
+// - Mouse Connection Interaction
 // - Matching Engine Interaction
 // - Activity Ready Integration
 //
@@ -22,6 +22,14 @@ const MatchingScreen = {
     lastMessage: "",
 
     lastMessageType: "",
+
+    connection: {
+        active: false,
+        side: null,
+        itemId: null,
+        moveHandler: null,
+        upHandler: null
+    },
 
 
     // =====================================
@@ -109,6 +117,8 @@ const MatchingScreen = {
             return;
         }
 
+        this.cancelMouseConnection();
+
         const app = this.getApp();
 
         if (!app) {
@@ -181,11 +191,21 @@ const MatchingScreen = {
                     ${this.escapeHTML(state.instruction || "موارد مرتبط را به هم وصل کن.")}
                 </p>
 
-                <div class="matchingBoard">
+                <div
+                    class="matchingBoard"
+                    style="position:relative;">
+
+                    <svg
+                        class="matchingConnections"
+                        aria-hidden="true"
+                        focusable="false"
+                        style="position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;z-index:3;">
+                    </svg>
 
                     <div
                         class="matchingColumn matchingLeftColumn"
-                        data-side="left">
+                        data-side="left"
+                        style="position:relative;z-index:2;">
 
                         <div class="matchingColumnTitle">
                             مورد اول
@@ -199,7 +219,8 @@ const MatchingScreen = {
 
                     <div
                         class="matchingColumn matchingRightColumn"
-                        data-side="right">
+                        data-side="right"
+                        style="position:relative;z-index:2;">
 
                         <div class="matchingColumnTitle">
                             مورد دوم
@@ -226,6 +247,7 @@ const MatchingScreen = {
         `;
 
         this.bindEvents();
+        this.drawMatchedConnections();
 
     },
 
@@ -324,16 +346,376 @@ const MatchingScreen = {
         buttons.forEach(function (button) {
 
             button.addEventListener(
-                "click",
-                function () {
-                    MatchingScreen.handleSelection(
-                        button.getAttribute("data-matching-side"),
-                        button.getAttribute("data-matching-id")
+                "mousedown",
+                function (event) {
+                    MatchingScreen.beginMouseConnection(
+                        event,
+                        button
                     );
                 }
             );
 
         });
+
+    },
+
+
+    // =====================================
+    // MOUSE CONNECTION
+    // =====================================
+
+    beginMouseConnection: function (event, button) {
+
+        if (!event || event.button !== 0 || !button) {
+            return;
+        }
+
+        if (button.disabled) {
+            return;
+        }
+
+        const side = button.getAttribute("data-matching-side");
+        const itemId = button.getAttribute("data-matching-id");
+
+        if (!side || !itemId) {
+            return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        this.cancelMouseConnection();
+
+        this.connection.active = true;
+        this.connection.side = side;
+        this.connection.itemId = itemId;
+
+        this.connection.moveHandler = function (moveEvent) {
+            MatchingScreen.updatePreviewConnection(
+                moveEvent.clientX,
+                moveEvent.clientY
+            );
+        };
+
+        this.connection.upHandler = function (upEvent) {
+            MatchingScreen.finishMouseConnection(upEvent);
+        };
+
+        document.addEventListener(
+            "mousemove",
+            this.connection.moveHandler
+        );
+
+        document.addEventListener(
+            "mouseup",
+            this.connection.upHandler,
+            true
+        );
+
+        this.updatePreviewConnection(
+            event.clientX,
+            event.clientY
+        );
+
+    },
+
+
+    finishMouseConnection: function (event) {
+
+        if (!this.connection.active) {
+            return;
+        }
+
+        const startSide = this.connection.side;
+        const startId = this.connection.itemId;
+        const target = event
+            ? document.elementFromPoint(event.clientX, event.clientY)
+            : null;
+
+        const targetButton = target && typeof target.closest === "function"
+            ? target.closest("[data-matching-side][data-matching-id]")
+            : null;
+
+        const targetSide = targetButton
+            ? targetButton.getAttribute("data-matching-side")
+            : null;
+
+        const targetId = targetButton
+            ? targetButton.getAttribute("data-matching-id")
+            : null;
+
+        const validTarget =
+            targetButton &&
+            !targetButton.disabled &&
+            targetSide &&
+            targetId &&
+            targetSide !== startSide &&
+            String(targetId) !== String(startId);
+
+        this.cancelMouseConnection();
+
+        if (!validTarget) {
+            return;
+        }
+
+        if (
+            typeof MatchingEngine === "undefined" ||
+            typeof MatchingEngine.select !== "function"
+        ) {
+            console.error(
+                "Matching Screen: Matching Engine Not Available"
+            );
+            return;
+        }
+
+        const firstResult = MatchingEngine.select(
+            startSide,
+            startId
+        );
+
+        if (!firstResult) {
+            return;
+        }
+
+        this.handleSelection(
+            targetSide,
+            targetId
+        );
+
+    },
+
+
+    cancelMouseConnection: function () {
+
+        if (this.connection.moveHandler) {
+            document.removeEventListener(
+                "mousemove",
+                this.connection.moveHandler
+            );
+        }
+
+        if (this.connection.upHandler) {
+            document.removeEventListener(
+                "mouseup",
+                this.connection.upHandler,
+                true
+            );
+        }
+
+        this.connection.active = false;
+        this.connection.side = null;
+        this.connection.itemId = null;
+        this.connection.moveHandler = null;
+        this.connection.upHandler = null;
+
+        const svg = document.querySelector(".matchingConnections");
+
+        if (svg) {
+            const preview = svg.querySelector(
+                ".matchingPreviewConnection"
+            );
+
+            if (preview) {
+                preview.remove();
+            }
+        }
+
+    },
+
+
+    updatePreviewConnection: function (clientX, clientY) {
+
+        if (!this.connection.active) {
+            return;
+        }
+
+        const board = document.querySelector(".matchingBoard");
+        const svg = document.querySelector(".matchingConnections");
+        const startButton = this.findMatchingButton(
+            this.connection.side,
+            this.connection.itemId
+        );
+
+        if (!board || !svg || !startButton) {
+            return;
+        }
+
+        const boardRect = board.getBoundingClientRect();
+        const startPoint = this.getElementCenter(
+            startButton,
+            boardRect
+        );
+
+        const endPoint = {
+            x: clientX - boardRect.left,
+            y: clientY - boardRect.top
+        };
+
+        let preview = svg.querySelector(
+            ".matchingPreviewConnection"
+        );
+
+        if (!preview) {
+            preview = document.createElementNS(
+                "http://www.w3.org/2000/svg",
+                "line"
+            );
+            preview.setAttribute(
+                "class",
+                "matchingPreviewConnection"
+            );
+            preview.setAttribute(
+                "fill",
+                "none"
+            );
+            preview.setAttribute(
+                "stroke",
+                "#2563eb"
+            );
+            preview.setAttribute(
+                "stroke-width",
+                "3"
+            );
+            preview.setAttribute(
+                "stroke-linecap",
+                "round"
+            );
+            preview.setAttribute(
+                "stroke-dasharray",
+                "7 6"
+            );
+            svg.appendChild(preview);
+        }
+
+        preview.setAttribute("x1", startPoint.x);
+        preview.setAttribute("y1", startPoint.y);
+        preview.setAttribute("x2", endPoint.x);
+        preview.setAttribute("y2", endPoint.y);
+
+    },
+
+
+    // =====================================
+    // MATCHED CONNECTIONS
+    // =====================================
+
+    drawMatchedConnections: function () {
+
+        const board = document.querySelector(".matchingBoard");
+        const svg = document.querySelector(".matchingConnections");
+
+        if (!board || !svg) {
+            return;
+        }
+
+        while (svg.firstChild) {
+            svg.removeChild(svg.firstChild);
+        }
+
+        if (
+            typeof MatchingEngine === "undefined" ||
+            !MatchingEngine.matching ||
+            !Array.isArray(MatchingEngine.matching.pairs)
+        ) {
+            return;
+        }
+
+        const matchedPairs = Array.isArray(MatchingEngine.matchedPairs)
+            ? MatchingEngine.matchedPairs
+            : [];
+
+        const boardRect = board.getBoundingClientRect();
+
+        matchedPairs.forEach(function (pairId) {
+
+            const pair = MatchingEngine.matching.pairs.find(function (item) {
+                return String(item.id) === String(pairId);
+            });
+
+            if (!pair) {
+                return;
+            }
+
+            const leftButton = MatchingScreen.findMatchingButton(
+                "left",
+                pair.left.id
+            );
+
+            const rightButton = MatchingScreen.findMatchingButton(
+                "right",
+                pair.right.id
+            );
+
+            if (!leftButton || !rightButton) {
+                return;
+            }
+
+            const leftPoint = MatchingScreen.getElementCenter(
+                leftButton,
+                boardRect
+            );
+
+            const rightPoint = MatchingScreen.getElementCenter(
+                rightButton,
+                boardRect
+            );
+
+            const line = document.createElementNS(
+                "http://www.w3.org/2000/svg",
+                "line"
+            );
+
+            line.setAttribute("class", "matchingPairConnection");
+            line.setAttribute("x1", leftPoint.x);
+            line.setAttribute("y1", leftPoint.y);
+            line.setAttribute("x2", rightPoint.x);
+            line.setAttribute("y2", rightPoint.y);
+            line.setAttribute("fill", "none");
+            line.setAttribute("stroke", "#16a34a");
+            line.setAttribute("stroke-width", "4");
+            line.setAttribute("stroke-linecap", "round");
+
+            svg.appendChild(line);
+
+        });
+
+    },
+
+
+    findMatchingButton: function (side, itemId) {
+
+        const buttons = document.querySelectorAll(
+            "[data-matching-side][data-matching-id]"
+        );
+
+        const normalizedId = String(itemId);
+
+        for (let index = 0; index < buttons.length; index += 1) {
+
+            const button = buttons[index];
+
+            if (
+                button.getAttribute("data-matching-side") === side &&
+                String(button.getAttribute("data-matching-id")) === normalizedId
+            ) {
+                return button;
+            }
+
+        }
+
+        return null;
+
+    },
+
+
+    getElementCenter: function (element, boardRect) {
+
+        const rect = element.getBoundingClientRect();
+
+        return {
+            x: rect.left - boardRect.left + rect.width / 2,
+            y: rect.top - boardRect.top + rect.height / 2
+        };
 
     },
 
@@ -464,7 +846,7 @@ const MatchingScreen = {
             .replace(/&/g, "&amp;")
             .replace(/</g, "&lt;")
             .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
+            .replace(/\"/g, "&quot;")
             .replace(/'/g, "&#039;");
 
     },
@@ -487,4 +869,4 @@ window.MatchingScreen = MatchingScreen;
 MatchingScreen.init();
 
 
-console.log("Matching Screen Ready v1.0");
+console.log("Matching Screen Ready v1.1");
