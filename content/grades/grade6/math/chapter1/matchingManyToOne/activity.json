@@ -1,0 +1,42 @@
+{
+    "id": "matchingManyToOne",
+    "title": "اتصال چندگانه",
+    "description": "هر مورد سمت راست را به گزینه درست در سمت چپ وصل کن.",
+    "grade": "grade6",
+    "subject": "math",
+    "chapter": "chapter1",
+    "type": "matching",
+    "engine": "matching",
+    "version": "1.0",
+    "matching": {
+        "type": "basic",
+        "instruction": "هر عدد را به دسته درست وصل کن",
+        "pairs": [
+            {
+                "id": "m1",
+                "left": { "id": "l1", "text": "۲۴" },
+                "right": { "id": "r1", "text": "زوج" }
+            },
+            {
+                "id": "m2",
+                "left": { "id": "l2", "text": "۳۷" },
+                "right": { "id": "r2", "text": "فرد" }
+            },
+            {
+                "id": "m3",
+                "left": { "id": "l3", "text": "۵۰" },
+                "right": { "id": "r1", "text": "زوج" }
+            },
+            {
+                "id": "m4",
+                "left": { "id": "l4", "text": "۶۳" },
+                "right": { "id": "r2", "text": "فرد" }
+            },
+            {
+                "id": "m5",
+                "left": { "id": "l5", "text": "۸۱" },
+                "right": { "id": "r2", "text": "فرد" }
+            }
+        ]
+    }
+}
