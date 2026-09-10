@@ -1,12 +1,12 @@
 // =====================================
 // Tahouri Edu Platform
 // Matching Engine
-// Version 1.1
+// Version 1.2
 //
 // Responsibilities:
 // - Generic matching core
-// - Pair selection
-// - Match validation
+// - One-left-to-one-right validation
+// - Many-left-to-one-right support
 // - Move tracking
 // - Completion state
 // - Session state
@@ -17,9 +17,7 @@
 // - No mathematics / Persian / science logic
 // - No rendering
 // - No content generation
-// - Type-specific preparation delegated to MatchingTypeRegistry
 // =====================================
-
 
 const MatchingEngine = {
 
@@ -41,10 +39,10 @@ const MatchingEngine = {
     },
 
     matchedPairs: [],
+    matchedLeftIds: [],
     moves: 0,
 
     start: function(activityData) {
-
         if (!activityData) {
             console.error("Matching Engine: Activity Data Missing");
             return null;
@@ -54,14 +52,12 @@ const MatchingEngine = {
         this.activity = activityData;
 
         const matching = this.extractMatchingData(activityData);
-
         if (!matching) {
             console.error("Matching Engine: Matching Data Missing");
             return null;
         }
 
         const normalized = this.normalizeMatchingData(matching);
-
         if (!normalized || normalized.pairs.length === 0) {
             console.error("Matching Engine: No Matching Pairs Available");
             return null;
@@ -80,7 +76,6 @@ const MatchingEngine = {
         }
 
         const prepared = handler.prepare(normalized);
-
         if (!prepared || !Array.isArray(prepared.pairs) || prepared.pairs.length === 0) {
             console.error("Matching Engine: Handler Preparation Failed", handlerType);
             return null;
@@ -89,13 +84,13 @@ const MatchingEngine = {
         this.handler = handler;
         this.matching = prepared;
 
-        this.leftItems = prepared.pairs.map(function(pair) {
-            return pair.left;
-        });
+        this.leftItems = prepared.leftItems
+            ? prepared.leftItems.map(function(item) { return { ...item }; })
+            : prepared.pairs.map(function(pair) { return { ...pair.left }; });
 
-        this.rightItems = prepared.pairs.map(function(pair) {
-            return pair.right;
-        });
+        this.rightItems = prepared.rightItems
+            ? prepared.rightItems.map(function(item) { return { ...item }; })
+            : this.uniqueRightItems(prepared.pairs);
 
         this.shuffle(this.rightItems);
 
@@ -104,7 +99,9 @@ const MatchingEngine = {
         this.state.locked = false;
 
         console.log("Matching Engine Started", {
-            pairs: prepared.pairs.length,
+            relations: prepared.pairs.length,
+            leftItems: this.leftItems.length,
+            rightItems: this.rightItems.length,
             type: handlerType
         });
 
@@ -122,6 +119,11 @@ const MatchingEngine = {
         if (!data || !Array.isArray(data.pairs)) return null;
 
         const pairs = [];
+        const leftItems = [];
+        const rightItems = [];
+        const pairIds = Object.create(null);
+        const leftIds = Object.create(null);
+        const rightIds = Object.create(null);
 
         data.pairs.forEach(function(pair, index) {
             if (!pair) return;
@@ -132,13 +134,28 @@ const MatchingEngine = {
 
             if (!left || !right) return;
 
+            if (pairIds[pairId]) return;
+            if (leftIds[left.id]) return;
+
+            pairIds[pairId] = true;
+            leftIds[left.id] = true;
+
+            if (!rightIds[right.id]) {
+                rightIds[right.id] = true;
+                rightItems.push(right);
+            }
+
+            leftItems.push(left);
             pairs.push({ id: pairId, left: left, right: right });
         });
 
         return {
             type: data.type || "matching",
+            matchingType: data.matchingType || "basic",
             instruction: data.instruction || "",
-            pairs: pairs
+            pairs: pairs,
+            leftItems: leftItems,
+            rightItems: rightItems
         };
     },
 
@@ -155,6 +172,20 @@ const MatchingEngine = {
         return { id: fallbackId, value: item };
     },
 
+    uniqueRightItems: function(pairs) {
+        const seen = Object.create(null);
+        const result = [];
+
+        pairs.forEach(function(pair) {
+            const id = String(pair.right.id);
+            if (seen[id]) return;
+            seen[id] = true;
+            result.push({ ...pair.right });
+        });
+
+        return result;
+    },
+
     select: function(side, itemId) {
         if (!this.state.started || this.state.isFinished || this.state.locked) {
             return this.getState();
@@ -166,14 +197,16 @@ const MatchingEngine = {
         }
 
         const item = this.findItem(side, itemId);
-
         if (!item) {
             console.warn("Matching Engine: Item Not Found", side, itemId);
             return this.getState();
         }
 
-        if (this.isMatched(side, item.id)) return this.getState();
+        if (side === "left" && this.isMatched("left", item.id)) {
+            return this.getState();
+        }
 
+        // Right targets can be reused by multiple left items.
         this.selected[side] = item;
 
         if (this.selected.left && this.selected.right) {
@@ -194,7 +227,6 @@ const MatchingEngine = {
     checkMatch: function() {
         const left = this.selected.left;
         const right = this.selected.right;
-
         if (!left || !right) return this.getState();
 
         this.moves += 1;
@@ -210,12 +242,16 @@ const MatchingEngine = {
             moves: this.moves
         };
 
-        if (isCorrect) this.matchedPairs.push(pair.id);
+        if (isCorrect && !this.matchedPairs.includes(pair.id)) {
+            this.matchedPairs.push(pair.id);
+            this.matchedLeftIds.push(String(left.id));
+        }
 
         this.selected.left = null;
         this.selected.right = null;
 
-        if (this.matchedPairs.length >= this.matching.pairs.length) {
+        // Completion is based on every left item being matched.
+        if (this.matchedLeftIds.length >= this.leftItems.length) {
             this.finish();
         }
 
@@ -229,18 +265,14 @@ const MatchingEngine = {
     },
 
     isMatched: function(side, itemId) {
-        if (!this.matching) return false;
+        const normalizedId = String(itemId);
 
-        const item = this.findItem(side, itemId);
-        if (!item) return false;
+        if (side === "left") {
+            return this.matchedLeftIds.includes(normalizedId);
+        }
 
-        return this.matching.pairs.some(function(pair) {
-            if (side === "left") {
-                return String(pair.left.id) === String(item.id) && MatchingEngine.matchedPairs.includes(pair.id);
-            }
-
-            return String(pair.right.id) === String(item.id) && MatchingEngine.matchedPairs.includes(pair.id);
-        });
+        // A right item remains reusable in many-to-one Matching.
+        return false;
     },
 
     finish: function() {
@@ -249,7 +281,9 @@ const MatchingEngine = {
 
         console.log("Matching Engine Finished", {
             moves: this.moves,
-            matchedPairs: this.matchedPairs.length
+            matchedPairs: this.matchedPairs.length,
+            matchedLeftItems: this.matchedLeftIds.length,
+            totalLeftItems: this.leftItems.length
         });
 
         return this.getState();
@@ -266,12 +300,9 @@ const MatchingEngine = {
         this.leftItems = [];
         this.rightItems = [];
 
-        this.selected = {
-            left: null,
-            right: null
-        };
-
+        this.selected = { left: null, right: null };
         this.matchedPairs = [];
+        this.matchedLeftIds = [];
         this.moves = 0;
     },
 
@@ -289,7 +320,9 @@ const MatchingEngine = {
                 right: this.selected.right ? { ...this.selected.right } : null
             },
             matchedPairs: [...this.matchedPairs],
-            totalPairs: this.matching ? this.matching.pairs.length : 0,
+            matchedLeftIds: [...this.matchedLeftIds],
+            totalPairs: this.leftItems.length,
+            totalRelations: this.matching ? this.matching.pairs.length : 0,
             moves: this.moves
         };
     },
@@ -306,6 +339,7 @@ const MatchingEngine = {
                 right: this.selected.right ? { ...this.selected.right } : null
             },
             matchedPairs: [...this.matchedPairs],
+            matchedLeftIds: [...this.matchedLeftIds],
             moves: this.moves,
             state: {
                 started: this.state.started,
@@ -329,6 +363,9 @@ const MatchingEngine = {
         };
 
         this.matchedPairs = Array.isArray(snapshot.matchedPairs) ? [...snapshot.matchedPairs] : [];
+        this.matchedLeftIds = Array.isArray(snapshot.matchedLeftIds)
+            ? [...snapshot.matchedLeftIds]
+            : this.deriveMatchedLeftIds();
         this.moves = Number.isFinite(snapshot.moves) ? snapshot.moves : 0;
 
         this.state.started = !!(snapshot.state && snapshot.state.started);
@@ -341,6 +378,21 @@ const MatchingEngine = {
             : null;
 
         return this.getState();
+    },
+
+    deriveMatchedLeftIds: function() {
+        if (!this.matching || !Array.isArray(this.matching.pairs)) return [];
+
+        const result = [];
+        const matched = this.matchedPairs || [];
+
+        this.matching.pairs.forEach(function(pair) {
+            if (matched.includes(pair.id)) {
+                result.push(String(pair.left.id));
+            }
+        });
+
+        return result;
     },
 
     shuffle: function(items) {
@@ -356,4 +408,4 @@ const MatchingEngine = {
 
 window.MatchingEngine = MatchingEngine;
 
-console.log("Matching Engine Ready v1.1");
+console.log("Matching Engine Ready v1.2");
