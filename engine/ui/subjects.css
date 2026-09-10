@@ -2,8 +2,6 @@
    Tahouri Edu Platform
    Learning: Subject Selection
    Page-owned styles
-
-   Image-ready learning cards
    ===================================== */
 
 #app > .screen:has(> .tahouri-app-header) #subjectsContainer {
@@ -17,9 +15,9 @@
 
 #app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn {
     position: relative;
+    min-height: 96px;
     width: 100%;
-    min-height: 104px;
-    padding: 12px 18px;
+    padding: 18px 52px;
     border: 1px solid var(--ui-border);
     border-radius: var(--ui-radius-card);
     background: linear-gradient(135deg, var(--ui-surface) 0%, #f7faff 100%);
@@ -28,17 +26,46 @@
     font-size: clamp(18px, 2.8vw, 22px);
     font-weight: 800;
     line-height: 1.45;
-    text-align: right;
-    display: grid;
-    grid-template-columns: minmax(82px, 112px) minmax(0, 1fr);
+    text-align: center;
+    display: inline-flex;
     align-items: center;
-    gap: 18px;
+    justify-content: center;
+    gap: 10px;
     direction: rtl;
     cursor: pointer;
     box-shadow: var(--ui-shadow-card);
     transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
     -webkit-tap-highlight-color: transparent;
-    overflow: hidden;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+#app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn::before {
+    content: "📚";
+    position: static;
+    transform: none;
+    font-size: 30px;
+    line-height: 1;
+    flex: 0 0 auto;
+}
+
+#app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn[data-id="math"]::before { content: "➗"; }
+#app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn[data-id="science"]::before { content: "🔬"; }
+#app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn[data-id="persian"]::before { content: "📖"; }
+
+#app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn.learning-image-card {
+    isolation: isolate;
+}
+
+#app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn.learning-image-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: rgba(255, 255, 255, .72);
+    z-index: -1;
+    pointer-events: none;
 }
 
 #app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn:hover {
@@ -47,47 +74,12 @@
     box-shadow: var(--ui-shadow-card-hover);
 }
 
-#app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn:active {
-    transform: translateY(0);
-}
-
-#app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn:focus-visible {
-    outline: 3px solid var(--ui-focus);
-    outline-offset: 3px;
-}
-
-#app > .screen:has(> .tahouri-app-header) #subjectsContainer .learning-card-media,
-#app > .screen:has(> .tahouri-app-header) #subjectsContainer .learning-card-image {
-    width: 100%;
-    height: 76px;
-}
-
-#app > .screen:has(> .tahouri-app-header) #subjectsContainer .learning-card-media {
-    display: block;
-    border-radius: 14px;
-    overflow: hidden;
-    background: var(--ui-surface-soft);
-    border: 1px solid var(--ui-border-soft);
-}
-
-#app > .screen:has(> .tahouri-app-header) #subjectsContainer .learning-card-image {
-    display: block;
-    object-fit: cover;
-}
-
-#app > .screen:has(> .tahouri-app-header) #subjectsContainer .learning-card-media.is-empty {
-    display: grid;
-    place-items: center;
-}
-
-#app > .screen:has(> .tahouri-app-header) #subjectsContainer .learning-card-label {
-    min-width: 0;
-    display: block;
-    padding: 0 6px;
-}
+#app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn:active { transform: translateY(0); }
+#app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn:focus-visible { outline: 3px solid var(--ui-focus); outline-offset: 3px; }
 
 @media (max-width: 520px) {
     #app > .screen:has(> .tahouri-app-header) #subjectsContainer {
+        grid-template-columns: 1fr;
         gap: 12px;
         margin-top: 22px;
         padding: 4px 4px 10px;
@@ -95,14 +87,12 @@
 
     #app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn {
         min-height: 88px;
-        padding: 10px 12px;
+        padding: 16px 40px;
         border-radius: 18px;
-        grid-template-columns: 82px minmax(0, 1fr);
-        gap: 12px;
+        gap: 8px;
     }
 
-    #app > .screen:has(> .tahouri-app-header) #subjectsContainer .learning-card-media,
-    #app > .screen:has(> .tahouri-app-header) #subjectsContainer .learning-card-image {
-        height: 64px;
+    #app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn::before {
+        font-size: 27px;
     }
 }
