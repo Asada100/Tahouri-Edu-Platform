@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Edu Platform
-// Learning Cards Background Adapter v2.0
+// Learning Cards Background Adapter v2.1
 //
 // Responsibilities:
 // - Apply prepared subject/chapter images to existing buttons as backgrounds
@@ -88,10 +88,10 @@ const LearningCards = {
         button.dataset.learningCardKey = imageKey;
         button.classList.add("learning-image-card");
 
-        // Images are prepared as JPG assets using the agreed naming convention.
-        // The image is the card background; existing button children/pseudo-icons remain untouched.
+        // Repository image assets use the exact .JPG extension.
+        // GitHub Pages is case-sensitive, so .jpg and .JPG are different paths.
         button.style.backgroundImage =
-            `url("assets/images/${imageKey}.jpg")`;
+            `url("assets/images/${imageKey}.JPG")`;
         button.style.backgroundSize = "cover";
         button.style.backgroundPosition = "center";
         button.style.backgroundRepeat = "no-repeat";
@@ -125,7 +125,7 @@ const LearningCards = {
             subtree: true
         });
 
-        console.log("Learning Cards Background Adapter v2.0 Ready");
+        console.log("Learning Cards Background Adapter v2.1 Ready");
     }
 };
 
