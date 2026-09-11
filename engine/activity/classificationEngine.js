@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Classification Engine
-// Version 1.1
+// Version 1.2
 // =====================================
 
 (function (window) {
@@ -63,7 +63,13 @@
             if (!this.state || this.state.finished) return null;
 
             const item = this.state.items.find(i => i.id === itemId);
-            if (!item || this.state.classifications[itemId]) return null;
+            if (!item) return null;
+
+            const alreadyClassified = Object.prototype.hasOwnProperty.call(
+                this.state.classifications,
+                itemId
+            );
+            if (alreadyClassified) return null;
 
             const category = this.state.categories.find(c => c.id === categoryId);
             if (!category) return null;
@@ -74,17 +80,26 @@
                 ? !!this.handler.classify(item, categoryId)
                 : item.categoryId === categoryId;
 
-            this.state.classifications[itemId] = {
-                categoryId,
-                correct
-            };
-            this.state.classifiedItems += 1;
-
             if (correct) {
+                this.state.classifications[itemId] = {
+                    categoryId,
+                    correct: true
+                };
+                this.state.classifiedItems += 1;
                 this.state.correctAnswers += 1;
                 this.state.score += this.getScorePerCorrect();
             } else {
                 this.state.wrongAnswers += 1;
+
+                // Learning mode: when retry is allowed, a wrong answer does not
+                // consume the item. The learner can try again until correct.
+                if (!this.isRetryAllowed()) {
+                    this.state.classifications[itemId] = {
+                        categoryId,
+                        correct: false
+                    };
+                    this.state.classifiedItems += 1;
+                }
             }
 
             if (this.state.classifiedItems >= this.state.totalItems) {
@@ -95,8 +110,14 @@
                 itemId,
                 categoryId,
                 correct,
+                retryAllowed: !correct && this.isRetryAllowed(),
                 state: this.getState()
             };
+        },
+
+        isRetryAllowed() {
+            const settings = this.activityData && this.activityData.settings;
+            return settings && settings.allowRetry === false ? false : true;
         },
 
         finish() {
