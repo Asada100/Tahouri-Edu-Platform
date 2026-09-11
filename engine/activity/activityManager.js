@@ -2,19 +2,6 @@
 // Tahouri Edu Platform
 // Version 6.4
 // Activity Manager
-//
-// Responsibilities:
-// - Activity Loading
-// - Activity Config Loading
-// - Settings Merge
-// - Difficulty Preservation
-// - Engine Resolution
-// - Engine Start
-// - Activity Lifecycle
-// - Activity Ready Event
-// - Safe Runtime Reset
-// - Unfinished Attempt Protection
-// - Safe Resume of Blocked Attempts
 // =====================================
 
 const ActivityManager = {
@@ -36,10 +23,24 @@ const ActivityManager = {
         if (typeof ActivitySessionManager !== "undefined") {
             const existing = typeof ActivitySessionManager.load === "function" ? ActivitySessionManager.load(fullActivity.id) : null;
             const unfinished = existing && (existing.status === "resumable" || existing.status === "active") && existing.engineState;
+
             if (unfinished) {
-                console.warn("ActivityManager: New attempt blocked; unfinished session exists.", fullActivity.id);
-                this.showBlockedStartNotice(fullActivity, existing);
-                return null;
+                const engineState = existing.engineState;
+                const state = engineState.state || {};
+                const completedSnapshot =
+                    state.isFinished === true ||
+                    engineState.finished === true ||
+                    engineState.completed === true;
+
+                if (completedSnapshot) {
+                    console.log("ActivityManager: Clearing completed stale session", fullActivity.id);
+                    ActivitySessionManager.clear(fullActivity.id);
+                }
+                else {
+                    console.warn("ActivityManager: New attempt blocked; unfinished session exists.", fullActivity.id);
+                    this.showBlockedStartNotice(fullActivity, existing);
+                    return null;
+                }
             }
         }
 
@@ -123,25 +124,17 @@ const ActivityManager = {
 
     getCurrent: function () { return this.currentActivity; },
 
-    // =====================================
-    // BLOCKED START / RESUME
-    // =====================================
-
     showBlockedStartNotice: function (activity, session) {
         if (!activity || !session) return false;
-
         const overlayId = "unfinishedActivityGuardOverlay";
         const existingOverlay = document.getElementById(overlayId);
         if (existingOverlay) existingOverlay.remove();
-
         const overlay = document.createElement("div");
         overlay.id = overlayId;
         overlay.dir = "rtl";
-
         const box = document.createElement("div");
         box.className = "unfinishedActivityGuardModal";
         const title = activity.title || "این فعالیت";
-
         box.innerHTML = `
             <h2>بازی ناتمام است</h2>
             <p>شما یک بازی ناتمام از «${title}» دارید.</p>
@@ -152,18 +145,11 @@ const ActivityManager = {
                 <button id="unfinishedActivityBackBtn" type="button">بازگشت</button>
             </div>
         `;
-
         overlay.appendChild(box);
         document.body.appendChild(overlay);
-
         const resumeButton = document.getElementById("unfinishedActivityResumeBtn");
         const backButton = document.getElementById("unfinishedActivityBackBtn");
-
-        if (resumeButton) resumeButton.onclick = async function () {
-            overlay.remove();
-            await ActivityManager.resumeSession(session);
-        };
-
+        if (resumeButton) resumeButton.onclick = async function () { overlay.remove(); await ActivityManager.resumeSession(session); };
         if (backButton) backButton.onclick = function () { overlay.remove(); };
         return true;
     },
@@ -209,9 +195,7 @@ const ActivityManager = {
             MemoryEngine.totalPairs = 0;
             MemoryEngine.finished = false;
         }
-        if (typeof window.MatchingEngine !== "undefined" && typeof MatchingEngine.reset === "function") {
-            MatchingEngine.reset();
-        }
+        if (typeof window.MatchingEngine !== "undefined" && typeof MatchingEngine.reset === "function") MatchingEngine.reset();
         console.log("Activity Manager Runtime Reset");
     },
 
