@@ -307,6 +307,10 @@ const ActivitySessionManager = {
     // =====================================
 
     capture: function (status) {
+        if (!this.gameplayActive) {
+            return false;
+        }
+
         const activity =
             typeof ActivityManager !== "undefined"
                 ? ActivityManager.getCurrent()
@@ -319,10 +323,6 @@ const ActivitySessionManager = {
         let session = this.load(activity.id);
 
         if (!session || session.status !== "active") {
-            session = this.begin(activity);
-        }
-
-        if (!session) {
             return false;
         }
 
