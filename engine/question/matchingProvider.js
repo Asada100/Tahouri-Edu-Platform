@@ -27,10 +27,6 @@ const MatchingProvider = {
     lastSource: null,
     lastContent: null,
 
-    // =====================================
-    // MAIN ENTRY
-    // =====================================
-
     getContent: function(activityData) {
         this.lastSource = null;
         this.lastContent = null;
@@ -75,10 +71,6 @@ const MatchingProvider = {
         return normalized;
     },
 
-    // =====================================
-    // SOURCE
-    // =====================================
-
     getSource: function(activityData, matching) {
         if (matching && matching.source) {
             return String(matching.source).toLowerCase();
@@ -100,10 +92,6 @@ const MatchingProvider = {
         }
         return null;
     },
-
-    // =====================================
-    // GENERATOR ENTRY
-    // =====================================
 
     generateQuestions: function(activityData, matching) {
         const settings = activityData.settings || {};
@@ -128,15 +116,8 @@ const MatchingProvider = {
 
         if (count === 0) return { ...config, pairs: [] };
 
-        if (
-            generator === "numberClassification" &&
-            mode === "evenOdd"
-        ) {
-            return this.generateNumberClassification(
-                activityData,
-                config,
-                count
-            );
+        if (generator === "numberClassification" && mode === "evenOdd") {
+            return this.generateNumberClassification(activityData, config, count);
         }
 
         console.warn("MatchingProvider: Unknown Generator/Mode", {
@@ -147,24 +128,16 @@ const MatchingProvider = {
         return null;
     },
 
-    // =====================================
-    // NUMBER CLASSIFICATION
-    // =====================================
-
     generateNumberClassification: function(activityData, config, count) {
         const settings = activityData.settings || {};
 
         const min = this.getNumber(
-            config.min !== undefined
-                ? config.min
-                : settings.minNumber,
+            config.min !== undefined ? config.min : settings.minNumber,
             1
         );
 
         const max = this.getNumber(
-            config.max !== undefined
-                ? config.max
-                : settings.maxNumber,
+            config.max !== undefined ? config.max : settings.maxNumber,
             100
         );
 
@@ -183,14 +156,10 @@ const MatchingProvider = {
         let attempts = 0;
         const maxAttempts = Math.max(targetCount * 100, 100);
 
-        while (
-            pairs.length < targetCount &&
-            attempts < maxAttempts
-        ) {
+        while (pairs.length < targetCount && attempts < maxAttempts) {
             attempts += 1;
 
             const number = this.randomInteger(lower, upper);
-
             if (usedNumbers.has(number)) continue;
             usedNumbers.add(number);
 
@@ -226,10 +195,6 @@ const MatchingProvider = {
         };
     },
 
-    // =====================================
-    // NORMALIZE
-    // =====================================
-
     normalize: function(data) {
         if (!data || !Array.isArray(data.pairs)) return null;
 
@@ -263,8 +228,6 @@ const MatchingProvider = {
             pairIds[pairId] = true;
             leftIds[left.id] = true;
 
-            // A right ID is intentionally allowed to repeat.
-            // This is what enables many-to-one Matching.
             if (!rightIds[right.id]) {
                 rightIds[right.id] = true;
                 rightItems.push(right);
@@ -306,16 +269,21 @@ const MatchingProvider = {
 
         normalized.id = id;
 
+        // Preserve the visible text when static content uses text instead of value.
         if (!Object.prototype.hasOwnProperty.call(normalized, "value")) {
-            normalized.value = "";
+            if (Object.prototype.hasOwnProperty.call(normalized, "text")) {
+                normalized.value = normalized.text;
+            } else if (Object.prototype.hasOwnProperty.call(normalized, "label")) {
+                normalized.value = normalized.label;
+            } else if (Object.prototype.hasOwnProperty.call(normalized, "name")) {
+                normalized.value = normalized.name;
+            } else {
+                normalized.value = "";
+            }
         }
 
         return normalized;
     },
-
-    // =====================================
-    // VALIDATION / STATE
-    // =====================================
 
     validate: function(activityData) {
         const content = this.getContent(activityData);
@@ -357,10 +325,6 @@ const MatchingProvider = {
         this.lastContent = null;
         console.log("MatchingProvider Reset");
     },
-
-    // =====================================
-    // HELPERS
-    // =====================================
 
     getCount: function(value, fallback) {
         const count = Number(value);
