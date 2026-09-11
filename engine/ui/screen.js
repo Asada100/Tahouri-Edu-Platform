@@ -222,15 +222,6 @@ const Screen = {
 
                     </button>
 
-
-                    <button
-                        id="settingsBtn"
-                        type="button">
-
-                        ⚙ تنظیمات
-
-                    </button>
-
                 </div>
 
             </div>
@@ -398,30 +389,6 @@ const Screen = {
                         );
 
                     }
-
-                };
-
-        }
-
-
-        // =====================================
-        // SETTINGS
-        // =====================================
-
-        const settingsButton =
-            document.getElementById(
-                "settingsBtn"
-            );
-
-
-        if (settingsButton) {
-
-            settingsButton.onclick =
-                function () {
-
-                    alert(
-                        "در نسخه بعدی فعال می‌شود."
-                    );
 
                 };
 
