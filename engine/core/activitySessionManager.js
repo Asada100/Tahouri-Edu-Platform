@@ -559,6 +559,32 @@ const ActivitySessionManager = {
             return true;
         }
 
+        // MatchingEngine already owns its complete session serializer.
+        // Delegate restoration to the engine so its internal state and
+        // MatchingType handler remain the single source of truth.
+        if (
+            data.type === "matching" &&
+            (engineName === "MatchingEngine" || engineName === "matching") &&
+            typeof engine.restoreSession === "function"
+        ) {
+            const restoredState = engine.restoreSession(data);
+
+            if (!restoredState) {
+                console.error("ActivitySessionManager: Matching session restore failed");
+                return false;
+            }
+
+            ActivityManager.currentActivity = activity;
+            ActivityState.set("started");
+            ActivityState.set("playing");
+
+            if (typeof MatchingScreen !== "undefined" && typeof MatchingScreen.show === "function") {
+                MatchingScreen.show(restoredState);
+            }
+
+            return true;
+        }
+
         console.error("ActivitySessionManager: Unsupported restore type", engineName);
         return false;
     },
