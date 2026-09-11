@@ -38,5 +38,9 @@
     {
         "id": "matchingManyToOne",
         "locked": false
+    },
+    {
+        "id": "animalClassification",
+        "locked": false
     }
 ]
