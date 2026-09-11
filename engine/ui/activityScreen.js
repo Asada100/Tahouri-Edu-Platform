@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 3.3
+// Version 3.4
 // Activity Screen
 // =====================================
 
@@ -44,7 +44,7 @@ const ActivityScreen = {
                 <button
                     class="activitySelectBtn"
                     data-id="${activity.id}"
-                    ${locked ? "disabled" : ""}>
+                    type="button">
                     ${locked ? "🔒" : ""}
                     ${activity.title}
                 </button>
@@ -56,12 +56,8 @@ const ActivityScreen = {
             let groupLocked = true;
 
             groupActivities.forEach(function (activity) {
-                if (typeof ContentLockManager === "undefined") {
-                    groupLocked = false;
-                    return;
-                }
-
-                if (ContentLockManager.canOpen(activity.id)) {
+                if (typeof ContentLockManager === "undefined" ||
+                    ContentLockManager.canOpen(activity.id)) {
                     groupLocked = false;
                 }
             });
@@ -72,7 +68,7 @@ const ActivityScreen = {
                 <button
                     class="activityGroupBtn"
                     data-group="${groupId}"
-                    ${groupLocked ? "disabled" : ""}>
+                    type="button">
                     ${groupLocked ? "🔒" : ""}
                     ${groupTitle}
                 </button>
@@ -135,11 +131,10 @@ const ActivityScreen = {
                     return;
                 }
 
-                if (typeof ContentLockManager !== "undefined") {
-                    if (!ContentLockManager.canOpen(id)) {
-                        ActivityScreen.showMessage("🔒 این فعالیت هنوز باز نشده است.");
-                        return;
-                    }
+                if (typeof ContentLockManager !== "undefined" &&
+                    !ContentLockManager.canOpen(id)) {
+                    ActivityScreen.showMessage("🔒 این فعالیت هنوز باز نشده است. برای ورود باید شرایط باز شدن آن را کامل کنید.");
+                    return;
                 }
 
                 ActivityScreen.startActivity(activity);
@@ -154,6 +149,16 @@ const ActivityScreen = {
                 const groupActivities = groupedActivities[groupId];
 
                 if (!groupActivities || groupActivities.length === 0) {
+                    return;
+                }
+
+                const groupLocked = groupActivities.every(function (activity) {
+                    return typeof ContentLockManager !== "undefined" &&
+                        !ContentLockManager.canOpen(activity.id);
+                });
+
+                if (groupLocked) {
+                    ActivityScreen.showMessage("🔒 این بخش هنوز قفل است. برای ورود، ابتدا حداقل ۸۰٪ امتیاز بازی قبلی را کسب کنید.");
                     return;
                 }
 
@@ -225,4 +230,4 @@ const ActivityScreen = {
 
 window.ActivityScreen = ActivityScreen;
 
-console.log("Activity Screen v3.3 Ready");
+console.log("Activity Screen v3.4 Ready");
