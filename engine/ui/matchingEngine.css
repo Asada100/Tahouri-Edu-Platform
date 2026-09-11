@@ -94,6 +94,7 @@
     line-height: 1.6;
     text-align: center;
     cursor: pointer;
+    touch-action: none;
     transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease, background-color .16s ease;
     position: relative;
     z-index: 3;
