@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 3.4
+// Version 3.5
 // Activity Screen
 // =====================================
 
@@ -89,7 +89,6 @@ const ActivityScreen = {
                 <div id="activityList" class="activityList">
                     ${activitiesHTML}
                 </div>
-                <div id="activityScreenMessage" class="activityScreenMessage"></div>
                 <br>
                 <button id="backChaptersBtn">
                     ⬅ بازگشت به فصل‌ها
@@ -133,7 +132,7 @@ const ActivityScreen = {
 
                 if (typeof ContentLockManager !== "undefined" &&
                     !ContentLockManager.canOpen(id)) {
-                    ActivityScreen.showMessage("🔒 این فعالیت هنوز باز نشده است. برای ورود باید شرایط باز شدن آن را کامل کنید.");
+                    alert("🔒 این فعالیت هنوز قفل است.\n\nبرای ورود، ابتدا شرایط باز شدن آن را کامل کنید.");
                     return;
                 }
 
@@ -158,7 +157,7 @@ const ActivityScreen = {
                 });
 
                 if (groupLocked) {
-                    ActivityScreen.showMessage("🔒 این بخش هنوز قفل است. برای ورود، ابتدا حداقل ۸۰٪ امتیاز بازی قبلی را کسب کنید.");
+                    alert("🔒 این بخش هنوز قفل است.\n\nبرای ورود، ابتدا حداقل ۸۰٪ امتیاز بازی قبلی را کسب کنید.");
                     return;
                 }
 
@@ -215,19 +214,9 @@ const ActivityScreen = {
         }
 
         console.error("Activity Screen: App.startActivity Not Available");
-    },
-
-    showMessage: function (message) {
-        const element = document.getElementById("activityScreenMessage");
-
-        if (!element) {
-            return;
-        }
-
-        element.textContent = message;
     }
 };
 
 window.ActivityScreen = ActivityScreen;
 
-console.log("Activity Screen v3.4 Ready");
+console.log("Activity Screen v3.5 Ready");
