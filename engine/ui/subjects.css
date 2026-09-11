@@ -63,7 +63,7 @@
     position: absolute;
     inset: 0;
     border-radius: inherit;
-    background: rgba(255, 255, 255, .72);
+    background: rgba(255, 255, 255, .50);
     z-index: -1;
     pointer-events: none;
 }
