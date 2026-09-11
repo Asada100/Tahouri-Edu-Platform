@@ -76,7 +76,6 @@
         "chapter": "chapter1",
         "type": "quiz",
         "engine": "QuizEngine",
-        "group": "divisibility",
         "locked": true,
         "requires": "divisibleBy6",
         "path": "content/grades/grade6/math/chapter1/divisibility/divisibleBy9"
@@ -121,5 +120,18 @@
         "locked": false,
         "requires": null,
         "path": "content/grades/grade6/math/chapter1/matchingManyToOne"
+    },
+
+    {
+        "id": "animalClassification",
+        "title": "دسته‌بندی جانوران",
+        "grade": "grade6",
+        "subject": "science",
+        "chapter": "chapter1",
+        "type": "classification",
+        "engine": "classification",
+        "locked": false,
+        "requires": null,
+        "path": "content/grades/grade6/science/chapter1/animalClassification"
     }
 ]
