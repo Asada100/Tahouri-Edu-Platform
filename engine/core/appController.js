@@ -44,7 +44,13 @@ const App = {
             this.grades = await DataManager.loadJSON("data/grades.json");
             this.subjects = await DataManager.loadJSON("data/subjects.json");
             this.chapters = await DataManager.loadJSON("data/chapters.json");
-            this.activities = await DataManager.loadJSON("data/activities.json");
+
+            // Activities are the live activity index. Use a cache-busting
+            // query so a previously cached GitHub Pages response cannot
+            // leave App.activities behind the current data file.
+            this.activities = await DataManager.loadJSON(
+                "data/activities.json?v=" + Date.now()
+            );
 
             grades = this.grades;
             subjects = this.subjects;
@@ -88,89 +94,16 @@ const App = {
 
         if (!activity) {
             console.error("Activity Missing");
-            return;
+            return false;
         }
 
-        if (typeof activity === "string") {
-            const activityId = activity;
-
-            const foundActivity = this.activities.find(function (item) {
-                return item && item.id === activityId;
-            });
-
-            if (!foundActivity) {
-                console.error("Activity Not Found:", activityId);
-                return;
-            }
-
-            activity = foundActivity;
+        try {
+            return await ActivityManager.load(activity);
         }
-
-        if (typeof activity !== "object") {
-            console.error("Invalid Activity:", activity);
-            return;
+        catch (error) {
+            console.error("Activity Start Error", error);
+            return false;
         }
-
-        if (!activity.id) {
-            console.error("Activity ID Missing:", activity);
-            return;
-        }
-
-        console.log("App: Starting Activity:", activity.id);
-
-        if (
-            typeof ActivityManager !== "undefined" &&
-            typeof ActivityManager.load === "function"
-        ) {
-            await ActivityManager.load(activity);
-            return;
-        }
-
-        console.error("ActivityManager Not Available");
-    },
-
-    // =====================================
-    // ACTIVITY RESOLVER
-    // =====================================
-
-    resolveActivityById: function (activityId) {
-
-        if (!activityId || !Array.isArray(this.activities)) {
-            return null;
-        }
-
-        return this.activities.find(function (activity) {
-            return activity && activity.id === activityId;
-        }) || null;
-    },
-
-    restartActivity: async function () {
-
-        if (!AppState.activity) {
-            console.error("No Current Activity");
-            return;
-        }
-
-        const activity = this.resolveActivityById(AppState.activity);
-
-        if (!activity) {
-            console.error("Activity Not Found:", AppState.activity);
-            return;
-        }
-
-        await this.startActivity(activity);
-    },
-
-    openDashboard: function () {
-        Navigation.openDashboard();
-    },
-
-    openReports: function () {
-        Screen.showReports();
-    },
-
-    goHome: function () {
-        Screen.showHome();
     }
 };
 
