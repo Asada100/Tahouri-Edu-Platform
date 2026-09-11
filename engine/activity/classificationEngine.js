@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Classification Engine
-// Version 1.0
+// Version 1.1
 // =====================================
 
 (function (window) {
@@ -103,6 +103,7 @@
             if (!this.state || this.state.finished) return this.getResult();
 
             this.state.finished = true;
+            this.state.locked = true;
             const percentage = this.state.totalItems
                 ? Math.round((this.state.correctAnswers / this.state.totalItems) * 100)
                 : 0;
@@ -133,6 +134,11 @@
             }
 
             this.state.result = result;
+
+            if (typeof EventManager !== 'undefined' && typeof EventManager.emit === 'function') {
+                EventManager.emit('activityFinished', result);
+            }
+
             return result;
         },
 
