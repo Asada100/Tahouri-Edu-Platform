@@ -1,0 +1,101 @@
+.classificationScreen {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 24px 16px 32px;
+    text-align: center;
+}
+
+.classificationInstruction {
+    margin: 8px auto 12px;
+    line-height: 1.8;
+}
+
+.classificationStatus {
+    margin: 8px auto 18px;
+    font-weight: 700;
+}
+
+.classificationItems {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.classificationItem,
+.classificationCategoryBtn,
+.classificationBackBtn {
+    border: 0;
+    border-radius: 14px;
+    padding: 14px 16px;
+    font: inherit;
+    cursor: pointer;
+}
+
+.classificationItem {
+    min-height: 64px;
+    background: #fff;
+    box-shadow: 0 2px 10px rgba(0,0,0,.08);
+}
+
+.classificationItem.selected {
+    outline: 3px solid currentColor;
+}
+
+.classificationItem.correct {
+    opacity: .65;
+}
+
+.classificationItem.wrong {
+    opacity: .65;
+}
+
+.classificationCategories {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.classificationCategoryBtn {
+    min-height: 58px;
+    background: #eee;
+    font-weight: 700;
+}
+
+.classificationMessage {
+    min-height: 30px;
+    margin: 8px 0 18px;
+    font-weight: 700;
+}
+
+.classificationBackBtn {
+    background: #eee;
+}
+
+.classificationResultCard {
+    display: grid;
+    gap: 12px;
+    max-width: 420px;
+    margin: 24px auto;
+    padding: 22px;
+    border-radius: 18px;
+    background: #fff;
+    box-shadow: 0 3px 14px rgba(0,0,0,.1);
+    font-size: 1.05rem;
+}
+
+.classificationFinished .classificationBackBtn {
+    margin-top: 8px;
+}
+
+@media (max-width: 600px) {
+    .classificationScreen {
+        padding: 18px 12px 28px;
+    }
+
+    .classificationItems,
+    .classificationCategories {
+        grid-template-columns: 1fr;
+    }
+}
