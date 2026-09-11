@@ -24,7 +24,9 @@ const HeaderManager = {
 
     isHomeScreen: function (screen) {
         if (!screen) return false;
-        return !!screen.querySelector("#gradesBtn") && !!screen.querySelector("#profileBtn");
+        return !!screen.querySelector(".daily-message-home") ||
+            !!screen.querySelector(".home-buttons") ||
+            !!screen.querySelector(".daily-message");
     },
 
     isDashboardScreen: function (screen) {
