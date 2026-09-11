@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 2.5
+// Version 2.6
 // Divisibility Group Screen
 // =====================================
 
@@ -28,7 +28,7 @@ const DivisibilityScreen = {
             return `
                 <button class="activityBtn divisibilityChildBtn"
                         data-id="${activity.id}"
-                        ${locked ? "disabled" : ""}>
+                        type="button">
                     <span class="divisibilityChildIcon" aria-hidden="true">${icon}</span>
                     <span>${activity.title}</span>
                 </button>
@@ -74,7 +74,20 @@ const DivisibilityScreen = {
 
                 if (typeof ContentLockManager !== "undefined" &&
                     !ContentLockManager.canOpen(activityId)) {
-                    alert("این فعالیت هنوز قفل است.");
+                    const prerequisiteId = activity.requires;
+                    const prerequisite = prerequisiteId
+                        ? activityList.find(function (item) {
+                            return item.id === prerequisiteId;
+                        })
+                        : null;
+
+                    const prerequisiteTitle = prerequisite
+                        ? prerequisite.title
+                        : "بازی قبلی";
+
+                    alert(
+                        `🔒 این فعالیت هنوز قفل است.\n\nبرای باز کردن آن، در بازی «${prerequisiteTitle}» حداقل ۸۰٪ امتیاز کسب کنید.`
+                    );
                     return;
                 }
 
@@ -114,4 +127,4 @@ Screen.showDivisibility = function (gradeId, subjectId, chapterId) {
     }
 };
 
-console.log("Divisibility Screen v2.5 Ready");
+console.log("Divisibility Screen v2.6 Ready");
