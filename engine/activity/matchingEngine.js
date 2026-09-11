@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Matching Engine
-// Version 1.2
+// Version 1.3
 // =====================================
 
 const MatchingEngine = {
@@ -20,11 +20,16 @@ const MatchingEngine = {
         if (!activityData) return null;
         this.reset();
         this.activity = activityData;
-        const matching = this.extractMatchingData(activityData);
-        if (!matching) return null;
-        const normalized = this.normalizeMatchingData(matching);
-        if (!normalized || normalized.pairs.length === 0) return null;
 
+        if (typeof MatchingProvider === "undefined" || typeof MatchingProvider.getContent !== "function") {
+            console.error("Matching Engine: MatchingProvider is not available");
+            return null;
+        }
+
+        const normalized = MatchingProvider.getContent(activityData);
+        if (!normalized || !Array.isArray(normalized.pairs) || normalized.pairs.length === 0) return null;
+
+        const matching = normalized;
         const requestedType = matching.matchingType;
         const registeredType = matching.type && MatchingTypeRegistry.has(matching.type) ? matching.type : null;
         const handlerType = requestedType || registeredType || "basic";
@@ -313,4 +318,4 @@ const MatchingEngine = {
 };
 
 window.MatchingEngine = MatchingEngine;
-console.log("Matching Engine Ready v1.2");
+console.log("Matching Engine Ready v1.3");
