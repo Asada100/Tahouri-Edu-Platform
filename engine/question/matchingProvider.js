@@ -1,27 +1,35 @@
 // =====================================
 // Tahouri Edu Platform
 // Matching Provider
-// Version 1.1
+// Version 2.0
 //
 // Responsibilities:
 // - Prepare Matching activity content
+// - Load static Matching content
+// - Generate dynamic Matching content
 // - Normalize generic relations
 // - Validate matching structure
 // - Preserve subject-agnostic content
 //
 // Design:
+// - One shared provider for all Matching activities
+// - Generator rules are selected by mode / generator
 // - One left item has one correct right target
 // - A right item MAY be the correct target for many left items
 // - Supports one-to-one and many-to-one Matching
-// - No mathematics / Persian / science logic
 // - No rendering
 // - No game-state management
+// - No subject-specific logic inside the Matching Engine
 // =====================================
 
 const MatchingProvider = {
 
     lastSource: null,
     lastContent: null,
+
+    // =====================================
+    // MAIN ENTRY
+    // =====================================
 
     getContent: function(activityData) {
         this.lastSource = null;
@@ -39,14 +47,22 @@ const MatchingProvider = {
             return null;
         }
 
-        const normalized = this.normalize(matching);
+        const source = this.getSource(activityData, matching);
+        let normalized = null;
+
+        if (source === "generated") {
+            const generated = this.generateQuestions(activityData, matching);
+            normalized = this.normalize(generated);
+        } else {
+            normalized = this.normalize(matching);
+        }
 
         if (!normalized) {
             console.error("MatchingProvider: Invalid Matching Data");
             return null;
         }
 
-        this.lastSource = this.detectSource(activityData);
+        this.lastSource = source;
         this.lastContent = normalized;
 
         console.log("MatchingProvider: Content Ready", {
@@ -59,6 +75,23 @@ const MatchingProvider = {
         return normalized;
     },
 
+    // =====================================
+    // SOURCE
+    // =====================================
+
+    getSource: function(activityData, matching) {
+        if (matching && matching.source) {
+            return String(matching.source).toLowerCase();
+        }
+
+        const settings = activityData.settings || {};
+        if (settings.questionSource) {
+            return String(settings.questionSource).toLowerCase();
+        }
+
+        return "file";
+    },
+
     extractMatchingData: function(activityData) {
         if (activityData.matching) return activityData.matching;
         if (Array.isArray(activityData.pairs)) return activityData;
@@ -67,6 +100,135 @@ const MatchingProvider = {
         }
         return null;
     },
+
+    // =====================================
+    // GENERATOR ENTRY
+    // =====================================
+
+    generateQuestions: function(activityData, matching) {
+        const settings = activityData.settings || {};
+        const config = matching || {};
+
+        const generator =
+            config.generator ||
+            settings.generator ||
+            "numberClassification";
+
+        const mode =
+            config.mode ||
+            settings.mode ||
+            "evenOdd";
+
+        const count = this.getCount(
+            config.count !== undefined
+                ? config.count
+                : settings.questions,
+            10
+        );
+
+        if (count === 0) return { ...config, pairs: [] };
+
+        if (
+            generator === "numberClassification" &&
+            mode === "evenOdd"
+        ) {
+            return this.generateNumberClassification(
+                activityData,
+                config,
+                count
+            );
+        }
+
+        console.warn("MatchingProvider: Unknown Generator/Mode", {
+            generator: generator,
+            mode: mode
+        });
+
+        return null;
+    },
+
+    // =====================================
+    // NUMBER CLASSIFICATION
+    // =====================================
+
+    generateNumberClassification: function(activityData, config, count) {
+        const settings = activityData.settings || {};
+
+        const min = this.getNumber(
+            config.min !== undefined
+                ? config.min
+                : settings.minNumber,
+            1
+        );
+
+        const max = this.getNumber(
+            config.max !== undefined
+                ? config.max
+                : settings.maxNumber,
+            100
+        );
+
+        const lower = Math.min(min, max);
+        const upper = Math.max(min, max);
+        const available = upper - lower + 1;
+        const targetCount = Math.min(count, Math.max(0, available));
+
+        if (targetCount === 0) {
+            console.error("MatchingProvider: Invalid Number Range");
+            return null;
+        }
+
+        const usedNumbers = new Set();
+        const pairs = [];
+        let attempts = 0;
+        const maxAttempts = Math.max(targetCount * 100, 100);
+
+        while (
+            pairs.length < targetCount &&
+            attempts < maxAttempts
+        ) {
+            attempts += 1;
+
+            const number = this.randomInteger(lower, upper);
+
+            if (usedNumbers.has(number)) continue;
+            usedNumbers.add(number);
+
+            const isEven = number % 2 === 0;
+
+            pairs.push({
+                id: "matching-" + (pairs.length + 1),
+                left: {
+                    id: "left-" + (pairs.length + 1),
+                    value: number,
+                    text: String(number)
+                },
+                right: {
+                    id: isEven ? "right-even" : "right-odd",
+                    value: isEven ? "زوج" : "فرد",
+                    text: isEven ? "زوج" : "فرد"
+                }
+            });
+        }
+
+        if (pairs.length < targetCount) {
+            console.error("MatchingProvider: Could Not Generate Enough Unique Numbers");
+            return null;
+        }
+
+        this.shuffle(pairs);
+
+        return {
+            type: "matching",
+            matchingType: config.matchingType || config.type || "basic",
+            instruction: config.instruction || "",
+            pairs: pairs
+        };
+    },
+
+    // =====================================
+    // NORMALIZE
+    // =====================================
 
     normalize: function(data) {
         if (!data || !Array.isArray(data.pairs)) return null;
@@ -151,6 +313,10 @@ const MatchingProvider = {
         return normalized;
     },
 
+    // =====================================
+    // VALIDATION / STATE
+    // =====================================
+
     validate: function(activityData) {
         const content = this.getContent(activityData);
 
@@ -174,12 +340,8 @@ const MatchingProvider = {
     },
 
     detectSource: function(activityData) {
-        if (activityData.matching) return "matching";
-        if (Array.isArray(activityData.pairs)) return "activity";
-        if (activityData.content && Array.isArray(activityData.content.pairs)) {
-            return "content";
-        }
-        return null;
+        const matching = this.extractMatchingData(activityData);
+        return matching ? this.getSource(activityData, matching) : null;
     },
 
     getLastContent: function() {
@@ -194,9 +356,39 @@ const MatchingProvider = {
         this.lastSource = null;
         this.lastContent = null;
         console.log("MatchingProvider Reset");
+    },
+
+    // =====================================
+    // HELPERS
+    // =====================================
+
+    getCount: function(value, fallback) {
+        const count = Number(value);
+        if (!Number.isFinite(count)) return fallback;
+        return Math.max(0, Math.floor(count));
+    },
+
+    getNumber: function(value, fallback) {
+        const number = Number(value);
+        if (!Number.isFinite(number)) return fallback;
+        return Math.floor(number);
+    },
+
+    randomInteger: function(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    },
+
+    shuffle: function(items) {
+        for (let i = items.length - 1; i > 0; i -= 1) {
+            const j = Math.floor(Math.random() * (i + 1));
+            const temp = items[i];
+            items[i] = items[j];
+            items[j] = temp;
+        }
+        return items;
     }
 };
 
 window.MatchingProvider = MatchingProvider;
 
-console.log("Matching Provider v1.1 Ready");
+console.log("Matching Provider v2.0 Ready");
