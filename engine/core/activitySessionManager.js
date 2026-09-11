@@ -364,7 +364,6 @@ const ActivitySessionManager = {
     },
 
     showOverlay: function () {
-        this.capture("resumable");
         this.hideOverlay();
         const overlay = document.createElement("div");
         overlay.id = this.overlayId;
