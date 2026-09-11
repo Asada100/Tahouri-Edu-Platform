@@ -1,0 +1,195 @@
+// =====================================
+// Tahouri Edu Platform
+// Classification Screen
+// Version 1.0
+// =====================================
+
+const ClassificationScreen = {
+    activityReadyConnected: false,
+    currentActivity: null,
+    currentState: null,
+    lastMessage: "",
+
+    init: function () {
+        if (typeof EventManager === "undefined") {
+            console.error("Classification Screen: EventManager Not Available");
+            return;
+        }
+
+        if (this.activityReadyConnected) return;
+
+        EventManager.on("activityReady", function (payload) {
+            ClassificationScreen.handleActivityReady(payload);
+        });
+
+        EventManager.on("activityFinished", function (result) {
+            if (result && result.activityId === ClassificationScreen.getActivityId()) {
+                ClassificationScreen.showFinished(result);
+            }
+        });
+
+        this.activityReadyConnected = true;
+        console.log("Classification Screen: Activity Ready Listener Connected");
+    },
+
+    handleActivityReady: function (payload) {
+        if (!payload) return;
+        if (payload.engineName !== "classification" && payload.engineName !== "ClassificationEngine") return;
+        if (!payload.activity || !payload.result) return;
+
+        this.currentActivity = payload.activity;
+        this.currentState = payload.result;
+        this.lastMessage = "";
+        this.show(payload.result);
+    },
+
+    show: function (state) {
+        if (!state) return;
+        const app = document.getElementById("app");
+        if (!app) return;
+
+        const categories = Array.isArray(state.categories) ? state.categories : [];
+        const items = Array.isArray(state.items) ? state.items : [];
+        const classifications = state.classifications || {};
+        const activity = this.currentActivity || {};
+
+        const categoryButtons = categories.map(function (category) {
+            return `<button type="button" class="classificationCategoryBtn" data-category-id="${ClassificationScreen.escapeAttribute(category.id)}">${ClassificationScreen.escapeHTML(category.title || category.id)}</button>`;
+        }).join("");
+
+        const itemsHTML = items.map(function (item) {
+            const classified = Object.prototype.hasOwnProperty.call(classifications, item.id);
+            const answer = classifications[item.id];
+            const status = classified ? (answer.correct ? "correct" : "wrong") : "";
+            const content = item.type === "image" && item.content
+                ? `<img src="${ClassificationScreen.escapeAttribute(item.content)}" alt="">`
+                : ClassificationScreen.escapeHTML(item.content);
+
+            return `<button type="button" class="classificationItem ${status}" data-item-id="${ClassificationScreen.escapeAttribute(item.id)}" ${classified || state.finished ? "disabled" : ""}>${content}</button>`;
+        }).join("");
+
+        app.innerHTML = `
+            <div class="screen classificationScreen" dir="rtl">
+                <h1>${ClassificationScreen.escapeHTML(activity.title || "دسته‌بندی")}</h1>
+                <p class="classificationInstruction">${ClassificationScreen.escapeHTML(state.instruction || "هر مورد را در دسته مناسب قرار بده")}</p>
+                <div class="classificationStatus">${state.classifiedItems || 0} از ${state.totalItems || 0}</div>
+                <div class="classificationItems">${itemsHTML}</div>
+                <div class="classificationCategories">${categoryButtons}</div>
+                <div id="classificationMessage" class="classificationMessage">${ClassificationScreen.escapeHTML(this.lastMessage)}</div>
+                <button type="button" id="classificationBackBtn" class="classificationBackBtn">بازگشت</button>
+            </div>
+        `;
+
+        this.bindEvents();
+    },
+
+    bindEvents: function () {
+        const self = this;
+        let selectedItemId = null;
+
+        document.querySelectorAll(".classificationItem:not(:disabled)").forEach(function (button) {
+            button.onclick = function () {
+                document.querySelectorAll(".classificationItem").forEach(function (itemButton) {
+                    itemButton.classList.remove("selected");
+                });
+                selectedItemId = this.dataset.itemId;
+                this.classList.add("selected");
+                self.lastMessage = "حالا دسته مناسب را انتخاب کن.";
+                self.updateMessage();
+            };
+        });
+
+        document.querySelectorAll(".classificationCategoryBtn").forEach(function (button) {
+            button.onclick = function () {
+                if (!selectedItemId) {
+                    self.lastMessage = "ابتدا یک مورد را انتخاب کن.";
+                    self.updateMessage();
+                    return;
+                }
+
+                const result = window.ClassificationEngine.classifyItem(
+                    selectedItemId,
+                    this.dataset.categoryId
+                );
+
+                if (!result) return;
+
+                if (result.correct === true) {
+                    self.lastMessage = "✓ درست";
+                } else if (result.correct === false) {
+                    self.lastMessage = "✗ نادرست";
+                }
+
+                selectedItemId = null;
+                self.currentState = window.ClassificationEngine.getState();
+
+                if (self.currentState && self.currentState.finished) {
+                    self.showFinished(self.currentState.result);
+                    return;
+                }
+
+                self.show(self.currentState);
+            };
+        });
+
+        const backButton = document.getElementById("classificationBackBtn");
+        if (backButton) {
+            backButton.onclick = function () {
+                if (typeof App !== "undefined" && typeof App.showActivities === "function") {
+                    App.showActivities();
+                }
+            };
+        }
+    },
+
+    showFinished: function (result) {
+        if (!result) return;
+        const app = document.getElementById("app");
+        if (!app) return;
+
+        app.innerHTML = `
+            <div class="screen classificationScreen classificationFinished" dir="rtl">
+                <h1>فعالیت تمام شد 🎉</h1>
+                <div class="classificationResultCard">
+                    <div>امتیاز: <strong>${Number(result.score) || 0}</strong></div>
+                    <div>درصد: <strong>${Number(result.percentage) || 0}%</strong></div>
+                    <div>ستاره: <strong>${Number(result.stars) || 0} ⭐</strong></div>
+                    <div>پاسخ درست: <strong>${Number(result.correctAnswers) || 0}</strong></div>
+                    <div>پاسخ نادرست: <strong>${Number(result.wrongAnswers) || 0}</strong></div>
+                </div>
+                <button type="button" id="classificationFinishedBackBtn" class="classificationBackBtn">بازگشت به فعالیت‌ها</button>
+            </div>
+        `;
+
+        const backButton = document.getElementById("classificationFinishedBackBtn");
+        if (backButton) {
+            backButton.onclick = function () {
+                if (typeof App !== "undefined" && typeof App.showActivities === "function") {
+                    App.showActivities();
+                }
+            };
+        }
+    },
+
+    updateMessage: function () {
+        const message = document.getElementById("classificationMessage");
+        if (message) message.textContent = this.lastMessage || "";
+    },
+
+    getActivityId: function () {
+        return this.currentActivity ? this.currentActivity.id : null;
+    },
+
+    escapeHTML: function (value) {
+        const text = value === null || value === undefined ? "" : String(value);
+        return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;").replace(/'/g, "&#039;");
+    },
+
+    escapeAttribute: function (value) {
+        return this.escapeHTML(value);
+    }
+};
+
+window.ClassificationScreen = ClassificationScreen;
+ClassificationScreen.init();
+console.log("Classification Screen Ready v1.0");
