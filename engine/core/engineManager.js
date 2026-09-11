@@ -1,9 +1,9 @@
 // =====================================
 // Tahouri Edu Platform
 // Engine Manager
-// Version 1.5
+// Version 1.6
 // Engine Name Resolver
-// Quiz + Memory + Puzzle + Matching
+// Quiz + Memory + Puzzle + Matching + Classification
 // =====================================
 
 
@@ -145,6 +145,22 @@ const EngineManager = {
             this.register(
                 "matching",
                 window.MatchingEngine
+            );
+
+        }
+
+
+        // =================================
+        // Classification Engine
+        // =================================
+
+        if(
+            window.ClassificationEngine
+        ){
+
+            this.register(
+                "classification",
+                window.ClassificationEngine
             );
 
         }
