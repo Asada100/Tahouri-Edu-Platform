@@ -58,16 +58,6 @@
     isolation: isolate;
 }
 
-#app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn.learning-image-card::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    background: rgba(255, 255, 255, .50);
-    z-index: -1;
-    pointer-events: none;
-}
-
 #app > .screen:has(> .tahouri-app-header) #subjectsContainer .subjectBtn:hover {
     transform: translateY(-2px);
     border-color: #c7d5e5;
