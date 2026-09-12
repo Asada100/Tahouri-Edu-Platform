@@ -179,6 +179,14 @@ const ActivityManager = {
     },
 
     resetRuntime: function () {
+        if (
+            typeof ActivitySessionManager !== "undefined" &&
+            ActivitySessionManager.gameplayActive === true
+        ) {
+            console.warn("ActivityManager: Runtime reset blocked while an activity is active.");
+            return false;
+        }
+
         this.currentActivity = null;
         if (typeof ActivityHistory !== "undefined") ActivityHistory.clear();
         if (typeof ActivityState !== "undefined") ActivityState.reset();
@@ -197,9 +205,10 @@ const ActivityManager = {
         }
         if (typeof window.MatchingEngine !== "undefined" && typeof MatchingEngine.reset === "function") MatchingEngine.reset();
         console.log("Activity Manager Runtime Reset");
+        return true;
     },
 
-    reset: function () { this.resetRuntime(); console.log("Activity Manager Reset"); }
+    reset: function () { return this.resetRuntime(); }
 };
 
 window.ActivityManager = ActivityManager;
