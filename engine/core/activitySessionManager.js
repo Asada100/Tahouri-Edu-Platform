@@ -320,6 +320,43 @@ const ActivitySessionManager = {
             if (typeof MatchingScreen !== "undefined" && typeof MatchingScreen.show === "function") MatchingScreen.show(restoredState);
             return true;
         }
+        if (
+            data &&
+            (data.activityId || activity.id) &&
+            (engineName === "classification" || engineName === "ClassificationEngine") &&
+            typeof engine.start === "function" &&
+            typeof engine.restoreSession === "function"
+        ) {
+            try {
+                // ClassificationEngine.start() must run first so the activity
+                // configuration, normalized content and interaction handler
+                // are restored before applying the saved session state.
+                engine.start(activity);
+                const restoredState = engine.restoreSession(data);
+                if (!restoredState) {
+                    console.error("ActivitySessionManager: Classification session restore failed");
+                    return false;
+                }
+                ActivityManager.currentActivity = activity;
+                ActivityState.set("started");
+                ActivityState.set("playing");
+                document.body.classList.add("activity-playing");
+                if (typeof ClassificationScreen !== "undefined") {
+                    ClassificationScreen.currentActivity = activity;
+                    ClassificationScreen.currentState = restoredState;
+                    ClassificationScreen.lastMessage = "";
+                    ClassificationScreen.selectedItemId = null;
+                    ClassificationScreen.dragItemId = null;
+                    ClassificationScreen.touchDrag = null;
+                    if (typeof ClassificationScreen.show === "function") ClassificationScreen.show(restoredState);
+                }
+                return true;
+            }
+            catch (error) {
+                console.error("ActivitySessionManager: Classification session restore failed", error);
+                return false;
+            }
+        }
         console.error("ActivitySessionManager: Unsupported restore type", engineName);
         return false;
     },
