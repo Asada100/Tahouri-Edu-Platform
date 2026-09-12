@@ -14,7 +14,7 @@
         "source": "generated",
         "generator": "numberClassification",
         "mode": "evenOdd",
-        "count": 6,
+        "count": 10,
         "min": 1,
         "max": 100
     }
