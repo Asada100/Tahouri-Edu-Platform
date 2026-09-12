@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Classification Engine
-// Version 1.3
+// Version 1.4
 // =====================================
 
 (function (window) {
@@ -70,16 +70,6 @@
         classifyItem(itemId, categoryId) {
             if (!this.state || this.state.finished) return null;
 
-            console.warn('ClassificationEngine: classifyItem CALLED', {
-                activityId: this.activityData && this.activityData.id,
-                itemId,
-                categoryId,
-                classifiedItems: this.state.classifiedItems,
-                totalItems: this.state.totalItems,
-                movesBefore: this.state.moves,
-                callStack: new Error('classifyItem caller').stack
-            });
-
             const item = this.state.items.find(i => i.id === itemId);
             if (!item) return null;
 
@@ -119,14 +109,6 @@
             }
 
             if (this.state.classifiedItems >= this.state.totalItems) {
-                console.warn('ClassificationEngine: FINISH CONDITION REACHED', {
-                    activityId: this.activityData && this.activityData.id,
-                    classifiedItems: this.state.classifiedItems,
-                    totalItems: this.state.totalItems,
-                    moves: this.state.moves,
-                    classifications: this.state.classifications,
-                    callStack: new Error('finish condition caller').stack
-                });
                 return this.finish();
             }
 
@@ -146,12 +128,6 @@
 
         finish() {
             if (!this.state || this.state.finished) return this.getResult();
-
-            console.warn('ClassificationEngine: finish() EXECUTED', {
-                activityId: this.activityData && this.activityData.id,
-                state: this.getState(),
-                callStack: new Error('finish caller').stack
-            });
 
             this.state.finished = true;
             this.state.locked = true;
@@ -207,9 +183,48 @@
         },
 
         restoreSession(state) {
-            if (!state) return false;
-            this.state = JSON.parse(JSON.stringify(state));
-            return true;
+            if (!state || !this.activityData) return false;
+            if (!window.ClassificationProvider || !window.ClassificationTypeRegistry) return false;
+
+            try {
+                this.content = window.ClassificationProvider.getContent(this.activityData);
+                const mode = this.content.mode || 'choice';
+
+                if (!window.ClassificationTypeRegistry.has(mode)) {
+                    return false;
+                }
+
+                this.handler = window.ClassificationTypeRegistry.get(mode);
+                if (this.handler && typeof this.handler.prepare === 'function') {
+                    this.handler.prepare(this.content);
+                }
+
+                if (!Array.isArray(state.items) || !Array.isArray(state.categories)) {
+                    return false;
+                }
+
+                if (state.items.length !== this.content.items.length ||
+                    state.categories.length !== this.content.categories.length) {
+                    return false;
+                }
+
+                this.state = JSON.parse(JSON.stringify(state));
+                this.state.totalItems = this.content.items.length;
+                this.state.items = this.content.items.slice();
+                this.state.categories = this.content.categories.slice();
+                this.state.classifications = this.state.classifications || {};
+                this.state.classifiedItems = Number(this.state.classifiedItems) || 0;
+                this.state.correctAnswers = Number(this.state.correctAnswers) || 0;
+                this.state.wrongAnswers = Number(this.state.wrongAnswers) || 0;
+                this.state.moves = Number(this.state.moves) || 0;
+                this.state.score = Number(this.state.score) || 0;
+
+                return true;
+            } catch (error) {
+                console.error('ClassificationEngine: Failed to restore session', error);
+                this.reset();
+                return false;
+            }
         },
 
         getResult() {
