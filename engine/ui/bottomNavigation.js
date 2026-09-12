@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Bottom Navigation Manager
-// Version 1.3
+// Version 1.4
 // Fixed app-level navigation shell
 // =====================================
 
@@ -10,8 +10,6 @@ const BottomNavigation = {
     initialized: false,
 
     init: function () {
-        // The navigation is a persistent app-level shell. If a screen/runtime
-        // removed its DOM node, initialized=true must not prevent rebuilding it.
         const existingNav = document.getElementById("tahouri-bottom-navigation");
         if (existingNav) {
             this.initialized = true;
@@ -53,7 +51,7 @@ const BottomNavigation = {
         this.initialized = true;
         this.updateActive();
 
-        console.log("Bottom Navigation v1.3 Ready");
+        console.log("Bottom Navigation v1.4 Ready");
     },
 
     bind: function (nav) {
@@ -67,6 +65,14 @@ const BottomNavigation = {
     navigate: function (destination) {
         switch (destination) {
             case "home":
+                // ReportsScreen mounts its modal directly under body.
+                // Screen.showHome() changes #app only, so close the modal first.
+                const reportsModal = document.getElementById("reportsModal");
+                if (reportsModal) {
+                    reportsModal.remove();
+                    console.log("Bottom Navigation: Reports modal closed before Home");
+                }
+
                 if (typeof Screen !== "undefined" && typeof Screen.showHome === "function") {
                     Screen.showHome();
                 }
