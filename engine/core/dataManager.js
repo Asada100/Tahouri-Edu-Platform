@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 3.0
+// Version 3.1
 // Data Manager
 // =====================================
 
@@ -31,6 +31,24 @@ const DataManager = {
         this.cache[path] = data;
 
         return data;
+
+    },
+
+    invalidateCache:function(path){
+
+        if (!path) return false;
+
+        if (Object.prototype.hasOwnProperty.call(this.cache, path)) {
+
+            delete this.cache[path];
+
+            console.log("Data Manager: Cache Invalidated:", path);
+
+            return true;
+
+        }
+
+        return false;
 
     },
 
