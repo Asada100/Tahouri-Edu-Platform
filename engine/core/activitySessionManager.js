@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Edu Platform
-// Activity Session Manager v1.2
+// Activity Session Manager v1.3
 //
 // Responsibilities:
 // - Profile-scoped resumable activity sessions
@@ -13,7 +13,7 @@
 
 const ActivitySessionManager = {
     BASE_KEY: "Tahouri_ActivitySession",
-    VERSION: "1.2",
+    VERSION: "1.3",
     currentSession: null,
     exitControlId: "activitySessionControl",
     overlayId: "activitySessionOverlay",
@@ -50,14 +50,37 @@ const ActivitySessionManager = {
         });
     },
 
+    isInvalidClassificationSession: function (session) {
+        if (!session || !session.engineState) return false;
+        const type = session.activityType;
+        if (type !== "classification" && type !== "ClassificationEngine") return false;
+        const state = session.engineState;
+        return (
+            !Array.isArray(state.items) ||
+            !Array.isArray(state.categories) ||
+            state.items.length === 0 ||
+            state.categories.length === 0 ||
+            Number(state.totalItems || 0) <= 0
+        );
+    },
+
     load: function (activityId) {
         const sessions = this.loadAll();
         if (activityId) {
             const session = sessions[activityId] || null;
+            if (this.isInvalidClassificationSession(session)) {
+                console.warn("ActivitySessionManager: Ignoring invalid Classification session", activityId);
+                delete sessions[activityId];
+                this.saveAll(sessions);
+                this.currentSession = null;
+                return null;
+            }
             this.currentSession = session;
             return session;
         }
-        const list = Object.values(sessions).filter(Boolean);
+        const list = Object.values(sessions).filter(function (session) {
+            return session && !ActivitySessionManager.isInvalidClassificationSession(session);
+        });
         list.sort(function (a, b) { return Number(b.updatedAt || 0) - Number(a.updatedAt || 0); });
         const session = list.length ? list[0] : null;
         this.currentSession = session;
@@ -209,9 +232,18 @@ const ActivitySessionManager = {
 
     getResumable: function () {
         const sessions = this.loadAll();
+        let changed = false;
         const resumable = Object.values(sessions).filter(function (session) {
-            return session && session.status === "resumable" && session.engineState;
+            if (!session) return false;
+            if (ActivitySessionManager.isInvalidClassificationSession(session)) {
+                delete sessions[session.activityId];
+                changed = true;
+                console.warn("ActivitySessionManager: Removed invalid Classification session", session.activityId);
+                return false;
+            }
+            return session.status === "resumable" && session.engineState;
         });
+        if (changed) this.saveAll(sessions);
         resumable.sort(function (a, b) { return Number(b.updatedAt || 0) - Number(a.updatedAt || 0); });
         const session = resumable.length ? resumable[0] : null;
         this.currentSession = session;
@@ -328,9 +360,11 @@ const ActivitySessionManager = {
             typeof engine.restoreSession === "function"
         ) {
             try {
-                // Classification activities need their full activity.json here.
-                // App.activities contains only the index metadata/path, so load
-                // the full config before ClassificationEngine.start().
+                if (this.isInvalidClassificationSession(session)) {
+                    console.warn("ActivitySessionManager: Classification session is invalid", activity.id);
+                    this.clear(activity.id);
+                    return false;
+                }
                 const fullActivity =
                     typeof ActivityManager !== "undefined" &&
                     typeof ActivityManager.loadActivityConfig === "function"
@@ -340,6 +374,7 @@ const ActivitySessionManager = {
                 const restoredState = engine.restoreSession(data);
                 if (!restoredState) {
                     console.error("ActivitySessionManager: Classification session restore failed");
+                    this.clear(activity.id);
                     return false;
                 }
                 ActivityManager.currentActivity = fullActivity;
@@ -466,7 +501,7 @@ const ActivitySessionManager = {
         window.addEventListener("beforeunload", function () {
             if (ActivitySessionManager.gameplayActive) ActivitySessionManager.capture("resumable");
         });
-        console.log("Activity Session Manager v1.2 Ready");
+        console.log("Activity Session Manager v1.3 Ready");
     }
 };
 
