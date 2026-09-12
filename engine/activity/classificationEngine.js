@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Classification Engine
-// Version 1.2
+// Version 1.3
 // =====================================
 
 (function (window) {
@@ -49,6 +49,14 @@
                 classifications: {}
             };
 
+            console.log('ClassificationEngine: Started', {
+                activityId: this.activityData.id,
+                mode,
+                totalItems: this.state.totalItems,
+                classifiedItems: this.state.classifiedItems,
+                moves: this.state.moves
+            });
+
             return this.getState();
         },
 
@@ -61,6 +69,16 @@
 
         classifyItem(itemId, categoryId) {
             if (!this.state || this.state.finished) return null;
+
+            console.warn('ClassificationEngine: classifyItem CALLED', {
+                activityId: this.activityData && this.activityData.id,
+                itemId,
+                categoryId,
+                classifiedItems: this.state.classifiedItems,
+                totalItems: this.state.totalItems,
+                movesBefore: this.state.moves,
+                callStack: new Error('classifyItem caller').stack
+            });
 
             const item = this.state.items.find(i => i.id === itemId);
             if (!item) return null;
@@ -91,8 +109,6 @@
             } else {
                 this.state.wrongAnswers += 1;
 
-                // Learning mode: when retry is allowed, a wrong answer does not
-                // consume the item. The learner can try again until correct.
                 if (!this.isRetryAllowed()) {
                     this.state.classifications[itemId] = {
                         categoryId,
@@ -103,6 +119,14 @@
             }
 
             if (this.state.classifiedItems >= this.state.totalItems) {
+                console.warn('ClassificationEngine: FINISH CONDITION REACHED', {
+                    activityId: this.activityData && this.activityData.id,
+                    classifiedItems: this.state.classifiedItems,
+                    totalItems: this.state.totalItems,
+                    moves: this.state.moves,
+                    classifications: this.state.classifications,
+                    callStack: new Error('finish condition caller').stack
+                });
                 return this.finish();
             }
 
@@ -122,6 +146,12 @@
 
         finish() {
             if (!this.state || this.state.finished) return this.getResult();
+
+            console.warn('ClassificationEngine: finish() EXECUTED', {
+                activityId: this.activityData && this.activityData.id,
+                state: this.getState(),
+                callStack: new Error('finish caller').stack
+            });
 
             this.state.finished = true;
             this.state.locked = true;
