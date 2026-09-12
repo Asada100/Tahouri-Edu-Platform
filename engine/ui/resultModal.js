@@ -206,8 +206,8 @@ const ResultModal = {
         if(homeButton){
             homeButton.onclick = function(){
                 ResultModal.close();
-                if(typeof App !== "undefined" && typeof App.goHome === "function"){
-                    App.goHome();
+                if(typeof App !== "undefined" && typeof App.showHome === "function"){
+                    App.showHome();
                 }
             };
         }
