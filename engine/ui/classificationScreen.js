@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Classification Screen
-// Version 1.2
+// Version 1.3
 // =====================================
 
 const ClassificationScreen = {
@@ -11,82 +11,64 @@ const ClassificationScreen = {
     lastMessage: "",
     selectedItemId: null,
     dragItemId: null,
+    touchDrag: null,
 
     init: function () {
-        if (typeof EventManager === "undefined") {
-            console.error("Classification Screen: EventManager Not Available");
-            return;
-        }
-
+        if (typeof EventManager === "undefined") return;
         if (this.activityReadyConnected) return;
-
-        EventManager.on("activityReady", function (payload) {
-            ClassificationScreen.handleActivityReady(payload);
-        });
-
+        EventManager.on("activityReady", function (payload) { ClassificationScreen.handleActivityReady(payload); });
         EventManager.on("activityFinished", function (result) {
-            if (result && result.activityId === ClassificationScreen.getActivityId()) {
-                ClassificationScreen.showFinished(result);
-            }
+            if (result && result.activityId === ClassificationScreen.getActivityId()) ClassificationScreen.showFinished(result);
         });
-
         this.activityReadyConnected = true;
         console.log("Classification Screen: Activity Ready Listener Connected");
     },
 
     handleActivityReady: function (payload) {
-        if (!payload) return;
+        if (!payload || !payload.activity || !payload.result) return;
         if (payload.engineName !== "classification" && payload.engineName !== "ClassificationEngine") return;
-        if (!payload.activity || !payload.result) return;
-
         this.currentActivity = payload.activity;
         this.currentState = payload.result;
         this.lastMessage = "";
         this.selectedItemId = null;
         this.dragItemId = null;
+        this.touchDrag = null;
         this.show(payload.result);
     },
 
     getMode: function () {
         const activity = this.currentActivity || {};
-        if (activity.classification && activity.classification.mode) {
-            return String(activity.classification.mode);
-        }
-        return "choice";
+        return activity.classification && activity.classification.mode
+            ? String(activity.classification.mode) : "choice";
     },
 
     isTouchDevice: function () {
-        return typeof window !== "undefined"
-            && typeof window.matchMedia === "function"
-            && window.matchMedia("(pointer: coarse)").matches;
+        return typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
     },
 
     show: function (state) {
         if (!state) return;
         const app = document.getElementById("app");
         if (!app) return;
-
         const categories = Array.isArray(state.categories) ? state.categories : [];
         const items = Array.isArray(state.items) ? state.items : [];
         const classifications = state.classifications || {};
         const activity = this.currentActivity || {};
         const mode = this.getMode();
         const isDragDrop = mode === "dragDrop";
-        const isTouchDevice = this.isTouchDevice();
-        const useNativeDrag = isDragDrop && !isTouchDevice;
+        const touch = this.isTouchDevice();
+        const nativeDrag = isDragDrop && !touch;
 
         const categoryHTML = categories.map(function (category) {
-            const categoryId = ClassificationScreen.escapeAttribute(category.id);
-            const categoryTitle = ClassificationScreen.escapeHTML(category.title || category.id);
-
+            const id = ClassificationScreen.escapeAttribute(category.id);
+            const title = ClassificationScreen.escapeHTML(category.title || category.id);
             if (isDragDrop) {
-                return `<div class="classificationDropZone" data-category-id="${categoryId}" tabindex="0" role="button" aria-label="${categoryTitle}">
-                    <div class="classificationDropZoneTitle">${categoryTitle}</div>
-                    <div class="classificationDropZoneItems" data-category-items="${categoryId}"></div>
+                return `<div class="classificationDropZone" data-category-id="${id}" tabindex="0" role="button" aria-label="${title}">
+                    <div class="classificationDropZoneTitle">${title}</div>
+                    <div class="classificationDropZoneItems" data-category-items="${id}"></div>
                 </div>`;
             }
-
-            return `<button type="button" class="classificationCategoryBtn" data-category-id="${categoryId}">${categoryTitle}</button>`;
+            return `<button type="button" class="classificationCategoryBtn" data-category-id="${id}">${title}</button>`;
         }).join("");
 
         const itemsHTML = items.map(function (item) {
@@ -96,96 +78,67 @@ const ClassificationScreen = {
             const content = item.type === "image" && item.content
                 ? `<img src="${ClassificationScreen.escapeAttribute(item.content)}" alt="">`
                 : ClassificationScreen.escapeHTML(item.content);
-
             if (isDragDrop) {
                 if (classified && answer && answer.correct) return "";
-                const draggable = useNativeDrag ? " draggable=\"true\"" : "";
-                return `<button type="button" class="classificationItem classificationDragItem ${status}"${draggable} data-item-id="${ClassificationScreen.escapeAttribute(item.id)}">${content}</button>`;
+                const dragAttr = nativeDrag ? " draggable=\"true\"" : "";
+                return `<button type="button" class="classificationItem classificationDragItem ${status}"${dragAttr} data-item-id="${ClassificationScreen.escapeAttribute(item.id)}">${content}</button>`;
             }
-
             return `<button type="button" class="classificationItem ${status}" data-item-id="${ClassificationScreen.escapeAttribute(item.id)}" ${classified || state.finished ? "disabled" : ""}>${content}</button>`;
         }).join("");
 
-        const interactionClass = isDragDrop
-            ? (isTouchDevice ? "classificationTouchMode" : "classificationDesktopDragMode")
-            : "";
-
-        const instruction = isDragDrop && isTouchDevice
-            ? "هر مورد را انتخاب کن، سپس دسته مناسب را انتخاب کن."
+        const interactionClass = isDragDrop ? (touch ? "classificationTouchMode" : "classificationDesktopDragMode") : "";
+        const instruction = isDragDrop && touch
+            ? "هر مورد را بگیر و در دسته مناسب رها کن."
             : (state.instruction || "هر مورد را در دسته مناسب قرار بده");
 
-        app.innerHTML = `
-            <div class="screen classificationScreen classificationMode-${ClassificationScreen.escapeAttribute(mode)} ${interactionClass}" dir="rtl">
-                <h1>${ClassificationScreen.escapeHTML(activity.title || "دسته‌بندی")}</h1>
-                <p class="classificationInstruction">${ClassificationScreen.escapeHTML(instruction)}</p>
-                <div class="classificationStatus">باقی‌مانده: ${Math.max(0, (state.totalItems || 0) - (state.classifiedItems || 0))} از ${state.totalItems || 0}</div>
-                <div class="classificationItems">${itemsHTML}</div>
-                <div class="classificationCategories ${isDragDrop ? "classificationDropZones" : ""}">${categoryHTML}</div>
-                <div id="classificationMessage" class="classificationMessage">${ClassificationScreen.escapeHTML(this.lastMessage)}</div>
-                <button type="button" id="classificationBackBtn" class="classificationBackBtn">بازگشت</button>
-            </div>
-        `;
-
-        if (isDragDrop) {
-            this.renderPlacements(state);
-        }
-
+        app.innerHTML = `<div class="screen classificationScreen classificationMode-${ClassificationScreen.escapeAttribute(mode)} ${interactionClass}" dir="rtl">
+            <h1>${ClassificationScreen.escapeHTML(activity.title || "دسته‌بندی")}</h1>
+            <p class="classificationInstruction">${ClassificationScreen.escapeHTML(instruction)}</p>
+            <div class="classificationStatus">باقی‌مانده: ${Math.max(0, (state.totalItems || 0) - (state.classifiedItems || 0))} از ${state.totalItems || 0}</div>
+            <div class="classificationItems">${itemsHTML}</div>
+            <div class="classificationCategories ${isDragDrop ? "classificationDropZones" : ""}">${categoryHTML}</div>
+            <div id="classificationMessage" class="classificationMessage">${ClassificationScreen.escapeHTML(this.lastMessage)}</div>
+            <button type="button" id="classificationBackBtn" class="classificationBackBtn">بازگشت</button>
+        </div>`;
+        if (isDragDrop) this.renderPlacements(state);
         this.bindEvents();
     },
 
     bindEvents: function () {
         const self = this;
-        const isDragDrop = this.getMode() === "dragDrop";
-
-        if (isDragDrop) {
-            this.bindDragDropEvents();
-        } else {
-            let selectedItemId = null;
-
+        if (this.getMode() === "dragDrop") this.bindDragDropEvents();
+        else {
+            let selected = null;
             document.querySelectorAll(".classificationItem:not(:disabled)").forEach(function (button) {
                 button.onclick = function () {
-                    document.querySelectorAll(".classificationItem").forEach(function (itemButton) {
-                        itemButton.classList.remove("selected");
-                    });
-                    selectedItemId = this.dataset.itemId;
-                    self.selectedItemId = selectedItemId;
+                    document.querySelectorAll(".classificationItem").forEach(function (b) { b.classList.remove("selected"); });
+                    selected = this.dataset.itemId;
+                    self.selectedItemId = selected;
                     this.classList.add("selected");
                     self.lastMessage = "حالا دسته مناسب را انتخاب کن.";
                     self.updateMessage();
                 };
             });
-
             document.querySelectorAll(".classificationCategoryBtn").forEach(function (button) {
                 button.onclick = function () {
-                    if (!selectedItemId) {
-                        self.lastMessage = "ابتدا یک مورد را انتخاب کن.";
-                        self.updateMessage();
-                        return;
-                    }
-
-                    self.submitClassification(selectedItemId, this.dataset.categoryId);
-                    selectedItemId = null;
-                    self.selectedItemId = null;
+                    if (!selected) { self.lastMessage = "ابتدا یک مورد را انتخاب کن."; self.updateMessage(); return; }
+                    self.submitClassification(selected, this.dataset.categoryId);
+                    selected = null; self.selectedItemId = null;
                 };
             });
         }
-
-        const backButton = document.getElementById("classificationBackBtn");
-        if (backButton) {
-            backButton.onclick = function () {
-                if (typeof App !== "undefined" && typeof App.showActivities === "function") {
-                    App.showActivities();
-                }
-            };
-        }
+        const back = document.getElementById("classificationBackBtn");
+        if (back) back.onclick = function () {
+            if (typeof App !== "undefined" && typeof App.showActivities === "function") App.showActivities();
+        };
     },
 
     bindDragDropEvents: function () {
         const self = this;
-        const useNativeDrag = !this.isTouchDevice();
+        const touch = this.isTouchDevice();
 
         document.querySelectorAll(".classificationDragItem").forEach(function (item) {
-            if (useNativeDrag) {
+            if (!touch) {
                 item.addEventListener("dragstart", function (event) {
                     self.dragItemId = this.dataset.itemId;
                     this.classList.add("dragging");
@@ -194,86 +147,80 @@ const ClassificationScreen = {
                         event.dataTransfer.setData("text/plain", self.dragItemId);
                     }
                 });
-
                 item.addEventListener("dragend", function () {
                     this.classList.remove("dragging");
-                    document.querySelectorAll(".classificationDropZone").forEach(function (zone) {
-                        zone.classList.remove("drag-over");
-                    });
+                    document.querySelectorAll(".classificationDropZone").forEach(function (z) { z.classList.remove("drag-over"); });
                     self.dragItemId = null;
                 });
+            } else {
+                item.addEventListener("pointerdown", function (event) { self.startTouchDrag(event, this); });
             }
-
-            item.addEventListener("click", function () {
-                document.querySelectorAll(".classificationDragItem").forEach(function (button) {
-                    button.classList.remove("selected");
-                });
-                self.selectedItemId = this.dataset.itemId;
-                this.classList.add("selected");
-                self.lastMessage = self.isTouchDevice()
-                    ? "حالا دسته مناسب را انتخاب کن."
-                    : "حالا این مورد را روی دسته مناسب رها کن یا دسته را انتخاب کن.";
-                self.updateMessage();
-            });
         });
 
         document.querySelectorAll(".classificationDropZone").forEach(function (zone) {
-            if (useNativeDrag) {
+            if (!touch) {
                 zone.addEventListener("dragover", function (event) {
                     event.preventDefault();
                     if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
                     this.classList.add("drag-over");
                 });
-
-                zone.addEventListener("dragleave", function () {
-                    this.classList.remove("drag-over");
-                });
-
+                zone.addEventListener("dragleave", function () { this.classList.remove("drag-over"); });
                 zone.addEventListener("drop", function (event) {
                     event.preventDefault();
                     this.classList.remove("drag-over");
-                    const itemId = event.dataTransfer
-                        ? event.dataTransfer.getData("text/plain")
-                        : self.dragItemId;
-                    if (itemId) self.submitClassification(itemId, this.dataset.categoryId);
+                    const id = event.dataTransfer ? event.dataTransfer.getData("text/plain") : self.dragItemId;
+                    if (id) self.submitClassification(id, this.dataset.categoryId);
                     self.dragItemId = null;
-                    self.selectedItemId = null;
                 });
             }
-
-            zone.addEventListener("click", function () {
-                if (!self.selectedItemId) {
-                    self.lastMessage = "ابتدا یک مورد را انتخاب کن.";
-                    self.updateMessage();
-                    return;
-                }
-                self.submitClassification(self.selectedItemId, this.dataset.categoryId);
-                self.selectedItemId = null;
-            });
         });
+    },
+
+    startTouchDrag: function (event, item) {
+        if (!event || event.pointerType !== "touch" || this.touchDrag) return;
+        event.preventDefault();
+        this.touchDrag = { itemId: item.dataset.itemId, item: item, active: false, startX: event.clientX, startY: event.clientY };
+        item.setPointerCapture(event.pointerId);
+        item.addEventListener("pointermove", this.handleTouchDragMoveBound = this.handleTouchDragMove.bind(this), { passive: false });
+        item.addEventListener("pointerup", this.handleTouchDragEndBound = this.handleTouchDragEnd.bind(this), { passive: false, once: true });
+        item.addEventListener("pointercancel", this.handleTouchDragCancelBound = this.handleTouchDragEnd.bind(this), { passive: false, once: true });
+    },
+
+    handleTouchDragMove: function (event) {
+        const drag = this.touchDrag;
+        if (!drag) return;
+        event.preventDefault();
+        const dx = event.clientX - drag.startX;
+        const dy = event.clientY - drag.startY;
+        if (!drag.active && Math.hypot(dx, dy) < 8) return;
+        drag.active = true;
+        drag.item.classList.add("dragging");
+        document.querySelectorAll(".classificationDropZone").forEach(function (z) { z.classList.remove("drag-over"); });
+        const target = document.elementFromPoint(event.clientX, event.clientY);
+        const zone = target && target.closest ? target.closest(".classificationDropZone") : null;
+        if (zone) zone.classList.add("drag-over");
+    },
+
+    handleTouchDragEnd: function (event) {
+        const drag = this.touchDrag;
+        if (!drag) return;
+        event.preventDefault();
+        const target = document.elementFromPoint(event.clientX, event.clientY);
+        const zone = target && target.closest ? target.closest(".classificationDropZone") : null;
+        drag.item.classList.remove("dragging");
+        document.querySelectorAll(".classificationDropZone").forEach(function (z) { z.classList.remove("drag-over"); });
+        const itemId = drag.itemId;
+        this.touchDrag = null;
+        if (zone && drag.active) this.submitClassification(itemId, zone.dataset.categoryId);
     },
 
     submitClassification: function (itemId, categoryId) {
         if (!window.ClassificationEngine) return;
-
         const result = window.ClassificationEngine.classifyItem(itemId, categoryId);
         if (!result) return;
-
-        if (result.correct === true) {
-            this.lastMessage = "✓ درست";
-        } else if (result.correct === false) {
-            this.lastMessage = result.retryAllowed
-                ? "✗ دوباره تلاش کن"
-                : "✗ نادرست";
-        }
-
+        this.lastMessage = result.correct === true ? "✓ درست" : (result.retryAllowed ? "✗ دوباره تلاش کن" : "✗ نادرست");
         this.currentState = window.ClassificationEngine.getState();
-
-        if (this.currentState && this.currentState.finished) {
-            this.showFinished(this.currentState.result);
-            return;
-        }
-
+        if (this.currentState && this.currentState.finished) { this.showFinished(this.currentState.result); return; }
         this.show(this.currentState);
     },
 
@@ -281,22 +228,15 @@ const ClassificationScreen = {
         const classifications = state.classifications || {};
         const categories = state.categories || [];
         const itemsById = {};
-        (state.items || []).forEach(function (item) {
-            itemsById[item.id] = item;
-        });
-
+        (state.items || []).forEach(function (item) { itemsById[item.id] = item; });
         categories.forEach(function (category) {
             const target = document.querySelector(`[data-category-items="${ClassificationScreen.escapeAttribute(category.id)}"]`);
             if (!target) return;
-
             Object.keys(classifications).forEach(function (itemId) {
                 const placement = classifications[itemId];
                 if (!placement || !placement.correct || String(placement.categoryId) !== String(category.id)) return;
-                const item = itemsById[itemId];
-                if (!item) return;
-                const content = item.type === "image" && item.content
-                    ? `<img src="${ClassificationScreen.escapeAttribute(item.content)}" alt="">`
-                    : ClassificationScreen.escapeHTML(item.content);
+                const item = itemsById[itemId]; if (!item) return;
+                const content = item.type === "image" && item.content ? `<img src="${ClassificationScreen.escapeAttribute(item.content)}" alt="">` : ClassificationScreen.escapeHTML(item.content);
                 target.insertAdjacentHTML("beforeend", `<div class="classificationPlacedItem">${content}</div>`);
             });
         });
@@ -304,53 +244,29 @@ const ClassificationScreen = {
 
     showFinished: function (result) {
         if (!result) return;
-        const app = document.getElementById("app");
-        if (!app) return;
-
-        app.innerHTML = `
-            <div class="screen classificationScreen classificationFinished" dir="rtl">
-                <h1>فعالیت تمام شد 🎉</h1>
-                <div class="classificationResultCard">
-                    <div>امتیاز: <strong>${Number(result.score) || 0}</strong></div>
-                    <div>درصد: <strong>${Number(result.percentage) || 0}%</strong></div>
-                    <div>ستاره: <strong>${Number(result.stars) || 0} ⭐</strong></div>
-                    <div>پاسخ درست: <strong>${Number(result.correctAnswers) || 0}</strong></div>
-                    <div>پاسخ نادرست: <strong>${Number(result.wrongAnswers) || 0}</strong></div>
-                    <div>تعداد تلاش: <strong>${Number(result.moves) || 0}</strong></div>
-                </div>
-                <button type="button" id="classificationFinishedBackBtn" class="classificationBackBtn">بازگشت به فعالیت‌ها</button>
+        const app = document.getElementById("app"); if (!app) return;
+        app.innerHTML = `<div class="screen classificationScreen classificationFinished" dir="rtl">
+            <h1>فعالیت تمام شد 🎉</h1>
+            <div class="classificationResultCard">
+                <div>امتیاز: <strong>${Number(result.score) || 0}</strong></div>
+                <div>درصد: <strong>${Number(result.percentage) || 0}%</strong></div>
+                <div>ستاره: <strong>${Number(result.stars) || 0} ⭐</strong></div>
+                <div>پاسخ درست: <strong>${Number(result.correctAnswers) || 0}</strong></div>
+                <div>پاسخ نادرست: <strong>${Number(result.wrongAnswers) || 0}</strong></div>
+                <div>تعداد تلاش: <strong>${Number(result.moves) || 0}</strong></div>
             </div>
-        `;
-
-        const backButton = document.getElementById("classificationFinishedBackBtn");
-        if (backButton) {
-            backButton.onclick = function () {
-                if (typeof App !== "undefined" && typeof App.showActivities === "function") {
-                    App.showActivities();
-                }
-            };
-        }
+            <button type="button" id="classificationFinishedBackBtn" class="classificationBackBtn">بازگشت به فعالیت‌ها</button>
+        </div>`;
+        const back = document.getElementById("classificationFinishedBackBtn");
+        if (back) back.onclick = function () { if (typeof App !== "undefined" && typeof App.showActivities === "function") App.showActivities(); };
     },
 
-    updateMessage: function () {
-        const message = document.getElementById("classificationMessage");
-        if (message) message.textContent = this.lastMessage || "";
-    },
-
-    getActivityId: function () {
-        return this.currentActivity ? this.currentActivity.id : null;
-    },
-
-    escapeHTML: function (value) {
-        const text = value === null || value === undefined ? "" : String(value);
-        return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;").replace(/'/g, "&#039;");
-    },
-
-    escapeAttribute: function (value) {
-        return this.escapeHTML(value);
-    }
+    updateMessage: function () { const message = document.getElementById("classificationMessage"); if (message) message.textContent = this.lastMessage || ""; },
+    getActivityId: function () { return this.currentActivity ? this.currentActivity.id : null; },
+    escapeHTML: function (value) { const text = value === null || value === undefined ? "" : String(value); return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;").replace(/'/g, "&#039;"); },
+    escapeAttribute: function (value) { return this.escapeHTML(value); }
 };
 
 window.ClassificationScreen = ClassificationScreen;
 ClassificationScreen.init();
-console.log("Classification Screen Ready v1.2");
+console.log("Classification Screen Ready v1.3");
