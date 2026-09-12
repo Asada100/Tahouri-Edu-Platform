@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Edu Platform
-// Activity Session Manager v1.3
+// Activity Session Manager v1.4
 //
 // Responsibilities:
 // - Profile-scoped resumable activity sessions
@@ -13,7 +13,7 @@
 
 const ActivitySessionManager = {
     BASE_KEY: "Tahouri_ActivitySession",
-    VERSION: "1.3",
+    VERSION: "1.4",
     currentSession: null,
     exitControlId: "activitySessionControl",
     overlayId: "activitySessionOverlay",
@@ -50,17 +50,33 @@ const ActivitySessionManager = {
         });
     },
 
-    isInvalidClassificationSession: function (session) {
+    isInvalidClassificationSession: function (session, activity) {
         if (!session || !session.engineState) return false;
-        const type = session.activityType;
-        if (type !== "classification" && type !== "ClassificationEngine") return false;
+
+        const sessionType = String(session.activityType || "").toLowerCase();
+        const activityType = activity
+            ? String(activity.engine || activity.type || "").toLowerCase()
+            : "";
+
+        const isClassification =
+            activityType === "classification" ||
+            sessionType === "classification" ||
+            sessionType === "classificationengine";
+
+        if (!isClassification) return false;
+
         const state = session.engineState;
+        const classificationState =
+            state && state.state && typeof state.state === "object"
+                ? state.state
+                : state;
+
         return (
-            !Array.isArray(state.items) ||
-            !Array.isArray(state.categories) ||
-            state.items.length === 0 ||
-            state.categories.length === 0 ||
-            Number(state.totalItems || 0) <= 0
+            !Array.isArray(classificationState.items) ||
+            !Array.isArray(classificationState.categories) ||
+            classificationState.items.length === 0 ||
+            classificationState.categories.length === 0 ||
+            Number(classificationState.totalItems || 0) <= 0
         );
     },
 
@@ -235,12 +251,23 @@ const ActivitySessionManager = {
         let changed = false;
         const resumable = Object.values(sessions).filter(function (session) {
             if (!session) return false;
-            if (ActivitySessionManager.isInvalidClassificationSession(session)) {
+
+            let activity = null;
+            if (
+                typeof App !== "undefined" &&
+                typeof App.resolveActivityById === "function" &&
+                session.activityId
+            ) {
+                activity = App.resolveActivityById(session.activityId);
+            }
+
+            if (ActivitySessionManager.isInvalidClassificationSession(session, activity)) {
                 delete sessions[session.activityId];
                 changed = true;
                 console.warn("ActivitySessionManager: Removed invalid Classification session", session.activityId);
                 return false;
             }
+
             return session.status === "resumable" && session.engineState;
         });
         if (changed) this.saveAll(sessions);
@@ -279,6 +306,7 @@ const ActivitySessionManager = {
         const engineName = session.activityType || this.getActivityType(activity);
         const engine = this.getEngine(engineName);
         if (!engine || !data) return false;
+
         if (data.kind === "puzzle" && (engineName === "PuzzleEngine" || engineName === "puzzle")) {
             engine.activity = data.activity || activity;
             engine.state = { ...(data.state || {}), started: true, isFinished: false };
@@ -292,6 +320,7 @@ const ActivitySessionManager = {
             if (typeof PuzzleScreen !== "undefined" && typeof PuzzleScreen.show === "function") PuzzleScreen.show(engine.getState());
             return true;
         }
+
         if (data.kind === "quiz" && (engineName === "QuizEngine" || engineName === "quiz")) {
             engine.activity = data.activity || activity;
             engine.questions = Array.isArray(data.questions) ? JSON.parse(JSON.stringify(data.questions)) : [];
@@ -318,6 +347,7 @@ const ActivitySessionManager = {
             }
             return true;
         }
+
         if (data.kind === "memory" && (engineName === "MemoryEngine" || engineName === "memory")) {
             engine.activity = data.activity || activity;
             engine.cards = Array.isArray(data.cards) ? JSON.parse(JSON.stringify(data.cards)) : [];
@@ -340,6 +370,7 @@ const ActivitySessionManager = {
             if (typeof MemoryScreen !== "undefined" && typeof MemoryScreen.show === "function") MemoryScreen.show({ title: activity.title || "بازی حافظه", cards: engine.cards });
             return true;
         }
+
         if (data.type === "matching" && (engineName === "MatchingEngine" || engineName === "matching") && typeof engine.restoreSession === "function") {
             const restoredState = engine.restoreSession(data);
             if (!restoredState) {
@@ -352,6 +383,7 @@ const ActivitySessionManager = {
             if (typeof MatchingScreen !== "undefined" && typeof MatchingScreen.show === "function") MatchingScreen.show(restoredState);
             return true;
         }
+
         if (
             data &&
             (data.activityId || activity.id) &&
@@ -360,16 +392,21 @@ const ActivitySessionManager = {
             typeof engine.restoreSession === "function"
         ) {
             try {
-                if (this.isInvalidClassificationSession(session)) {
-                    console.warn("ActivitySessionManager: Classification session is invalid", activity.id);
+                // Validate against the resolved activity as well as the saved
+                // session metadata. Legacy sessions may have a missing or stale
+                // activityType, so session metadata alone is not authoritative.
+                if (this.isInvalidClassificationSession(session, activity)) {
+                    console.warn("ActivitySessionManager: Classification session is invalid for activity", activity.id);
                     this.clear(activity.id);
                     return false;
                 }
+
                 const fullActivity =
                     typeof ActivityManager !== "undefined" &&
                     typeof ActivityManager.loadActivityConfig === "function"
                         ? await ActivityManager.loadActivityConfig(activity)
                         : activity;
+
                 engine.start(fullActivity);
                 const restoredState = engine.restoreSession(data);
                 if (!restoredState) {
@@ -397,6 +434,7 @@ const ActivitySessionManager = {
                 return false;
             }
         }
+
         console.error("ActivitySessionManager: Unsupported restore type", engineName);
         return false;
     },
@@ -501,7 +539,7 @@ const ActivitySessionManager = {
         window.addEventListener("beforeunload", function () {
             if (ActivitySessionManager.gameplayActive) ActivitySessionManager.capture("resumable");
         });
-        console.log("Activity Session Manager v1.3 Ready");
+        console.log("Activity Session Manager v1.4 Ready");
     }
 };
 
