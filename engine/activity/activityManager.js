@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 6.5
+// Version 6.6
 // Activity Manager
 // =====================================
 
@@ -23,10 +23,6 @@ const ActivityManager = {
         if (typeof ActivitySessionManager !== "undefined") {
             let existing = typeof ActivitySessionManager.load === "function" ? ActivitySessionManager.load(fullActivity.id) : null;
 
-            // Classification sessions are content-dependent. If an old session
-            // contains no items/categories, it must never block a fresh start.
-            // Use the fully loaded activity type here instead of relying on the
-            // legacy session.activityType field.
             const invalidClassificationSession =
                 existing &&
                 fullActivity.engine === "classification" &&
@@ -110,9 +106,6 @@ const ActivityManager = {
         try {
             const configPath = activityData.path + "/activity.json";
 
-            // activity.json is an activity-specific runtime configuration.
-            // Always invalidate only this file so an updated configuration is
-            // fetched without disturbing any other DataManager cache entries.
             if (typeof DataManager !== "undefined" && typeof DataManager.invalidateCache === "function") {
                 DataManager.invalidateCache(configPath);
             }
@@ -235,6 +228,7 @@ const ActivityManager = {
             MemoryEngine.finished = false;
         }
         if (typeof window.MatchingEngine !== "undefined" && typeof MatchingEngine.reset === "function") MatchingEngine.reset();
+        if (typeof window.ClassificationEngine !== "undefined" && typeof ClassificationEngine.reset === "function") ClassificationEngine.reset();
         console.log("Activity Manager Runtime Reset");
         return true;
     },
@@ -243,4 +237,4 @@ const ActivityManager = {
 };
 
 window.ActivityManager = ActivityManager;
-console.log("Activity Manager v6.5 Ready");
+console.log("Activity Manager v6.6 Ready");
