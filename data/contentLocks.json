@@ -42,5 +42,9 @@
     {
         "id": "animalClassification",
         "locked": false
+    },
+    {
+        "id": "animalDragClassification",
+        "locked": false
     }
 ]
