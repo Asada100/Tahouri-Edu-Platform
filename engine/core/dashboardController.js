@@ -182,11 +182,6 @@ const DashboardController = {
 
         // =====================================
         // SINGLE CONTINUE CARD
-        //
-        // A resumable session always has priority.
-        // Otherwise show the next unlocked activity.
-        // This intentionally avoids two separate
-        // Continue cards on the dashboard.
         // =====================================
 
         let continueLearning = {};
@@ -226,8 +221,6 @@ const DashboardController = {
             resumableActivity: resumableActivity
         });
 
-        // updateActive is intentionally called after rendering because the
-        // observer on #app may run before the new dashboard DOM is complete.
         if (
             typeof BottomNavigation !== "undefined" &&
             typeof BottomNavigation.updateActive === "function"
@@ -256,22 +249,15 @@ const DashboardController = {
             return false;
         }
 
-        if (
-            typeof App === "undefined" ||
-            typeof App.resolveActivityById !== "function"
-        ) {
+        if (typeof App === "undefined" || typeof App.resolveActivityById !== "function") {
             console.error("Dashboard: App activity resolver unavailable.");
             return false;
         }
 
-        const activity =
-            App.resolveActivityById(data.activityId);
+        const activity = App.resolveActivityById(data.activityId);
 
         if (!activity) {
-            console.error(
-                "Dashboard: Activity not found:",
-                data.activityId
-            );
+            console.error("Dashboard: Activity not found:", data.activityId);
             return false;
         }
 
@@ -283,11 +269,18 @@ const DashboardController = {
         );
 
         try {
-            // An unfinished activity must continue through the existing
-            // restore path so its saved difficulty and progress are preserved.
+            // A resumable activity must go through ActivitySessionManager.
+            // App.startActivity() creates a fresh activity lifecycle and would
+            // discard the saved engine state before it can be restored.
             if (data.mode === "resume") {
-                await App.startActivity(activity);
-                return true;
+                if (
+                    typeof ActivitySessionManager === "undefined" ||
+                    typeof ActivitySessionManager.resume !== "function"
+                ) {
+                    console.error("Dashboard: ActivitySessionManager resume unavailable.");
+                    return false;
+                }
+                return await ActivitySessionManager.resume();
             }
 
             // A genuinely new activity must use the same difficulty-selection
@@ -310,21 +303,16 @@ const DashboardController = {
                 return true;
             }
 
-            // Safe compatibility fallback if the difficulty modal is unavailable.
             await App.startActivity(activity);
             return true;
         }
         catch (error) {
-            console.error(
-                "Dashboard: Activity start/resume failed:",
-                error
-            );
+            console.error("Dashboard: Activity start/resume failed:", error);
             return false;
         }
     },
 
     // Kept for compatibility with older callers.
-    // The dashboard no longer renders a separate resumable card.
     renderResumableActivity: function () {
         const oldCard = document.getElementById("activityResumeCard");
         if (oldCard) oldCard.remove();
