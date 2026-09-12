@@ -35,10 +35,16 @@ const ActivitySessionManager = {
   if(n==="classification"||n==="ClassificationEngine"){
       if(typeof e.restoreSession!=="function")return false;
       if(!d||!Array.isArray(d.items)||!Array.isArray(d.categories)||d.items.length===0||d.categories.length===0)return false;
-      e.activityData=a;
+      let fullActivity=a;
+      if(typeof ActivityManager!=="undefined"&&typeof ActivityManager.loadActivityConfig==="function"){
+          fullActivity=await ActivityManager.loadActivityConfig(a);
+      }
+      if(!fullActivity||!fullActivity.classification)return false;
+      ActivityManager.currentActivity=fullActivity;
+      e.activityData=fullActivity;
       if(!e.restoreSession(d))return false;
       if(typeof ClassificationScreen!=="undefined"&&typeof ClassificationScreen.show==="function"){
-          ClassificationScreen.currentActivity=a;ClassificationScreen.currentState=e.getState();ClassificationScreen.lastMessage="";ClassificationScreen.show(e.getState());
+          ClassificationScreen.currentActivity=fullActivity;ClassificationScreen.currentState=e.getState();ClassificationScreen.lastMessage="";ClassificationScreen.show(e.getState());
       }
       return true;
   }
