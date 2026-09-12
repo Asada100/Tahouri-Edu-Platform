@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Classification Screen
-// Version 1.8
+// Version 1.9
 // =====================================
 
 const ClassificationScreen = {
@@ -14,6 +14,9 @@ const ClassificationScreen = {
     dragActive: false,
     dragSubmissionLocked: false,
     touchDrag: null,
+    touchMoveHandler: null,
+    touchEndHandler: null,
+    touchCancelHandler: null,
 
     init: function () {
         if (typeof EventManager === "undefined") return;
@@ -29,6 +32,7 @@ const ClassificationScreen = {
     handleActivityReady: function (payload) {
         if (!payload || !payload.activity || !payload.result) return;
         if (payload.engineName !== "classification" && payload.engineName !== "ClassificationEngine") return;
+        this.cancelTouchDrag();
         this.currentActivity = payload.activity;
         this.currentState = payload.result;
         this.lastMessage = "";
@@ -144,8 +148,6 @@ const ClassificationScreen = {
         document.querySelectorAll(".classificationDragItem").forEach(function (item) {
             if (!touch) {
                 item.addEventListener("dragstart", function (event) {
-                    // A native drag may trigger dragstart again after the screen has
-                    // been re-rendered. Once this drag has submitted, never reopen it.
                     if (self.dragSubmissionLocked) {
                         event.preventDefault();
                         return;
@@ -170,12 +172,12 @@ const ClassificationScreen = {
                     }
                 });
             } else {
-                item.addEventListener("pointerdown", function (event) { self.startTouchDrag(event, this); });
+                item.addEventListener("pointerdown", function (event) { self.startTouchDrag(event, this); }, { passive: false });
             }
         });
 
-        document.querySelectorAll(".classificationDropZone").forEach(function (zone) {
-            if (!touch) {
+        if (!touch) {
+            document.querySelectorAll(".classificationDropZone").forEach(function (zone) {
                 zone.addEventListener("dragover", function (event) {
                     if (!self.dragActive || !self.dragItemId || self.dragSubmissionLocked) return;
                     event.preventDefault();
@@ -186,41 +188,71 @@ const ClassificationScreen = {
                 zone.addEventListener("drop", function (event) {
                     event.preventDefault();
                     this.classList.remove("drag-over");
-
                     const id = event.dataTransfer ? event.dataTransfer.getData("text/plain") : self.dragItemId;
-                    const validDrop = event.isTrusted && self.dragActive && !self.dragSubmissionLocked && id && id === self.dragItemId;
-
+                    const validDrop = self.dragActive && !self.dragSubmissionLocked && id && id === self.dragItemId;
                     if (!validDrop) return;
                     self.dragSubmissionLocked = true;
                     self.dragActive = false;
                     self.dragItemId = null;
-
                     self.submitClassification(id, this.dataset.categoryId, "user");
                 });
-            }
-        });
+            });
+        }
     },
 
     startTouchDrag: function (event, item) {
-        if (!event || !event.isTrusted || event.pointerType !== "touch" || this.touchDrag) return;
+        if (!event || !item || !event.isTrusted || event.pointerType !== "touch" || this.touchDrag) return;
+
+        this.cancelTouchDrag();
         event.preventDefault();
+
         this.dragSubmissionLocked = false;
-        this.touchDrag = { itemId: item.dataset.itemId, item: item, active: false, startX: event.clientX, startY: event.clientY };
-        item.setPointerCapture(event.pointerId);
-        item.addEventListener("pointermove", this.handleTouchDragMoveBound = this.handleTouchDragMove.bind(this), { passive: false });
-        item.addEventListener("pointerup", this.handleTouchDragEndBound = this.handleTouchDragEnd.bind(this), { passive: false, once: true });
-        item.addEventListener("pointercancel", this.handleTouchDragCancelBound = this.handleTouchDragEnd.bind(this), { passive: false, once: true });
+        this.dragItemId = item.dataset.itemId;
+        this.dragActive = false;
+        this.touchDrag = {
+            itemId: item.dataset.itemId,
+            item: item,
+            pointerId: event.pointerId,
+            startX: event.clientX,
+            startY: event.clientY,
+            active: false
+        };
+
+        if (typeof item.setPointerCapture === "function") {
+            try { item.setPointerCapture(event.pointerId); } catch (error) {}
+        }
+
+        this.touchMoveHandler = function (moveEvent) {
+            if (!ClassificationScreen.touchDrag || moveEvent.pointerId !== ClassificationScreen.touchDrag.pointerId) return;
+            ClassificationScreen.handleTouchDragMove(moveEvent);
+        };
+        this.touchEndHandler = function (upEvent) {
+            if (!ClassificationScreen.touchDrag || upEvent.pointerId !== ClassificationScreen.touchDrag.pointerId) return;
+            ClassificationScreen.handleTouchDragEnd(upEvent);
+        };
+        this.touchCancelHandler = function (cancelEvent) {
+            if (!ClassificationScreen.touchDrag || cancelEvent.pointerId !== ClassificationScreen.touchDrag.pointerId) return;
+            ClassificationScreen.cancelTouchDrag();
+        };
+
+        document.addEventListener("pointermove", this.touchMoveHandler, { passive: false });
+        document.addEventListener("pointerup", this.touchEndHandler, { passive: false });
+        document.addEventListener("pointercancel", this.touchCancelHandler, { passive: false });
     },
 
     handleTouchDragMove: function (event) {
         const drag = this.touchDrag;
         if (!drag || !event.isTrusted) return;
+
         event.preventDefault();
         const dx = event.clientX - drag.startX;
         const dy = event.clientY - drag.startY;
+
         if (!drag.active && Math.hypot(dx, dy) < 8) return;
         drag.active = true;
+        this.dragActive = true;
         drag.item.classList.add("dragging");
+
         document.querySelectorAll(".classificationDropZone").forEach(function (z) { z.classList.remove("drag-over"); });
         const target = document.elementFromPoint(event.clientX, event.clientY);
         const zone = target && target.closest ? target.closest(".classificationDropZone") : null;
@@ -230,38 +262,66 @@ const ClassificationScreen = {
     handleTouchDragEnd: function (event) {
         const drag = this.touchDrag;
         if (!drag || !event.isTrusted || this.dragSubmissionLocked) return;
+
         event.preventDefault();
         const target = document.elementFromPoint(event.clientX, event.clientY);
         const zone = target && target.closest ? target.closest(".classificationDropZone") : null;
+        const itemId = drag.itemId;
+        const wasDragging = drag.active;
+        const categoryId = zone ? zone.dataset.categoryId : null;
+
+        this.clearTouchDragListeners();
         drag.item.classList.remove("dragging");
         document.querySelectorAll(".classificationDropZone").forEach(function (z) { z.classList.remove("drag-over"); });
-        const itemId = drag.itemId;
         this.touchDrag = null;
-        if (zone && drag.active) {
+        this.dragItemId = null;
+        this.dragActive = false;
+
+        if (wasDragging && categoryId) {
             this.dragSubmissionLocked = true;
-            this.submitClassification(itemId, zone.dataset.categoryId, "user");
+            this.submitClassification(itemId, categoryId, "user");
+        } else {
+            this.dragSubmissionLocked = false;
         }
+    },
+
+    clearTouchDragListeners: function () {
+        if (this.touchMoveHandler) document.removeEventListener("pointermove", this.touchMoveHandler);
+        if (this.touchEndHandler) document.removeEventListener("pointerup", this.touchEndHandler);
+        if (this.touchCancelHandler) document.removeEventListener("pointercancel", this.touchCancelHandler);
+        this.touchMoveHandler = null;
+        this.touchEndHandler = null;
+        this.touchCancelHandler = null;
+    },
+
+    cancelTouchDrag: function () {
+        this.clearTouchDragListeners();
+        if (this.touchDrag && this.touchDrag.item) this.touchDrag.item.classList.remove("dragging");
+        document.querySelectorAll(".classificationDropZone").forEach(function (z) { z.classList.remove("drag-over"); });
+        this.touchDrag = null;
+        this.dragItemId = null;
+        this.dragActive = false;
     },
 
     submitClassification: function (itemId, categoryId, source) {
         if (source !== "user") return null;
         if (!window.ClassificationEngine) return null;
 
-        if (this.getMode() === "dragDrop" && this.dragSubmissionLocked === false) {
-            return null;
-        }
+        if (this.getMode() === "dragDrop" && this.dragSubmissionLocked === false) return null;
 
         const result = window.ClassificationEngine.classifyItem(itemId, categoryId);
-        if (!result) return null;
+        if (!result) {
+            this.dragSubmissionLocked = false;
+            return null;
+        }
         this.lastMessage = result.correct === true ? "✓ درست" : (result.retryAllowed ? "✗ دوباره تلاش کن" : "✗ نادرست");
         this.currentState = window.ClassificationEngine.getState();
         if (this.currentState && this.currentState.finished) { this.showFinished(this.currentState.result); return result; }
 
-        // On desktop native drag/drop, do not rebuild the DOM while the browser's
-        // current drag operation is still alive. The rebuild happens from dragend.
         if (this.getMode() === "dragDrop" && !this.isTouchDevice()) return result;
 
         this.show(this.currentState);
+        this.dragSubmissionLocked = false;
         return result;
     },
 
@@ -285,6 +345,7 @@ const ClassificationScreen = {
 
     showFinished: function (result) {
         if (!result) return;
+        this.cancelTouchDrag();
         const app = document.getElementById("app"); if (!app) return;
         app.innerHTML = `<div class="screen classificationScreen classificationFinished" dir="rtl">
             <h1>فعالیت تمام شد 🎉</h1>
@@ -310,4 +371,4 @@ const ClassificationScreen = {
 
 window.ClassificationScreen = ClassificationScreen;
 ClassificationScreen.init();
-console.log("Classification Screen Ready v1.8");
+console.log("Classification Screen Ready v1.9");
