@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 6.4
+// Version 6.5
 // Activity Manager
 // =====================================
 
@@ -86,6 +86,14 @@ const ActivityManager = {
         }
         try {
             const configPath = activityData.path + "/activity.json";
+
+            // activity.json is an activity-specific runtime configuration.
+            // Always invalidate only this file so an updated configuration is
+            // fetched without disturbing any other DataManager cache entries.
+            if (typeof DataManager !== "undefined" && typeof DataManager.invalidateCache === "function") {
+                DataManager.invalidateCache(configPath);
+            }
+
             const activityConfig = await DataManager.loadJSON(configPath);
             const baseSettings = activityConfig && activityConfig.settings ? { ...activityConfig.settings } : {};
             const activitySettings = { ...(activityData.settings || {}) };
@@ -212,4 +220,4 @@ const ActivityManager = {
 };
 
 window.ActivityManager = ActivityManager;
-console.log("Activity Manager v6.4 Ready");
+console.log("Activity Manager v6.5 Ready");
