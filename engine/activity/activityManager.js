@@ -21,7 +21,30 @@ const ActivityManager = {
         if (!fullActivity) { console.error("ActivityManager: Full Activity Could Not Be Prepared"); return null; }
 
         if (typeof ActivitySessionManager !== "undefined") {
-            const existing = typeof ActivitySessionManager.load === "function" ? ActivitySessionManager.load(fullActivity.id) : null;
+            let existing = typeof ActivitySessionManager.load === "function" ? ActivitySessionManager.load(fullActivity.id) : null;
+
+            // Classification sessions are content-dependent. If an old session
+            // contains no items/categories, it must never block a fresh start.
+            // Use the fully loaded activity type here instead of relying on the
+            // legacy session.activityType field.
+            const invalidClassificationSession =
+                existing &&
+                fullActivity.engine === "classification" &&
+                existing.engineState &&
+                (
+                    !Array.isArray(existing.engineState.items) ||
+                    !Array.isArray(existing.engineState.categories) ||
+                    existing.engineState.items.length === 0 ||
+                    existing.engineState.categories.length === 0 ||
+                    Number(existing.engineState.totalItems || 0) <= 0
+                );
+
+            if (invalidClassificationSession) {
+                console.warn("ActivityManager: Clearing invalid classification session", fullActivity.id);
+                ActivitySessionManager.clear(fullActivity.id);
+                existing = null;
+            }
+
             const unfinished = existing && (existing.status === "resumable" || existing.status === "active") && existing.engineState;
 
             if (unfinished) {
