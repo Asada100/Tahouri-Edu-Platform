@@ -15,7 +15,7 @@
 .classificationCategories { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-bottom:14px; }
 .classificationCategoryBtn { min-height:58px; background:#eee; font-weight:700; }
 .classificationDropZones { align-items:stretch; }
-.classificationDropZone { min-height:150px; padding:14px; border:2px dashed #cfd8e3; border-radius:16px; background:#f8fbff; cursor:pointer; transition:border-color .15s ease,background .15s ease,transform .15s ease; }
+.classificationDropZone { min-height:150px; padding:14px; border:2px dashed #cfd8e3; border-radius:16px; background:#f8fbff; cursor:pointer; transition:border-color .15s ease,background .15s ease,transform .15s ease; touch-action:none; user-select:none; -webkit-user-select:none; }
 .classificationDropZone:focus-visible { outline:3px solid rgba(37,99,235,.20); outline-offset:2px; }
 .classificationDropZone.drag-over { border-color:currentColor; background:#fff; transform:translateY(-2px); }
 .classificationDropZoneTitle { font-weight:700; margin-bottom:12px; }
