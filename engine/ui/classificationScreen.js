@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Classification Screen
-// Version 1.4
+// Version 1.5
 // =====================================
 
 const ClassificationScreen = {
@@ -11,6 +11,7 @@ const ClassificationScreen = {
     lastMessage: "",
     selectedItemId: null,
     dragItemId: null,
+    dragActive: false,
     touchDrag: null,
 
     init: function () {
@@ -32,6 +33,7 @@ const ClassificationScreen = {
         this.lastMessage = "";
         this.selectedItemId = null;
         this.dragItemId = null;
+        this.dragActive = false;
         this.touchDrag = null;
         this.show(payload.result);
     },
@@ -141,6 +143,7 @@ const ClassificationScreen = {
             if (!touch) {
                 item.addEventListener("dragstart", function (event) {
                     self.dragItemId = this.dataset.itemId;
+                    self.dragActive = true;
                     this.classList.add("dragging");
                     if (event.dataTransfer) {
                         event.dataTransfer.effectAllowed = "move";
@@ -150,6 +153,7 @@ const ClassificationScreen = {
                 item.addEventListener("dragend", function () {
                     this.classList.remove("dragging");
                     document.querySelectorAll(".classificationDropZone").forEach(function (z) { z.classList.remove("drag-over"); });
+                    self.dragActive = false;
                     self.dragItemId = null;
                 });
             } else {
@@ -160,6 +164,7 @@ const ClassificationScreen = {
         document.querySelectorAll(".classificationDropZone").forEach(function (zone) {
             if (!touch) {
                 zone.addEventListener("dragover", function (event) {
+                    if (!self.dragActive || !self.dragItemId) return;
                     event.preventDefault();
                     if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
                     this.classList.add("drag-over");
@@ -169,7 +174,9 @@ const ClassificationScreen = {
                     event.preventDefault();
                     this.classList.remove("drag-over");
                     const id = event.dataTransfer ? event.dataTransfer.getData("text/plain") : self.dragItemId;
-                    if (id) self.submitClassification(id, this.dataset.categoryId, "user");
+                    const validDrop = event.isTrusted && self.dragActive && id && id === self.dragItemId;
+                    if (validDrop) self.submitClassification(id, this.dataset.categoryId, "user");
+                    self.dragActive = false;
                     self.dragItemId = null;
                 });
             }
@@ -177,7 +184,7 @@ const ClassificationScreen = {
     },
 
     startTouchDrag: function (event, item) {
-        if (!event || event.pointerType !== "touch" || this.touchDrag) return;
+        if (!event || !event.isTrusted || event.pointerType !== "touch" || this.touchDrag) return;
         event.preventDefault();
         this.touchDrag = { itemId: item.dataset.itemId, item: item, active: false, startX: event.clientX, startY: event.clientY };
         item.setPointerCapture(event.pointerId);
@@ -188,7 +195,7 @@ const ClassificationScreen = {
 
     handleTouchDragMove: function (event) {
         const drag = this.touchDrag;
-        if (!drag) return;
+        if (!drag || !event.isTrusted) return;
         event.preventDefault();
         const dx = event.clientX - drag.startX;
         const dy = event.clientY - drag.startY;
@@ -203,7 +210,7 @@ const ClassificationScreen = {
 
     handleTouchDragEnd: function (event) {
         const drag = this.touchDrag;
-        if (!drag) return;
+        if (!drag || !event.isTrusted) return;
         event.preventDefault();
         const target = document.elementFromPoint(event.clientX, event.clientY);
         const zone = target && target.closest ? target.closest(".classificationDropZone") : null;
@@ -274,4 +281,4 @@ const ClassificationScreen = {
 
 window.ClassificationScreen = ClassificationScreen;
 ClassificationScreen.init();
-console.log("Classification Screen Ready v1.4");
+console.log("Classification Screen Ready v1.5");
