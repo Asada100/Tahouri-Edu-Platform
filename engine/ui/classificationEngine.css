@@ -144,18 +144,35 @@
 
 @media (max-width: 600px) {
     .classificationScreen {
-        padding: 18px 12px 28px;
+        padding: 16px 10px 24px;
     }
 
-    .classificationItems {
-        grid-template-columns: 1fr;
-    }
-
+    .classificationItems,
     .classificationCategories {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    .classificationItem {
+        min-height: 56px;
+        padding: 11px 8px;
     }
 
     .classificationDropZone {
-        min-height: 120px;
+        min-height: 110px;
+        padding: 10px;
+    }
+
+    .classificationDropZoneTitle {
+        margin-bottom: 8px;
+    }
+
+    .classificationDropZoneItems {
+        min-height: 54px;
+        gap: 6px;
+    }
+
+    .classificationPlacedItem {
+        padding: 7px 8px;
     }
 }
