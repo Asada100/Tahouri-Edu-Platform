@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Classification Screen
-// Version 1.7
+// Version 1.8
 // =====================================
 
 const ClassificationScreen = {
@@ -144,6 +144,12 @@ const ClassificationScreen = {
         document.querySelectorAll(".classificationDragItem").forEach(function (item) {
             if (!touch) {
                 item.addEventListener("dragstart", function (event) {
+                    // A native drag may trigger dragstart again after the screen has
+                    // been re-rendered. Once this drag has submitted, never reopen it.
+                    if (self.dragSubmissionLocked) {
+                        event.preventDefault();
+                        return;
+                    }
                     self.dragItemId = this.dataset.itemId;
                     self.dragActive = true;
                     self.dragSubmissionLocked = false;
@@ -158,6 +164,10 @@ const ClassificationScreen = {
                     document.querySelectorAll(".classificationDropZone").forEach(function (z) { z.classList.remove("drag-over"); });
                     self.dragActive = false;
                     self.dragItemId = null;
+                    self.dragSubmissionLocked = false;
+                    if (self.currentState && !self.currentState.finished && self.getMode() === "dragDrop") {
+                        self.show(self.currentState);
+                    }
                 });
             } else {
                 item.addEventListener("pointerdown", function (event) { self.startTouchDrag(event, this); });
@@ -180,10 +190,6 @@ const ClassificationScreen = {
                     const id = event.dataTransfer ? event.dataTransfer.getData("text/plain") : self.dragItemId;
                     const validDrop = event.isTrusted && self.dragActive && !self.dragSubmissionLocked && id && id === self.dragItemId;
 
-                    // Lock this drag session before submitting. The submit call may
-                    // re-render the DOM and create new drop zones while the browser
-                    // is still completing the same native drag operation. Any later
-                    // drop event from that operation must be ignored.
                     if (!validDrop) return;
                     self.dragSubmissionLocked = true;
                     self.dragActive = false;
@@ -238,18 +244,10 @@ const ClassificationScreen = {
     },
 
     submitClassification: function (itemId, categoryId, source) {
-        // Classification must only change through an actual user interaction.
-        // This prevents startup/render/resume code from accidentally classifying
-        // items and immediately finishing the activity.
         if (source !== "user") return null;
         if (!window.ClassificationEngine) return null;
 
-        // A native drag operation gets exactly one classification submission.
-        // This guard is intentionally outside the DOM event handler so it also
-        // survives re-rendering of the classification screen.
         if (this.getMode() === "dragDrop" && this.dragSubmissionLocked === false) {
-            // Touch drag sets the lock immediately before calling this method.
-            // Native drop does the same. If neither did, reject the submission.
             return null;
         }
 
@@ -258,6 +256,11 @@ const ClassificationScreen = {
         this.lastMessage = result.correct === true ? "✓ درست" : (result.retryAllowed ? "✗ دوباره تلاش کن" : "✗ نادرست");
         this.currentState = window.ClassificationEngine.getState();
         if (this.currentState && this.currentState.finished) { this.showFinished(this.currentState.result); return result; }
+
+        // On desktop native drag/drop, do not rebuild the DOM while the browser's
+        // current drag operation is still alive. The rebuild happens from dragend.
+        if (this.getMode() === "dragDrop" && !this.isTouchDevice()) return result;
+
         this.show(this.currentState);
         return result;
     },
@@ -307,4 +310,4 @@ const ClassificationScreen = {
 
 window.ClassificationScreen = ClassificationScreen;
 ClassificationScreen.init();
-console.log("Classification Screen Ready v1.7");
+console.log("Classification Screen Ready v1.8");
