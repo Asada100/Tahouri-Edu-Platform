@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Classification Screen
-// Version 1.5
+// Version 1.6
 // =====================================
 
 const ClassificationScreen = {
@@ -175,9 +175,14 @@ const ClassificationScreen = {
                     this.classList.remove("drag-over");
                     const id = event.dataTransfer ? event.dataTransfer.getData("text/plain") : self.dragItemId;
                     const validDrop = event.isTrusted && self.dragActive && id && id === self.dragItemId;
-                    if (validDrop) self.submitClassification(id, this.dataset.categoryId, "user");
+
+                    // Clear the drag session BEFORE submitting. submitClassification()
+                    // re-renders the screen, which otherwise creates fresh drop zones
+                    // while the browser's current drag operation is still finishing.
                     self.dragActive = false;
                     self.dragItemId = null;
+
+                    if (validDrop) self.submitClassification(id, this.dataset.categoryId, "user");
                 });
             }
         });
@@ -281,4 +286,4 @@ const ClassificationScreen = {
 
 window.ClassificationScreen = ClassificationScreen;
 ClassificationScreen.init();
-console.log("Classification Screen Ready v1.5");
+console.log("Classification Screen Ready v1.6");
