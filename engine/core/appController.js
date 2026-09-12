@@ -90,6 +90,17 @@ const App = {
         );
     },
 
+    // Resolve a loaded activity by its stable activity id.
+    // Session restore and dashboard resume use this resolver so they
+    // can work from App.activities without duplicating data loading.
+    resolveActivityById: function (activityId) {
+        if (!activityId || !Array.isArray(this.activities)) return null;
+
+        return this.activities.find(function (activity) {
+            return activity && activity.id === activityId;
+        }) || null;
+    },
+
     startActivity: async function (activity) {
 
         if (!activity) {
