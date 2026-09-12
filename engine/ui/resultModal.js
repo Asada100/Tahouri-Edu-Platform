@@ -205,7 +205,15 @@ const ResultModal = {
 
         if(homeButton){
             homeButton.onclick = function(){
+                // Home must be a clean navigation target. If a report modal
+                // is still mounted behind the result modal, remove it first;
+                // otherwise Screen.showHome() only replaces #app and the
+                // fixed report overlay remains visible above the home screen.
+                const reportsModal = document.getElementById("reportsModal");
+                if(reportsModal) reportsModal.remove();
+
                 ResultModal.close();
+
                 if(typeof App !== "undefined" && typeof App.showHome === "function"){
                     App.showHome();
                 }
