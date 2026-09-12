@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Classification Screen
-// Version 1.3
+// Version 1.4
 // =====================================
 
 const ClassificationScreen = {
@@ -122,7 +122,7 @@ const ClassificationScreen = {
             document.querySelectorAll(".classificationCategoryBtn").forEach(function (button) {
                 button.onclick = function () {
                     if (!selected) { self.lastMessage = "ابتدا یک مورد را انتخاب کن."; self.updateMessage(); return; }
-                    self.submitClassification(selected, this.dataset.categoryId);
+                    self.submitClassification(selected, this.dataset.categoryId, "user");
                     selected = null; self.selectedItemId = null;
                 };
             });
@@ -169,7 +169,7 @@ const ClassificationScreen = {
                     event.preventDefault();
                     this.classList.remove("drag-over");
                     const id = event.dataTransfer ? event.dataTransfer.getData("text/plain") : self.dragItemId;
-                    if (id) self.submitClassification(id, this.dataset.categoryId);
+                    if (id) self.submitClassification(id, this.dataset.categoryId, "user");
                     self.dragItemId = null;
                 });
             }
@@ -211,17 +211,22 @@ const ClassificationScreen = {
         document.querySelectorAll(".classificationDropZone").forEach(function (z) { z.classList.remove("drag-over"); });
         const itemId = drag.itemId;
         this.touchDrag = null;
-        if (zone && drag.active) this.submitClassification(itemId, zone.dataset.categoryId);
+        if (zone && drag.active) this.submitClassification(itemId, zone.dataset.categoryId, "user");
     },
 
-    submitClassification: function (itemId, categoryId) {
-        if (!window.ClassificationEngine) return;
+    submitClassification: function (itemId, categoryId, source) {
+        // Classification must only change through an actual user interaction.
+        // This prevents startup/render/resume code from accidentally classifying
+        // items and immediately finishing the activity.
+        if (source !== "user") return null;
+        if (!window.ClassificationEngine) return null;
         const result = window.ClassificationEngine.classifyItem(itemId, categoryId);
-        if (!result) return;
+        if (!result) return null;
         this.lastMessage = result.correct === true ? "✓ درست" : (result.retryAllowed ? "✗ دوباره تلاش کن" : "✗ نادرست");
         this.currentState = window.ClassificationEngine.getState();
-        if (this.currentState && this.currentState.finished) { this.showFinished(this.currentState.result); return; }
+        if (this.currentState && this.currentState.finished) { this.showFinished(this.currentState.result); return result; }
         this.show(this.currentState);
+        return result;
     },
 
     renderPlacements: function (state) {
@@ -269,4 +274,4 @@ const ClassificationScreen = {
 
 window.ClassificationScreen = ClassificationScreen;
 ClassificationScreen.init();
-console.log("Classification Screen Ready v1.3");
+console.log("Classification Screen Ready v1.4");
