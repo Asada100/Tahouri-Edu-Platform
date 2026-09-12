@@ -70,6 +70,10 @@ const ActivityResult = {
 },
 
 
+moves:
+data.moves || 0,
+
+
 correctAnswers:
 data.correctAnswers || 0,
 
