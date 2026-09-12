@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Classification Screen
-// Version 1.1
+// Version 1.2
 // =====================================
 
 const ClassificationScreen = {
@@ -55,6 +55,12 @@ const ClassificationScreen = {
         return "choice";
     },
 
+    isTouchDevice: function () {
+        return typeof window !== "undefined"
+            && typeof window.matchMedia === "function"
+            && window.matchMedia("(pointer: coarse)").matches;
+    },
+
     show: function (state) {
         if (!state) return;
         const app = document.getElementById("app");
@@ -66,6 +72,8 @@ const ClassificationScreen = {
         const activity = this.currentActivity || {};
         const mode = this.getMode();
         const isDragDrop = mode === "dragDrop";
+        const isTouchDevice = this.isTouchDevice();
+        const useNativeDrag = isDragDrop && !isTouchDevice;
 
         const categoryHTML = categories.map(function (category) {
             const categoryId = ClassificationScreen.escapeAttribute(category.id);
@@ -91,16 +99,25 @@ const ClassificationScreen = {
 
             if (isDragDrop) {
                 if (classified && answer && answer.correct) return "";
-                return `<button type="button" class="classificationItem classificationDragItem ${status}" draggable="true" data-item-id="${ClassificationScreen.escapeAttribute(item.id)}">${content}</button>`;
+                const draggable = useNativeDrag ? " draggable=\"true\"" : "";
+                return `<button type="button" class="classificationItem classificationDragItem ${status}"${draggable} data-item-id="${ClassificationScreen.escapeAttribute(item.id)}">${content}</button>`;
             }
 
             return `<button type="button" class="classificationItem ${status}" data-item-id="${ClassificationScreen.escapeAttribute(item.id)}" ${classified || state.finished ? "disabled" : ""}>${content}</button>`;
         }).join("");
 
+        const interactionClass = isDragDrop
+            ? (isTouchDevice ? "classificationTouchMode" : "classificationDesktopDragMode")
+            : "";
+
+        const instruction = isDragDrop && isTouchDevice
+            ? "هر مورد را انتخاب کن، سپس دسته مناسب را انتخاب کن."
+            : (state.instruction || "هر مورد را در دسته مناسب قرار بده");
+
         app.innerHTML = `
-            <div class="screen classificationScreen classificationMode-${ClassificationScreen.escapeAttribute(mode)}" dir="rtl">
+            <div class="screen classificationScreen classificationMode-${ClassificationScreen.escapeAttribute(mode)} ${interactionClass}" dir="rtl">
                 <h1>${ClassificationScreen.escapeHTML(activity.title || "دسته‌بندی")}</h1>
-                <p class="classificationInstruction">${ClassificationScreen.escapeHTML(state.instruction || "هر مورد را در دسته مناسب قرار بده")}</p>
+                <p class="classificationInstruction">${ClassificationScreen.escapeHTML(instruction)}</p>
                 <div class="classificationStatus">باقی‌مانده: ${Math.max(0, (state.totalItems || 0) - (state.classifiedItems || 0))} از ${state.totalItems || 0}</div>
                 <div class="classificationItems">${itemsHTML}</div>
                 <div class="classificationCategories ${isDragDrop ? "classificationDropZones" : ""}">${categoryHTML}</div>
@@ -165,24 +182,27 @@ const ClassificationScreen = {
 
     bindDragDropEvents: function () {
         const self = this;
+        const useNativeDrag = !this.isTouchDevice();
 
         document.querySelectorAll(".classificationDragItem").forEach(function (item) {
-            item.addEventListener("dragstart", function (event) {
-                self.dragItemId = this.dataset.itemId;
-                this.classList.add("dragging");
-                if (event.dataTransfer) {
-                    event.dataTransfer.effectAllowed = "move";
-                    event.dataTransfer.setData("text/plain", self.dragItemId);
-                }
-            });
-
-            item.addEventListener("dragend", function () {
-                this.classList.remove("dragging");
-                document.querySelectorAll(".classificationDropZone").forEach(function (zone) {
-                    zone.classList.remove("drag-over");
+            if (useNativeDrag) {
+                item.addEventListener("dragstart", function (event) {
+                    self.dragItemId = this.dataset.itemId;
+                    this.classList.add("dragging");
+                    if (event.dataTransfer) {
+                        event.dataTransfer.effectAllowed = "move";
+                        event.dataTransfer.setData("text/plain", self.dragItemId);
+                    }
                 });
-                self.dragItemId = null;
-            });
+
+                item.addEventListener("dragend", function () {
+                    this.classList.remove("dragging");
+                    document.querySelectorAll(".classificationDropZone").forEach(function (zone) {
+                        zone.classList.remove("drag-over");
+                    });
+                    self.dragItemId = null;
+                });
+            }
 
             item.addEventListener("click", function () {
                 document.querySelectorAll(".classificationDragItem").forEach(function (button) {
@@ -190,32 +210,36 @@ const ClassificationScreen = {
                 });
                 self.selectedItemId = this.dataset.itemId;
                 this.classList.add("selected");
-                self.lastMessage = "حالا این مورد را روی دسته مناسب رها کن یا دسته را انتخاب کن.";
+                self.lastMessage = self.isTouchDevice()
+                    ? "حالا دسته مناسب را انتخاب کن."
+                    : "حالا این مورد را روی دسته مناسب رها کن یا دسته را انتخاب کن.";
                 self.updateMessage();
             });
         });
 
         document.querySelectorAll(".classificationDropZone").forEach(function (zone) {
-            zone.addEventListener("dragover", function (event) {
-                event.preventDefault();
-                if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
-                this.classList.add("drag-over");
-            });
+            if (useNativeDrag) {
+                zone.addEventListener("dragover", function (event) {
+                    event.preventDefault();
+                    if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+                    this.classList.add("drag-over");
+                });
 
-            zone.addEventListener("dragleave", function () {
-                this.classList.remove("drag-over");
-            });
+                zone.addEventListener("dragleave", function () {
+                    this.classList.remove("drag-over");
+                });
 
-            zone.addEventListener("drop", function (event) {
-                event.preventDefault();
-                this.classList.remove("drag-over");
-                const itemId = event.dataTransfer
-                    ? event.dataTransfer.getData("text/plain")
-                    : self.dragItemId;
-                if (itemId) self.submitClassification(itemId, this.dataset.categoryId);
-                self.dragItemId = null;
-                self.selectedItemId = null;
-            });
+                zone.addEventListener("drop", function (event) {
+                    event.preventDefault();
+                    this.classList.remove("drag-over");
+                    const itemId = event.dataTransfer
+                        ? event.dataTransfer.getData("text/plain")
+                        : self.dragItemId;
+                    if (itemId) self.submitClassification(itemId, this.dataset.categoryId);
+                    self.dragItemId = null;
+                    self.selectedItemId = null;
+                });
+            }
 
             zone.addEventListener("click", function () {
                 if (!self.selectedItemId) {
@@ -329,4 +353,4 @@ const ClassificationScreen = {
 
 window.ClassificationScreen = ClassificationScreen;
 ClassificationScreen.init();
-console.log("Classification Screen Ready v1.1");
+console.log("Classification Screen Ready v1.2");
