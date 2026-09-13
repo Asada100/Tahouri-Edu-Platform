@@ -10,18 +10,11 @@ const ActivityManager = {
     allowActivityStartFromResult: false,
 
     load: async function (activityData) {
-        // A completed activity owns the UI until its result modal is closed.
-        // This prevents stale UI/event handlers from starting the same activity
-        // again without an explicit Retry action.
         const resultModalOpen = document.getElementById("resultModal");
-
         if (resultModalOpen && !this.allowActivityStartFromResult) {
-            console.warn(
-                "ActivityManager: Activity load blocked while result modal is open."
-            );
+            console.warn("ActivityManager: Activity load blocked while result modal is open.");
             return null;
         }
-
         this.allowActivityStartFromResult = false;
 
         console.log("Loading Activity:", activityData);
@@ -37,19 +30,7 @@ const ActivityManager = {
 
         if (typeof ActivitySessionManager !== "undefined") {
             let existing = typeof ActivitySessionManager.load === "function" ? ActivitySessionManager.load(fullActivity.id) : null;
-
-            const invalidClassificationSession =
-                existing &&
-                fullActivity.engine === "classification" &&
-                existing.engineState &&
-                (
-                    !Array.isArray(existing.engineState.items) ||
-                    !Array.isArray(existing.engineState.categories) ||
-                    existing.engineState.items.length === 0 ||
-                    existing.engineState.categories.length === 0 ||
-                    Number(existing.engineState.totalItems || 0) <= 0
-                );
-
+            const invalidClassificationSession = existing && fullActivity.engine === "classification" && existing.engineState && (!Array.isArray(existing.engineState.items) || !Array.isArray(existing.engineState.categories) || existing.engineState.items.length === 0 || existing.engineState.categories.length === 0 || Number(existing.engineState.totalItems || 0) <= 0);
             if (invalidClassificationSession) {
                 console.warn("ActivityManager: Clearing invalid classification session", fullActivity.id);
                 ActivitySessionManager.clear(fullActivity.id);
@@ -57,15 +38,10 @@ const ActivityManager = {
             }
 
             const unfinished = existing && (existing.status === "resumable" || existing.status === "active") && existing.engineState;
-
             if (unfinished) {
                 const engineState = existing.engineState;
                 const state = engineState.state || {};
-                const completedSnapshot =
-                    state.isFinished === true ||
-                    engineState.finished === true ||
-                    engineState.completed === true;
-
+                const completedSnapshot = state.isFinished === true || engineState.finished === true || engineState.completed === true;
                 if (completedSnapshot) {
                     console.log("ActivityManager: Clearing completed stale session", fullActivity.id);
                     ActivitySessionManager.clear(fullActivity.id);
@@ -120,11 +96,7 @@ const ActivityManager = {
         }
         try {
             const configPath = activityData.path + "/activity.json";
-
-            if (typeof DataManager !== "undefined" && typeof DataManager.invalidateCache === "function") {
-                DataManager.invalidateCache(configPath);
-            }
-
+            if (typeof DataManager !== "undefined" && typeof DataManager.invalidateCache === "function") DataManager.invalidateCache(configPath);
             const activityConfig = await DataManager.loadJSON(configPath);
             const baseSettings = activityConfig && activityConfig.settings ? { ...activityConfig.settings } : {};
             const activitySettings = { ...(activityData.settings || {}) };
@@ -175,16 +147,7 @@ const ActivityManager = {
         const box = document.createElement("div");
         box.className = "unfinishedActivityGuardModal";
         const title = activity.title || "این فعالیت";
-        box.innerHTML = `
-            <h2>بازی ناتمام است</h2>
-            <p>شما یک بازی ناتمام از «${title}» دارید.</p>
-            <p>امکان شروع بازی جدید وجود ندارد.</p>
-            <p>ابتدا بازی قبلی را از مسیر «ادامه فعالیت» ادامه دهید.</p>
-            <div class="unfinishedActivityGuardActions">
-                <button id="unfinishedActivityResumeBtn" type="button">ادامه فعالیت</button>
-                <button id="unfinishedActivityBackBtn" type="button">بازگشت</button>
-            </div>
-        `;
+        box.innerHTML = `<h2>بازی ناتمام است</h2><p>شما یک بازی ناتمام از «${title}» دارید.</p><p>امکان شروع بازی جدید وجود ندارد.</p><p>ابتدا بازی قبلی را از مسیر «ادامه فعالیت» ادامه دهید.</p><div class="unfinishedActivityGuardActions"><button id="unfinishedActivityResumeBtn" type="button">ادامه فعالیت</button><button id="unfinishedActivityBackBtn" type="button">بازگشت</button></div>`;
         overlay.appendChild(box);
         document.body.appendChild(overlay);
         const resumeButton = document.getElementById("unfinishedActivityResumeBtn");
@@ -196,10 +159,7 @@ const ActivityManager = {
 
     resumeSession: async function (session) {
         if (!session || !session.activityId) return false;
-        if (typeof ActivitySessionManager === "undefined" || typeof ActivitySessionManager.restoreEngine !== "function") {
-            console.error("ActivityManager: Session restore is unavailable");
-            return false;
-        }
+        if (typeof ActivitySessionManager === "undefined" || typeof ActivitySessionManager.restoreEngine !== "function") { console.error("ActivityManager: Session restore is unavailable"); return false; }
         const activity = typeof App !== "undefined" && typeof App.resolveActivityById === "function" ? App.resolveActivityById(session.activityId) : null;
         if (!activity) { console.error("ActivityManager: Activity not found for resume", session.activityId); return false; }
         const restored = await ActivitySessionManager.restoreEngine(activity, session);
@@ -219,20 +179,13 @@ const ActivityManager = {
     },
 
     resetRuntime: function () {
-        if (
-            typeof ActivitySessionManager !== "undefined" &&
-            ActivitySessionManager.gameplayActive === true
-        ) {
-            console.warn("ActivityManager: Runtime reset blocked while an activity is active.");
-            return false;
-        }
-
+        if (typeof ActivitySessionManager !== "undefined" && ActivitySessionManager.gameplayActive === true) { console.warn("ActivityManager: Runtime reset blocked while an activity is active."); return false; }
         this.currentActivity = null;
         this.allowActivityStartFromResult = false;
         if (typeof ActivityHistory !== "undefined") ActivityHistory.clear();
         if (typeof ActivityState !== "undefined") ActivityState.reset();
         if (typeof window.PuzzleEngine !== "undefined" && typeof PuzzleEngine.reset === "function") PuzzleEngine.reset();
-        if (typeof window.QuizEngine !== "undefined' && typeof QuizEngine.reset === "function") QuizEngine.reset();
+        if (typeof window.QuizEngine !== "undefined" && typeof QuizEngine.reset === "function") QuizEngine.reset();
         if (typeof window.MemoryEngine !== "undefined") {
             MemoryEngine.cards = [];
             MemoryEngine.firstCard = null;
