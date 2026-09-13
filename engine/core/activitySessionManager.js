@@ -1,11 +1,17 @@
 // =====================================
 // Tahouri Edu Platform
-// Activity Session Manager v1.6
+// Activity Session Manager v1.7
+// =====================================
+// Single session architecture:
+// - SessionManager owns snapshot/restore.
+// - Activity engines do not need session APIs.
+// - One independent resumable session per activity.
+// - Classification and Matching keep their existing restore paths.
 // =====================================
 
 const ActivitySessionManager = {
     BASE_KEY: "Tahouri_ActivitySession",
-    VERSION: "1.6",
+    VERSION: "1.7",
     currentSession: null,
     exitControlId: "activitySessionControl",
     overlayId: "activitySessionOverlay",
@@ -38,34 +44,14 @@ const ActivitySessionManager = {
         return SaveManager.save(key, { version: this.VERSION, sessions: sessions || {}, updatedAt: Date.now() });
     },
 
-    isInvalidClassificationState: function (state) {
-        const value = state && state.state && typeof state.state === "object" ? state.state : state;
-        if (!value || typeof value !== "object") return true;
-        return !Array.isArray(value.items) || !Array.isArray(value.categories) || value.items.length === 0 || value.categories.length === 0 || Number(value.totalItems || 0) <= 0;
-    },
-
-    isInvalidClassificationSession: function (session, activity) {
-        if (!session || !session.engineState) return false;
-        const sessionType = String(session.activityType || "").toLowerCase();
-        const activityType = activity ? String(activity.engine || activity.type || "").toLowerCase() : "";
-        const isClassification = activityType === "classification" || sessionType === "classification" || sessionType === "classificationengine";
-        return isClassification && this.isInvalidClassificationState(session.engineState);
-    },
-
     load: function (activityId) {
         const sessions = this.loadAll();
         if (activityId) {
             const session = sessions[activityId] || null;
-            if (this.isInvalidClassificationSession(session)) {
-                delete sessions[activityId];
-                this.saveAll(sessions);
-                this.currentSession = null;
-                return null;
-            }
             this.currentSession = session;
             return session;
         }
-        const list = Object.values(sessions).filter(function (session) { return session && !ActivitySessionManager.isInvalidClassificationSession(session); });
+        const list = Object.values(sessions).filter(Boolean);
         list.sort(function (a, b) { return Number(b.updatedAt || 0) - Number(a.updatedAt || 0); });
         const session = list.length ? list[0] : null;
         this.currentSession = session;
@@ -95,16 +81,90 @@ const ActivitySessionManager = {
 
     getEngine: function (activityType) {
         if (typeof EngineManager === "undefined") return null;
-        try { return EngineManager.getEngine(activityType); } catch (error) { console.error("ActivitySessionManager: Engine resolution failed", error); return null; }
+        try { return EngineManager.getEngine(activityType); }
+        catch (error) { console.error("ActivitySessionManager: Engine resolution failed", error); return null; }
     },
 
-    getActivityType: function (activity) { return activity ? activity.engine || activity.type || null : null; },
+    getActivityType: function (activity) {
+        return activity ? activity.engine || activity.type || null : null;
+    },
+
+    // =====================================
+    // SNAPSHOT - owned by SessionManager
+    // =====================================
 
     snapshotEngine: function (activity) {
-        const engine = this.getEngine(this.getActivityType(activity));
+        const engineName = this.getActivityType(activity);
+        const engine = this.getEngine(engineName);
         if (!engine) return null;
-        if (typeof engine.getSessionState === "function") return engine.getSessionState();
-        console.warn("ActivitySessionManager: Engine does not implement getSessionState", this.getActivityType(activity));
+
+        if (engineName === "PuzzleEngine" || engineName === "puzzle") {
+            return {
+                kind: "puzzle",
+                activity: engine.activity || activity,
+                state: { ...(engine.state || {}) },
+                puzzle: engine.puzzle ? JSON.parse(JSON.stringify(engine.puzzle)) : null,
+                items: Array.isArray(engine.items) ? JSON.parse(JSON.stringify(engine.items)) : [],
+                userAnswer: engine.userAnswer,
+                moves: Number(engine.moves || 0)
+            };
+        }
+
+        if (engineName === "QuizEngine" || engineName === "quiz") {
+            return {
+                kind: "quiz",
+                activity: engine.activity || activity,
+                state: { ...(engine.state || {}) },
+                questions: Array.isArray(engine.questions) ? JSON.parse(JSON.stringify(engine.questions)) : [],
+                currentQuestion: Number(engine.currentQuestion || 0),
+                score: typeof ScoreManager !== "undefined" ? Number(ScoreManager.score || 0) : 0,
+                correct: typeof ScoreManager !== "undefined" ? Number(ScoreManager.correct || 0) : 0,
+                wrong: typeof ScoreManager !== "undefined" ? Number(ScoreManager.wrong || 0) : 0
+            };
+        }
+
+        if (engineName === "MemoryEngine" || engineName === "memory") {
+            const cards = Array.isArray(engine.cards) ? JSON.parse(JSON.stringify(engine.cards)) : [];
+            cards.forEach(function (card) { card.flipped = !!card.matched; });
+            return {
+                kind: "memory",
+                activity: engine.activity || activity,
+                cards: cards,
+                firstCardId: null,
+                secondCardId: null,
+                lockBoard: false,
+                matchedPairs: Number(engine.matchedPairs || 0),
+                moves: Number(engine.moves || 0),
+                totalPairs: Number(engine.totalPairs || 0),
+                finished: !!engine.finished,
+                score: typeof ScoreManager !== "undefined" ? Number(ScoreManager.score || 0) : 0,
+                correct: typeof ScoreManager !== "undefined" ? Number(ScoreManager.correct || 0) : 0,
+                wrong: typeof ScoreManager !== "undefined" ? Number(ScoreManager.wrong || 0) : 0
+            };
+        }
+
+        if (engineName === "classification" || String(engineName).toLowerCase() === "classificationengine") {
+            if (typeof engine.getState !== "function") return null;
+            const state = engine.getState();
+            if (!state || !Array.isArray(state.items) || !Array.isArray(state.categories)) return null;
+            return {
+                kind: "classification",
+                activity: engine.activityData || activity,
+                state: JSON.parse(JSON.stringify(state))
+            };
+        }
+
+        if (engineName === "MatchingEngine" || engineName === "matching") {
+            if (typeof engine.getSessionState === "function") return engine.getSessionState();
+            if (typeof engine.getState !== "function") return null;
+            return {
+                type: "matching",
+                activity: engine.activity || activity,
+                state: engine.getState()
+            };
+        }
+
+        console.warn("ActivitySessionManager: No serializer for engine", engineName);
         return null;
     },
 
@@ -134,28 +194,28 @@ const ActivitySessionManager = {
     },
 
     capture: function (status) {
-        if (!this.gameplayActive) return false;
         const activity = typeof ActivityManager !== "undefined" ? ActivityManager.getCurrent() : null;
         if (!activity || !activity.id) return false;
-        const session = this.load(activity.id);
-        if (!session || session.status !== "active") return false;
+        let session = this.load(activity.id);
+        if (!session || session.status !== "active") session = this.begin(activity);
+        if (!session) return false;
         const engineState = this.snapshotEngine(activity);
-        if (!engineState) return false;
+        if (!engineState) {
+            console.warn("ActivitySessionManager: Activity state could not be captured", activity.id);
+            return false;
+        }
         session.activityId = activity.id;
         session.activityType = this.getActivityType(activity);
         session.engineState = engineState;
         session.status = status || "resumable";
-        session.updatedAt = Date.now();
         return this.save(session);
     },
 
     exit: function () {
-        const saved = this.capture("resumable");
-        if (!saved) return false;
+        if (!this.capture("resumable")) return false;
         this.gameplayActive = false;
         this.hideOverlay();
         this.removeExitControl();
-        document.body.classList.remove("activity-playing");
         if (typeof ActivityManager !== "undefined" && typeof ActivityManager.resetRuntime === "function") ActivityManager.resetRuntime();
         EventManager.emit("activityExited", this.currentSession);
         if (typeof DashboardController !== "undefined" && typeof DashboardController.open === "function") DashboardController.open();
@@ -165,15 +225,9 @@ const ActivitySessionManager = {
 
     getResumable: function () {
         const sessions = this.loadAll();
-        let changed = false;
         const resumable = Object.values(sessions).filter(function (session) {
-            if (!session) return false;
-            let activity = null;
-            if (typeof App !== "undefined" && typeof App.resolveActivityById === "function" && session.activityId) activity = App.resolveActivityById(session.activityId);
-            if (ActivitySessionManager.isInvalidClassificationSession(session, activity)) { delete sessions[session.activityId]; changed = true; return false; }
-            return session.status === "resumable" && session.engineState;
+            return session && session.status === "resumable" && session.engineState;
         });
-        if (changed) this.saveAll(sessions);
         resumable.sort(function (a, b) { return Number(b.updatedAt || 0) - Number(a.updatedAt || 0); });
         const session = resumable.length ? resumable[0] : null;
         this.currentSession = session;
@@ -183,12 +237,12 @@ const ActivitySessionManager = {
     resume: async function () {
         const session = this.getResumable();
         if (!session) return false;
-        const activity = typeof App !== "undefined" && typeof App.resolveActivityById === "function" ? App.resolveActivityById(session.activityId) : null;
+        if (typeof App === "undefined" || typeof App.resolveActivityById !== "function") return false;
+        const activity = App.resolveActivityById(session.activityId);
         if (!activity) { this.clear(session.activityId); return false; }
         const restored = await this.restoreEngine(activity, session);
         if (!restored) return false;
         session.status = "active";
-        session.updatedAt = Date.now();
         this.save(session);
         this.gameplayActive = true;
         EventManager.emit("activityResumed", session);
@@ -196,138 +250,131 @@ const ActivitySessionManager = {
         return true;
     },
 
+    // =====================================
+    // RESTORE - owned by SessionManager
+    // =====================================
+
     restoreEngine: async function (activity, session) {
         const data = session.engineState;
         const engineName = session.activityType || this.getActivityType(activity);
         const engine = this.getEngine(engineName);
         if (!engine || !data) return false;
 
-        if (data.type === "matching" && (engineName === "MatchingEngine" || engineName === "matching") && typeof engine.restoreSession === "function") {
-            const restoredState = engine.restoreSession(data);
-            if (!restoredState) return false;
+        if (data.kind === "puzzle" && (engineName === "PuzzleEngine" || engineName === "puzzle")) {
+            engine.activity = data.activity || activity;
+            engine.state = { ...(data.state || {}), started: true, isFinished: false };
+            engine.puzzle = data.puzzle ? JSON.parse(JSON.stringify(data.puzzle)) : null;
+            engine.items = Array.isArray(data.items) ? JSON.parse(JSON.stringify(data.items)) : [];
+            engine.userAnswer = data.userAnswer;
+            engine.moves = Number(data.moves || 0);
             ActivityManager.currentActivity = activity;
             ActivityState.set("started");
             ActivityState.set("playing");
-            if (typeof MatchingScreen !== "undefined" && typeof MatchingScreen.show === "function") MatchingScreen.show(restoredState);
+            if (typeof PuzzleScreen !== "undefined" && typeof PuzzleScreen.show === "function") PuzzleScreen.show(engine.getState());
             return true;
         }
 
-        if ((engineName === "classification" || String(engineName).toLowerCase() === "classificationengine") && typeof engine.restoreSession === "function") {
-            try {
-                const fullActivity = typeof ActivityManager !== "undefined" && typeof ActivityManager.loadActivityConfig === "function"
-                    ? await ActivityManager.loadActivityConfig(activity)
-                    : activity;
-
-                if (!fullActivity || !fullActivity.classification) {
-                    console.error("ActivitySessionManager: Classification config unavailable", activity.id);
-                    return false;
-                }
-
-                if (this.isInvalidClassificationState(data)) {
-                    console.warn("ActivitySessionManager: Invalid Classification session", activity.id);
-                    return false;
-                }
-
-                ActivityManager.currentActivity = fullActivity;
-                engine.activityData = fullActivity;
-
-                const restored = engine.restoreSession(data);
-                if (!restored) {
-                    console.error("ActivitySessionManager: Classification session restore rejected", activity.id);
-                    return false;
-                }
-
-                const restoredState = typeof engine.getState === "function" ? engine.getState() : null;
-                if (this.isInvalidClassificationState(restoredState)) {
-                    console.error("ActivitySessionManager: Restored Classification state is invalid", activity.id);
-                    return false;
-                }
-
-                ActivityState.set("started");
-                ActivityState.set("playing");
-                document.body.classList.add("activity-playing");
-
-                if (typeof ClassificationScreen !== "undefined" && typeof ClassificationScreen.show === "function") {
-                    ClassificationScreen.currentActivity = fullActivity;
-                    ClassificationScreen.currentState = restoredState;
-                    ClassificationScreen.lastMessage = "";
-                    ClassificationScreen.show(restoredState);
-                }
-
-                console.log("ActivitySessionManager: Classification session restored", {
-                    activityId: activity.id,
-                    classifiedItems: restoredState.classifiedItems,
-                    moves: restoredState.moves
-                });
-
-                return true;
-            } catch (error) {
-                console.error("ActivitySessionManager: Classification session restore failed", error);
-                return false;
+        if (data.kind === "quiz" && (engineName === "QuizEngine" || engineName === "quiz")) {
+            engine.activity = data.activity || activity;
+            engine.questions = Array.isArray(data.questions) ? JSON.parse(JSON.stringify(data.questions)) : [];
+            engine.currentQuestion = Number(data.currentQuestion || 0);
+            engine.state = { ...(data.state || {}), started: true, isFinished: false };
+            if (typeof ScoreManager !== "undefined") {
+                ScoreManager.score = Number(data.score || 0);
+                ScoreManager.correct = Number(data.correct || 0);
+                ScoreManager.wrong = Number(data.wrong || 0);
             }
+            ActivityManager.currentActivity = activity;
+            ActivityState.set("started");
+            ActivityState.set("playing");
+            const question = typeof engine.getQuestion === "function" ? engine.getQuestion() : null;
+            if (question && typeof QuizScreen !== "undefined" && typeof QuizScreen.show === "function") {
+                QuizScreen.reset();
+                QuizScreen.show({ title: activity.title, score: ScoreManager.score, currentQuestion: engine.currentQuestion + 1, totalQuestions: engine.questions.length, question: question });
+            }
+            return true;
         }
 
-        // =====================================
-        // Generic Engine Session Contract
-        // =====================================
-        // Any future engine that implements:
-        //   getSessionState()
-        //   restoreSession(snapshot, activity)
-        // can use the same capture/resume pipeline without
-        // another ActivitySessionManager branch.
-        if (typeof engine.restoreSession === "function") {
-            try {
-                if (Object.prototype.hasOwnProperty.call(engine, "activity")) {
-                    engine.activity = activity;
-                }
-                if (Object.prototype.hasOwnProperty.call(engine, "activityData")) {
-                    engine.activityData = activity;
-                }
+        if (data.kind === "memory" && (engineName === "MemoryEngine" || engineName === "memory")) {
+            engine.activity = data.activity || activity;
+            engine.cards = Array.isArray(data.cards) ? JSON.parse(JSON.stringify(data.cards)) : [];
+            engine.cards.forEach(function (card) { card.flipped = !!card.matched; });
+            engine.firstCard = null;
+            engine.secondCard = null;
+            engine.lockBoard = false;
+            engine.matchedPairs = Number(data.matchedPairs || 0);
+            engine.moves = Number(data.moves || 0);
+            engine.totalPairs = Number(data.totalPairs || 0);
+            engine.finished = false;
+            if (typeof ScoreManager !== "undefined") {
+                ScoreManager.score = Number(data.score || 0);
+                ScoreManager.correct = Number(data.correct || 0);
+                ScoreManager.wrong = Number(data.wrong || 0);
+            }
+            ActivityManager.currentActivity = activity;
+            ActivityState.set("started");
+            ActivityState.set("playing");
+            if (typeof MemoryScreen !== "undefined" && typeof MemoryScreen.show === "function") MemoryScreen.show({ title: activity.title || "بازی حافظه", cards: engine.cards });
+            return true;
+        }
 
-                const restored = await engine.restoreSession(data, activity);
-                if (!restored) {
-                    console.error("ActivitySessionManager: Generic engine restore rejected", engineName);
-                    return false;
-                }
+        if ((engineName === "classification" || String(engineName).toLowerCase() === "classificationengine") && data.kind === "classification") {
+            const fullActivity = typeof ActivityManager !== "undefined" && typeof ActivityManager.loadActivityConfig === "function"
+                ? await ActivityManager.loadActivityConfig(activity)
+                : activity;
+            if (!fullActivity || !data.state) return false;
+            const state = data.state;
+            if (!Array.isArray(state.items) || !Array.isArray(state.categories) || !state.totalItems) return false;
 
+            ActivityManager.currentActivity = fullActivity;
+            engine.activityData = fullActivity;
+            engine.content = {
+                mode: fullActivity.classification.mode || "choice",
+                items: Array.isArray(state.items) ? state.items.slice() : [],
+                categories: Array.isArray(state.categories) ? state.categories.slice() : []
+            };
+            engine.state = JSON.parse(JSON.stringify(state));
+            engine.state.started = true;
+            engine.state.finished = false;
+            engine.state.locked = false;
+
+            if (typeof ClassificationTypeRegistry !== "undefined" && typeof ClassificationTypeRegistry.has === "function") {
+                const mode = engine.content.mode;
+                if (ClassificationTypeRegistry.has(mode)) engine.handler = ClassificationTypeRegistry.get(mode);
+            }
+
+            ActivityState.set("started");
+            ActivityState.set("playing");
+            document.body.classList.add("activity-playing");
+            if (typeof ClassificationScreen !== "undefined" && typeof ClassificationScreen.show === "function") {
+                ClassificationScreen.currentActivity = fullActivity;
+                ClassificationScreen.currentState = engine.getState();
+                ClassificationScreen.lastMessage = "";
+                ClassificationScreen.show(engine.getState());
+            }
+            console.log("ActivitySessionManager: Classification session restored", { activityId: activity.id, classifiedItems: engine.state.classifiedItems, moves: engine.state.moves });
+            return true;
+        }
+
+        if (data.type === "matching" && (engineName === "MatchingEngine" || engineName === "matching")) {
+            if (typeof engine.restoreSession === "function") {
+                const restoredState = engine.restoreSession(data);
+                if (!restoredState) return false;
                 ActivityManager.currentActivity = activity;
                 ActivityState.set("started");
                 ActivityState.set("playing");
-                document.body.classList.add("activity-playing");
-
-                const restoredState = typeof engine.getState === "function"
-                    ? engine.getState()
-                    : restored;
-
-                EventManager.emit("activitySessionRestored", {
-                    activity: activity,
-                    activityId: activity.id,
-                    engineName: engineName,
-                    engine: engine,
-                    state: restoredState,
-                    result: restored
-                });
-
-                console.log("ActivitySessionManager: Generic engine session restored", {
-                    activityId: activity.id,
-                    engine: engineName
-                });
-
+                if (typeof MatchingScreen !== "undefined" && typeof MatchingScreen.show === "function") MatchingScreen.show(restoredState);
                 return true;
-            } catch (error) {
-                console.error("ActivitySessionManager: Generic engine session restore failed", engineName, error);
-                return false;
             }
+            return false;
         }
 
-        console.error("ActivitySessionManager: Unsupported restore type", engineName);
         return false;
     },
 
     complete: function (activityId) {
         const id = activityId || (this.currentSession && this.currentSession.activityId);
-        if (id) this.clear(id);
-        this.currentSession = null;
+        if (id) this.clear(id); else this.currentSession = null;
         this.gameplayActive = false;
         this.hideOverlay();
         this.removeExitControl();
@@ -362,6 +409,7 @@ const ActivitySessionManager = {
     },
 
     showOverlay: function () {
+        this.capture("resumable");
         this.hideOverlay();
         const overlay = document.createElement("div");
         overlay.id = this.overlayId;
@@ -374,7 +422,6 @@ const ActivitySessionManager = {
         overlay.style.alignItems = "center";
         overlay.style.justifyContent = "center";
         overlay.style.padding = "20px";
-
         const box = document.createElement("div");
         box.style.background = "white";
         box.style.borderRadius = "18px";
@@ -383,16 +430,11 @@ const ActivitySessionManager = {
         box.style.width = "100%";
         box.style.textAlign = "center";
         box.style.boxSizing = "border-box";
-        box.innerHTML = `<h2>فعالیت متوقف شد</h2><p>می‌توانی همین‌جا ادامه بدهی یا از فعالیت خارج شوی. وضعیت فعلی ذخیره شده است.</p><div style="display:flex;gap:10px;flex-direction:column;margin-top:18px;"><button id="activitySessionResumeBtn" type="button">ادامه فعالیت</button><button id="activitySessionExitBtn" type="button">خروج و ذخیره</button></div>`;
+        box.innerHTML = '<h2>فعالیت متوقف شد</h2><p>می‌توانی همین‌جا ادامه بدهی یا از فعالیت خارج شوی. وضعیت فعلی ذخیره شده است.</p><div style="display:flex;gap:10px;flex-direction:column;margin-top:18px;"><button id="activitySessionResumeBtn" type="button">ادامه فعالیت</button><button id="activitySessionExitBtn" type="button">خروج و ذخیره</button></div>';
         overlay.appendChild(box);
         document.body.appendChild(overlay);
-
-        document.getElementById("activitySessionResumeBtn").onclick = function () {
-            ActivitySessionManager.hideOverlay();
-        };
-        document.getElementById("activitySessionExitBtn").onclick = function () {
-            ActivitySessionManager.exit();
-        };
+        document.getElementById("activitySessionResumeBtn").onclick = function () { ActivitySessionManager.hideOverlay(); };
+        document.getElementById("activitySessionExitBtn").onclick = function () { ActivitySessionManager.exit(); };
     },
 
     hideOverlay: function () {
@@ -403,32 +445,23 @@ const ActivitySessionManager = {
     connect: function () {
         if (this.initialized) return;
         this.initialized = true;
-
         EventManager.on("activityReady", function (payload) {
             if (!payload || !payload.activity) return;
-            ActivitySessionManager.currentSession = ActivitySessionManager.load(payload.activity.id);
+            ActivitySessionManager.begin(payload.activity);
             ActivitySessionManager.gameplayActive = true;
             ActivitySessionManager.installExitControl();
         });
-
         EventManager.on("activityFinished", function (payload) {
-            const activityId = payload && payload.activity
-                ? payload.activity.id
-                : (payload && payload.activityId ? payload.activityId : null);
+            const activityId = payload && payload.activity ? payload.activity.id : (payload && payload.activityId ? payload.activityId : null);
             ActivitySessionManager.complete(activityId);
         });
-
         document.addEventListener("visibilitychange", function () {
-            if (document.visibilityState === "hidden" && ActivitySessionManager.gameplayActive) {
-                ActivitySessionManager.capture("resumable");
-            }
+            if (document.visibilityState === "hidden" && ActivitySessionManager.gameplayActive) ActivitySessionManager.capture("resumable");
         });
-
         window.addEventListener("beforeunload", function () {
             if (ActivitySessionManager.gameplayActive) ActivitySessionManager.capture("resumable");
         });
-
-        console.log("Activity Session Manager v1.6 Ready");
+        console.log("Activity Session Manager v1.7 Ready");
     }
 };
 
