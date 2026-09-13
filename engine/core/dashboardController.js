@@ -1,13 +1,14 @@
 // =====================================
 // Tahouri Edu Platform
 // Dashboard Controller
-// Version 6.8
+// Version 6.9
 //
 // Student Friendly Dashboard
 // ProgressTracker as source of truth
 // Single Continue Activity card
 // Resumable activity takes priority
-// Completed activities are never resumable
+// A new resumable attempt is preserved even if the activity
+// was completed in an earlier attempt.
 // =====================================
 
 const DashboardController = {
@@ -121,14 +122,38 @@ const DashboardController = {
                         completed = ProgressTracker.isCompleted(found.id);
                     }
 
-                    if (completed) {
+                    // A resumable session represents a new/incomplete attempt.
+                    // Do NOT discard it merely because the same activity was
+                    // completed in an earlier attempt. Only a session whose own
+                    // engine state explicitly says it is finished is stale.
+                    let sessionFinished = false;
+                    const engineState = session.engineState || {};
+
+                    if (
+                        engineState.finished === true ||
+                        engineState.isFinished === true ||
+                        engineState.completed === true ||
+                        engineState.status === "finished" ||
+                        engineState.status === "completed"
+                    ) {
+                        sessionFinished = true;
+                    }
+
+                    if (completed && sessionFinished) {
                         console.log(
-                            "Dashboard: Completed activity has stale resumable session; clearing:",
+                            "Dashboard: Completed activity has finished stale session; clearing:",
                             found.id
                         );
                         ActivitySessionManager.clear();
                     }
                     else {
+                        if (completed) {
+                            console.log(
+                                "Dashboard: Preserving resumable new attempt for previously completed activity:",
+                                found.id
+                            );
+                        }
+
                         resumableActivity = {
                             activityId: found.id,
                             activityTitle:
