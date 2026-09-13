@@ -1,11 +1,11 @@
 // =====================================
 // Tahouri Edu Platform
-// Activity Session Manager v1.5
+// Activity Session Manager v1.6
 // =====================================
 
 const ActivitySessionManager = {
     BASE_KEY: "Tahouri_ActivitySession",
-    VERSION: "1.5",
+    VERSION: "1.6",
     currentSession: null,
     exitControlId: "activitySessionControl",
     overlayId: "activitySessionOverlay",
@@ -103,7 +103,9 @@ const ActivitySessionManager = {
     snapshotEngine: function (activity) {
         const engine = this.getEngine(this.getActivityType(activity));
         if (!engine) return null;
-        return typeof engine.getSessionState === "function" ? engine.getSessionState() : null;
+        if (typeof engine.getSessionState === "function") return engine.getSessionState();
+        console.warn("ActivitySessionManager: Engine does not implement getSessionState", this.getActivityType(activity));
+        return null;
     },
 
     begin: function (activity) {
@@ -229,10 +231,6 @@ const ActivitySessionManager = {
                 ActivityManager.currentActivity = fullActivity;
                 engine.activityData = fullActivity;
 
-                // IMPORTANT: Restore must never call ClassificationEngine.start().
-                // start() resets classifiedItems, moves, score and classifications.
-                // restoreSession() rebuilds provider/handler state and then applies
-                // the exact saved engine state.
                 const restored = engine.restoreSession(data);
                 if (!restored) {
                     console.error("ActivitySessionManager: Classification session restore rejected", activity.id);
@@ -265,6 +263,59 @@ const ActivitySessionManager = {
                 return true;
             } catch (error) {
                 console.error("ActivitySessionManager: Classification session restore failed", error);
+                return false;
+            }
+        }
+
+        // =====================================
+        // Generic Engine Session Contract
+        // =====================================
+        // Any future engine that implements:
+        //   getSessionState()
+        //   restoreSession(snapshot, activity)
+        // can use the same capture/resume pipeline without
+        // another ActivitySessionManager branch.
+        if (typeof engine.restoreSession === "function") {
+            try {
+                if (Object.prototype.hasOwnProperty.call(engine, "activity")) {
+                    engine.activity = activity;
+                }
+                if (Object.prototype.hasOwnProperty.call(engine, "activityData")) {
+                    engine.activityData = activity;
+                }
+
+                const restored = await engine.restoreSession(data, activity);
+                if (!restored) {
+                    console.error("ActivitySessionManager: Generic engine restore rejected", engineName);
+                    return false;
+                }
+
+                ActivityManager.currentActivity = activity;
+                ActivityState.set("started");
+                ActivityState.set("playing");
+                document.body.classList.add("activity-playing");
+
+                const restoredState = typeof engine.getState === "function"
+                    ? engine.getState()
+                    : restored;
+
+                EventManager.emit("activitySessionRestored", {
+                    activity: activity,
+                    activityId: activity.id,
+                    engineName: engineName,
+                    engine: engine,
+                    state: restoredState,
+                    result: restored
+                });
+
+                console.log("ActivitySessionManager: Generic engine session restored", {
+                    activityId: activity.id,
+                    engine: engineName
+                });
+
+                return true;
+            } catch (error) {
+                console.error("ActivitySessionManager: Generic engine session restore failed", engineName, error);
                 return false;
             }
         }
@@ -377,7 +428,7 @@ const ActivitySessionManager = {
             if (ActivitySessionManager.gameplayActive) ActivitySessionManager.capture("resumable");
         });
 
-        console.log("Activity Session Manager v1.5 Ready");
+        console.log("Activity Session Manager v1.6 Ready");
     }
 };
 
