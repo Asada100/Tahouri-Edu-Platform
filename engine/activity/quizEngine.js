@@ -113,8 +113,6 @@ const QuizEngine = {
 
     // =====================================
     // Session / Resume Contract
-    // Every engine that supports resumable play
-    // exposes the same two methods.
     // =====================================
 
     getSessionState: function(){
@@ -167,7 +165,7 @@ const QuizEngine = {
                 activityId: this.activity ? this.activity.id : null,
                 currentQuestion: this.currentQuestion,
                 totalQuestions: this.questions.length,
-                score: typeof ScoreManager !== "undefined'" ? ScoreManager.score : 0
+                score: typeof ScoreManager !== "undefined" ? ScoreManager.score : 0
             });
 
             return this.getQuestion();
