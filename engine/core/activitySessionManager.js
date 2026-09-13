@@ -279,10 +279,30 @@ const ActivitySessionManager = {
                     return true;
                 }
 
-                const restoredState = engine.restoreSession(data);
+                const restored = engine.restoreSession(data);
+                if (!restored) {
+                    console.warn("ActivitySessionManager: Classification session restore rejected; using fresh state", activity.id);
+                    session.engineState = freshState;
+                    session.status = "active";
+                    this.save(session);
+                    ActivityManager.currentActivity = fullActivity;
+                    ActivityState.set("started");
+                    ActivityState.set("playing");
+                    document.body.classList.add("activity-playing");
+                    if (typeof ClassificationScreen !== "undefined" && typeof ClassificationScreen.show === "function") {
+                        ClassificationScreen.currentActivity = fullActivity;
+                        ClassificationScreen.currentState = freshState;
+                        ClassificationScreen.show(freshState);
+                    }
+                    return true;
+                }
 
-                // Defensive check: even if the session passed the first check,
-                // never display a zero-item classification state.
+                // ClassificationEngine.restoreSession() returns a boolean.
+                // Read the restored engine state explicitly before validating/rendering it.
+                const restoredState = typeof engine.getState === "function"
+                    ? engine.getState()
+                    : null;
+
                 if (this.isInvalidClassificationState(restoredState)) {
                     console.warn("ActivitySessionManager: Restored Classification state invalid; using fresh state", activity.id);
                     session.engineState = freshState;
