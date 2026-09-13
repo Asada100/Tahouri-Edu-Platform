@@ -1,11 +1,12 @@
 // =====================================
 // Tahouri Edu Platform
 // Content Lock Manager
-// Version 1.7
+// Version 1.8
 // Profile Scoped Persistent Lock System
 // Async initialization synchronization
 // Profile-scoped legacy migration
 // Unknown activities locked by default
+// Open-by-default records remain authoritative
 // =====================================
 
 const ContentLockManager = {
@@ -175,6 +176,16 @@ const ContentLockManager = {
                         parsedLocks[id] === true;
                 });
             }
+
+            // The content-lock definition is the source of truth for activities
+            // explicitly declared as open. This prevents stale profile data from
+            // keeping an activity such as matchingManyToOne locked after its
+            // default was changed to unlocked.
+            Object.keys(this.defaultLocks).forEach(function (id) {
+                if (ContentLockManager.defaultLocks[id] === false) {
+                    ContentLockManager.lockedContents[id] = false;
+                }
+            }, this);
         }
         catch (error) {
             console.error("Saved Content Locks Parse Error", error);
