@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Dashboard Controller
-// Version 6.7
+// Version 6.8
 //
 // Student Friendly Dashboard
 // ProgressTracker as source of truth
@@ -15,15 +15,9 @@ const DashboardController = {
 
         console.log("Opening Dashboard...");
 
-        // Dashboard is a normal platform screen, never an activity runtime.
-        // Clear activity-only body state before rendering it so runtime CSS
-        // cannot hide the shared bottom navigation or alter page spacing.
         document.body.classList.remove("activity-playing");
         document.body.classList.remove("activity-result-open");
 
-        // The navigation shell lives on <body>, outside #app. Normally it is
-        // persistent, but re-create it safely if it was removed by a runtime
-        // or by a previous page lifecycle.
         if (
             typeof BottomNavigation !== "undefined" &&
             typeof BottomNavigation.init === "function"
@@ -117,21 +111,42 @@ const DashboardController = {
                 });
 
                 if (found) {
-                    resumableActivity = {
-                        activityId: found.id,
-                        activityTitle:
-                            found.title ||
-                            found.name ||
-                            found.id,
-                        activityType:
-                            session.activityType ||
-                            found.engine ||
-                            found.type ||
-                            "",
-                        subject: found.subject || "",
-                        chapter: found.chapter || "",
-                        updatedAt: session.updatedAt || null
-                    };
+                    // A completed activity can never be resumable. If a stale
+                    // session survives completion, remove it here before it
+                    // can become the Dashboard's Continue card.
+                    let alreadyCompleted = false;
+
+                    if (
+                        typeof ProgressTracker !== "undefined" &&
+                        typeof ProgressTracker.isCompleted === "function"
+                    ) {
+                        alreadyCompleted = ProgressTracker.isCompleted(found.id);
+                    }
+
+                    if (alreadyCompleted) {
+                        console.log(
+                            "Dashboard: Clearing stale resumable session for completed activity:",
+                            found.id
+                        );
+                        ActivitySessionManager.clear(found.id);
+                    }
+                    else {
+                        resumableActivity = {
+                            activityId: found.id,
+                            activityTitle:
+                                found.title ||
+                                found.name ||
+                                found.id,
+                            activityType:
+                                session.activityType ||
+                                found.engine ||
+                                found.type ||
+                                "",
+                            subject: found.subject || "",
+                            chapter: found.chapter || "",
+                            updatedAt: session.updatedAt || null
+                        };
+                    }
                 }
                 else {
                     console.warn(
@@ -269,9 +284,6 @@ const DashboardController = {
         );
 
         try {
-            // A resumable activity must go through ActivitySessionManager.
-            // App.startActivity() creates a fresh activity lifecycle and would
-            // discard the saved engine state before it can be restored.
             if (data.mode === "resume") {
                 if (
                     typeof ActivitySessionManager === "undefined" ||
@@ -283,8 +295,6 @@ const DashboardController = {
                 return await ActivitySessionManager.resume();
             }
 
-            // A genuinely new activity must use the same difficulty-selection
-            // flow as direct activity entry.
             if (
                 typeof DifficultyModal !== "undefined" &&
                 typeof DifficultyModal.open === "function"
