@@ -326,6 +326,35 @@ const ReportsController = {
 
         ReportsScreen.show(reportData);
 
+        // =====================================
+        // REPORT CLOSE -> HOME
+        // =====================================
+        // Reports are used both from Home and automatically after an activity
+        // finishes. In both cases, closing the report must return to Home,
+        // never expose the finished activity screen again.
+        const reportsModal = document.getElementById("reportsModal");
+
+        if (reportsModal && typeof MutationObserver !== "undefined") {
+            const observer = new MutationObserver(function () {
+                if (!document.getElementById("reportsModal")) {
+                    observer.disconnect();
+
+                    if (
+                        typeof Screen !== "undefined" &&
+                        typeof Screen.showHome === "function"
+                    ) {
+                        Screen.showHome();
+                    }
+
+                    console.log("Reports Controller: Report closed -> Home");
+                }
+            });
+
+            observer.observe(document.body, {
+                childList: true
+            });
+        }
+
         console.log("Reports Controller Ready", reportData);
     }
 };
