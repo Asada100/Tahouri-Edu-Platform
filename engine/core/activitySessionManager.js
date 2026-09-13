@@ -35,39 +35,21 @@ const ActivitySessionManager = {
     saveAll: function (sessions) {
         const key = this.storageKey();
         if (!key || typeof SaveManager === "undefined") return false;
-        return SaveManager.save(key, {
-            version: this.VERSION,
-            sessions: sessions || {},
-            updatedAt: Date.now()
-        });
+        return SaveManager.save(key, { version: this.VERSION, sessions: sessions || {}, updatedAt: Date.now() });
     },
 
     isInvalidClassificationState: function (state) {
-        const value = state && state.state && typeof state.state === "object"
-            ? state.state
-            : state;
+        const value = state && state.state && typeof state.state === "object" ? state.state : state;
         if (!value || typeof value !== "object") return true;
-        return (
-            !Array.isArray(value.items) ||
-            !Array.isArray(value.categories) ||
-            value.items.length === 0 ||
-            value.categories.length === 0 ||
-            Number(value.totalItems || 0) <= 0
-        );
+        return !Array.isArray(value.items) || !Array.isArray(value.categories) || value.items.length === 0 || value.categories.length === 0 || Number(value.totalItems || 0) <= 0;
     },
 
     isInvalidClassificationSession: function (session, activity) {
         if (!session || !session.engineState) return false;
         const sessionType = String(session.activityType || "").toLowerCase();
-        const activityType = activity
-            ? String(activity.engine || activity.type || "").toLowerCase()
-            : "";
-        const isClassification =
-            activityType === "classification" ||
-            sessionType === "classification" ||
-            sessionType === "classificationengine";
-        if (!isClassification) return false;
-        return this.isInvalidClassificationState(session.engineState);
+        const activityType = activity ? String(activity.engine || activity.type || "").toLowerCase() : "";
+        const isClassification = activityType === "classification" || sessionType === "classification" || sessionType === "classificationengine";
+        return isClassification && this.isInvalidClassificationState(session.engineState);
     },
 
     load: function (activityId) {
@@ -83,9 +65,7 @@ const ActivitySessionManager = {
             this.currentSession = session;
             return session;
         }
-        const list = Object.values(sessions).filter(function (session) {
-            return session && !ActivitySessionManager.isInvalidClassificationSession(session);
-        });
+        const list = Object.values(sessions).filter(function (session) { return session && !ActivitySessionManager.isInvalidClassificationSession(session); });
         list.sort(function (a, b) { return Number(b.updatedAt || 0) - Number(a.updatedAt || 0); });
         const session = list.length ? list[0] : null;
         this.currentSession = session;
@@ -115,20 +95,15 @@ const ActivitySessionManager = {
 
     getEngine: function (activityType) {
         if (typeof EngineManager === "undefined") return null;
-        try { return EngineManager.getEngine(activityType); }
-        catch (error) { console.error("ActivitySessionManager: Engine resolution failed", error); return null; }
+        try { return EngineManager.getEngine(activityType); } catch (error) { console.error("ActivitySessionManager: Engine resolution failed", error); return null; }
     },
 
-    getActivityType: function (activity) {
-        if (!activity) return null;
-        return activity.engine || activity.type || null;
-    },
+    getActivityType: function (activity) { return activity ? activity.engine || activity.type || null : null; },
 
     snapshotEngine: function (activity) {
         const engine = this.getEngine(this.getActivityType(activity));
         if (!engine) return null;
-        if (typeof engine.getSessionState === "function") return engine.getSessionState();
-        return null;
+        return typeof engine.getSessionState === "function" ? engine.getSessionState() : null;
     },
 
     begin: function (activity) {
@@ -192,14 +167,8 @@ const ActivitySessionManager = {
         const resumable = Object.values(sessions).filter(function (session) {
             if (!session) return false;
             let activity = null;
-            if (typeof App !== "undefined" && typeof App.resolveActivityById === "function" && session.activityId) {
-                activity = App.resolveActivityById(session.activityId);
-            }
-            if (ActivitySessionManager.isInvalidClassificationSession(session, activity)) {
-                delete sessions[session.activityId];
-                changed = true;
-                return false;
-            }
+            if (typeof App !== "undefined" && typeof App.resolveActivityById === "function" && session.activityId) activity = App.resolveActivityById(session.activityId);
+            if (ActivitySessionManager.isInvalidClassificationSession(session, activity)) { delete sessions[session.activityId]; changed = true; return false; }
             return session.status === "resumable" && session.engineState;
         });
         if (changed) this.saveAll(sessions);
@@ -212,13 +181,8 @@ const ActivitySessionManager = {
     resume: async function () {
         const session = this.getResumable();
         if (!session) return false;
-        const activity = typeof App !== "undefined" && typeof App.resolveActivityById === "function"
-            ? App.resolveActivityById(session.activityId)
-            : null;
-        if (!activity) {
-            this.clear(session.activityId);
-            return false;
-        }
+        const activity = typeof App !== "undefined" && typeof App.resolveActivityById === "function" ? App.resolveActivityById(session.activityId) : null;
+        if (!activity) { this.clear(session.activityId); return false; }
         const restored = await this.restoreEngine(activity, session);
         if (!restored) return false;
         session.status = "active";
@@ -246,20 +210,9 @@ const ActivitySessionManager = {
             return true;
         }
 
-        if (
-            (engineName === "classification" || String(engineName).toLowerCase() === "classificationengine") &&
-            typeof engine.start === "function" &&
-            typeof engine.restoreSession === "function"
-        ) {
+        if ((engineName === "classification" || String(engineName).toLowerCase() === "classificationengine") && typeof engine.start === "function" && typeof engine.restoreSession === "function") {
             try {
-                const fullActivity =
-                    typeof ActivityManager !== "undefined" &&
-                    typeof ActivityManager.loadActivityConfig === "function"
-                        ? await ActivityManager.loadActivityConfig(activity)
-                        : activity;
-
-                // Always initialize the engine from the real activity content first.
-                // A stale session must never be allowed to replace a healthy state.
+                const fullActivity = typeof ActivityManager !== "undefined" && typeof ActivityManager.loadActivityConfig === "function" ? await ActivityManager.loadActivityConfig(activity) : activity;
                 const freshState = engine.start(fullActivity);
 
                 if (this.isInvalidClassificationState(data)) {
@@ -268,14 +221,8 @@ const ActivitySessionManager = {
                     session.status = "active";
                     this.save(session);
                     ActivityManager.currentActivity = fullActivity;
-                    ActivityState.set("started");
-                    ActivityState.set("playing");
-                    document.body.classList.add("activity-playing");
-                    if (typeof ClassificationScreen !== "undefined" && typeof ClassificationScreen.show === "function") {
-                        ClassificationScreen.currentActivity = fullActivity;
-                        ClassificationScreen.currentState = freshState;
-                        ClassificationScreen.show(freshState);
-                    }
+                    ActivityState.set("started"); ActivityState.set("playing"); document.body.classList.add("activity-playing");
+                    if (typeof ClassificationScreen !== "undefined" && typeof ClassificationScreen.show === "function") { ClassificationScreen.currentActivity = fullActivity; ClassificationScreen.currentState = freshState; ClassificationScreen.show(freshState); }
                     return true;
                 }
 
@@ -286,54 +233,28 @@ const ActivitySessionManager = {
                     session.status = "active";
                     this.save(session);
                     ActivityManager.currentActivity = fullActivity;
-                    ActivityState.set("started");
-                    ActivityState.set("playing");
-                    document.body.classList.add("activity-playing");
-                    if (typeof ClassificationScreen !== "undefined" && typeof ClassificationScreen.show === "function") {
-                        ClassificationScreen.currentActivity = fullActivity;
-                        ClassificationScreen.currentState = freshState;
-                        ClassificationScreen.show(freshState);
-                    }
+                    ActivityState.set("started"); ActivityState.set("playing"); document.body.classList.add("activity-playing");
+                    if (typeof ClassificationScreen !== "undefined" && typeof ClassificationScreen.show === "function") { ClassificationScreen.currentActivity = fullActivity; ClassificationScreen.currentState = freshState; ClassificationScreen.show(freshState); }
                     return true;
                 }
 
-                // ClassificationEngine.restoreSession() returns a boolean.
-                // Read the restored engine state explicitly before validating/rendering it.
-                const restoredState = typeof engine.getState === "function"
-                    ? engine.getState()
-                    : null;
-
+                const restoredState = typeof engine.getState === "function" ? engine.getState() : null;
                 if (this.isInvalidClassificationState(restoredState)) {
                     console.warn("ActivitySessionManager: Restored Classification state invalid; using fresh state", activity.id);
                     session.engineState = freshState;
                     session.status = "active";
                     this.save(session);
                     ActivityManager.currentActivity = fullActivity;
-                    ActivityState.set("started");
-                    ActivityState.set("playing");
-                    document.body.classList.add("activity-playing");
-                    if (typeof ClassificationScreen !== "undefined" && typeof ClassificationScreen.show === "function") {
-                        ClassificationScreen.currentActivity = fullActivity;
-                        ClassificationScreen.currentState = freshState;
-                        ClassificationScreen.show(freshState);
-                    }
+                    ActivityState.set("started"); ActivityState.set("playing"); document.body.classList.add("activity-playing");
+                    if (typeof ClassificationScreen !== "undefined" && typeof ClassificationScreen.show === "function") { ClassificationScreen.currentActivity = fullActivity; ClassificationScreen.currentState = freshState; ClassificationScreen.show(freshState); }
                     return true;
                 }
 
                 ActivityManager.currentActivity = fullActivity;
-                ActivityState.set("started");
-                ActivityState.set("playing");
-                document.body.classList.add("activity-playing");
-                if (typeof ClassificationScreen !== "undefined" && typeof ClassificationScreen.show === "function") {
-                    ClassificationScreen.currentActivity = fullActivity;
-                    ClassificationScreen.currentState = restoredState;
-                    ClassificationScreen.show(restoredState);
-                }
+                ActivityState.set("started"); ActivityState.set("playing"); document.body.classList.add("activity-playing");
+                if (typeof ClassificationScreen !== "undefined" && typeof ClassificationScreen.show === "function") { ClassificationScreen.currentActivity = fullActivity; ClassificationScreen.currentState = restoredState; ClassificationScreen.show(restoredState); }
                 return true;
-            } catch (error) {
-                console.error("ActivitySessionManager: Classification session restore failed", error);
-                return false;
-            }
+            } catch (error) { console.error("ActivitySessionManager: Classification session restore failed", error); return false; }
         }
 
         console.error("ActivitySessionManager: Unsupported restore type", engineName);
@@ -358,86 +279,44 @@ const ActivitySessionManager = {
         control.textContent = "☰";
         control.title = "مکث و خروج";
         control.setAttribute("aria-label", "مکث و خروج از فعالیت");
-        control.style.position = "fixed";
-        control.style.top = "12px";
-        control.style.right = "12px";
-        control.style.zIndex = "9999";
-        control.style.width = "42px";
-        control.style.height = "42px";
-        control.style.borderRadius = "50%";
-        control.style.border = "0";
-        control.style.cursor = "pointer";
-        control.style.fontSize = "20px";
+        control.style.position = "fixed"; control.style.top = "12px"; control.style.right = "12px"; control.style.zIndex = "9999";
+        control.style.width = "42px"; control.style.height = "42px"; control.style.borderRadius = "50%"; control.style.border = "0"; control.style.cursor = "pointer"; control.style.fontSize = "20px";
         control.onclick = function () { ActivitySessionManager.showOverlay(); };
         document.body.appendChild(control);
     },
 
-    removeExitControl: function () {
-        const control = document.getElementById(this.exitControlId);
-        if (control) control.remove();
-    },
+    removeExitControl: function () { const control = document.getElementById(this.exitControlId); if (control) control.remove(); },
 
     showOverlay: function () {
         this.hideOverlay();
-        const overlay = document.createElement("div");
-        overlay.id = this.overlayId;
-        overlay.dir = "rtl";
-        overlay.style.position = "fixed";
-        overlay.style.inset = "0";
-        overlay.style.zIndex = "10000";
-        overlay.style.background = "rgba(0,0,0,.55)";
-        overlay.style.display = "flex";
-        overlay.style.alignItems = "center";
-        overlay.style.justifyContent = "center";
-        overlay.style.padding = "20px";
-        const box = document.createElement("div");
-        box.style.background = "white";
-        box.style.borderRadius = "18px";
-        box.style.padding = "24px";
-        box.style.maxWidth = "360px";
-        box.style.width = "100%";
-        box.style.textAlign = "center";
-        box.style.boxSizing = "border-box";
-        box.innerHTML = `
-            <h2>فعالیت متوقف شد</h2>
-            <p>می‌توانی همین‌جا ادامه بدهی یا از فعالیت خارج شوی. وضعیت فعلی ذخیره شده است.</p>
-            <div style="display:flex;gap:10px;flex-direction:column;margin-top:18px;">
-                <button id="activitySessionResumeBtn" type="button">ادامه فعالیت</button>
-                <button id="activitySessionExitBtn" type="button">خروج و ذخیره</button>
-            </div>
-        `;
-        overlay.appendChild(box);
-        document.body.appendChild(overlay);
+        const overlay = document.createElement("div"); overlay.id = this.overlayId; overlay.dir = "rtl";
+        overlay.style.position = "fixed"; overlay.style.inset = "0"; overlay.style.zIndex = "10000"; overlay.style.background = "rgba(0,0,0,.55)"; overlay.style.display = "flex"; overlay.style.alignItems = "center"; overlay.style.justifyContent = "center"; overlay.style.padding = "20px";
+        const box = document.createElement("div"); box.style.background = "white"; box.style.borderRadius = "18px"; box.style.padding = "24px"; box.style.maxWidth = "360px"; box.style.width = "100%"; box.style.textAlign = "center"; box.style.boxSizing = "border-box";
+        box.innerHTML = `<h2>فعالیت متوقف شد</h2><p>می‌توانی همین‌جا ادامه بدهی یا از فعالیت خارج شوی. وضعیت فعلی ذخیره شده است.</p><div style="display:flex;gap:10px;flex-direction:column;margin-top:18px;"><button id="activitySessionResumeBtn" type="button">ادامه فعالیت</button><button id="activitySessionExitBtn" type="button">خروج و ذخیره</button></div>`;
+        overlay.appendChild(box); document.body.appendChild(overlay);
         document.getElementById("activitySessionResumeBtn").onclick = function () { ActivitySessionManager.hideOverlay(); };
         document.getElementById("activitySessionExitBtn").onclick = function () { ActivitySessionManager.exit(); };
     },
 
-    hideOverlay: function () {
-        const overlay = document.getElementById(this.overlayId);
-        if (overlay) overlay.remove();
-    },
+    hideOverlay: function () { const overlay = document.getElementById(this.overlayId); if (overlay) overlay.remove(); },
 
     connect: function () {
         if (this.initialized) return;
         this.initialized = true;
         EventManager.on("activityReady", function (payload) {
             if (!payload || !payload.activity) return;
-            ActivitySessionManager.begin(payload.activity);
+            // ActivityManager.begin() owns session creation. This listener only
+            // activates the gameplay UI after the activity has actually started.
+            ActivitySessionManager.currentSession = ActivitySessionManager.load(payload.activity.id);
             ActivitySessionManager.gameplayActive = true;
             ActivitySessionManager.installExitControl();
         });
         EventManager.on("activityFinished", function (payload) {
-            const activityId = payload && payload.activity
-                ? payload.activity.id
-                : (payload && payload.activityId ? payload.activityId : null);
+            const activityId = payload && payload.activity ? payload.activity.id : (payload && payload.activityId ? payload.activityId : null);
             ActivitySessionManager.complete(activityId);
         });
-        document.addEventListener("visibilitychange", function () {
-            if (document.visibilityState === "hidden" && ActivitySessionManager.gameplayActive) ActivitySessionManager.capture("resumable");
-        });
-        window.addEventListener("beforeunload", function () {
-            if (ActivitySessionManager.gameplayActive) ActivitySessionManager.capture("resumable");
-        });
+        document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden" && ActivitySessionManager.gameplayActive) ActivitySessionManager.capture("resumable"); });
+        window.addEventListener("beforeunload", function () { if (ActivitySessionManager.gameplayActive) ActivitySessionManager.capture("resumable"); });
         console.log("Activity Session Manager v1.5 Ready");
     }
 };
