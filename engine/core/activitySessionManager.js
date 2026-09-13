@@ -210,51 +210,63 @@ const ActivitySessionManager = {
             return true;
         }
 
-        if ((engineName === "classification" || String(engineName).toLowerCase() === "classificationengine") && typeof engine.start === "function" && typeof engine.restoreSession === "function") {
+        if ((engineName === "classification" || String(engineName).toLowerCase() === "classificationengine") && typeof engine.restoreSession === "function") {
             try {
-                const fullActivity = typeof ActivityManager !== "undefined" && typeof ActivityManager.loadActivityConfig === "function" ? await ActivityManager.loadActivityConfig(activity) : activity;
-                const freshState = engine.start(fullActivity);
+                const fullActivity = typeof ActivityManager !== "undefined" && typeof ActivityManager.loadActivityConfig === "function"
+                    ? await ActivityManager.loadActivityConfig(activity)
+                    : activity;
 
-                if (this.isInvalidClassificationState(data)) {
-                    console.warn("ActivitySessionManager: Discarding invalid Classification state", activity.id);
-                    session.engineState = freshState;
-                    session.status = "active";
-                    this.save(session);
-                    ActivityManager.currentActivity = fullActivity;
-                    ActivityState.set("started"); ActivityState.set("playing"); document.body.classList.add("activity-playing");
-                    if (typeof ClassificationScreen !== "undefined" && typeof ClassificationScreen.show === "function") { ClassificationScreen.currentActivity = fullActivity; ClassificationScreen.currentState = freshState; ClassificationScreen.show(freshState); }
-                    return true;
+                if (!fullActivity || !fullActivity.classification) {
+                    console.error("ActivitySessionManager: Classification config unavailable", activity.id);
+                    return false;
                 }
 
+                if (this.isInvalidClassificationState(data)) {
+                    console.warn("ActivitySessionManager: Invalid Classification session", activity.id);
+                    return false;
+                }
+
+                ActivityManager.currentActivity = fullActivity;
+                engine.activityData = fullActivity;
+
+                // IMPORTANT: Restore must never call ClassificationEngine.start().
+                // start() resets classifiedItems, moves, score and classifications.
+                // restoreSession() rebuilds provider/handler state and then applies
+                // the exact saved engine state.
                 const restored = engine.restoreSession(data);
                 if (!restored) {
-                    console.warn("ActivitySessionManager: Classification session restore rejected; using fresh state", activity.id);
-                    session.engineState = freshState;
-                    session.status = "active";
-                    this.save(session);
-                    ActivityManager.currentActivity = fullActivity;
-                    ActivityState.set("started"); ActivityState.set("playing"); document.body.classList.add("activity-playing");
-                    if (typeof ClassificationScreen !== "undefined" && typeof ClassificationScreen.show === "function") { ClassificationScreen.currentActivity = fullActivity; ClassificationScreen.currentState = freshState; ClassificationScreen.show(freshState); }
-                    return true;
+                    console.error("ActivitySessionManager: Classification session restore rejected", activity.id);
+                    return false;
                 }
 
                 const restoredState = typeof engine.getState === "function" ? engine.getState() : null;
                 if (this.isInvalidClassificationState(restoredState)) {
-                    console.warn("ActivitySessionManager: Restored Classification state invalid; using fresh state", activity.id);
-                    session.engineState = freshState;
-                    session.status = "active";
-                    this.save(session);
-                    ActivityManager.currentActivity = fullActivity;
-                    ActivityState.set("started"); ActivityState.set("playing"); document.body.classList.add("activity-playing");
-                    if (typeof ClassificationScreen !== "undefined" && typeof ClassificationScreen.show === "function") { ClassificationScreen.currentActivity = fullActivity; ClassificationScreen.currentState = freshState; ClassificationScreen.show(freshState); }
-                    return true;
+                    console.error("ActivitySessionManager: Restored Classification state is invalid", activity.id);
+                    return false;
                 }
 
-                ActivityManager.currentActivity = fullActivity;
-                ActivityState.set("started"); ActivityState.set("playing"); document.body.classList.add("activity-playing");
-                if (typeof ClassificationScreen !== "undefined" && typeof ClassificationScreen.show === "function") { ClassificationScreen.currentActivity = fullActivity; ClassificationScreen.currentState = restoredState; ClassificationScreen.show(restoredState); }
+                ActivityState.set("started");
+                ActivityState.set("playing");
+                document.body.classList.add("activity-playing");
+
+                if (typeof ClassificationScreen !== "undefined" && typeof ClassificationScreen.show === "function") {
+                    ClassificationScreen.currentActivity = fullActivity;
+                    ClassificationScreen.currentState = restoredState;
+                    ClassificationScreen.lastMessage = "";
+                    ClassificationScreen.show(restoredState);
+                }
+
+                console.log("ActivitySessionManager: Classification session restored", {
+                    activityId: activity.id,
+                    classifiedItems: restoredState.classifiedItems,
+                    moves: restoredState.moves
+                });
+
                 return true;
-            } catch (error) { console.error("ActivitySessionManager: Classification session restore failed", error); return false; }
+            } catch (error) {
+                console.error("ActivitySessionManager: Classification session restore failed", error);
+                return false;
+            }
         }
 
         console.error("ActivitySessionManager: Unsupported restore type", engineName);
@@ -279,44 +291,92 @@ const ActivitySessionManager = {
         control.textContent = "☰";
         control.title = "مکث و خروج";
         control.setAttribute("aria-label", "مکث و خروج از فعالیت");
-        control.style.position = "fixed"; control.style.top = "12px"; control.style.right = "12px"; control.style.zIndex = "9999";
-        control.style.width = "42px"; control.style.height = "42px"; control.style.borderRadius = "50%"; control.style.border = "0"; control.style.cursor = "pointer"; control.style.fontSize = "20px";
+        control.style.position = "fixed";
+        control.style.top = "12px";
+        control.style.right = "12px";
+        control.style.zIndex = "9999";
+        control.style.width = "42px";
+        control.style.height = "42px";
+        control.style.borderRadius = "50%";
+        control.style.border = "0";
+        control.style.cursor = "pointer";
+        control.style.fontSize = "20px";
         control.onclick = function () { ActivitySessionManager.showOverlay(); };
         document.body.appendChild(control);
     },
 
-    removeExitControl: function () { const control = document.getElementById(this.exitControlId); if (control) control.remove(); },
+    removeExitControl: function () {
+        const control = document.getElementById(this.exitControlId);
+        if (control) control.remove();
+    },
 
     showOverlay: function () {
         this.hideOverlay();
-        const overlay = document.createElement("div"); overlay.id = this.overlayId; overlay.dir = "rtl";
-        overlay.style.position = "fixed"; overlay.style.inset = "0"; overlay.style.zIndex = "10000"; overlay.style.background = "rgba(0,0,0,.55)"; overlay.style.display = "flex"; overlay.style.alignItems = "center"; overlay.style.justifyContent = "center"; overlay.style.padding = "20px";
-        const box = document.createElement("div"); box.style.background = "white"; box.style.borderRadius = "18px"; box.style.padding = "24px"; box.style.maxWidth = "360px"; box.style.width = "100%"; box.style.textAlign = "center"; box.style.boxSizing = "border-box";
+        const overlay = document.createElement("div");
+        overlay.id = this.overlayId;
+        overlay.dir = "rtl";
+        overlay.style.position = "fixed";
+        overlay.style.inset = "0";
+        overlay.style.zIndex = "10000";
+        overlay.style.background = "rgba(0,0,0,.55)";
+        overlay.style.display = "flex";
+        overlay.style.alignItems = "center";
+        overlay.style.justifyContent = "center";
+        overlay.style.padding = "20px";
+
+        const box = document.createElement("div");
+        box.style.background = "white";
+        box.style.borderRadius = "18px";
+        box.style.padding = "24px";
+        box.style.maxWidth = "360px";
+        box.style.width = "100%";
+        box.style.textAlign = "center";
+        box.style.boxSizing = "border-box";
         box.innerHTML = `<h2>فعالیت متوقف شد</h2><p>می‌توانی همین‌جا ادامه بدهی یا از فعالیت خارج شوی. وضعیت فعلی ذخیره شده است.</p><div style="display:flex;gap:10px;flex-direction:column;margin-top:18px;"><button id="activitySessionResumeBtn" type="button">ادامه فعالیت</button><button id="activitySessionExitBtn" type="button">خروج و ذخیره</button></div>`;
-        overlay.appendChild(box); document.body.appendChild(overlay);
-        document.getElementById("activitySessionResumeBtn").onclick = function () { ActivitySessionManager.hideOverlay(); };
-        document.getElementById("activitySessionExitBtn").onclick = function () { ActivitySessionManager.exit(); };
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+
+        document.getElementById("activitySessionResumeBtn").onclick = function () {
+            ActivitySessionManager.hideOverlay();
+        };
+        document.getElementById("activitySessionExitBtn").onclick = function () {
+            ActivitySessionManager.exit();
+        };
     },
 
-    hideOverlay: function () { const overlay = document.getElementById(this.overlayId); if (overlay) overlay.remove(); },
+    hideOverlay: function () {
+        const overlay = document.getElementById(this.overlayId);
+        if (overlay) overlay.remove();
+    },
 
     connect: function () {
         if (this.initialized) return;
         this.initialized = true;
+
         EventManager.on("activityReady", function (payload) {
             if (!payload || !payload.activity) return;
-            // ActivityManager.begin() owns session creation. This listener only
-            // activates the gameplay UI after the activity has actually started.
             ActivitySessionManager.currentSession = ActivitySessionManager.load(payload.activity.id);
             ActivitySessionManager.gameplayActive = true;
             ActivitySessionManager.installExitControl();
         });
+
         EventManager.on("activityFinished", function (payload) {
-            const activityId = payload && payload.activity ? payload.activity.id : (payload && payload.activityId ? payload.activityId : null);
+            const activityId = payload && payload.activity
+                ? payload.activity.id
+                : (payload && payload.activityId ? payload.activityId : null);
             ActivitySessionManager.complete(activityId);
         });
-        document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden" && ActivitySessionManager.gameplayActive) ActivitySessionManager.capture("resumable"); });
-        window.addEventListener("beforeunload", function () { if (ActivitySessionManager.gameplayActive) ActivitySessionManager.capture("resumable"); });
+
+        document.addEventListener("visibilitychange", function () {
+            if (document.visibilityState === "hidden" && ActivitySessionManager.gameplayActive) {
+                ActivitySessionManager.capture("resumable");
+            }
+        });
+
+        window.addEventListener("beforeunload", function () {
+            if (ActivitySessionManager.gameplayActive) ActivitySessionManager.capture("resumable");
+        });
+
         console.log("Activity Session Manager v1.5 Ready");
     }
 };
