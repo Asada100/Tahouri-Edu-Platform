@@ -5,23 +5,40 @@
 // =====================================
 
 const ActivityManager = {
-
     currentActivity: null,
     allowActivityStartFromResult: false,
+    postFinishLoadBlocked: false,
 
     load: async function (activityData) {
+        if (this.postFinishLoadBlocked && !this.allowActivityStartFromResult) {
+            console.warn("ActivityManager: Activity load blocked after completion; explicit restart is required.");
+            return null;
+        }
+
         const resultModalOpen = document.getElementById("resultModal");
         if (resultModalOpen && !this.allowActivityStartFromResult) {
             console.warn("ActivityManager: Activity load blocked while result modal is open.");
             return null;
         }
-        this.allowActivityStartFromResult = false;
 
+        this.allowActivityStartFromResult = false;
         console.log("Loading Activity:", activityData);
         if (!activityData) { console.error("Activity Data Missing"); return null; }
         const selectedDifficulty = activityData.settings && activityData.settings.difficulty ? activityData.settings.difficulty : null;
         EventManager.emit("activityLoaded", activityData);
         return await this.start(activityData, selectedDifficulty);
+    },
+
+    allowNewActivityStart: function () {
+        this.postFinishLoadBlocked = false;
+        this.allowActivityStartFromResult = false;
+        console.log("ActivityManager: Explicit activity start allowed.");
+    },
+
+    blockPostFinishLoads: function () {
+        this.postFinishLoadBlocked = true;
+        this.allowActivityStartFromResult = false;
+        console.log("ActivityManager: Post-finish activity loads blocked.");
     },
 
     start: async function (activityData, selectedDifficulty = null) {
@@ -36,7 +53,6 @@ const ActivityManager = {
                 ActivitySessionManager.clear(fullActivity.id);
                 existing = null;
             }
-
             const unfinished = existing && (existing.status === "resumable" || existing.status === "active") && existing.engineState;
             if (unfinished) {
                 const engineState = existing.engineState;
@@ -45,8 +61,7 @@ const ActivityManager = {
                 if (completedSnapshot) {
                     console.log("ActivityManager: Clearing completed stale session", fullActivity.id);
                     ActivitySessionManager.clear(fullActivity.id);
-                }
-                else {
+                } else {
                     console.warn("ActivityManager: New attempt blocked; unfinished session exists.", fullActivity.id);
                     this.showBlockedStartNotice(fullActivity, existing);
                     return null;
@@ -56,7 +71,6 @@ const ActivityManager = {
 
         this.currentActivity = fullActivity;
         ActivityHistory.set(fullActivity);
-
         if (typeof ActivitySessionManager !== "undefined" && typeof ActivitySessionManager.begin === "function") {
             const session = ActivitySessionManager.begin(fullActivity);
             if (!session) {
@@ -71,7 +85,6 @@ const ActivityManager = {
         console.log("Requested Engine:", engineName);
         const engine = this.resolveEngine(engineName);
         if (!engine) { console.error("Engine Not Found:", engineName); ActivityState.set("error"); return null; }
-
         ActivityState.set("playing");
         document.body.classList.add("activity-playing");
 
@@ -83,7 +96,6 @@ const ActivityManager = {
             ActivityState.set("error");
             return null;
         }
-
         this.publishActivityReady(engineName, engine, result, fullActivity);
         return result;
     },
@@ -103,8 +115,7 @@ const ActivityManager = {
             const mergedSettings = { ...baseSettings, ...activitySettings };
             if (selectedDifficulty) mergedSettings.difficulty = selectedDifficulty;
             fullActivity = { ...activityConfig, ...activityData, settings: mergedSettings };
-        }
-        catch (error) {
+        } catch (error) {
             console.warn("activity.json Not Found:", activityData.id);
             if (selectedDifficulty) fullActivity.settings = { ...(fullActivity.settings || {}), difficulty: selectedDifficulty };
         }
@@ -124,6 +135,7 @@ const ActivityManager = {
 
     finish: function (result) {
         console.log("Activity Finished", result);
+        this.blockPostFinishLoads();
         ActivityState.set("finished");
         EventManager.emit("activityFinished", result);
     },
@@ -131,6 +143,7 @@ const ActivityManager = {
     restart: function () {
         if (!this.currentActivity) { console.warn("No Current Activity"); return; }
         this.allowActivityStartFromResult = true;
+        this.postFinishLoadBlocked = false;
         return this.load(this.currentActivity);
     },
 
@@ -182,6 +195,7 @@ const ActivityManager = {
         if (typeof ActivitySessionManager !== "undefined" && ActivitySessionManager.gameplayActive === true) { console.warn("ActivityManager: Runtime reset blocked while an activity is active."); return false; }
         this.currentActivity = null;
         this.allowActivityStartFromResult = false;
+        this.postFinishLoadBlocked = false;
         if (typeof ActivityHistory !== "undefined") ActivityHistory.clear();
         if (typeof ActivityState !== "undefined") ActivityState.reset();
         if (typeof window.PuzzleEngine !== "undefined" && typeof PuzzleEngine.reset === "function") PuzzleEngine.reset();
