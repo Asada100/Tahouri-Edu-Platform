@@ -1,14 +1,29 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 6.6
+// Version 6.7
 // Activity Manager
 // =====================================
 
 const ActivityManager = {
 
     currentActivity: null,
+    allowActivityStartFromResult: false,
 
     load: async function (activityData) {
+        // A completed activity owns the UI until its result modal is closed.
+        // This prevents stale UI/event handlers from starting the same activity
+        // again without an explicit Retry action.
+        const resultModalOpen = document.getElementById("resultModal");
+
+        if (resultModalOpen && !this.allowActivityStartFromResult) {
+            console.warn(
+                "ActivityManager: Activity load blocked while result modal is open."
+            );
+            return null;
+        }
+
+        this.allowActivityStartFromResult = false;
+
         console.log("Loading Activity:", activityData);
         if (!activityData) { console.error("Activity Data Missing"); return null; }
         const selectedDifficulty = activityData.settings && activityData.settings.difficulty ? activityData.settings.difficulty : null;
@@ -143,6 +158,7 @@ const ActivityManager = {
 
     restart: function () {
         if (!this.currentActivity) { console.warn("No Current Activity"); return; }
+        this.allowActivityStartFromResult = true;
         return this.load(this.currentActivity);
     },
 
@@ -212,10 +228,11 @@ const ActivityManager = {
         }
 
         this.currentActivity = null;
+        this.allowActivityStartFromResult = false;
         if (typeof ActivityHistory !== "undefined") ActivityHistory.clear();
         if (typeof ActivityState !== "undefined") ActivityState.reset();
         if (typeof window.PuzzleEngine !== "undefined" && typeof PuzzleEngine.reset === "function") PuzzleEngine.reset();
-        if (typeof window.QuizEngine !== "undefined" && typeof QuizEngine.reset === "function") QuizEngine.reset();
+        if (typeof window.QuizEngine !== "undefined' && typeof QuizEngine.reset === "function") QuizEngine.reset();
         if (typeof window.MemoryEngine !== "undefined") {
             MemoryEngine.cards = [];
             MemoryEngine.firstCard = null;
@@ -237,4 +254,4 @@ const ActivityManager = {
 };
 
 window.ActivityManager = ActivityManager;
-console.log("Activity Manager v6.6 Ready");
+console.log("Activity Manager v6.7 Ready");
