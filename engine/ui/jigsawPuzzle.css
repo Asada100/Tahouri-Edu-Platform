@@ -1,0 +1,126 @@
+/* =====================================
+   Tahouri Edu Platform
+   Jigsaw Puzzle UI
+   Version 1.0
+   ===================================== */
+
+.jigsawScreen {
+    width: min(94vw, 760px);
+    margin: 0 auto;
+    padding: 18px 14px 28px;
+    box-sizing: border-box;
+}
+
+.jigsawHeader {
+    text-align: center;
+    margin-bottom: 14px;
+}
+
+.jigsawHeader h1 {
+    margin: 0 0 6px;
+    font-size: clamp(1.25rem, 4vw, 1.8rem);
+}
+
+.jigsawObjective {
+    margin: 0 0 5px;
+    font-weight: 700;
+}
+
+.jigsawInstruction {
+    margin: 0;
+    opacity: .82;
+}
+
+.jigsawBoard {
+    width: min(92vw, 620px);
+    aspect-ratio: 1 / 1;
+    margin: 18px auto;
+    display: grid;
+    gap: 3px;
+    padding: 3px;
+    box-sizing: border-box;
+    background: #20252b;
+    border-radius: 14px;
+    touch-action: none;
+    user-select: none;
+}
+
+.jigsawPiece {
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 7px;
+    overflow: hidden;
+    background-repeat: no-repeat;
+    background-size: var(--jigsaw-image-size);
+    cursor: grab;
+    touch-action: none;
+    transition: transform .16s ease, box-shadow .16s ease, opacity .16s ease;
+}
+
+.jigsawPiece:active {
+    cursor: grabbing;
+}
+
+.jigsawPiece.jigsawSource {
+    transform: scale(.97);
+    opacity: .72;
+}
+
+.jigsawPiece.jigsawTarget {
+    box-shadow: inset 0 0 0 3px rgba(37, 99, 235, .75);
+    transform: scale(.98);
+}
+
+.jigsawPiece.jigsawCorrect {
+    box-shadow: inset 0 0 0 2px rgba(34, 197, 94, .55);
+}
+
+.jigsawStatus {
+    min-height: 28px;
+    text-align: center;
+    font-weight: 700;
+    margin: 8px 0;
+}
+
+.jigsawControls {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.jigsawControls button {
+    min-width: 120px;
+}
+
+.jigsawMoves {
+    text-align: center;
+    margin-top: 10px;
+    opacity: .78;
+}
+
+@media (max-width: 600px) {
+    .jigsawScreen {
+        padding-top: 10px;
+    }
+
+    .jigsawBoard {
+        width: min(94vw, 520px);
+        gap: 2px;
+        padding: 2px;
+        border-radius: 11px;
+    }
+
+    .jigsawPiece {
+        border-radius: 5px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .jigsawPiece {
+        transition: none;
+    }
+}
