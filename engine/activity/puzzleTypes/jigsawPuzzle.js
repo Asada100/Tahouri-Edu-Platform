@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Jigsaw Puzzle Handler
-// Version 1.0
+// Version 1.1
 //
 // Adapter between JigsawPuzzle core and
 // the existing PuzzleEngine lifecycle.
@@ -38,6 +38,7 @@ const JigsawPuzzleHandler = {
             source: data.source || "file",
             instruction: data.instruction || "قطعه‌ها را جابه‌جا کن تا تصویر کامل شود.",
             objective: data.objective || "تصویر را کامل کن",
+            title: data.title || "پازل تصویری",
             difficulty: result.difficulty,
             image: result.image,
             rows: result.rows,
@@ -45,12 +46,16 @@ const JigsawPuzzleHandler = {
             pieceCount: result.pieceCount
         };
 
-        engine.items = result.pieces.map(function (piece) {
-            return piece.id;
-        });
+        engine.items = result.pieces
+            .slice()
+            .sort(function (a, b) {
+                return a.currentIndex - b.currentIndex;
+            })
+            .map(function (piece) {
+                return piece.id;
+            });
 
         engine.moves = result.moves;
-
         engine.emitStarted();
 
         console.log("Jigsaw Puzzle Handler Started");
@@ -83,11 +88,15 @@ const JigsawPuzzleHandler = {
 
         engine.moves = state.moves;
 
-        EventManager.emit("puzzleChanged", engine.getState());
-
+        // Important: finish before emitting the normal puzzle-change event.
+        // Otherwise the UI can render the board again after completion and
+        // visually overwrite the activity result screen.
         if (state.solved) {
             engine.finish();
+            return true;
         }
+
+        EventManager.emit("puzzleChanged", engine.getState());
 
         return true;
     },
@@ -142,4 +151,4 @@ window.JigsawPuzzleHandler = JigsawPuzzleHandler;
 
 PuzzleTypeRegistry.register("jigsaw", JigsawPuzzleHandler);
 
-console.log("Jigsaw Puzzle Handler v1.0 Ready");
+console.log("Jigsaw Puzzle Handler v1.1 Ready");
