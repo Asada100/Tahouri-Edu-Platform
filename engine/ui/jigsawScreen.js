@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Jigsaw Puzzle Screen
-// Version 1.0
+// Version 1.1
 //
 // Responsibilities:
 // - Real piece manipulation UI
@@ -41,24 +41,44 @@ const JigsawScreen = {
 
         this.connected = true;
 
-        console.log("Jigsaw Screen v1.0 Ready");
+        console.log("Jigsaw Screen v1.1 Ready");
     },
 
     handleReady: function (payload) {
 
         if (!payload) return;
 
-        const engineName = payload.engineName;
-        if (engineName !== "PuzzleEngine" && engineName !== "puzzle") {
+        const engineName = String(payload.engineName || "").toLowerCase();
+        if (engineName !== "puzzle" && engineName !== "puzzleengine") {
             return;
         }
+
+        // ActivityManager publishes the PuzzleEngine state here. Do not make
+        // the screen depend on a type field being copied into the result by a
+        // different lifecycle layer. The active PuzzleEngine definition is
+        // the authoritative source for the routed puzzle type.
+        const activePuzzle =
+            typeof PuzzleEngine !== "undefined"
+                ? PuzzleEngine.puzzle
+                : null;
 
         const result = payload.result;
-        if (!result || result.type !== "jigsaw") {
+        const resultType = result && result.type;
+        const activeType = activePuzzle && activePuzzle.type;
+
+        if (resultType !== "jigsaw" && activeType !== "jigsaw") {
             return;
         }
 
-        this.render(result);
+        console.log("Jigsaw Screen: Activity Ready Received", {
+            activityId: payload.activity ? payload.activity.id : null,
+            resultType: resultType || null,
+            activeType: activeType || null
+        });
+
+        this.selectedIndex = null;
+        this.dragIndex = null;
+        this.render(result || {});
     },
 
     render: function (state) {
