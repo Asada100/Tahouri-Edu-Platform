@@ -1,7 +1,15 @@
 // =====================================
 // Tahouri Edu Platform
 // Classification Screen
-// Version 1.9
+// Version 2.0
+// =====================================
+// Drag UX:
+// - One Pointer Events path for mouse + touch
+// - Live drag overlay follows the pointer
+// - Original grab offset is preserved
+// - Pointer capture keeps the drag alive
+// - requestAnimationFrame keeps movement smooth
+// - Drop uses a short snap / return animation
 // =====================================
 
 const ClassificationScreen = {
@@ -50,10 +58,6 @@ const ClassificationScreen = {
             ? String(activity.classification.mode) : "choice";
     },
 
-    isTouchDevice: function () {
-        return typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
-    },
-
     show: function (state) {
         if (!state) return;
         const app = document.getElementById("app");
@@ -64,8 +68,6 @@ const ClassificationScreen = {
         const activity = this.currentActivity || {};
         const mode = this.getMode();
         const isDragDrop = mode === "dragDrop";
-        const touch = this.isTouchDevice();
-        const nativeDrag = isDragDrop && !touch;
 
         const categoryHTML = categories.map(function (category) {
             const id = ClassificationScreen.escapeAttribute(category.id);
@@ -88,18 +90,16 @@ const ClassificationScreen = {
                 : ClassificationScreen.escapeHTML(item.content);
             if (isDragDrop) {
                 if (classified && answer && answer.correct) return "";
-                const dragAttr = nativeDrag ? " draggable=\"true\"" : "";
-                return `<button type="button" class="classificationItem classificationDragItem ${status}"${dragAttr} data-item-id="${ClassificationScreen.escapeAttribute(item.id)}">${content}</button>`;
+                return `<button type="button" class="classificationItem classificationDragItem ${status}" data-item-id="${ClassificationScreen.escapeAttribute(item.id)}">${content}</button>`;
             }
             return `<button type="button" class="classificationItem ${status}" data-item-id="${ClassificationScreen.escapeAttribute(item.id)}" ${classified || state.finished ? "disabled" : ""}>${content}</button>`;
         }).join("");
 
-        const interactionClass = isDragDrop ? (touch ? "classificationTouchMode" : "classificationDesktopDragMode") : "";
-        const instruction = isDragDrop && touch
+        const instruction = isDragDrop
             ? "هر مورد را بگیر و در دسته مناسب رها کن."
             : (state.instruction || "هر مورد را در دسته مناسب قرار بده");
 
-        app.innerHTML = `<div class="screen classificationScreen classificationMode-${ClassificationScreen.escapeAttribute(mode)} ${interactionClass}" dir="rtl">
+        app.innerHTML = `<div class="screen classificationScreen classificationMode-${ClassificationScreen.escapeAttribute(mode)} ${isDragDrop ? "classificationDragMode" : ""}" dir="rtl">
             <h1>${ClassificationScreen.escapeHTML(activity.title || "دسته‌بندی")}</h1>
             <p class="classificationInstruction">${ClassificationScreen.escapeHTML(instruction)}</p>
             <div class="classificationStatus">باقی‌مانده: ${Math.max(0, (state.totalItems || 0) - (state.classifiedItems || 0))} از ${state.totalItems || 0}</div>
@@ -114,8 +114,9 @@ const ClassificationScreen = {
 
     bindEvents: function () {
         const self = this;
-        if (this.getMode() === "dragDrop") this.bindDragDropEvents();
-        else {
+        if (this.getMode() === "dragDrop") {
+            this.bindDragDropEvents();
+        } else {
             let selected = null;
             document.querySelectorAll(".classificationItem:not(:disabled)").forEach(function (button) {
                 button.onclick = function () {
@@ -131,7 +132,8 @@ const ClassificationScreen = {
                 button.onclick = function () {
                     if (!selected) { self.lastMessage = "ابتدا یک مورد را انتخاب کن."; self.updateMessage(); return; }
                     self.submitClassification(selected, this.dataset.categoryId, "user");
-                    selected = null; self.selectedItemId = null;
+                    selected = null;
+                    self.selectedItemId = null;
                 };
             });
         }
@@ -143,79 +145,56 @@ const ClassificationScreen = {
 
     bindDragDropEvents: function () {
         const self = this;
-        const touch = this.isTouchDevice();
-
         document.querySelectorAll(".classificationDragItem").forEach(function (item) {
-            if (!touch) {
-                item.addEventListener("dragstart", function (event) {
-                    if (self.dragSubmissionLocked) {
-                        event.preventDefault();
-                        return;
-                    }
-                    self.dragItemId = this.dataset.itemId;
-                    self.dragActive = true;
-                    self.dragSubmissionLocked = false;
-                    this.classList.add("dragging");
-                    if (event.dataTransfer) {
-                        event.dataTransfer.effectAllowed = "move";
-                        event.dataTransfer.setData("text/plain", self.dragItemId);
-                    }
-                });
-                item.addEventListener("dragend", function () {
-                    this.classList.remove("dragging");
-                    document.querySelectorAll(".classificationDropZone").forEach(function (z) { z.classList.remove("drag-over"); });
-                    self.dragActive = false;
-                    self.dragItemId = null;
-                    self.dragSubmissionLocked = false;
-                    if (self.currentState && !self.currentState.finished && self.getMode() === "dragDrop") {
-                        self.show(self.currentState);
-                    }
-                });
-            } else {
-                item.addEventListener("pointerdown", function (event) { self.startTouchDrag(event, this); }, { passive: false });
-            }
+            item.addEventListener("pointerdown", function (event) {
+                self.startPointerDrag(event, this);
+            }, { passive: false });
         });
-
-        if (!touch) {
-            document.querySelectorAll(".classificationDropZone").forEach(function (zone) {
-                zone.addEventListener("dragover", function (event) {
-                    if (!self.dragActive || !self.dragItemId || self.dragSubmissionLocked) return;
-                    event.preventDefault();
-                    if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
-                    this.classList.add("drag-over");
-                });
-                zone.addEventListener("dragleave", function () { this.classList.remove("drag-over"); });
-                zone.addEventListener("drop", function (event) {
-                    event.preventDefault();
-                    this.classList.remove("drag-over");
-                    const id = event.dataTransfer ? event.dataTransfer.getData("text/plain") : self.dragItemId;
-                    const validDrop = self.dragActive && !self.dragSubmissionLocked && id && id === self.dragItemId;
-                    if (!validDrop) return;
-                    self.dragSubmissionLocked = true;
-                    self.dragActive = false;
-                    self.dragItemId = null;
-                    self.submitClassification(id, this.dataset.categoryId, "user");
-                });
-            });
-        }
     },
 
-    startTouchDrag: function (event, item) {
-        if (!event || !item || !event.isTrusted || event.pointerType !== "touch" || this.touchDrag) return;
+    startPointerDrag: function (event, item) {
+        if (!event || !item || !event.isTrusted || this.touchDrag || this.dragSubmissionLocked) return;
+        if (event.pointerType === "mouse" && event.button !== 0) return;
 
-        this.cancelTouchDrag();
         event.preventDefault();
+        this.cancelTouchDrag();
 
-        this.dragSubmissionLocked = false;
+        const rect = item.getBoundingClientRect();
         this.dragItemId = item.dataset.itemId;
         this.dragActive = false;
+        this.dragSubmissionLocked = false;
+
+        const overlay = item.cloneNode(true);
+        overlay.classList.remove("dragging", "correct", "wrong");
+        overlay.classList.add("classificationDragOverlay");
+        overlay.removeAttribute("draggable");
+        overlay.setAttribute("aria-hidden", "true");
+        overlay.style.width = `${rect.width}px`;
+        overlay.style.height = `${rect.height}px`;
+        overlay.style.left = `${rect.left}px`;
+        overlay.style.top = `${rect.top}px`;
+        overlay.style.transform = "translate3d(0,0,0)";
+        document.body.appendChild(overlay);
+
+        item.classList.add("classificationDragSource");
+
         this.touchDrag = {
             itemId: item.dataset.itemId,
             item: item,
+            overlay: overlay,
             pointerId: event.pointerId,
             startX: event.clientX,
             startY: event.clientY,
-            active: false
+            offsetX: event.clientX - rect.left,
+            offsetY: event.clientY - rect.top,
+            originLeft: rect.left,
+            originTop: rect.top,
+            originWidth: rect.width,
+            originHeight: rect.height,
+            active: false,
+            frame: 0,
+            pendingX: event.clientX,
+            pendingY: event.clientY
         };
 
         if (typeof item.setPointerCapture === "function") {
@@ -223,16 +202,19 @@ const ClassificationScreen = {
         }
 
         this.touchMoveHandler = function (moveEvent) {
-            if (!ClassificationScreen.touchDrag || moveEvent.pointerId !== ClassificationScreen.touchDrag.pointerId) return;
-            ClassificationScreen.handleTouchDragMove(moveEvent);
+            const drag = ClassificationScreen.touchDrag;
+            if (!drag || moveEvent.pointerId !== drag.pointerId) return;
+            ClassificationScreen.handlePointerDragMove(moveEvent);
         };
         this.touchEndHandler = function (upEvent) {
-            if (!ClassificationScreen.touchDrag || upEvent.pointerId !== ClassificationScreen.touchDrag.pointerId) return;
-            ClassificationScreen.handleTouchDragEnd(upEvent);
+            const drag = ClassificationScreen.touchDrag;
+            if (!drag || upEvent.pointerId !== drag.pointerId) return;
+            ClassificationScreen.handlePointerDragEnd(upEvent);
         };
         this.touchCancelHandler = function (cancelEvent) {
-            if (!ClassificationScreen.touchDrag || cancelEvent.pointerId !== ClassificationScreen.touchDrag.pointerId) return;
-            ClassificationScreen.cancelTouchDrag();
+            const drag = ClassificationScreen.touchDrag;
+            if (!drag || cancelEvent.pointerId !== drag.pointerId) return;
+            ClassificationScreen.finishPointerDragWithoutDrop();
         };
 
         document.addEventListener("pointermove", this.touchMoveHandler, { passive: false });
@@ -240,49 +222,121 @@ const ClassificationScreen = {
         document.addEventListener("pointercancel", this.touchCancelHandler, { passive: false });
     },
 
-    handleTouchDragMove: function (event) {
+    handlePointerDragMove: function (event) {
         const drag = this.touchDrag;
         if (!drag || !event.isTrusted) return;
-
         event.preventDefault();
+
         const dx = event.clientX - drag.startX;
         const dy = event.clientY - drag.startY;
+        if (!drag.active && Math.hypot(dx, dy) < 5) return;
 
-        if (!drag.active && Math.hypot(dx, dy) < 8) return;
         drag.active = true;
         this.dragActive = true;
-        drag.item.classList.add("dragging");
+        drag.pendingX = event.clientX;
+        drag.pendingY = event.clientY;
 
-        document.querySelectorAll(".classificationDropZone").forEach(function (z) { z.classList.remove("drag-over"); });
-        const target = document.elementFromPoint(event.clientX, event.clientY);
+        if (!drag.frame) {
+            drag.frame = requestAnimationFrame(function () {
+                const current = ClassificationScreen.touchDrag;
+                if (!current || !current.overlay) return;
+                current.frame = 0;
+                const left = current.pendingX - current.offsetX;
+                const top = current.pendingY - current.offsetY;
+                current.overlay.style.transform = `translate3d(${left - current.originLeft}px, ${top - current.originTop}px, 0)`;
+            });
+        }
+
+        this.updateDropTarget(event.clientX, event.clientY);
+    },
+
+    updateDropTarget: function (clientX, clientY) {
+        document.querySelectorAll(".classificationDropZone").forEach(function (zone) {
+            zone.classList.remove("drag-over");
+        });
+        const target = document.elementFromPoint(clientX, clientY);
         const zone = target && target.closest ? target.closest(".classificationDropZone") : null;
         if (zone) zone.classList.add("drag-over");
     },
 
-    handleTouchDragEnd: function (event) {
+    handlePointerDragEnd: function (event) {
         const drag = this.touchDrag;
         if (!drag || !event.isTrusted || this.dragSubmissionLocked) return;
-
         event.preventDefault();
+
         const target = document.elementFromPoint(event.clientX, event.clientY);
         const zone = target && target.closest ? target.closest(".classificationDropZone") : null;
         const itemId = drag.itemId;
-        const wasDragging = drag.active;
         const categoryId = zone ? zone.dataset.categoryId : null;
+        const wasDragging = drag.active;
 
+        if (!wasDragging) {
+            this.animateDragReturn(false);
+            return;
+        }
+
+        this.dragSubmissionLocked = true;
+        this.dragActive = false;
+        this.dragItemId = null;
+        document.querySelectorAll(".classificationDropZone").forEach(function (z) { z.classList.remove("drag-over"); });
+
+        if (categoryId) {
+            this.animateDragToDrop(zone, function () {
+                ClassificationScreen.finishPointerDragState();
+                ClassificationScreen.submitClassification(itemId, categoryId, "user");
+            });
+        } else {
+            this.animateDragReturn(true);
+        }
+    },
+
+    animateDragToDrop: function (zone, callback) {
+        const drag = this.touchDrag;
+        if (!drag || !drag.overlay || !zone) { if (callback) callback(); return; }
+
+        const zoneRect = zone.getBoundingClientRect();
+        const targetLeft = zoneRect.left + (zoneRect.width - drag.originWidth) / 2;
+        const targetTop = zoneRect.top + Math.min(24, Math.max(0, (zoneRect.height - drag.originHeight) / 2));
+        drag.overlay.style.transition = "transform 180ms cubic-bezier(.22,.8,.3,1)";
+        drag.overlay.style.transform = `translate3d(${targetLeft - drag.originLeft}px, ${targetTop - drag.originTop}px, 0)`;
+        window.setTimeout(function () { if (callback) callback(); }, 190);
+    },
+
+    animateDragReturn: function (keepLocked) {
+        const drag = this.touchDrag;
+        if (!drag || !drag.overlay) {
+            this.finishPointerDragState();
+            this.dragSubmissionLocked = !!keepLocked;
+            return;
+        }
+        drag.overlay.style.transition = "transform 180ms cubic-bezier(.22,.8,.3,1)";
+        drag.overlay.style.transform = "translate3d(0,0,0)";
+        window.setTimeout(function () {
+            ClassificationScreen.finishPointerDragState();
+            ClassificationScreen.dragSubmissionLocked = false;
+        }, 190);
+    },
+
+    finishPointerDragWithoutDrop: function () {
+        this.dragSubmissionLocked = false;
+        this.dragActive = false;
+        this.dragItemId = null;
+        this.animateDragReturn(false);
+    },
+
+    finishPointerDragState: function () {
+        const drag = this.touchDrag;
+        if (drag && drag.frame) {
+            cancelAnimationFrame(drag.frame);
+            drag.frame = 0;
+        }
         this.clearTouchDragListeners();
-        drag.item.classList.remove("dragging");
+        if (drag && drag.item) drag.item.classList.remove("classificationDragSource");
+        if (drag && drag.overlay && drag.overlay.parentNode) drag.overlay.parentNode.removeChild(drag.overlay);
         document.querySelectorAll(".classificationDropZone").forEach(function (z) { z.classList.remove("drag-over"); });
         this.touchDrag = null;
         this.dragItemId = null;
         this.dragActive = false;
-
-        if (wasDragging && categoryId) {
-            this.dragSubmissionLocked = true;
-            this.submitClassification(itemId, categoryId, "user");
-        } else {
-            this.dragSubmissionLocked = false;
-        }
     },
 
     clearTouchDragListeners: function () {
@@ -295,8 +349,11 @@ const ClassificationScreen = {
     },
 
     cancelTouchDrag: function () {
+        const drag = this.touchDrag;
+        if (drag && drag.frame) cancelAnimationFrame(drag.frame);
         this.clearTouchDragListeners();
-        if (this.touchDrag && this.touchDrag.item) this.touchDrag.item.classList.remove("dragging");
+        if (drag && drag.item) drag.item.classList.remove("classificationDragSource");
+        if (drag && drag.overlay && drag.overlay.parentNode) drag.overlay.parentNode.removeChild(drag.overlay);
         document.querySelectorAll(".classificationDropZone").forEach(function (z) { z.classList.remove("drag-over"); });
         this.touchDrag = null;
         this.dragItemId = null;
@@ -306,7 +363,6 @@ const ClassificationScreen = {
     submitClassification: function (itemId, categoryId, source) {
         if (source !== "user") return null;
         if (!window.ClassificationEngine) return null;
-
         if (this.getMode() === "dragDrop" && this.dragSubmissionLocked === false) return null;
 
         const result = window.ClassificationEngine.classifyItem(itemId, categoryId);
@@ -316,9 +372,10 @@ const ClassificationScreen = {
         }
         this.lastMessage = result.correct === true ? "✓ درست" : (result.retryAllowed ? "✗ دوباره تلاش کن" : "✗ نادرست");
         this.currentState = window.ClassificationEngine.getState();
-        if (this.currentState && this.currentState.finished) { this.showFinished(this.currentState.result); return result; }
-
-        if (this.getMode() === "dragDrop" && !this.isTouchDevice()) return result;
+        if (this.currentState && this.currentState.finished) {
+            this.showFinished(this.currentState.result);
+            return result;
+        }
 
         this.show(this.currentState);
         this.dragSubmissionLocked = false;
@@ -336,8 +393,11 @@ const ClassificationScreen = {
             Object.keys(classifications).forEach(function (itemId) {
                 const placement = classifications[itemId];
                 if (!placement || !placement.correct || String(placement.categoryId) !== String(category.id)) return;
-                const item = itemsById[itemId]; if (!item) return;
-                const content = item.type === "image" && item.content ? `<img src="${ClassificationScreen.escapeAttribute(item.content)}" alt="">` : ClassificationScreen.escapeHTML(item.content);
+                const item = itemsById[itemId];
+                if (!item) return;
+                const content = item.type === "image" && item.content
+                    ? `<img src="${ClassificationScreen.escapeAttribute(item.content)}" alt="">`
+                    : ClassificationScreen.escapeHTML(item.content);
                 target.insertAdjacentHTML("beforeend", `<div class="classificationPlacedItem">${content}</div>`);
             });
         });
@@ -346,7 +406,8 @@ const ClassificationScreen = {
     showFinished: function (result) {
         if (!result) return;
         this.cancelTouchDrag();
-        const app = document.getElementById("app"); if (!app) return;
+        const app = document.getElementById("app");
+        if (!app) return;
         app.innerHTML = `<div class="screen classificationScreen classificationFinished" dir="rtl">
             <h1>فعالیت تمام شد 🎉</h1>
             <div class="classificationResultCard">
@@ -360,15 +421,24 @@ const ClassificationScreen = {
             <button type="button" id="classificationFinishedBackBtn" class="classificationBackBtn">بازگشت به فعالیت‌ها</button>
         </div>`;
         const back = document.getElementById("classificationFinishedBackBtn");
-        if (back) back.onclick = function () { if (typeof App !== "undefined" && typeof App.showActivities === "function") App.showActivities(); };
+        if (back) back.onclick = function () {
+            if (typeof App !== "undefined" && typeof App.showActivities === "function") App.showActivities();
+        };
     },
 
-    updateMessage: function () { const message = document.getElementById("classificationMessage"); if (message) message.textContent = this.lastMessage || ""; },
+    updateMessage: function () {
+        const message = document.getElementById("classificationMessage");
+        if (message) message.textContent = this.lastMessage || "";
+    },
+
     getActivityId: function () { return this.currentActivity ? this.currentActivity.id : null; },
-    escapeHTML: function (value) { const text = value === null || value === undefined ? "" : String(value); return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;").replace(/'/g, "&#039;"); },
+    escapeHTML: function (value) {
+        const text = value === null || value === undefined ? "" : String(value);
+        return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;").replace(/'/g, "&#039;");
+    },
     escapeAttribute: function (value) { return this.escapeHTML(value); }
 };
 
 window.ClassificationScreen = ClassificationScreen;
 ClassificationScreen.init();
-console.log("Classification Screen Ready v1.9");
+console.log("Classification Screen Ready v2.0");
