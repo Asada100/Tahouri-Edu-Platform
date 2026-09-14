@@ -10,14 +10,26 @@
 .classificationItem,.classificationCategoryBtn,.classificationBackBtn { border:0; border-radius:14px; padding:14px 16px; font:inherit; cursor:pointer; }
 .classificationItem { min-height:64px; background:#fff; box-shadow:0 2px 10px rgba(0,0,0,.08); touch-action:none; user-select:none; -webkit-user-select:none; }
 .classificationItem.selected { outline:3px solid currentColor; }
-.classificationItem.dragging { opacity:.55; transform:scale(.98); }
+.classificationItem.classificationDragSource { opacity:.18; transform:scale(.98); }
 .classificationItem.correct,.classificationItem.wrong { opacity:.65; }
+.classificationDragOverlay {
+    position:fixed;
+    z-index:9999;
+    margin:0;
+    pointer-events:none;
+    opacity:1 !important;
+    cursor:grabbing;
+    box-shadow:0 12px 28px rgba(15,23,42,.20);
+    will-change:transform;
+    transform-origin:top left;
+}
+.classificationDragOverlay img { pointer-events:none; }
 .classificationCategories { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-bottom:14px; }
 .classificationCategoryBtn { min-height:58px; background:#eee; font-weight:700; }
 .classificationDropZones { align-items:stretch; }
-.classificationDropZone { min-height:150px; padding:14px; border:2px dashed #cfd8e3; border-radius:16px; background:#f8fbff; cursor:pointer; transition:border-color .15s ease,background .15s ease,transform .15s ease; touch-action:none; user-select:none; -webkit-user-select:none; }
+.classificationDropZone { min-height:150px; padding:14px; border:2px dashed #cfd8e3; border-radius:16px; background:#f8fbff; cursor:pointer; transition:border-color .15s ease,background .15s ease,transform .15s ease,box-shadow .15s ease; touch-action:none; user-select:none; -webkit-user-select:none; }
 .classificationDropZone:focus-visible { outline:3px solid rgba(37,99,235,.20); outline-offset:2px; }
-.classificationDropZone.drag-over { border-color:currentColor; background:#fff; transform:translateY(-2px); }
+.classificationDropZone.drag-over { border-color:currentColor; background:#fff; transform:translateY(-2px); box-shadow:0 8px 20px rgba(15,23,42,.08); }
 .classificationDropZoneTitle { font-weight:700; margin-bottom:12px; }
 .classificationDropZoneItems { display:grid; gap:8px; min-height:72px; }
 .classificationPlacedItem { padding:9px 10px; border-radius:10px; background:#fff; box-shadow:0 1px 6px rgba(0,0,0,.07); }
