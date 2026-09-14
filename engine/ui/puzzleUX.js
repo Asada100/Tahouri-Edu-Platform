@@ -1,19 +1,23 @@
 // =====================================
 // Tahouri Edu Platform
 // Puzzle UX Shared Layer
-// Version 1.0
+// Version 1.1
 //
 // Purpose:
 // - Shared interaction vocabulary for all Puzzle types
 // - Shared move-counter synchronization
 // - Shared feedback state helpers
 // - Shared interaction-family mapping
+// - Shared Placement UX for Grid / WordGrid / CrossGrid
 // - No Puzzle type owns common UX behavior
 // =====================================
 
 const PuzzleUX = {
 
-    VERSION: "1.0",
+    VERSION: "1.1",
+
+    initialized: false,
+    placementObserver: null,
 
     families: {
         ordering: "drag",
@@ -41,6 +45,9 @@ const PuzzleUX = {
             feedback: "selected"
         }
     },
+
+    placementSelectors:
+        ".gridAnswerInput, .crossGridAnswerInput",
 
     getFamily: function (type, mode) {
         if (type === "sentence") {
@@ -114,17 +121,169 @@ const PuzzleUX = {
         element.classList.add("puzzlePlacementAnimation");
     },
 
+    getPlacementCell: function (input) {
+        if (!input) return null;
+
+        return input.closest(
+            ".gridMissing, .crossMissingCell"
+        ) || input.parentElement;
+    },
+
+    decoratePlacementTargets: function () {
+        const inputs = document.querySelectorAll(
+            this.placementSelectors
+        );
+
+        inputs.forEach(function (input) {
+            const cell = PuzzleUX.getPlacementCell(input);
+
+            if (!cell) return;
+
+            input.classList.add("puzzlePlacementInput");
+            cell.classList.add("puzzlePlacementCell");
+
+            if (!input.getAttribute("aria-label")) {
+                input.setAttribute(
+                    "aria-label",
+                    "محل وارد کردن پاسخ"
+                );
+            }
+        });
+    },
+
+    clearPlacementTargets: function (exceptCell) {
+        document
+            .querySelectorAll(
+                ".puzzlePlacementCell.puzzleTargetActive"
+            )
+            .forEach(function (cell) {
+                if (cell !== exceptCell) {
+                    PuzzleUX.markTarget(cell, false);
+                }
+            });
+    },
+
+    handlePlacementFocus: function (input, active) {
+        const cell = this.getPlacementCell(input);
+        if (!cell) return;
+
+        if (active) {
+            this.clearPlacementTargets(cell);
+            this.markTarget(cell, true);
+            return;
+        }
+
+        this.markTarget(cell, false);
+    },
+
+    handlePlacementInput: function (input) {
+        const cell = this.getPlacementCell(input);
+        if (!cell) return;
+
+        const hasValue = String(input.value || "").trim() !== "";
+        const wasFilled = cell.dataset.filled === "true";
+
+        cell.classList.toggle("puzzlePlacementFilled", hasValue);
+
+        if (hasValue && !wasFilled) {
+            this.animatePlacement(cell);
+        }
+
+        cell.dataset.filled = hasValue ? "true" : "false";
+    },
+
+    handlePlacementKeydown: function (event, input) {
+        if (event.key !== "Enter") return;
+
+        const screen = input.closest(".puzzleScreen");
+        if (!screen) return;
+
+        const checkButton =
+            screen.querySelector("#gridCheckBtn") ||
+            screen.querySelector("#crossGridCheckBtn");
+
+        if (!checkButton) return;
+
+        event.preventDefault();
+        checkButton.click();
+    },
+
+    bindPlacementEvents: function () {
+        if (this.placementEventsBound) return;
+        this.placementEventsBound = true;
+
+        document.addEventListener("focusin", function (event) {
+            const input = event.target.closest(
+                PuzzleUX.placementSelectors
+            );
+
+            if (!input) return;
+            PuzzleUX.decoratePlacementTargets();
+            PuzzleUX.handlePlacementFocus(input, true);
+        });
+
+        document.addEventListener("focusout", function (event) {
+            const input = event.target.closest(
+                PuzzleUX.placementSelectors
+            );
+
+            if (!input) return;
+            PuzzleUX.handlePlacementFocus(input, false);
+        });
+
+        document.addEventListener("input", function (event) {
+            const input = event.target.closest(
+                PuzzleUX.placementSelectors
+            );
+
+            if (!input) return;
+            PuzzleUX.handlePlacementInput(input);
+        });
+
+        document.addEventListener("keydown", function (event) {
+            const input = event.target.closest(
+                PuzzleUX.placementSelectors
+            );
+
+            if (!input) return;
+            PuzzleUX.handlePlacementKeydown(event, input);
+        });
+    },
+
+    observePlacementTargets: function () {
+        if (this.placementObserver) return;
+        if (typeof MutationObserver === "undefined") return;
+
+        const root = document.getElementById("app") || document.body;
+        if (!root) return;
+
+        this.placementObserver = new MutationObserver(function () {
+            PuzzleUX.decoratePlacementTargets();
+        });
+
+        this.placementObserver.observe(root, {
+            childList: true,
+            subtree: true
+        });
+
+        this.decoratePlacementTargets();
+    },
+
     init: function () {
         if (this.initialized) return;
         this.initialized = true;
 
+        this.bindPlacementEvents();
+        this.observePlacementTargets();
+
         if (typeof EventManager !== "undefined") {
             EventManager.on("puzzleChanged", function (state) {
                 PuzzleUX.updateMoveCount(state);
+                PuzzleUX.decoratePlacementTargets();
             });
         }
 
-        console.log("Puzzle UX Shared Layer v1.0 Ready");
+        console.log("Puzzle UX Shared Layer v1.1 Ready");
     }
 };
 
