@@ -1,0 +1,48 @@
+/* =====================================
+   Puzzle UX — shared interaction layer
+   ===================================== */
+
+.puzzleTargetActive {
+    outline: 3px solid rgba(37, 99, 235, .28);
+    outline-offset: 3px;
+    transform: translateY(-2px);
+}
+
+.puzzlePlacementAnimation {
+    animation: puzzlePlacementSnap 180ms ease-out;
+}
+
+.puzzleFeedbackCorrect,
+.puzzleFeedbackWrong,
+.puzzleFeedbackNeutral {
+    transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.puzzleFeedbackCorrect {
+    transform: scale(1.03);
+}
+
+.puzzleFeedbackWrong {
+    transform: translateX(-2px);
+}
+
+@keyframes puzzlePlacementSnap {
+    0% {
+        transform: scale(.96);
+        opacity: .72;
+    }
+    65% {
+        transform: scale(1.04);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .puzzlePlacementAnimation {
+        animation: none;
+    }
+}
