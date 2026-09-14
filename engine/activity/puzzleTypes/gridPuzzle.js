@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Grid Puzzle
-// Version 2.1
+// Version 2.2
 //
 // Purpose:
 // - Numeric Grid Puzzle
@@ -21,7 +21,7 @@ const GridPuzzle = {
         const left = index % cols > 0 ? values[index - 1] : null;
         const above = index >= cols ? values[index - cols] : null;
         const step = Number(rule.step ?? rule.value ?? 0);
-        const multiplier = Number(rule.multiplier ?? rule.factor ?? 1);
+        const multiplier = Number(rule.multiplier ?? rule.factor ?? rule.value ?? 1);
 
         const finite = value => Number.isFinite(Number(value));
         const n = value => Number(value);
@@ -305,4 +305,4 @@ const GridPuzzle = {
 
 window.GridPuzzle = GridPuzzle;
 PuzzleTypeRegistry.register("grid", GridPuzzle);
-console.log("Grid Puzzle v2.1 Ready");
+console.log("Grid Puzzle v2.2 Ready");
