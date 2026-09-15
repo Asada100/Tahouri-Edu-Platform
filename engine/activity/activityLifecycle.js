@@ -31,7 +31,15 @@ const ActivityLifecycle = {
    SessionManager.addActivity(result.score);StatisticsManager.addResult(activity,result);ActivityState.set("completed");
    // IMPORTANT: cleanup only after all completion consumers have read ActivityHistory.
    if(typeof ActivitySessionManager!=="undefined"&&typeof ActivitySessionManager.complete==="function") ActivitySessionManager.complete();
-   Screen.showFinish(result);
+
+   // JigsawScreen owns the Jigsaw result modal. ActivityLifecycle owns the
+   // completion/persistence flow but must not open a second modal for Jigsaw.
+   const isJigsaw =
+    typeof PuzzleEngine!=="undefined" &&
+    PuzzleEngine.puzzle &&
+    PuzzleEngine.puzzle.type === "jigsaw";
+
+   if(!isJigsaw) Screen.showFinish(result);
   });
   console.log("Activity Lifecycle Connected");
  }
