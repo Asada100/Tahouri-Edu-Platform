@@ -1,7 +1,7 @@
 /* =====================================
    Tahouri Edu Platform
    Jigsaw Puzzle UI
-   Version 1.0
+   Version 1.1
    ===================================== */
 
 .jigsawScreen {
@@ -43,6 +43,7 @@
     border-radius: 14px;
     touch-action: none;
     user-select: none;
+    direction: ltr;
 }
 
 .jigsawPiece {
