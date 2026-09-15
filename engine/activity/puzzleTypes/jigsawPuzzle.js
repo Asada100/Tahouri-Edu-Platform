@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Jigsaw Puzzle Handler
-// Version 1.1
+// Version 1.2
 //
 // Adapter between JigsawPuzzle core and
 // the existing PuzzleEngine lifecycle.
@@ -88,10 +88,14 @@ const JigsawPuzzleHandler = {
 
         engine.moves = state.moves;
 
-        // Important: finish before emitting the normal puzzle-change event.
+        // Re-check the completed board explicitly after every valid move.
+        // The core remains the authority for the solved state.
+        const solved = JigsawPuzzle.check();
+
+        // Finish before emitting the normal puzzle-change event.
         // Otherwise the UI can render the board again after completion and
         // visually overwrite the activity result screen.
-        if (state.solved) {
+        if (solved) {
             engine.finish();
             return true;
         }
@@ -151,4 +155,4 @@ window.JigsawPuzzleHandler = JigsawPuzzleHandler;
 
 PuzzleTypeRegistry.register("jigsaw", JigsawPuzzleHandler);
 
-console.log("Jigsaw Puzzle Handler v1.1 Ready");
+console.log("Jigsaw Puzzle Handler v1.2 Ready");
