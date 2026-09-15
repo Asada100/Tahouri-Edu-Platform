@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Puzzle UX Shared Layer
-// Version 1.1
+// Version 1.2
 //
 // Purpose:
 // - Shared interaction vocabulary for all Puzzle types
@@ -9,12 +9,13 @@
 // - Shared feedback state helpers
 // - Shared interaction-family mapping
 // - Shared Placement UX for Grid / WordGrid / CrossGrid
+// - Shared Selection UX for Visual Math / Sentence Grammar
 // - No Puzzle type owns common UX behavior
 // =====================================
 
 const PuzzleUX = {
 
-    VERSION: "1.1",
+    VERSION: "1.2",
 
     initialized: false,
     placementObserver: null,
@@ -48,6 +49,9 @@ const PuzzleUX = {
 
     placementSelectors:
         ".gridAnswerInput, .crossGridAnswerInput",
+
+    selectionSelectors:
+        ".visualComparisonBtn, .grammarSelect",
 
     getFamily: function (type, mode) {
         if (type === "sentence") {
@@ -208,6 +212,45 @@ const PuzzleUX = {
         checkButton.click();
     },
 
+    handleSelection: function (element) {
+        if (!element) return;
+
+        const selector = element.matches(".visualComparisonBtn")
+            ? ".visualComparisonBtn"
+            : ".grammarSelect";
+
+        const scope = element.closest(".puzzleScreen") || document;
+
+        scope.querySelectorAll(selector).forEach(function (item) {
+            item.classList.remove("puzzleSelectionActive");
+        });
+
+        element.classList.add("puzzleSelectionActive");
+    },
+
+    decorateSelectionTargets: function () {
+        document.querySelectorAll(this.selectionSelectors).forEach(function (element) {
+            element.classList.add("puzzleSelectionTarget");
+        });
+    },
+
+    bindSelectionEvents: function () {
+        if (this.selectionEventsBound) return;
+        this.selectionEventsBound = true;
+
+        document.addEventListener("click", function (event) {
+            const button = event.target.closest(".visualComparisonBtn");
+            if (!button) return;
+            PuzzleUX.handleSelection(button);
+        });
+
+        document.addEventListener("change", function (event) {
+            const select = event.target.closest(".grammarSelect");
+            if (!select) return;
+            PuzzleUX.handleSelection(select);
+        });
+    },
+
     bindPlacementEvents: function () {
         if (this.placementEventsBound) return;
         this.placementEventsBound = true;
@@ -259,6 +302,7 @@ const PuzzleUX = {
 
         this.placementObserver = new MutationObserver(function () {
             PuzzleUX.decoratePlacementTargets();
+            PuzzleUX.decorateSelectionTargets();
         });
 
         this.placementObserver.observe(root, {
@@ -267,6 +311,7 @@ const PuzzleUX = {
         });
 
         this.decoratePlacementTargets();
+        this.decorateSelectionTargets();
     },
 
     init: function () {
@@ -274,16 +319,18 @@ const PuzzleUX = {
         this.initialized = true;
 
         this.bindPlacementEvents();
+        this.bindSelectionEvents();
         this.observePlacementTargets();
 
         if (typeof EventManager !== "undefined") {
             EventManager.on("puzzleChanged", function (state) {
                 PuzzleUX.updateMoveCount(state);
                 PuzzleUX.decoratePlacementTargets();
+                PuzzleUX.decorateSelectionTargets();
             });
         }
 
-        console.log("Puzzle UX Shared Layer v1.1 Ready");
+        console.log("Puzzle UX Shared Layer v1.2 Ready");
     }
 };
 
