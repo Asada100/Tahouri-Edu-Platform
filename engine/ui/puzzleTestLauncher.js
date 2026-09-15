@@ -1,12 +1,11 @@
 // =====================================
 // Tahouri Edu Platform
 // Temporary Puzzle Test Launcher
-// Version 1.4
+// Version 1.5
 // DEVELOPMENT ONLY
 // =====================================
 
 const PuzzleTestLauncher = {
-
     samples: [
         {
             id: "jigsawFrog3x3",
@@ -15,13 +14,8 @@ const PuzzleTestLauncher = {
             objective: "تصویر را کامل کن",
             instruction: "قطعه‌ها را جابه‌جا کن تا تصویر کامل شود.",
             difficulty: 2,
-            content: {
-                image: "assets/images/green_frog.jpg",
-                rows: 3,
-                cols: 3
-            }
+            content: { image: "assets/images/green_frog.jpg", rows: 3, cols: 3 }
         },
-
         {
             id: "inputOutputTest",
             title: "ورودی و خروجی",
@@ -31,14 +25,9 @@ const PuzzleTestLauncher = {
             difficulty: 2,
             inputs: [2, 4, 7, 9],
             outputs: [5, 9, 15, null],
-            rule: {
-                operation: "multiplyAdd",
-                multiplier: 2,
-                add: 1
-            },
+            rule: { operation: "multiplyAdd", multiplier: 2, add: 1 },
             answer: 19
         },
-
         {
             id: "gridTest",
             title: "جدول عددی",
@@ -50,16 +39,9 @@ const PuzzleTestLauncher = {
             cols: 3,
             cells: [2, 4, 6, 3, null, 27],
             missingIndices: [4],
-            rules: [
-                {
-                    row: 1,
-                    operation: "multiply",
-                    value: 3
-                }
-            ],
+            rules: [{ row: 1, operation: "multiply", value: 3 }],
             answers: [9]
         },
-
         {
             id: "wordGridTest",
             title: "واژه مرتبط",
@@ -71,13 +53,9 @@ const PuzzleTestLauncher = {
             cols: 2,
             cells: ["سریع", null],
             missingIndices: [1],
-            relation: {
-                type: "synonym",
-                accepted: ["تند", "شتابان"]
-            },
+            relation: { type: "synonym", accepted: ["تند", "شتابان"] },
             answers: ["تند"]
         },
-
         {
             id: "crossGridTest",
             title: "جدول متقاطع",
@@ -90,30 +68,13 @@ const PuzzleTestLauncher = {
             cells: [2, 4, 6, null],
             missingIndices: [3],
             paths: [
-                {
-                    cells: [0, 1],
-                    operations: ["add"],
-                    target: 6
-                },
-                {
-                    cells: [0, 2],
-                    operations: ["add"],
-                    target: 8
-                },
-                {
-                    cells: [2, 3],
-                    operations: ["add"],
-                    target: 14
-                },
-                {
-                    cells: [1, 3],
-                    operations: ["add"],
-                    target: 12
-                }
+                { cells: [0, 1], operations: ["add"], target: 6 },
+                { cells: [0, 2], operations: ["add"], target: 8 },
+                { cells: [2, 3], operations: ["add"], target: 14 },
+                { cells: [1, 3], operations: ["add"], target: 12 }
             ],
             answers: [8]
         },
-
         {
             id: "visualMathComparisonTest",
             title: "مقایسه تصویری",
@@ -121,20 +82,13 @@ const PuzzleTestLauncher = {
             objective: "دو گروه را مقایسه کن",
             instruction: "مشخص کن کدام گروه بیشتر است یا آیا برابرند.",
             difficulty: 2,
+            source: "generated",
             operation: "comparison",
-            items: [
-                {
-                    image: "assets/images/green_frog.jpg",
-                    count: 3
-                },
-                {
-                    image: "assets/images/green_frog.jpg",
-                    count: 2
-                }
-            ],
-            answer: "left"
+            image: "assets/images/green_frog.jpg",
+            minCount: 1,
+            maxCount: 5,
+            questions: 10
         },
-
         {
             id: "sentenceGrammarTest",
             title: "نقش دستوری",
@@ -152,26 +106,35 @@ const PuzzleTestLauncher = {
     open: function (sample) {
         if (!sample || typeof ActivityManager === "undefined") return;
 
-        if (
-            typeof ActivitySessionManager !== "undefined" &&
-            ActivitySessionManager.clear
-        ) {
+        if (typeof ActivitySessionManager !== "undefined" && ActivitySessionManager.clear) {
             ActivitySessionManager.clear(sample.id);
+        }
+
+        const settings = {
+            difficulty: sample.difficulty
+        };
+
+        if (sample.source === "generated") {
+            settings.questionSource = "generated";
+            settings.questions = Number(sample.questions) || 1;
         }
 
         ActivityManager.load({
             id: sample.id,
             title: sample.title,
             engine: "puzzle",
+            settings: settings,
             puzzle: {
                 type: sample.type,
-                source: "file",
+                source: sample.source || "file",
                 objective: sample.objective,
                 instruction: sample.instruction,
                 difficulty: sample.difficulty,
                 mode: sample.mode,
                 operation: sample.operation,
-                image: sample.content && sample.content.image,
+                image: sample.image || (sample.content && sample.content.image),
+                minCount: sample.minCount,
+                maxCount: sample.maxCount,
                 rows: sample.rows || (sample.content && sample.content.rows),
                 cols: sample.cols || (sample.content && sample.content.cols),
                 cells: sample.cells,
@@ -201,9 +164,7 @@ const PuzzleTestLauncher = {
         panel.dir = "rtl";
 
         panel.innerHTML = `
-            <button type="button" class="puzzleTestLauncherToggle" aria-expanded="false">
-                🧩 آزمایش پازل
-            </button>
+            <button type="button" class="puzzleTestLauncherToggle" aria-expanded="false">🧩 آزمایش پازل</button>
             <div class="puzzleTestLauncherMenu" hidden>
                 ${this.samples.map(function (sample, index) {
                     return `<button type="button" class="puzzleTestButton" data-index="${index}">${sample.title}</button>`;
@@ -226,9 +187,7 @@ const PuzzleTestLauncher = {
             button.addEventListener("click", function () {
                 menu.hidden = true;
                 toggle.setAttribute("aria-expanded", "false");
-                PuzzleTestLauncher.open(
-                    PuzzleTestLauncher.samples[Number(this.dataset.index)]
-                );
+                PuzzleTestLauncher.open(PuzzleTestLauncher.samples[Number(this.dataset.index)]);
             });
         });
     }
@@ -237,11 +196,9 @@ const PuzzleTestLauncher = {
 window.PuzzleTestLauncher = PuzzleTestLauncher;
 
 if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", function () {
-        PuzzleTestLauncher.render();
-    });
+    document.addEventListener("DOMContentLoaded", function () { PuzzleTestLauncher.render(); });
 } else {
     PuzzleTestLauncher.render();
 }
 
-console.log("Puzzle Test Launcher v1.4 Ready");
+console.log("Puzzle Test Launcher v1.5 Ready");
