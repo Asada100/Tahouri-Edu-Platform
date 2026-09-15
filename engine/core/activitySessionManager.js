@@ -1,17 +1,18 @@
 // =====================================
 // Tahouri Edu Platform
-// Activity Session Manager v1.7
+// Activity Session Manager v1.8
 // =====================================
 // Single session architecture:
 // - SessionManager owns snapshot/restore.
 // - Activity engines do not need session APIs.
 // - One independent resumable session per activity.
 // - Classification and Matching keep their existing restore paths.
+// - Puzzle sessions preserve the complete multi-question state.
 // =====================================
 
 const ActivitySessionManager = {
     BASE_KEY: "Tahouri_ActivitySession",
-    VERSION: "1.7",
+    VERSION: "1.8",
     currentSession: null,
     exitControlId: "activitySessionControl",
     overlayId: "activitySessionOverlay",
@@ -103,10 +104,15 @@ const ActivitySessionManager = {
                 kind: "puzzle",
                 activity: engine.activity || activity,
                 state: { ...(engine.state || {}) },
+                questions: Array.isArray(engine.questions) ? JSON.parse(JSON.stringify(engine.questions)) : [],
+                currentQuestion: Number(engine.currentQuestion || 0),
                 puzzle: engine.puzzle ? JSON.parse(JSON.stringify(engine.puzzle)) : null,
                 items: Array.isArray(engine.items) ? JSON.parse(JSON.stringify(engine.items)) : [],
                 userAnswer: engine.userAnswer,
-                moves: Number(engine.moves || 0)
+                moves: Number(engine.moves || 0),
+                score: typeof ScoreManager !== "undefined" ? Number(ScoreManager.score || 0) : 0,
+                correct: typeof ScoreManager !== "undefined" ? Number(ScoreManager.correct || 0) : 0,
+                wrong: typeof ScoreManager !== "undefined" ? Number(ScoreManager.wrong || 0) : 0
             };
         }
 
@@ -262,15 +268,34 @@ const ActivitySessionManager = {
 
         if (data.kind === "puzzle" && (engineName === "PuzzleEngine" || engineName === "puzzle")) {
             engine.activity = data.activity || activity;
+            engine.questions = Array.isArray(data.questions) ? JSON.parse(JSON.stringify(data.questions)) : [];
+            engine.currentQuestion = Number.isInteger(data.currentQuestion) ? data.currentQuestion : 0;
             engine.state = { ...(data.state || {}), started: true, isFinished: false };
             engine.puzzle = data.puzzle ? JSON.parse(JSON.stringify(data.puzzle)) : null;
             engine.items = Array.isArray(data.items) ? JSON.parse(JSON.stringify(data.items)) : [];
             engine.userAnswer = data.userAnswer;
             engine.moves = Number(data.moves || 0);
+            engine.transitioning = false;
+            engine.checking = false;
+            if (typeof ScoreManager !== "undefined") {
+                ScoreManager.score = Number(data.score || 0);
+                ScoreManager.correct = Number(data.correct || 0);
+                ScoreManager.wrong = Number(data.wrong || 0);
+            }
+            if (!engine.puzzle || !engine.questions.length || engine.currentQuestion < 0 || engine.currentQuestion >= engine.questions.length) {
+                console.warn("ActivitySessionManager: Invalid Puzzle session state", activity.id);
+                return false;
+            }
             ActivityManager.currentActivity = activity;
             ActivityState.set("started");
             ActivityState.set("playing");
             if (typeof PuzzleScreen !== "undefined" && typeof PuzzleScreen.show === "function") PuzzleScreen.show(engine.getState());
+            console.log("ActivitySessionManager: Puzzle session restored", {
+                activityId: activity.id,
+                question: engine.currentQuestion + 1,
+                totalQuestions: engine.questions.length,
+                score: typeof ScoreManager !== "undefined" ? ScoreManager.score : 0
+            });
             return true;
         }
 
@@ -461,7 +486,7 @@ const ActivitySessionManager = {
         window.addEventListener("beforeunload", function () {
             if (ActivitySessionManager.gameplayActive) ActivitySessionManager.capture("resumable");
         });
-        console.log("Activity Session Manager v1.7 Ready");
+        console.log("Activity Session Manager v1.8 Ready");
     }
 };
 
