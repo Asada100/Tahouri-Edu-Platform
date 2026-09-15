@@ -1,10 +1,8 @@
 // =====================================
 // Tahouri Edu Platform
 // Jigsaw Puzzle Handler
-// Version 1.2
-//
-// Adapter between JigsawPuzzle core and
-// the existing PuzzleEngine lifecycle.
+// Version 1.3
+// Completion-safe adapter
 // =====================================
 
 const JigsawPuzzleHandler = {
@@ -65,7 +63,13 @@ const JigsawPuzzleHandler = {
 
     move: function (engine, fromIndex, toIndex) {
 
-        if (!engine.puzzle || engine.puzzle.type !== "jigsaw") {
+        if (!engine || !engine.puzzle || engine.puzzle.type !== "jigsaw") {
+            return false;
+        }
+
+        // Once PuzzleEngine has finished the activity, no UI path may
+        // mutate the puzzle state anymore.
+        if (engine.state && engine.state.isFinished) {
             return false;
         }
 
@@ -88,14 +92,10 @@ const JigsawPuzzleHandler = {
 
         engine.moves = state.moves;
 
-        // Re-check the completed board explicitly after every valid move.
-        // The core remains the authority for the solved state.
         const solved = JigsawPuzzle.check();
 
-        // Finish before emitting the normal puzzle-change event.
-        // Otherwise the UI can render the board again after completion and
-        // visually overwrite the activity result screen.
         if (solved) {
+            // Finish before any normal puzzle-change event can be emitted.
             engine.finish();
             return true;
         }
@@ -107,7 +107,11 @@ const JigsawPuzzleHandler = {
 
     reset: function (engine) {
 
-        if (!engine.puzzle || engine.puzzle.type !== "jigsaw") {
+        if (!engine || !engine.puzzle || engine.puzzle.type !== "jigsaw") {
+            return false;
+        }
+
+        if (engine.state && engine.state.isFinished) {
             return false;
         }
 
@@ -135,8 +139,12 @@ const JigsawPuzzleHandler = {
 
     check: function (engine) {
 
-        if (!engine.puzzle || engine.puzzle.type !== "jigsaw") {
+        if (!engine || !engine.puzzle || engine.puzzle.type !== "jigsaw") {
             return false;
+        }
+
+        if (engine.state && engine.state.isFinished) {
+            return !!(JigsawPuzzle.state && JigsawPuzzle.state.solved);
         }
 
         const solved = JigsawPuzzle.check();
@@ -155,4 +163,4 @@ window.JigsawPuzzleHandler = JigsawPuzzleHandler;
 
 PuzzleTypeRegistry.register("jigsaw", JigsawPuzzleHandler);
 
-console.log("Jigsaw Puzzle Handler v1.2 Ready");
+console.log("Jigsaw Puzzle Handler v1.3 Ready");
