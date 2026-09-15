@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Puzzle Engine
-// Version 3.1
+// Version 3.2
 // Multi-question lifecycle + aggregated result
 // =====================================
 
@@ -28,36 +28,21 @@ const PuzzleEngine = {
         this.items = [];
         this.userAnswer = null;
         this.moves = 0;
-
         if (typeof QuestionProvider === "undefined") { console.error("Puzzle Engine: QuestionProvider Not Available"); this.state.started = false; return null; }
         if (typeof PuzzleTypeRegistry === "undefined") { console.error("Puzzle Engine: PuzzleTypeRegistry Not Available"); this.state.started = false; return null; }
-
         const providerActivity = this.prepareProviderActivity(activityData);
         let puzzleQuestions;
         try { puzzleQuestions = await QuestionProvider.getPuzzleQuestions(providerActivity); }
         catch (error) { console.error("Puzzle Engine: QuestionProvider Error:", error); this.state.started = false; return null; }
-
-        if (!Array.isArray(puzzleQuestions) || puzzleQuestions.length === 0) {
-            console.error("Puzzle Engine: No Puzzle Content Available");
-            this.state.started = false;
-            return null;
-        }
-
+        if (!Array.isArray(puzzleQuestions) || puzzleQuestions.length === 0) { console.error("Puzzle Engine: No Puzzle Content Available"); this.state.started = false; return null; }
         this.questions = puzzleQuestions.filter(Boolean);
-        if (this.questions.length === 0) {
-            console.error("Puzzle Engine: No Valid Puzzle Questions");
-            this.state.started = false;
-            return null;
-        }
-
+        if (this.questions.length === 0) { console.error("Puzzle Engine: No Valid Puzzle Questions"); this.state.started = false; return null; }
         if (typeof ScoreManager !== "undefined" && typeof ScoreManager.reset === "function") ScoreManager.reset();
-
         EventManager.emit("activityStarted", activityData);
         EventManager.emit("activityPlaying");
-
         console.log("Puzzle Questions Ready:", this.questions.length);
         // ActivityManager publishes the first activityReady event.
-        // Internal question changes use puzzleQuestionReady instead.
+        // Subsequent questions also use activityReady so existing Puzzle/Jigsaw screens stay compatible.
         return this.startCurrentQuestion(false);
     },
 
@@ -66,43 +51,29 @@ const PuzzleEngine = {
         const settings = activityData.settings || {};
         const hasExplicitSource = puzzle.source !== undefined || settings.questionSource !== undefined;
         if (hasExplicitSource) return activityData;
-
-        const hasFixedData =
-            Array.isArray(puzzle.items) || Array.isArray(puzzle.correctOrder) ||
-            Array.isArray(puzzle.options) || Array.isArray(puzzle.words) ||
-            Array.isArray(puzzle.cells) || Array.isArray(puzzle.inputs) ||
-            Array.isArray(puzzle.outputs);
-
-        if (hasFixedData) {
-            return { ...activityData, settings: { ...settings, questionSource: "file" }, puzzle: { ...puzzle, source: "file" } };
-        }
-
+        const hasFixedData = Array.isArray(puzzle.items) || Array.isArray(puzzle.correctOrder) || Array.isArray(puzzle.options) || Array.isArray(puzzle.words) || Array.isArray(puzzle.cells) || Array.isArray(puzzle.inputs) || Array.isArray(puzzle.outputs);
+        if (hasFixedData) return { ...activityData, settings: { ...settings, questionSource: "file" }, puzzle: { ...puzzle, source: "file" } };
         return { ...activityData, settings: { ...settings, questionSource: "generated" }, puzzle: { ...puzzle, source: "generated" } };
     },
 
     startCurrentQuestion: function (publishReady) {
         if (this.currentQuestion >= this.questions.length) { this.completeActivity(); return null; }
-
         this.puzzle = null;
         this.items = [];
         this.userAnswer = null;
-
         const puzzle = this.questions[this.currentQuestion];
         if (!puzzle) { console.error("Puzzle Engine: Invalid Puzzle Content", this.currentQuestion); this.state.started = false; return null; }
-
         const handler = PuzzleTypeRegistry.get(puzzle.type);
         if (!handler || typeof handler.start !== "function") { console.error("Puzzle Engine: Unsupported Puzzle Type:", puzzle.type); this.state.started = false; return null; }
-
         console.log("Puzzle Question:", this.currentQuestion + 1, "/", this.questions.length, puzzle.type);
         const result = handler.start(this, puzzle);
         if (!result) { console.error("Puzzle Engine: Puzzle Handler Failed:", puzzle.type); this.state.started = false; return null; }
-
         if (publishReady) this.emitCurrentQuestionReady();
         return result;
     },
 
     emitCurrentQuestionReady: function () {
-        EventManager.emit("puzzleQuestionReady", { activity: this.activity, engine: this, result: this.getState() });
+        EventManager.emit("activityReady", { activity: this.activity, engine: this, engineName: "PuzzleEngine", result: this.getState() });
     },
 
     getState: function () {
@@ -120,7 +91,6 @@ const PuzzleEngine = {
             finished: this.state.isFinished
         };
         if (!this.puzzle) return state;
-
         if (this.puzzle.type === "ordering") state.correctOrder = Array.isArray(this.puzzle.correctOrder) ? [...this.puzzle.correctOrder] : [];
         if (this.puzzle.type === "sequence") { state.missingIndex = this.puzzle.missingIndex; state.answer = this.puzzle.answer; state.pattern = this.puzzle.pattern; state.step = this.puzzle.step; state.multiplier = this.puzzle.multiplier; }
         if (this.puzzle.type === "visualMath") { state.operation = this.puzzle.operation; state.comparison = this.puzzle.comparison; state.answer = this.puzzle.answer; }
@@ -136,25 +106,9 @@ const PuzzleEngine = {
 
     setOrder: function (newOrder) { if (!Array.isArray(newOrder)) return false; this.items = [...newOrder]; this.moves++; EventManager.emit("puzzleChanged", this.getState()); return true; },
     setSequenceAnswer: function (value) { if (!this.puzzle || this.puzzle.type !== "sequence") return false; this.items[this.puzzle.missingIndex] = value; this.moves++; EventManager.emit("puzzleChanged", this.getState()); return true; },
-    setVisualMathAnswer: function (value) {
-        if (!this.puzzle || this.puzzle.type !== "visualMath") return false;
-        if (this.puzzle.operation === "comparison") { if (!["left", "right", "equal"].includes(value)) return false; this.userAnswer = value; }
-        else { const numericValue = Number(value); if (!Number.isFinite(numericValue)) return false; this.userAnswer = numericValue; }
-        this.moves++; EventManager.emit("puzzleChanged", this.getState()); return true;
-    },
-    setGenericAnswer: function (value) {
-        if (!this.puzzle) return false;
-        this.userAnswer = Array.isArray(value) ? [...value] : value;
-        if (this.puzzle.type === "inputOutput" && Number.isInteger(this.puzzle.missingIndex)) this.items[this.puzzle.missingIndex] = value;
-        this.moves++; EventManager.emit("puzzleChanged", this.getState()); return true;
-    },
-    setTypeAnswer: function (value) {
-        if (!this.puzzle) return false;
-        const handler = PuzzleTypeRegistry.get(this.puzzle.type);
-        if (!handler) return false;
-        if (typeof handler.setAnswer === "function") return handler.setAnswer(this, value);
-        this.userAnswer = Array.isArray(value) ? [...value] : value; this.moves++; EventManager.emit("puzzleChanged", this.getState()); return true;
-    },
+    setVisualMathAnswer: function (value) { if (!this.puzzle || this.puzzle.type !== "visualMath") return false; if (this.puzzle.operation === "comparison") { if (!["left", "right", "equal"].includes(value)) return false; this.userAnswer = value; } else { const numericValue = Number(value); if (!Number.isFinite(numericValue)) return false; this.userAnswer = numericValue; } this.moves++; EventManager.emit("puzzleChanged", this.getState()); return true; },
+    setGenericAnswer: function (value) { if (!this.puzzle) return false; this.userAnswer = Array.isArray(value) ? [...value] : value; if (this.puzzle.type === "inputOutput" && Number.isInteger(this.puzzle.missingIndex)) this.items[this.puzzle.missingIndex] = value; this.moves++; EventManager.emit("puzzleChanged", this.getState()); return true; },
+    setTypeAnswer: function (value) { if (!this.puzzle) return false; const handler = PuzzleTypeRegistry.get(this.puzzle.type); if (!handler) return false; if (typeof handler.setAnswer === "function") return handler.setAnswer(this, value); this.userAnswer = Array.isArray(value) ? [...value] : value; this.moves++; EventManager.emit("puzzleChanged", this.getState()); return true; },
     setCell: function (index, value) { if (!this.puzzle) return false; const handler = PuzzleTypeRegistry.get(this.puzzle.type); if (!handler || typeof handler.setCell !== "function") return false; return handler.setCell(this, index, value); },
     setCells: function (values) { if (!this.puzzle) return false; const handler = PuzzleTypeRegistry.get(this.puzzle.type); if (!handler || typeof handler.setCells !== "function") return false; return handler.setCells(this, values); },
     check: function () { if (!this.puzzle) return false; const handler = PuzzleTypeRegistry.get(this.puzzle.type); if (!handler || typeof handler.check !== "function") return false; return handler.check(this); },
@@ -163,18 +117,14 @@ const PuzzleEngine = {
 
     finish: function () {
         if (this.state.isFinished || this.transitioning) return;
-
         if (typeof ScoreManager !== "undefined" && typeof ScoreManager.addCorrect === "function") ScoreManager.addCorrect();
-
         this.currentQuestion++;
-
         if (this.currentQuestion < this.questions.length) {
             this.transitioning = true;
             const nextState = this.startCurrentQuestion(true);
             setTimeout(function () { PuzzleEngine.transitioning = false; }, 0);
             return nextState;
         }
-
         return this.completeActivity();
     },
 
@@ -208,4 +158,4 @@ const PuzzleEngine = {
 };
 
 window.PuzzleEngine = PuzzleEngine;
-console.log("Puzzle Engine v3.1 Ready");
+console.log("Puzzle Engine v3.2 Ready");
