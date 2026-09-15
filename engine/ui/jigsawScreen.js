@@ -1,8 +1,9 @@
 // =====================================
 // Tahouri Edu Platform
 // Jigsaw Puzzle Screen
-// Version 1.4
+// Version 1.5
 // Memory Preview + Completion Lock
+// Completion owned by PuzzleEngine.check()
 // =====================================
 
 const JigsawScreen = {
@@ -39,7 +40,7 @@ const JigsawScreen = {
         });
 
         this.connected = true;
-        console.log("Jigsaw Screen v1.4 Ready");
+        console.log("Jigsaw Screen v1.5 Ready");
     },
 
     isFinished: function () {
@@ -98,16 +99,13 @@ const JigsawScreen = {
         this.selectedIndex = null;
         this.dragIndex = null;
 
-        // First show the complete image so the learner can observe it.
         this.render(state, { preview: true });
 
         const previewSeconds = this.getPreviewSeconds();
         const token = ++this.presentationToken;
         let remaining = previewSeconds;
 
-        this.showStatus(
-            `تصویر را به خاطر بسپار — ${remaining} ثانیه`
-        );
+        this.showStatus(`تصویر را به خاطر بسپار — ${remaining} ثانیه`);
 
         this.presentationTimer = setInterval(function () {
             if (token !== JigsawScreen.presentationToken) return;
@@ -115,9 +113,7 @@ const JigsawScreen = {
             remaining -= 1;
 
             if (remaining > 0) {
-                JigsawScreen.showStatus(
-                    `تصویر را به خاطر بسپار — ${remaining} ثانیه`
-                );
+                JigsawScreen.showStatus(`تصویر را به خاطر بسپار — ${remaining} ثانیه`);
                 return;
             }
 
@@ -193,9 +189,7 @@ const JigsawScreen = {
 
         const pieceByPosition = {};
         coreState.pieces.forEach(function (piece) {
-            const position = config.preview
-                ? piece.correctIndex
-                : piece.currentIndex;
+            const position = config.preview ? piece.correctIndex : piece.currentIndex;
             pieceByPosition[position] = piece;
         });
 
@@ -232,11 +226,7 @@ const JigsawScreen = {
                     <p class="jigsawInstruction">${this.escapeHTML(puzzle.instruction || "قطعه‌ها را جابه‌جا کن تا تصویر کامل شود.")}</p>
                 </div>
 
-                <div
-                    id="jigsawBoard"
-                    class="${boardClass}"
-                    style="grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr)"
-                    aria-label="صفحه پازل تصویری">
+                <div id="jigsawBoard" class="${boardClass}" style="grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr)" aria-label="صفحه پازل تصویری">
                     ${boardHTML}
                 </div>
 
@@ -254,10 +244,7 @@ const JigsawScreen = {
 
         this.bindBoard();
 
-        if (config.preview) {
-            this.showStatus("");
-        }
-
+        if (config.preview) this.showStatus("");
         this.updateCorrectPieces(coreState);
     },
 
@@ -282,9 +269,7 @@ const JigsawScreen = {
                 this.classList.add("jigsawSource");
 
                 if (typeof this.setPointerCapture === "function") {
-                    try {
-                        this.setPointerCapture(event.pointerId);
-                    } catch (error) {}
+                    try { this.setPointerCapture(event.pointerId); } catch (error) {}
                 }
             });
 
@@ -299,9 +284,7 @@ const JigsawScreen = {
 
                 const source = JigsawScreen.dragIndex;
                 const targetElement = document.elementFromPoint(event.clientX, event.clientY);
-                const targetPiece = targetElement
-                    ? targetElement.closest(".jigsawPiece")
-                    : null;
+                const targetPiece = targetElement ? targetElement.closest(".jigsawPiece") : null;
 
                 this.classList.remove("jigsawSource");
                 JigsawScreen.dragIndex = null;
@@ -362,19 +345,13 @@ const JigsawScreen = {
             const state = JigsawPuzzle.getState();
             this.updateCorrectPieces(state);
 
+            // Completion is handled by JigsawPuzzleHandler.move() through
+            // PuzzleEngine.check(). The screen must not call finish() again.
             if (state.solved) {
                 this.selectedIndex = null;
                 this.dragIndex = null;
                 this.highlightSelection(null);
                 this.showStatus("تصویر کامل شد! 🎉");
-
-                if (
-                    typeof PuzzleEngine !== "undefined" &&
-                    !PuzzleEngine.state.isFinished &&
-                    typeof PuzzleEngine.finish === "function"
-                ) {
-                    PuzzleEngine.finish();
-                }
             } else {
                 this.showStatus("");
             }
@@ -388,10 +365,7 @@ const JigsawScreen = {
 
         if (index === null) return;
 
-        const selected = document.querySelector(
-            `.jigsawPiece[data-position="${index}"]`
-        );
-
+        const selected = document.querySelector(`.jigsawPiece[data-position="${index}"]`);
         if (selected) selected.classList.add("jigsawTarget");
     },
 
@@ -399,16 +373,10 @@ const JigsawScreen = {
         if (!state || !Array.isArray(state.pieces)) return;
 
         state.pieces.forEach(function (piece) {
-            const element = document.querySelector(
-                `.jigsawPiece[data-position="${piece.currentIndex}"]`
-            );
-
+            const element = document.querySelector(`.jigsawPiece[data-position="${piece.currentIndex}"]`);
             if (!element) return;
 
-            element.classList.toggle(
-                "jigsawCorrect",
-                piece.currentIndex === piece.correctIndex
-            );
+            element.classList.toggle("jigsawCorrect", piece.currentIndex === piece.correctIndex);
         });
 
         const count = document.getElementById("puzzleMoveCount");
