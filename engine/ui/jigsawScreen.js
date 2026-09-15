@@ -1,8 +1,8 @@
 // =====================================
 // Tahouri Edu Platform
 // Jigsaw Puzzle Screen
-// Version 1.3
-// Completion Lock + Finish-Safe Interaction
+// Version 1.4
+// Memory Preview + Completion Lock
 // =====================================
 
 const JigsawScreen = {
@@ -10,6 +10,9 @@ const JigsawScreen = {
     connected: false,
     dragIndex: null,
     selectedIndex: null,
+    presentationActive: false,
+    presentationTimer: null,
+    presentationToken: 0,
 
     init: function () {
         if (typeof EventManager === "undefined") {
@@ -25,11 +28,15 @@ const JigsawScreen = {
 
         EventManager.on("puzzleChanged", function (state) {
             if (state && state.type === "jigsaw") {
-                JigsawScreen.render(state);
+                if (!JigsawScreen.presentationActive) {
+                    JigsawScreen.render(state);
+                }
             }
         });
 
         EventManager.on("activityFinished", function (result) {
+            JigsawScreen.cancelPresentation();
+
             const activity =
                 typeof ActivityManager !== "undefined" &&
                 typeof ActivityManager.getCurrent === "function"
@@ -50,7 +57,7 @@ const JigsawScreen = {
         });
 
         this.connected = true;
-        console.log("Jigsaw Screen v1.3 Ready");
+        console.log("Jigsaw Screen v1.4 Ready");
     },
 
     isFinished: function () {
@@ -83,10 +90,103 @@ const JigsawScreen = {
 
         this.selectedIndex = null;
         this.dragIndex = null;
-        this.render(result || {});
+        this.startPresentation(result || {});
     },
 
-    render: function (state) {
+    getPreviewSeconds: function () {
+        const puzzle = typeof PuzzleEngine !== "undefined" ? PuzzleEngine.puzzle : null;
+        const difficulty = Number(puzzle && puzzle.difficulty ? puzzle.difficulty : 1);
+
+        if (difficulty <= 1) return 5;
+        if (difficulty === 2) return 4;
+        if (difficulty === 3) return 3;
+        return 2;
+    },
+
+    startPresentation: function (state) {
+        this.cancelPresentation();
+
+        const coreState = typeof JigsawPuzzle !== "undefined"
+            ? JigsawPuzzle.getState()
+            : null;
+
+        if (!coreState || !Array.isArray(coreState.pieces)) return;
+
+        this.presentationActive = true;
+        this.selectedIndex = null;
+        this.dragIndex = null;
+
+        // First show the complete image so the learner can observe it.
+        this.render(state, { preview: true });
+
+        const previewSeconds = this.getPreviewSeconds();
+        const token = ++this.presentationToken;
+        let remaining = previewSeconds;
+
+        this.showStatus(
+            `تصویر را به خاطر بسپار — ${remaining} ثانیه`
+        );
+
+        this.presentationTimer = setInterval(function () {
+            if (token !== JigsawScreen.presentationToken) return;
+
+            remaining -= 1;
+
+            if (remaining > 0) {
+                JigsawScreen.showStatus(
+                    `تصویر را به خاطر بسپار — ${remaining} ثانیه`
+                );
+                return;
+            }
+
+            clearInterval(JigsawScreen.presentationTimer);
+            JigsawScreen.presentationTimer = null;
+            JigsawScreen.startCountdown(token, state);
+        }, 1000);
+    },
+
+    startCountdown: function (token, state) {
+        let count = 3;
+
+        const tick = function () {
+            if (token !== JigsawScreen.presentationToken) return;
+
+            JigsawScreen.showStatus(String(count));
+
+            if (count === 0) {
+                JigsawScreen.finishPresentation(state);
+                return;
+            }
+
+            count -= 1;
+            JigsawScreen.presentationTimer = setTimeout(tick, 700);
+        };
+
+        tick();
+    },
+
+    finishPresentation: function (state) {
+        this.presentationActive = false;
+        this.presentationTimer = null;
+        this.selectedIndex = null;
+        this.dragIndex = null;
+
+        this.render(state, { scrambleReveal: true });
+        this.showStatus("حالا تصویر را کامل کن");
+    },
+
+    cancelPresentation: function () {
+        this.presentationToken += 1;
+        this.presentationActive = false;
+
+        if (this.presentationTimer !== null) {
+            clearInterval(this.presentationTimer);
+            clearTimeout(this.presentationTimer);
+            this.presentationTimer = null;
+        }
+    },
+
+    render: function (state, options) {
         const app = document.getElementById("app");
         if (!app) return;
 
@@ -96,6 +196,7 @@ const JigsawScreen = {
         const rows = Number(puzzle.rows);
         const cols = Number(puzzle.cols);
         const image = puzzle.image;
+        const config = options || {};
 
         if (!Number.isInteger(rows) || !Number.isInteger(cols) || !image) {
             console.error("Jigsaw Screen: Invalid Puzzle State");
@@ -110,7 +211,10 @@ const JigsawScreen = {
 
         const pieceByPosition = {};
         coreState.pieces.forEach(function (piece) {
-            pieceByPosition[piece.currentIndex] = piece;
+            const position = config.preview
+                ? piece.correctIndex
+                : piece.currentIndex;
+            pieceByPosition[position] = piece;
         });
 
         let boardHTML = "";
@@ -134,6 +238,10 @@ const JigsawScreen = {
             `;
         }
 
+        const boardClass = config.scrambleReveal
+            ? "jigsawBoard jigsawScrambleReveal"
+            : "jigsawBoard";
+
         app.innerHTML = `
             <div class="screen puzzleScreen jigsawScreen" dir="rtl">
                 <div class="jigsawHeader">
@@ -144,7 +252,7 @@ const JigsawScreen = {
 
                 <div
                     id="jigsawBoard"
-                    class="jigsawBoard"
+                    class="${boardClass}"
                     style="grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr)"
                     aria-label="صفحه پازل تصویری">
                     ${boardHTML}
@@ -163,6 +271,11 @@ const JigsawScreen = {
         `;
 
         this.bindBoard();
+
+        if (config.preview) {
+            this.showStatus("");
+        }
+
         this.updateCorrectPieces(coreState);
     },
 
@@ -174,13 +287,13 @@ const JigsawScreen = {
 
         pieces.forEach(function (piece) {
             piece.addEventListener("click", function () {
-                if (JigsawScreen.isFinished()) return;
+                if (JigsawScreen.presentationActive || JigsawScreen.isFinished()) return;
                 const index = Number(this.dataset.position);
                 JigsawScreen.handleSelection(index);
             });
 
             piece.addEventListener("pointerdown", function (event) {
-                if (JigsawScreen.isFinished()) return;
+                if (JigsawScreen.presentationActive || JigsawScreen.isFinished()) return;
                 if (event.button !== undefined && event.button !== 0) return;
 
                 JigsawScreen.dragIndex = Number(this.dataset.position);
@@ -194,7 +307,7 @@ const JigsawScreen = {
             });
 
             piece.addEventListener("pointerup", function (event) {
-                if (JigsawScreen.isFinished()) {
+                if (JigsawScreen.presentationActive || JigsawScreen.isFinished()) {
                     this.classList.remove("jigsawSource");
                     JigsawScreen.dragIndex = null;
                     return;
@@ -226,14 +339,18 @@ const JigsawScreen = {
         const reset = document.getElementById("jigsawResetBtn");
         if (reset) {
             reset.onclick = function () {
-                if (JigsawScreen.isFinished()) return;
-                JigsawPuzzleHandler.reset(PuzzleEngine);
+                if (JigsawScreen.presentationActive || JigsawScreen.isFinished()) return;
+
+                const resetDone = JigsawPuzzleHandler.reset(PuzzleEngine);
+                if (!resetDone) return;
+
+                JigsawScreen.startPresentation(PuzzleEngine.getState());
             };
         }
     },
 
     handleSelection: function (index) {
-        if (this.isFinished()) return;
+        if (this.presentationActive || this.isFinished()) return;
 
         if (this.selectedIndex === null) {
             this.selectedIndex = index;
@@ -254,7 +371,7 @@ const JigsawScreen = {
     },
 
     swap: function (from, to) {
-        if (this.isFinished()) return;
+        if (this.presentationActive || this.isFinished()) return;
 
         const moved = JigsawPuzzleHandler.move(PuzzleEngine, from, to);
         if (!moved) return;
