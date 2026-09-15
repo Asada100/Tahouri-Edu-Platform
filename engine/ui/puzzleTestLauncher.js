@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Temporary Puzzle Test Launcher
-// Version 1.3
+// Version 1.4
 // DEVELOPMENT ONLY
 // =====================================
 
@@ -124,11 +124,11 @@ const PuzzleTestLauncher = {
             operation: "comparison",
             items: [
                 {
-                    image: "🍎",
+                    image: "assets/images/green_frog.jpg",
                     count: 3
                 },
                 {
-                    image: "🍎",
+                    image: "assets/images/green_frog.jpg",
                     count: 2
                 }
             ],
@@ -244,4 +244,4 @@ if (document.readyState === "loading") {
     PuzzleTestLauncher.render();
 }
 
-console.log("Puzzle Test Launcher v1.3 Ready");
+console.log("Puzzle Test Launcher v1.4 Ready");
