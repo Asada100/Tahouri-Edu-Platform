@@ -1,7 +1,8 @@
 // =====================================
 // Tahouri Edu Platform
 // Jigsaw Puzzle Screen
-// Version 1.2
+// Version 1.3
+// Completion Lock + Finish-Safe Interaction
 // =====================================
 
 const JigsawScreen = {
@@ -28,9 +29,6 @@ const JigsawScreen = {
             }
         });
 
-        // The PuzzleEngine owns completion. This listener only provides a
-        // UI bridge so a completed Jigsaw result cannot be lost by another
-        // completion consumer throwing before Screen.showFinish().
         EventManager.on("activityFinished", function (result) {
             const activity =
                 typeof ActivityManager !== "undefined" &&
@@ -41,7 +39,7 @@ const JigsawScreen = {
             if (
                 activity &&
                 activity.id === (result && result.activityId) &&
-                PuzzleEngine &&
+                typeof PuzzleEngine !== "undefined" &&
                 PuzzleEngine.puzzle &&
                 PuzzleEngine.puzzle.type === "jigsaw"
             ) {
@@ -52,7 +50,18 @@ const JigsawScreen = {
         });
 
         this.connected = true;
-        console.log("Jigsaw Screen v1.2 Ready");
+        console.log("Jigsaw Screen v1.3 Ready");
+    },
+
+    isFinished: function () {
+        return !!(
+            (typeof PuzzleEngine !== "undefined" &&
+                PuzzleEngine.state &&
+                PuzzleEngine.state.isFinished) ||
+            (typeof JigsawPuzzle !== "undefined" &&
+                JigsawPuzzle.state &&
+                JigsawPuzzle.state.solved)
+        );
     },
 
     handleReady: function (payload) {
@@ -71,12 +80,6 @@ const JigsawScreen = {
         const activeType = activePuzzle && activePuzzle.type;
 
         if (resultType !== "jigsaw" && activeType !== "jigsaw") return;
-
-        console.log("Jigsaw Screen: Activity Ready Received", {
-            activityId: payload.activity ? payload.activity.id : null,
-            resultType: resultType || null,
-            activeType: activeType || null
-        });
 
         this.selectedIndex = null;
         this.dragIndex = null;
@@ -171,11 +174,13 @@ const JigsawScreen = {
 
         pieces.forEach(function (piece) {
             piece.addEventListener("click", function () {
+                if (JigsawScreen.isFinished()) return;
                 const index = Number(this.dataset.position);
                 JigsawScreen.handleSelection(index);
             });
 
             piece.addEventListener("pointerdown", function (event) {
+                if (JigsawScreen.isFinished()) return;
                 if (event.button !== undefined && event.button !== 0) return;
 
                 JigsawScreen.dragIndex = Number(this.dataset.position);
@@ -189,6 +194,12 @@ const JigsawScreen = {
             });
 
             piece.addEventListener("pointerup", function (event) {
+                if (JigsawScreen.isFinished()) {
+                    this.classList.remove("jigsawSource");
+                    JigsawScreen.dragIndex = null;
+                    return;
+                }
+
                 if (JigsawScreen.dragIndex === null) return;
 
                 const source = JigsawScreen.dragIndex;
@@ -215,12 +226,15 @@ const JigsawScreen = {
         const reset = document.getElementById("jigsawResetBtn");
         if (reset) {
             reset.onclick = function () {
+                if (JigsawScreen.isFinished()) return;
                 JigsawPuzzleHandler.reset(PuzzleEngine);
             };
         }
     },
 
     handleSelection: function (index) {
+        if (this.isFinished()) return;
+
         if (this.selectedIndex === null) {
             this.selectedIndex = index;
             this.highlightSelection(index);
@@ -240,6 +254,8 @@ const JigsawScreen = {
     },
 
     swap: function (from, to) {
+        if (this.isFinished()) return;
+
         const moved = JigsawPuzzleHandler.move(PuzzleEngine, from, to);
         if (!moved) return;
 
@@ -248,12 +264,11 @@ const JigsawScreen = {
             this.updateCorrectPieces(state);
 
             if (state.solved) {
+                this.selectedIndex = null;
+                this.dragIndex = null;
+                this.highlightSelection(null);
                 this.showStatus("تصویر کامل شد! 🎉");
 
-                // Defensive completion bridge. The handler normally calls
-                // PuzzleEngine.finish(); this guarantees the UI cannot remain
-                // on the solved board if that call was skipped by an older
-                // cached handler.
                 if (
                     typeof PuzzleEngine !== "undefined" &&
                     !PuzzleEngine.state.isFinished &&
