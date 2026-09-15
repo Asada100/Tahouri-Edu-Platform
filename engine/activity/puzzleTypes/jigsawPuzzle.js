@@ -1,8 +1,9 @@
 // =====================================
 // Tahouri Edu Platform
 // Jigsaw Puzzle Handler
-// Version 1.3
+// Version 1.4
 // Completion-safe adapter
+// Final state rendered before completion
 // =====================================
 
 const JigsawPuzzleHandler = {
@@ -67,8 +68,6 @@ const JigsawPuzzleHandler = {
             return false;
         }
 
-        // Once PuzzleEngine has finished the activity, no UI path may
-        // mutate the puzzle state anymore.
         if (engine.state && engine.state.isFinished) {
             return false;
         }
@@ -95,7 +94,10 @@ const JigsawPuzzleHandler = {
         const solved = JigsawPuzzle.check();
 
         if (solved) {
-            // Finish before any normal puzzle-change event can be emitted.
+            // Publish the solved board first. The Jigsaw screen receives
+            // this synchronously and renders the final arrangement before
+            // activityFinished opens the result modal.
+            EventManager.emit("puzzleChanged", engine.getState());
             engine.finish();
             return true;
         }
@@ -150,6 +152,7 @@ const JigsawPuzzleHandler = {
         const solved = JigsawPuzzle.check();
 
         if (solved) {
+            EventManager.emit("puzzleChanged", engine.getState());
             engine.finish();
             return true;
         }
@@ -163,4 +166,4 @@ window.JigsawPuzzleHandler = JigsawPuzzleHandler;
 
 PuzzleTypeRegistry.register("jigsaw", JigsawPuzzleHandler);
 
-console.log("Jigsaw Puzzle Handler v1.3 Ready");
+console.log("Jigsaw Puzzle Handler v1.4 Ready");
