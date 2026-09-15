@@ -1,17 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Jigsaw Puzzle Screen
-// Version 1.1
-//
-// Responsibilities:
-// - Real piece manipulation UI
-// - Pointer / touch drag
-// - Click-to-swap fallback
-// - Board rendering
-// - Puzzle progress feedback
-//
-// Logic remains in JigsawPuzzle +
-// JigsawPuzzleHandler.
+// Version 1.2
 // =====================================
 
 const JigsawScreen = {
@@ -21,7 +11,6 @@ const JigsawScreen = {
     selectedIndex: null,
 
     init: function () {
-
         if (typeof EventManager === "undefined") {
             console.error("Jigsaw Screen: EventManager Not Available");
             return;
@@ -39,24 +28,39 @@ const JigsawScreen = {
             }
         });
 
-        this.connected = true;
+        // The PuzzleEngine owns completion. This listener only provides a
+        // UI bridge so a completed Jigsaw result cannot be lost by another
+        // completion consumer throwing before Screen.showFinish().
+        EventManager.on("activityFinished", function (result) {
+            const activity =
+                typeof ActivityManager !== "undefined" &&
+                typeof ActivityManager.getCurrent === "function"
+                    ? ActivityManager.getCurrent()
+                    : null;
 
-        console.log("Jigsaw Screen v1.1 Ready");
+            if (
+                activity &&
+                activity.id === (result && result.activityId) &&
+                PuzzleEngine &&
+                PuzzleEngine.puzzle &&
+                PuzzleEngine.puzzle.type === "jigsaw"
+            ) {
+                if (typeof Screen !== "undefined" && typeof Screen.showFinish === "function") {
+                    Screen.showFinish(result);
+                }
+            }
+        });
+
+        this.connected = true;
+        console.log("Jigsaw Screen v1.2 Ready");
     },
 
     handleReady: function (payload) {
-
         if (!payload) return;
 
         const engineName = String(payload.engineName || "").toLowerCase();
-        if (engineName !== "puzzle" && engineName !== "puzzleengine") {
-            return;
-        }
+        if (engineName !== "puzzle" && engineName !== "puzzleengine") return;
 
-        // ActivityManager publishes the PuzzleEngine state here. Do not make
-        // the screen depend on a type field being copied into the result by a
-        // different lifecycle layer. The active PuzzleEngine definition is
-        // the authoritative source for the routed puzzle type.
         const activePuzzle =
             typeof PuzzleEngine !== "undefined"
                 ? PuzzleEngine.puzzle
@@ -66,9 +70,7 @@ const JigsawScreen = {
         const resultType = result && result.type;
         const activeType = activePuzzle && activePuzzle.type;
 
-        if (resultType !== "jigsaw" && activeType !== "jigsaw") {
-            return;
-        }
+        if (resultType !== "jigsaw" && activeType !== "jigsaw") return;
 
         console.log("Jigsaw Screen: Activity Ready Received", {
             activityId: payload.activity ? payload.activity.id : null,
@@ -82,7 +84,6 @@ const JigsawScreen = {
     },
 
     render: function (state) {
-
         const app = document.getElementById("app");
         if (!app) return;
 
@@ -163,14 +164,12 @@ const JigsawScreen = {
     },
 
     bindBoard: function () {
-
         const board = document.getElementById("jigsawBoard");
         if (!board) return;
 
         const pieces = board.querySelectorAll(".jigsawPiece");
 
         pieces.forEach(function (piece) {
-
             piece.addEventListener("click", function () {
                 const index = Number(this.dataset.position);
                 JigsawScreen.handleSelection(index);
@@ -185,9 +184,7 @@ const JigsawScreen = {
                 if (typeof this.setPointerCapture === "function") {
                     try {
                         this.setPointerCapture(event.pointerId);
-                    } catch (error) {
-                        // Pointer capture is optional.
-                    }
+                    } catch (error) {}
                 }
             });
 
@@ -206,9 +203,7 @@ const JigsawScreen = {
                 if (!targetPiece) return;
 
                 const target = Number(targetPiece.dataset.position);
-                if (source !== target) {
-                    JigsawScreen.swap(source, target);
-                }
+                if (source !== target) JigsawScreen.swap(source, target);
             });
 
             piece.addEventListener("pointercancel", function () {
@@ -226,7 +221,6 @@ const JigsawScreen = {
     },
 
     handleSelection: function (index) {
-
         if (this.selectedIndex === null) {
             this.selectedIndex = index;
             this.highlightSelection(index);
@@ -246,13 +240,7 @@ const JigsawScreen = {
     },
 
     swap: function (from, to) {
-
-        const moved = JigsawPuzzleHandler.move(
-            PuzzleEngine,
-            from,
-            to
-        );
-
+        const moved = JigsawPuzzleHandler.move(PuzzleEngine, from, to);
         if (!moved) return;
 
         if (typeof JigsawPuzzle !== "undefined") {
@@ -261,6 +249,18 @@ const JigsawScreen = {
 
             if (state.solved) {
                 this.showStatus("تصویر کامل شد! 🎉");
+
+                // Defensive completion bridge. The handler normally calls
+                // PuzzleEngine.finish(); this guarantees the UI cannot remain
+                // on the solved board if that call was skipped by an older
+                // cached handler.
+                if (
+                    typeof PuzzleEngine !== "undefined" &&
+                    !PuzzleEngine.state.isFinished &&
+                    typeof PuzzleEngine.finish === "function"
+                ) {
+                    PuzzleEngine.finish();
+                }
             } else {
                 this.showStatus("");
             }
@@ -268,7 +268,6 @@ const JigsawScreen = {
     },
 
     highlightSelection: function (index) {
-
         document.querySelectorAll(".jigsawPiece").forEach(function (piece) {
             piece.classList.remove("jigsawTarget");
         });
@@ -283,7 +282,6 @@ const JigsawScreen = {
     },
 
     updateCorrectPieces: function (state) {
-
         if (!state || !Array.isArray(state.pieces)) return;
 
         state.pieces.forEach(function (piece) {
@@ -323,5 +321,4 @@ const JigsawScreen = {
 };
 
 window.JigsawScreen = JigsawScreen;
-
 JigsawScreen.init();
