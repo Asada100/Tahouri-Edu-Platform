@@ -1,8 +1,9 @@
 // =====================================
 // Tahouri Edu Platform
 // Puzzle Engine
-// Version 3.2
+// Version 3.3
 // Multi-question lifecycle + aggregated result
+// Explicit-check completion guard
 // =====================================
 
 const PuzzleEngine = {
@@ -15,6 +16,7 @@ const PuzzleEngine = {
     userAnswer: null,
     moves: 0,
     transitioning: false,
+    checking: false,
 
     start: async function (activityData) {
         if (!activityData) { console.error("Puzzle Engine: Activity Data Missing"); return null; }
@@ -22,6 +24,7 @@ const PuzzleEngine = {
         this.state.started = true;
         this.state.isFinished = false;
         this.transitioning = false;
+        this.checking = false;
         this.puzzle = null;
         this.questions = [];
         this.currentQuestion = 0;
@@ -41,8 +44,6 @@ const PuzzleEngine = {
         EventManager.emit("activityStarted", activityData);
         EventManager.emit("activityPlaying");
         console.log("Puzzle Questions Ready:", this.questions.length);
-        // ActivityManager publishes the first activityReady event.
-        // Subsequent questions also use activityReady so existing Puzzle/Jigsaw screens stay compatible.
         return this.startCurrentQuestion(false);
     },
 
@@ -111,12 +112,28 @@ const PuzzleEngine = {
     setTypeAnswer: function (value) { if (!this.puzzle) return false; const handler = PuzzleTypeRegistry.get(this.puzzle.type); if (!handler) return false; if (typeof handler.setAnswer === "function") return handler.setAnswer(this, value); this.userAnswer = Array.isArray(value) ? [...value] : value; this.moves++; EventManager.emit("puzzleChanged", this.getState()); return true; },
     setCell: function (index, value) { if (!this.puzzle) return false; const handler = PuzzleTypeRegistry.get(this.puzzle.type); if (!handler || typeof handler.setCell !== "function") return false; return handler.setCell(this, index, value); },
     setCells: function (values) { if (!this.puzzle) return false; const handler = PuzzleTypeRegistry.get(this.puzzle.type); if (!handler || typeof handler.setCells !== "function") return false; return handler.setCells(this, values); },
-    check: function () { if (!this.puzzle) return false; const handler = PuzzleTypeRegistry.get(this.puzzle.type); if (!handler || typeof handler.check !== "function") return false; return handler.check(this); },
+
+    check: function () {
+        if (!this.puzzle) return false;
+        const handler = PuzzleTypeRegistry.get(this.puzzle.type);
+        if (!handler || typeof handler.check !== "function") return false;
+        this.checking = true;
+        try {
+            return !!handler.check(this);
+        } finally {
+            this.checking = false;
+        }
+    },
+
     emitWrong: function () { if (typeof ScoreManager !== "undefined" && typeof ScoreManager.addWrong === "function") ScoreManager.addWrong(); EventManager.emit("puzzleWrong", this.getState()); },
     emitStarted: function () { EventManager.emit("puzzleStarted", this.puzzle); EventManager.emit("activityPlaying"); },
 
     finish: function () {
-        if (this.state.isFinished || this.transitioning) return;
+        if (!this.checking) {
+            console.warn("Puzzle Engine: Ignored completion outside an explicit check() call.");
+            return false;
+        }
+        if (this.state.isFinished || this.transitioning) return false;
         if (typeof ScoreManager !== "undefined" && typeof ScoreManager.addCorrect === "function") ScoreManager.addCorrect();
         this.currentQuestion++;
         if (this.currentQuestion < this.questions.length) {
@@ -147,7 +164,7 @@ const PuzzleEngine = {
         return ActivityResult.create({ activityId: this.activity ? this.activity.id : null, score: score, percentage: percentage, totalQuestions: total, correctAnswers: correct, wrongAnswers: wrong, moves: this.moves, message: "🎉 پازل تمام شد" });
     },
 
-    reset: function () { this.state.started = false; this.state.isFinished = false; this.activity = null; this.puzzle = null; this.questions = []; this.currentQuestion = 0; this.items = []; this.userAnswer = null; this.moves = 0; this.transitioning = false; },
+    reset: function () { this.state.started = false; this.state.isFinished = false; this.activity = null; this.puzzle = null; this.questions = []; this.currentQuestion = 0; this.items = []; this.userAnswer = null; this.moves = 0; this.transitioning = false; this.checking = false; },
     buildCorrectOrder: function (items, order) { const copy = Array.isArray(items) ? [...items] : []; if (order === "descending") return copy.sort((a, b) => b - a); if (this.detectDataType(copy) === "number") return copy.sort((a, b) => a - b); return copy.sort(); },
     detectDataType: function (items) { if (!Array.isArray(items) || items.length === 0) return "text"; if (items.every(item => typeof item === "string" && (/\.(png|jpg|jpeg|gif|webp|svg)$/i.test(item) || item.startsWith("data:image/")))) return "image"; if (items.every(item => typeof item === "number")) return "number"; return "text"; },
     valuesEqual: function (a, b) { if (a === null || a === undefined || b === null || b === undefined) return a === b; const numberA = Number(a); const numberB = Number(b); if (!Number.isNaN(numberA) && !Number.isNaN(numberB)) return numberA === numberB; return String(a) === String(b); },
@@ -158,4 +175,4 @@ const PuzzleEngine = {
 };
 
 window.PuzzleEngine = PuzzleEngine;
-console.log("Puzzle Engine v3.2 Ready");
+console.log("Puzzle Engine v3.3 Ready");
