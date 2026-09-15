@@ -34,26 +34,8 @@ const JigsawScreen = {
             }
         });
 
-        EventManager.on("activityFinished", function (result) {
+        EventManager.on("activityFinished", function () {
             JigsawScreen.cancelPresentation();
-
-            const activity =
-                typeof ActivityManager !== "undefined" &&
-                typeof ActivityManager.getCurrent === "function"
-                    ? ActivityManager.getCurrent()
-                    : null;
-
-            if (
-                activity &&
-                activity.id === (result && result.activityId) &&
-                typeof PuzzleEngine !== "undefined" &&
-                PuzzleEngine.puzzle &&
-                PuzzleEngine.puzzle.type === "jigsaw"
-            ) {
-                if (typeof Screen !== "undefined" && typeof Screen.showFinish === "function") {
-                    Screen.showFinish(result);
-                }
-            }
         });
 
         this.connected = true;
