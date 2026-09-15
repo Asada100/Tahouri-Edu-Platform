@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Temporary Puzzle Test Launcher
-// Version 1.1
+// Version 1.2
 // DEVELOPMENT ONLY
 // =====================================
 
@@ -12,7 +12,9 @@ const PuzzleTestLauncher = {
         { id:"inputOutputTest", title:"ورودی و خروجی", type:"inputOutput", objective:"قاعده را پیدا کن", instruction:"قاعده تبدیل را پیدا کن و پاسخ را وارد کن.", difficulty:2, inputs:[2,4,7,9], outputs:[5,9,15,null], rule:{operation:"multiplyAdd",multiplier:2,add:1}, answer:19 },
         { id:"gridTest", title:"جدول عددی", type:"grid", objective:"عدد گمشده را پیدا کن", instruction:"قاعده جدول را پیدا کن و خانه خالی را کامل کن.", difficulty:2, rows:2,cols:3,cells:[2,4,6,3,null,27],missingIndices:[4],rules:[{row:1,operation:"multiply",value:3}],answers:[9] },
         { id:"wordGridTest", title:"واژه مرتبط", type:"wordGrid", objective:"واژه مرتبط را پیدا کن", instruction:"واژه مناسب را پیدا کن.", difficulty:2, words:["سریع",null],missingIndices:[1],relationType:"synonym",relation:{accepted:["تند","شتابان"]},answers:["تند"] },
-        { id:"crossGridTest", title:"جدول متقاطع", type:"crossGrid", objective:"خانه گمشده را کامل کن", instruction:"با توجه به مسیرهای جدول، خانه خالی را کامل کن.", difficulty:2, rows:2,cols:2,cells:[2,4,6,null],missingIndices:[3],paths:[{cells:[0,1],operations:["add"],target:6},{cells:[0,2],operations:["add"],target:8},{cells:[2,3],operations:["add"],target:14},{cells:[1,3],operations:["add"],target:12}],answers:[8] }
+        { id:"crossGridTest", title:"جدول متقاطع", type:"crossGrid", objective:"خانه گمشده را کامل کن", instruction:"با توجه به مسیرهای جدول، خانه خالی را کامل کن.", difficulty:2, rows:2,cols:2,cells:[2,4,6,null],missingIndices:[3],paths:[{cells:[0,1],operations:["add"],target:6},{cells:[0,2],operations:["add"],target:8},{cells:[2,3],operations:["add"],target:14},{cells:[1,3],operations:["add"],target:12}],answers:[8] },
+        { id:"visualMathComparisonTest", title:"مقایسه تصویری", type:"visualMath", mode:"comparison", objective:"دو گروه را مقایسه کن", instruction:"مشخص کن کدام گروه بیشتر است یا آیا برابرند.", difficulty:2, operation:"comparison", items:[["🍎","🍎","🍎"],["🍎","🍎"]], answer:"left" },
+        { id:"sentenceGrammarTest", title:"نقش دستوری", type:"sentence", mode:"sentenceGrammar", objective:"نقش دستوری واژه‌ها را پیدا کن", instruction:"برای هر واژه، نقش دستوری درست را انتخاب کن.", difficulty:2, words:["دانش‌آموز","کتاب","خواند"], targets:[0,1,2], answers:["subject","object","verb"] }
     ],
 
     open: function(sample) {
@@ -21,9 +23,10 @@ const PuzzleTestLauncher = {
         ActivityManager.load({
             id:sample.id,title:sample.title,engine:"puzzle",
             puzzle:{type:sample.type,source:"file",objective:sample.objective,instruction:sample.instruction,difficulty:sample.difficulty,
-                image:sample.content && sample.content.image,rows:sample.rows || (sample.content && sample.content.rows),cols:sample.cols || (sample.content && sample.content.cols),
+                mode:sample.mode,operation:sample.operation,image:sample.content && sample.content.image,rows:sample.rows || (sample.content && sample.content.rows),cols:sample.cols || (sample.content && sample.content.cols),
                 cells:sample.cells,missingIndices:sample.missingIndices,paths:sample.paths,rules:sample.rules,answers:sample.answers,words:sample.words,
-                relationType:sample.relationType,relation:sample.relation,inputs:sample.inputs,outputs:sample.outputs,rule:sample.rule,answer:sample.answer}
+                targets:sample.targets,relationType:sample.relationType,relation:sample.relation,inputs:sample.inputs,outputs:sample.outputs,rule:sample.rule,answer:sample.answer,
+                items:sample.items}
         });
     },
 
@@ -42,4 +45,4 @@ const PuzzleTestLauncher = {
 window.PuzzleTestLauncher=PuzzleTestLauncher;
 if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",function(){PuzzleTestLauncher.render();});
 else PuzzleTestLauncher.render();
-console.log("Puzzle Test Launcher v1.1 Ready");
+console.log("Puzzle Test Launcher v1.2 Ready");
