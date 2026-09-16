@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 6.7
+// Version 6.8
 // Activity Manager
 // =====================================
 
@@ -65,6 +65,28 @@ const ActivityManager = {
             );
             if (invalidPuzzleSession) {
                 console.warn("ActivityManager: Clearing invalid puzzle session", fullActivity.id);
+                ActivitySessionManager.clear();
+                existing = null;
+            }
+
+            // A Puzzle session is resumable only when its saved puzzle type
+            // matches the puzzle type of the current activity definition.
+            // This prevents an old Sequence/number puzzle session from being
+            // restored when the same activity id now points to Jigsaw (or the
+            // reverse). Other puzzle types continue to use normal Resume.
+            const currentPuzzleType = fullActivity.engine === "puzzle" && fullActivity.puzzle
+                ? fullActivity.puzzle.type
+                : null;
+            const savedPuzzleType = existing && existing.engineState && existing.engineState.puzzle
+                ? existing.engineState.puzzle.type
+                : null;
+            const incompatiblePuzzleSession = existing && fullActivity.engine === "puzzle" && currentPuzzleType && savedPuzzleType && currentPuzzleType !== savedPuzzleType;
+            if (incompatiblePuzzleSession) {
+                console.warn("ActivityManager: Clearing incompatible puzzle session", {
+                    activityId: fullActivity.id,
+                    currentPuzzleType: currentPuzzleType,
+                    savedPuzzleType: savedPuzzleType
+                });
                 ActivitySessionManager.clear();
                 existing = null;
             }
@@ -237,4 +259,4 @@ const ActivityManager = {
 };
 
 window.ActivityManager = ActivityManager;
-console.log("Activity Manager v6.7 Ready");
+console.log("Activity Manager v6.8 Ready");
