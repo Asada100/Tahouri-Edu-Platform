@@ -1,8 +1,9 @@
 // =====================================
 // Tahouri Edu Platform
 // Jigsaw Puzzle Screen
-// Version 1.6
+// Version 1.7
 // Responsive image-ratio fitting
+// Mobile/desktop viewport balancing
 // Memory Preview + Completion Lock
 // Completion owned by PuzzleEngine.check()
 // =====================================
@@ -43,13 +44,13 @@ const JigsawScreen = {
 
         if (!this.resizeHandlerBound) {
             window.addEventListener("resize", function () {
-                JigsawScreen.fitBoardToViewport();
+                JigsawScreen.fitBoardToImageFromDOM();
             });
             this.resizeHandlerBound = true;
         }
 
         this.connected = true;
-        console.log("Jigsaw Screen v1.6 Ready");
+        console.log("Jigsaw Screen v1.7 Ready");
     },
 
     isFinished: function () {
@@ -252,7 +253,6 @@ const JigsawScreen = {
         `;
 
         this.bindBoard();
-        this.fitBoardToViewport();
         this.fitBoardToImage(image);
 
         if (config.preview) this.showStatus("");
@@ -265,31 +265,23 @@ const JigsawScreen = {
             JigsawScreen.applyBoardDimensions(image.naturalWidth, image.naturalHeight);
         };
         image.onerror = function () {
-            JigsawScreen.fitBoardToViewport();
+            JigsawScreen.applyBoardDimensions(1, 1);
         };
         image.src = imageUrl;
     },
 
-    fitBoardToViewport: function () {
+    fitBoardToImageFromDOM: function () {
         const board = document.getElementById("jigsawBoard");
         if (!board) return;
 
-        const fallbackWidth = Math.min(window.innerWidth * 0.92, 620);
-        const fallbackHeight = Math.max(180, window.innerHeight - 230);
-        const fallbackRatio = 1;
+        const image = board.querySelector(".jigsawPiece");
+        if (!image) return;
 
-        let width = fallbackWidth;
-        let height = width / fallbackRatio;
+        const background = image.style.backgroundImage;
+        const match = background.match(/url\(["']?(.*?)["']?\)/);
+        if (!match || !match[1]) return;
 
-        if (height > fallbackHeight) {
-            height = fallbackHeight;
-            width = height * fallbackRatio;
-        }
-
-        board.style.width = `${Math.floor(width)}px`;
-        board.style.height = `${Math.floor(height)}px`;
-        board.style.maxWidth = "calc(100vw - 20px)";
-        board.style.maxHeight = "calc(100vh - 190px)";
+        this.fitBoardToImage(match[1]);
     },
 
     applyBoardDimensions: function (imageWidth, imageHeight) {
@@ -297,14 +289,30 @@ const JigsawScreen = {
         if (!board || !imageWidth || !imageHeight) return;
 
         const isMobile = window.innerWidth <= 600;
-        const horizontalPadding = isMobile ? 20 : 28;
-        const reservedHeight = isMobile ? 205 : 230;
-
-        const availableWidth = Math.max(160, window.innerWidth - horizontalPadding);
-        const availableHeight = Math.max(180, window.innerHeight - reservedHeight);
+        const screenWidth = window.innerWidth;
+        const screenHeight = window.innerHeight;
         const imageRatio = imageWidth / imageHeight;
 
-        let width = Math.min(availableWidth, 620);
+        const screenRect = board.closest(".jigsawScreen");
+        const header = screenRect ? screenRect.querySelector(".jigsawHeader") : null;
+        const controls = screenRect ? screenRect.querySelector(".jigsawControls") : null;
+        const moves = screenRect ? screenRect.querySelector(".jigsawMoves") : null;
+
+        const headerHeight = header ? header.getBoundingClientRect().height : 80;
+        const controlsHeight = controls ? controls.getBoundingClientRect().height : 45;
+        const movesHeight = moves ? moves.getBoundingClientRect().height : 30;
+
+        const verticalMargins = isMobile ? 28 : 34;
+        const availableHeight = Math.max(
+            160,
+            screenHeight - headerHeight - controlsHeight - movesHeight - verticalMargins
+        );
+
+        const horizontalPadding = isMobile ? 20 : 40;
+        const availableWidth = Math.max(160, screenWidth - horizontalPadding);
+        const maxWidth = isMobile ? Math.min(screenWidth - 20, 520) : 620;
+
+        let width = Math.min(availableWidth, maxWidth);
         let height = width / imageRatio;
 
         if (height > availableHeight) {
@@ -312,11 +320,13 @@ const JigsawScreen = {
             width = height * imageRatio;
         }
 
-        board.style.width = `${Math.floor(width)}px`;
-        board.style.height = `${Math.floor(height)}px`;
-        board.style.maxWidth = "calc(100vw - 20px)";
-        board.style.maxHeight = "calc(100vh - 190px)";
+        board.style.width = `${Math.max(1, Math.floor(width))}px`;
+        board.style.height = `${Math.max(1, Math.floor(height))}px`;
+        board.style.maxWidth = "none";
+        board.style.maxHeight = "none";
         board.style.aspectRatio = `${imageWidth} / ${imageHeight}`;
+        board.style.marginLeft = "auto";
+        board.style.marginRight = "auto";
     },
 
     bindBoard: function () {
@@ -464,7 +474,7 @@ const JigsawScreen = {
             .replace(/&/g, "&amp;")
             .replace(/</g, "&lt;")
             .replace(/>/g, "&gt;")
-            .replace(/\"/g, "&quot;")
+            .replace(/"/g, "&quot;")
             .replace(/'/g, "&#039;");
     },
 
