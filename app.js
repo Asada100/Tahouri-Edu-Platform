@@ -331,6 +331,68 @@ console.log(
 
 
 // =====================================
+// JIGSAW UI BRIDGE
+// =====================================
+//
+// JigsawScreen is loaded before this compatibility
+// shell. Its implementation exposes init(), but the
+// file itself intentionally does not auto-initialize.
+// Connect it here after all screen scripts are loaded.
+// This keeps PuzzleScreen's existing handlers intact
+// and lets the dedicated JigsawScreen own jigsaw UI.
+// =====================================
+
+if (
+    typeof JigsawScreen !==
+    "undefined"
+    &&
+    typeof JigsawScreen.init ===
+    "function"
+) {
+
+    JigsawScreen.init();
+
+    if (
+        typeof EventManager !==
+        "undefined"
+    ) {
+
+        EventManager.on(
+            "activityResumed",
+            function (
+                session
+            ) {
+
+                if (
+                    !session
+                    ||
+                    typeof PuzzleEngine ===
+                    "undefined"
+                    ||
+                    !PuzzleEngine.puzzle
+                    ||
+                    PuzzleEngine.puzzle.type !==
+                    "jigsaw"
+                ) {
+
+                    return;
+
+                }
+
+
+                JigsawScreen.render(
+                    PuzzleEngine.getState()
+                );
+
+            }
+        );
+
+    }
+
+}
+
+
+// =====================================
 // START APPLICATION
 // =====================================
 
