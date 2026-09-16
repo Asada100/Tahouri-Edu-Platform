@@ -1,11 +1,12 @@
 // =====================================
 // Tahouri Edu Platform
 // Jigsaw Puzzle Screen
-// Version 1.8
+// Version 1.9
 // Responsive image-ratio fitting
 // Mobile/desktop viewport balancing
 // Container-based board alignment
 // Memory Preview + Completion Lock
+// Real piece drag without ghost/shadow
 // Completion owned by PuzzleEngine.check()
 // =====================================
 
@@ -18,6 +19,10 @@ const JigsawScreen = {
     presentationTimer: null,
     presentationToken: 0,
     resizeHandlerBound: false,
+    dragStartX: 0,
+    dragStartY: 0,
+    dragElement: null,
+    dragMoved: false,
 
     init: function () {
         if (typeof EventManager === "undefined") {
@@ -51,7 +56,7 @@ const JigsawScreen = {
         }
 
         this.connected = true;
-        console.log("Jigsaw Screen v1.8 Ready");
+        console.log("Jigsaw Screen v1.9 Ready");
     },
 
     isFinished: function () {
@@ -159,6 +164,8 @@ const JigsawScreen = {
         this.presentationTimer = null;
         this.selectedIndex = null;
         this.dragIndex = null;
+        this.dragElement = null;
+        this.dragMoved = false;
 
         this.render(state, { scrambleReveal: true });
         this.showStatus("حالا تصویر را کامل کن");
@@ -167,6 +174,14 @@ const JigsawScreen = {
     cancelPresentation: function () {
         this.presentationToken += 1;
         this.presentationActive = false;
+
+        if (this.dragElement) {
+            this.clearDragVisual(this.dragElement);
+        }
+
+        this.dragIndex = null;
+        this.dragElement = null;
+        this.dragMoved = false;
 
         if (this.presentationTimer !== null) {
             clearInterval(this.presentationTimer);
@@ -348,6 +363,14 @@ const JigsawScreen = {
         pieces.forEach(function (piece) {
             piece.addEventListener("click", function () {
                 if (JigsawScreen.presentationActive || JigsawScreen.isFinished()) return;
+
+                // A completed pointer drag already performed the move.
+                // Do not turn the subsequent click into a selection.
+                if (JigsawScreen.dragMoved) {
+                    JigsawScreen.dragMoved = false;
+                    return;
+                }
+
                 const index = Number(this.dataset.position);
                 JigsawScreen.handleSelection(index);
             });
@@ -357,38 +380,69 @@ const JigsawScreen = {
                 if (event.button !== undefined && event.button !== 0) return;
 
                 JigsawScreen.dragIndex = Number(this.dataset.position);
-                this.classList.add("jigsawSource");
+                JigsawScreen.dragElement = this;
+                JigsawScreen.dragStartX = event.clientX;
+                JigsawScreen.dragStartY = event.clientY;
+                JigsawScreen.dragMoved = false;
+
+                this.style.transition = "none";
+                this.style.zIndex = "20";
+                this.style.pointerEvents = "none";
 
                 if (typeof this.setPointerCapture === "function") {
                     try { this.setPointerCapture(event.pointerId); } catch (error) {}
                 }
             });
 
+            piece.addEventListener("pointermove", function (event) {
+                if (JigsawScreen.presentationActive || JigsawScreen.isFinished()) return;
+                if (JigsawScreen.dragElement !== this || JigsawScreen.dragIndex === null) return;
+
+                const deltaX = event.clientX - JigsawScreen.dragStartX;
+                const deltaY = event.clientY - JigsawScreen.dragStartY;
+
+                if (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2) {
+                    JigsawScreen.dragMoved = true;
+                }
+
+                this.style.transform = `translate3d(${deltaX}px, ${deltaY}px, 0)`;
+            });
+
             piece.addEventListener("pointerup", function (event) {
                 if (JigsawScreen.presentationActive || JigsawScreen.isFinished()) {
-                    this.classList.remove("jigsawSource");
+                    JigsawScreen.clearDragVisual(this);
                     JigsawScreen.dragIndex = null;
+                    JigsawScreen.dragElement = null;
                     return;
                 }
 
                 if (JigsawScreen.dragIndex === null) return;
 
                 const source = JigsawScreen.dragIndex;
+                const wasDragged = JigsawScreen.dragMoved;
+
+                // Temporarily remove the dragged piece from hit-testing so
+                // elementFromPoint can see the piece underneath it.
+                this.style.pointerEvents = "none";
                 const targetElement = document.elementFromPoint(event.clientX, event.clientY);
                 const targetPiece = targetElement ? targetElement.closest(".jigsawPiece") : null;
 
-                this.classList.remove("jigsawSource");
+                JigsawScreen.clearDragVisual(this);
                 JigsawScreen.dragIndex = null;
+                JigsawScreen.dragElement = null;
 
                 if (!targetPiece) return;
 
                 const target = Number(targetPiece.dataset.position);
-                if (source !== target) JigsawScreen.swap(source, target);
+                if (source !== target && wasDragged) {
+                    JigsawScreen.swap(source, target);
+                }
             });
 
             piece.addEventListener("pointercancel", function () {
-                this.classList.remove("jigsawSource");
+                JigsawScreen.clearDragVisual(this);
                 JigsawScreen.dragIndex = null;
+                JigsawScreen.dragElement = null;
             });
         });
 
@@ -403,6 +457,15 @@ const JigsawScreen = {
                 JigsawScreen.startPresentation(PuzzleEngine.getState());
             };
         }
+    },
+
+    clearDragVisual: function (piece) {
+        if (!piece) return;
+
+        piece.style.transform = "";
+        piece.style.transition = "";
+        piece.style.zIndex = "";
+        piece.style.pointerEvents = "";
     },
 
     handleSelection: function (index) {
@@ -441,6 +504,7 @@ const JigsawScreen = {
             if (state.solved) {
                 this.selectedIndex = null;
                 this.dragIndex = null;
+                this.dragElement = null;
                 this.highlightSelection(null);
                 this.showStatus("تصویر کامل شد! 🎉");
             } else {
