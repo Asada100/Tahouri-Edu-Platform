@@ -1,12 +1,13 @@
 /* =====================================
    Tahouri Edu Platform
    Jigsaw Puzzle UI
-   Version 1.4
-   Responsive viewport standardization
+   Version 1.5
+   Responsive parent alignment
    ===================================== */
 
 .jigsawScreen {
-    width: min(94vw, 760px);
+    width: 100%;
+    max-width: 760px;
     min-width: 0;
     min-height: 0;
     margin: 0 auto;
@@ -44,7 +45,7 @@
 }
 
 .jigsawBoard {
-    width: min(92vw, 620px);
+    width: min(100%, 620px);
     height: auto;
     max-width: 100%;
     max-height: calc(100vh - 230px);
@@ -121,14 +122,16 @@
 
 @media (max-width: 600px) {
     .jigsawScreen {
-        width: min(96vw, 760px);
+        width: 100%;
+        max-width: none;
         padding: 8px 10px 14px;
     }
 
     .jigsawHeader { margin-bottom: 6px; }
 
     .jigsawBoard {
-        width: min(94vw, 520px);
+        width: 100%;
+        max-width: 520px;
         max-height: calc(100vh - 205px);
         gap: 2px;
         padding: 2px;
@@ -138,6 +141,18 @@
     }
 
     .jigsawPiece { border-radius: 5px; }
+}
+
+@media (orientation: portrait) and (max-width: 600px) {
+    .jigsawScreen {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+
+    .jigsawBoard {
+        width: 100%;
+        max-width: 520px;
+    }
 }
 
 @media (max-height: 700px) and (min-width: 601px) {
