@@ -1,9 +1,10 @@
 // =====================================
 // Tahouri Edu Platform
 // Jigsaw Puzzle Screen
-// Version 1.7
+// Version 1.8
 // Responsive image-ratio fitting
 // Mobile/desktop viewport balancing
+// Container-based board alignment
 // Memory Preview + Completion Lock
 // Completion owned by PuzzleEngine.check()
 // =====================================
@@ -50,7 +51,7 @@ const JigsawScreen = {
         }
 
         this.connected = true;
-        console.log("Jigsaw Screen v1.7 Ready");
+        console.log("Jigsaw Screen v1.8 Ready");
     },
 
     isFinished: function () {
@@ -289,7 +290,6 @@ const JigsawScreen = {
         if (!board || !imageWidth || !imageHeight) return;
 
         const isMobile = window.innerWidth <= 600;
-        const screenWidth = window.innerWidth;
         const screenHeight = window.innerHeight;
         const imageRatio = imageWidth / imageHeight;
 
@@ -308,9 +308,19 @@ const JigsawScreen = {
             screenHeight - headerHeight - controlsHeight - movesHeight - verticalMargins
         );
 
-        const horizontalPadding = isMobile ? 20 : 40;
-        const availableWidth = Math.max(160, screenWidth - horizontalPadding);
-        const maxWidth = isMobile ? Math.min(screenWidth - 20, 520) : 620;
+        let availableWidth = window.innerWidth - (isMobile ? 20 : 40);
+        if (screenRect) {
+            const screenStyle = window.getComputedStyle(screenRect);
+            const paddingLeft = parseFloat(screenStyle.paddingLeft) || 0;
+            const paddingRight = parseFloat(screenStyle.paddingRight) || 0;
+            availableWidth = screenRect.clientWidth - paddingLeft - paddingRight;
+        }
+
+        availableWidth = Math.max(160, availableWidth);
+
+        const maxWidth = isMobile
+            ? Math.min(520, availableWidth)
+            : Math.min(620, availableWidth);
 
         let width = Math.min(availableWidth, maxWidth);
         let height = width / imageRatio;
@@ -474,7 +484,7 @@ const JigsawScreen = {
             .replace(/&/g, "&amp;")
             .replace(/</g, "&lt;")
             .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
+            .replace(/\"/g, "&quot;")
             .replace(/'/g, "&#039;");
     },
 
