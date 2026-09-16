@@ -46,5 +46,13 @@
     {
         "id": "animalDragClassification",
         "locked": false
+    },
+    {
+        "id": "persianLesson1Jigsaw",
+        "locked": false
+    },
+    {
+        "id": "persianLesson2Jigsaw",
+        "locked": false
     }
 ]
