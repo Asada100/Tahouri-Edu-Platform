@@ -1,9 +1,8 @@
 /* =====================================
    Tahouri Edu Platform
    Jigsaw Puzzle UI
-   Version 1.3
+   Version 1.4
    Responsive viewport standardization
-   Exact board centering
    ===================================== */
 
 .jigsawScreen {
@@ -62,10 +61,6 @@
     user-select: none;
     direction: ltr;
     overflow: hidden;
-    position: relative;
-    left: 50%;
-    transform: translateX(-50%);
-    align-self: flex-start;
 }
 
 .jigsawPiece {
