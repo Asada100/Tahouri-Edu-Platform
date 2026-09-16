@@ -9,6 +9,7 @@
   "version": "1.0",
   "puzzle": {
     "type": "jigsaw",
+    "source": "file",
     "content": {
       "rows": 3,
       "cols": 3,
