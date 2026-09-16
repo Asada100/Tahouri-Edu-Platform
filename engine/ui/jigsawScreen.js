@@ -1,561 +1,228 @@
 // =====================================
 // Tahouri Edu Platform
 // Jigsaw Puzzle Screen
-// Version 1.9
-// Responsive image-ratio fitting
-// Mobile/desktop viewport balancing
-// Container-based board alignment
-// Memory Preview + Completion Lock
-// Real piece drag without ghost/shadow
-// Completion owned by PuzzleEngine.check()
+// Version 2.0
+// Image jigsaw + attractive word/sentence jigsaw
 // =====================================
 
 const JigsawScreen = {
-
     connected: false,
     dragIndex: null,
-    selectedIndex: null,
-    presentationActive: false,
-    presentationTimer: null,
-    presentationToken: 0,
-    resizeHandlerBound: false,
+    dragElement: null,
     dragStartX: 0,
     dragStartY: 0,
-    dragElement: null,
     dragMoved: false,
+    selectedIndex: null,
 
     init: function () {
-        if (typeof EventManager === "undefined") {
-            console.error("Jigsaw Screen: EventManager Not Available");
-            return;
-        }
-
-        if (this.connected) return;
-
-        EventManager.on("activityReady", function (payload) {
-            JigsawScreen.handleReady(payload);
-        });
-
+        if (typeof EventManager === "undefined" || this.connected) return;
+        EventManager.on("activityReady", function (payload) { JigsawScreen.handleReady(payload); });
         EventManager.on("puzzleChanged", function (state) {
-            if (state && state.type === "jigsaw") {
-                if (!JigsawScreen.presentationActive) {
-                    JigsawScreen.render(state);
-                }
-            }
+            if (state && state.type === "jigsaw" && !(PuzzleEngine.state && PuzzleEngine.state.isFinished)) JigsawScreen.render(state);
         });
-
-        EventManager.on("activityFinished", function () {
-            JigsawScreen.cancelPresentation();
-        });
-
-        if (!this.resizeHandlerBound) {
-            window.addEventListener("resize", function () {
-                JigsawScreen.fitBoardToImageFromDOM();
-            });
-            this.resizeHandlerBound = true;
-        }
-
+        EventManager.on("activityFinished", function () { JigsawScreen.clearDrag(); });
         this.connected = true;
-        console.log("Jigsaw Screen v1.9 Ready");
-    },
-
-    isFinished: function () {
-        return !!(
-            (typeof PuzzleEngine !== "undefined" &&
-                PuzzleEngine.state &&
-                PuzzleEngine.state.isFinished) ||
-            (typeof JigsawPuzzle !== "undefined" &&
-                JigsawPuzzle.state &&
-                JigsawPuzzle.state.solved)
-        );
+        console.log("Jigsaw Screen v2.0 Ready");
     },
 
     handleReady: function (payload) {
         if (!payload) return;
-
         const engineName = String(payload.engineName || "").toLowerCase();
         if (engineName !== "puzzle" && engineName !== "puzzleengine") return;
-
-        const activePuzzle =
-            typeof PuzzleEngine !== "undefined"
-                ? PuzzleEngine.puzzle
-                : null;
-
-        const result = payload.result;
-        const resultType = result && result.type;
-        const activeType = activePuzzle && activePuzzle.type;
-
-        if (resultType !== "jigsaw" && activeType !== "jigsaw") return;
-
+        const active = typeof PuzzleEngine !== "undefined" ? PuzzleEngine.puzzle : null;
+        if ((payload.result && payload.result.type) !== "jigsaw" && (!active || active.type !== "jigsaw")) return;
         this.selectedIndex = null;
-        this.dragIndex = null;
-        this.startPresentation(result || {});
+        this.render(payload.result || PuzzleEngine.getState());
     },
 
-    getPreviewSeconds: function () {
-        const puzzle = typeof PuzzleEngine !== "undefined" ? PuzzleEngine.puzzle : null;
-        const difficulty = Number(puzzle && puzzle.difficulty ? puzzle.difficulty : 1);
-
-        if (difficulty <= 1) return 5;
-        if (difficulty === 2) return 4;
-        if (difficulty === 3) return 3;
-        return 2;
-    },
-
-    startPresentation: function (state) {
-        this.cancelPresentation();
-
-        const coreState = typeof JigsawPuzzle !== "undefined"
-            ? JigsawPuzzle.getState()
-            : null;
-
-        if (!coreState || !Array.isArray(coreState.pieces)) return;
-
-        this.presentationActive = true;
-        this.selectedIndex = null;
-        this.dragIndex = null;
-
-        this.render(state, { preview: true });
-
-        const previewSeconds = this.getPreviewSeconds();
-        const token = ++this.presentationToken;
-        let remaining = previewSeconds;
-
-        this.showStatus(`تصویر را به خاطر بسپار — ${remaining} ثانیه`);
-
-        this.presentationTimer = setInterval(function () {
-            if (token !== JigsawScreen.presentationToken) return;
-
-            remaining -= 1;
-
-            if (remaining > 0) {
-                JigsawScreen.showStatus(`تصویر را به خاطر بسپار — ${remaining} ثانیه`);
-                return;
-            }
-
-            clearInterval(JigsawScreen.presentationTimer);
-            JigsawScreen.presentationTimer = null;
-            JigsawScreen.startCountdown(token, state);
-        }, 1000);
-    },
-
-    startCountdown: function (token, state) {
-        let count = 3;
-
-        const tick = function () {
-            if (token !== JigsawScreen.presentationToken) return;
-
-            JigsawScreen.showStatus(String(count));
-
-            if (count === 0) {
-                JigsawScreen.finishPresentation(state);
-                return;
-            }
-
-            count -= 1;
-            JigsawScreen.presentationTimer = setTimeout(tick, 700);
-        };
-
-        tick();
-    },
-
-    finishPresentation: function (state) {
-        this.presentationActive = false;
-        this.presentationTimer = null;
-        this.selectedIndex = null;
-        this.dragIndex = null;
-        this.dragElement = null;
-        this.dragMoved = false;
-
-        this.render(state, { scrambleReveal: true });
-        this.showStatus("حالا تصویر را کامل کن");
-    },
-
-    cancelPresentation: function () {
-        this.presentationToken += 1;
-        this.presentationActive = false;
-
-        if (this.dragElement) {
-            this.clearDragVisual(this.dragElement);
-        }
-
-        this.dragIndex = null;
-        this.dragElement = null;
-        this.dragMoved = false;
-
-        if (this.presentationTimer !== null) {
-            clearInterval(this.presentationTimer);
-            clearTimeout(this.presentationTimer);
-            this.presentationTimer = null;
-        }
-    },
-
-    render: function (state, options) {
+    render: function (state) {
         const app = document.getElementById("app");
-        if (!app) return;
+        const puzzle = typeof PuzzleEngine !== "undefined" ? PuzzleEngine.puzzle : null;
+        if (!app || !puzzle || puzzle.type !== "jigsaw") return;
+        const core = typeof JigsawPuzzle !== "undefined" ? JigsawPuzzle.getState() : null;
+        if (!core) return;
+        if (core.mode === "words") this.renderWords(app, puzzle, core, state || {});
+        else this.renderImage(app, puzzle, core, state || {});
+    },
 
-        const puzzle = PuzzleEngine.puzzle;
-        if (!puzzle || puzzle.type !== "jigsaw") return;
-
-        const rows = Number(puzzle.rows);
-        const cols = Number(puzzle.cols);
-        const image = puzzle.image;
-        const config = options || {};
-
-        if (!Number.isInteger(rows) || !Number.isInteger(cols) || !image) {
-            console.error("Jigsaw Screen: Invalid Puzzle State");
-            return;
-        }
-
-        const coreState = typeof JigsawPuzzle !== "undefined"
-            ? JigsawPuzzle.getState()
-            : null;
-
-        if (!coreState || !Array.isArray(coreState.pieces)) return;
-
-        const pieceByPosition = {};
-        coreState.pieces.forEach(function (piece) {
-            const position = config.preview ? piece.correctIndex : piece.currentIndex;
-            pieceByPosition[position] = piece;
-        });
-
-        let boardHTML = "";
-
-        for (let position = 0; position < rows * cols; position += 1) {
-            const piece = pieceByPosition[position];
+    renderWords: function (app, puzzle, core, state) {
+        const slots = [];
+        for (let position = 0; position < core.pieceCount; position += 1) {
+            const piece = core.pieces.find(function (item) { return item.currentIndex === position; });
             if (!piece) continue;
-
-            const correctRow = Math.floor(piece.correctIndex / cols);
-            const correctCol = piece.correctIndex % cols;
-            const left = (correctCol * 100) / (cols - 1 || 1);
-            const top = (correctRow * 100) / (rows - 1 || 1);
-
-            boardHTML += `
-                <button
-                    class="jigsawPiece"
-                    data-position="${position}"
-                    aria-label="قطعه ${piece.correctIndex + 1}"
-                    style="background-image:url('${this.escapeAttribute(image)}');background-position:${left}% ${top}%;--jigsaw-image-size:${cols * 100}% ${rows * 100}%">
-                </button>
-            `;
+            const correct = JigsawPuzzle.normalizeWord(piece.word) === JigsawPuzzle.normalizeWord(core.words[position]);
+            slots.push(`
+                <button class="wordJigsawPiece${correct ? " isCorrect" : ""}${this.selectedIndex === position ? " isSelected" : ""}" data-position="${position}" type="button" aria-label="واژه ${position + 1}">
+                    <span class="wordJigsawIndex">${position + 1}</span>
+                    <span class="wordJigsawText">${this.escapeHTML(piece.word)}</span>
+                </button>`);
         }
-
-        const boardClass = config.scrambleReveal
-            ? "jigsawBoard jigsawScrambleReveal"
-            : "jigsawBoard";
 
         app.innerHTML = `
-            <div class="screen puzzleScreen jigsawScreen" dir="rtl">
-                <div class="jigsawHeader">
-                    <h1>${this.escapeHTML(puzzle.title || "پازل تصویری")}</h1>
-                    <p class="jigsawObjective">${this.escapeHTML(puzzle.objective || "تصویر را کامل کن")}</p>
-                    <p class="jigsawInstruction">${this.escapeHTML(puzzle.instruction || "قطعه‌ها را جابه‌جا کن تا تصویر کامل شود.")}</p>
+            <div class="screen puzzleScreen jigsawScreen wordJigsawScreen" dir="rtl">
+                <div class="jigsawHeader wordJigsawHeader">
+                    <div class="wordJigsawBadge">جورچین واژه‌ها</div>
+                    <h1>${this.escapeHTML(puzzle.title || "جمله را کامل کن")}</h1>
+                    <p class="jigsawObjective">${this.escapeHTML(puzzle.objective || "واژه‌ها را در جای درست قرار بده")}</p>
+                    <p class="jigsawInstruction">${this.escapeHTML(puzzle.instruction || "هر کارت را بکش و در جای مناسب رها کن.")}</p>
                 </div>
 
-                <div id="jigsawBoard" class="${boardClass}" style="grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr)" aria-label="صفحه پازل تصویری">
-                    ${boardHTML}
+                <div class="wordJigsawBoard" id="jigsawBoard" aria-label="جورچین واژه‌ها">
+                    ${slots.join("")}
                 </div>
 
-                <div id="jigsawStatus" class="jigsawStatus"></div>
+                <div class="wordJigsawHint" id="jigsawStatus">واژه‌ها را جابه‌جا کن تا جمله کامل شود.</div>
 
                 <div class="jigsawControls">
                     <button id="jigsawResetBtn" type="button">شروع دوباره</button>
                 </div>
 
-                <div class="jigsawMoves">
-                    حرکت‌ها: <span id="puzzleMoveCount">${state.moves || 0}</span>
-                </div>
-            </div>
-        `;
+                <div class="jigsawMoves">حرکت‌ها: <span id="puzzleMoveCount">${state.moves || core.moves || 0}</span></div>
+            </div>`;
 
-        this.bindBoard();
-        this.fitBoardToImage(image);
-
-        if (config.preview) this.showStatus("");
-        this.updateCorrectPieces(coreState);
+        this.bindWordBoard();
     },
 
-    fitBoardToImage: function (imageUrl) {
-        const image = new Image();
-        image.onload = function () {
-            JigsawScreen.applyBoardDimensions(image.naturalWidth, image.naturalHeight);
-        };
-        image.onerror = function () {
-            JigsawScreen.applyBoardDimensions(1, 1);
-        };
-        image.src = imageUrl;
-    },
-
-    fitBoardToImageFromDOM: function () {
+    bindWordBoard: function () {
         const board = document.getElementById("jigsawBoard");
         if (!board) return;
-
-        const image = board.querySelector(".jigsawPiece");
-        if (!image) return;
-
-        const background = image.style.backgroundImage;
-        const match = background.match(/url\(["']?(.*?)["']?\)/);
-        if (!match || !match[1]) return;
-
-        this.fitBoardToImage(match[1]);
-    },
-
-    applyBoardDimensions: function (imageWidth, imageHeight) {
-        const board = document.getElementById("jigsawBoard");
-        if (!board || !imageWidth || !imageHeight) return;
-
-        const isMobile = window.innerWidth <= 600;
-        const screenHeight = window.innerHeight;
-        const imageRatio = imageWidth / imageHeight;
-
-        const screenRect = board.closest(".jigsawScreen");
-        const header = screenRect ? screenRect.querySelector(".jigsawHeader") : null;
-        const controls = screenRect ? screenRect.querySelector(".jigsawControls") : null;
-        const moves = screenRect ? screenRect.querySelector(".jigsawMoves") : null;
-
-        const headerHeight = header ? header.getBoundingClientRect().height : 80;
-        const controlsHeight = controls ? controls.getBoundingClientRect().height : 45;
-        const movesHeight = moves ? moves.getBoundingClientRect().height : 30;
-
-        const verticalMargins = isMobile ? 28 : 34;
-        const availableHeight = Math.max(
-            160,
-            screenHeight - headerHeight - controlsHeight - movesHeight - verticalMargins
-        );
-
-        let availableWidth = window.innerWidth - (isMobile ? 20 : 40);
-        if (screenRect) {
-            const screenStyle = window.getComputedStyle(screenRect);
-            const paddingLeft = parseFloat(screenStyle.paddingLeft) || 0;
-            const paddingRight = parseFloat(screenStyle.paddingRight) || 0;
-            availableWidth = screenRect.clientWidth - paddingLeft - paddingRight;
-        }
-
-        availableWidth = Math.max(160, availableWidth);
-
-        const maxWidth = isMobile
-            ? Math.min(520, availableWidth)
-            : Math.min(620, availableWidth);
-
-        let width = Math.min(availableWidth, maxWidth);
-        let height = width / imageRatio;
-
-        if (height > availableHeight) {
-            height = availableHeight;
-            width = height * imageRatio;
-        }
-
-        board.style.width = `${Math.max(1, Math.floor(width))}px`;
-        board.style.height = `${Math.max(1, Math.floor(height))}px`;
-        board.style.maxWidth = "none";
-        board.style.maxHeight = "none";
-        board.style.aspectRatio = `${imageWidth} / ${imageHeight}`;
-        board.style.marginLeft = "auto";
-        board.style.marginRight = "auto";
-    },
-
-    bindBoard: function () {
-        const board = document.getElementById("jigsawBoard");
-        if (!board) return;
-
-        const pieces = board.querySelectorAll(".jigsawPiece");
+        const pieces = board.querySelectorAll(".wordJigsawPiece");
+        const screen = this;
 
         pieces.forEach(function (piece) {
             piece.addEventListener("click", function () {
-                if (JigsawScreen.presentationActive || JigsawScreen.isFinished()) return;
-
-                // A completed pointer drag already performed the move.
-                // Do not turn the subsequent click into a selection.
-                if (JigsawScreen.dragMoved) {
-                    JigsawScreen.dragMoved = false;
-                    return;
+                if (screen.dragMoved || screen.isFinished()) { screen.dragMoved = false; return; }
+                const index = Number(piece.dataset.position);
+                if (screen.selectedIndex === null) {
+                    screen.selectedIndex = index;
+                    screen.render(PuzzleEngine.getState());
+                    screen.showStatus("حالا کارت مقصد را انتخاب کن.");
+                } else if (screen.selectedIndex === index) {
+                    screen.selectedIndex = null;
+                    screen.render(PuzzleEngine.getState());
+                } else {
+                    screen.swap(screen.selectedIndex, index);
+                    screen.selectedIndex = null;
                 }
-
-                const index = Number(this.dataset.position);
-                JigsawScreen.handleSelection(index);
             });
 
             piece.addEventListener("pointerdown", function (event) {
-                if (JigsawScreen.presentationActive || JigsawScreen.isFinished()) return;
-                if (event.button !== undefined && event.button !== 0) return;
-
-                JigsawScreen.dragIndex = Number(this.dataset.position);
-                JigsawScreen.dragElement = this;
-                JigsawScreen.dragStartX = event.clientX;
-                JigsawScreen.dragStartY = event.clientY;
-                JigsawScreen.dragMoved = false;
-
-                this.style.transition = "none";
-                this.style.zIndex = "20";
-                this.style.pointerEvents = "none";
-
-                if (typeof this.setPointerCapture === "function") {
-                    try { this.setPointerCapture(event.pointerId); } catch (error) {}
-                }
+                if (screen.isFinished() || (event.button !== undefined && event.button !== 0)) return;
+                screen.dragIndex = Number(piece.dataset.position);
+                screen.dragElement = piece;
+                screen.dragStartX = event.clientX;
+                screen.dragStartY = event.clientY;
+                screen.dragMoved = false;
+                piece.classList.add("isDragging");
+                if (piece.setPointerCapture) { try { piece.setPointerCapture(event.pointerId); } catch (e) {} }
             });
 
             piece.addEventListener("pointermove", function (event) {
-                if (JigsawScreen.presentationActive || JigsawScreen.isFinished()) return;
-                if (JigsawScreen.dragElement !== this || JigsawScreen.dragIndex === null) return;
-
-                const deltaX = event.clientX - JigsawScreen.dragStartX;
-                const deltaY = event.clientY - JigsawScreen.dragStartY;
-
-                if (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2) {
-                    JigsawScreen.dragMoved = true;
-                }
-
-                this.style.transform = `translate3d(${deltaX}px, ${deltaY}px, 0)`;
+                if (screen.dragElement !== piece || screen.dragIndex === null) return;
+                const dx = event.clientX - screen.dragStartX;
+                const dy = event.clientY - screen.dragStartY;
+                if (Math.abs(dx) > 4 || Math.abs(dy) > 4) screen.dragMoved = true;
+                piece.style.transform = `translate3d(${dx}px, ${dy}px, 0) rotate(${Math.max(-2, Math.min(2, dx / 40))}deg)`;
             });
 
             piece.addEventListener("pointerup", function (event) {
-                if (JigsawScreen.presentationActive || JigsawScreen.isFinished()) {
-                    JigsawScreen.clearDragVisual(this);
-                    JigsawScreen.dragIndex = null;
-                    JigsawScreen.dragElement = null;
-                    return;
-                }
-
-                if (JigsawScreen.dragIndex === null) return;
-
-                const source = JigsawScreen.dragIndex;
-                const wasDragged = JigsawScreen.dragMoved;
-
-                // Temporarily remove the dragged piece from hit-testing so
-                // elementFromPoint can see the piece underneath it.
-                this.style.pointerEvents = "none";
-                const targetElement = document.elementFromPoint(event.clientX, event.clientY);
-                const targetPiece = targetElement ? targetElement.closest(".jigsawPiece") : null;
-
-                JigsawScreen.clearDragVisual(this);
-                JigsawScreen.dragIndex = null;
-                JigsawScreen.dragElement = null;
-
-                if (!targetPiece) return;
-
+                if (screen.dragIndex === null) return;
+                const source = screen.dragIndex;
+                const moved = screen.dragMoved;
+                piece.style.pointerEvents = "none";
+                const targetEl = document.elementFromPoint(event.clientX, event.clientY);
+                const targetPiece = targetEl ? targetEl.closest(".wordJigsawPiece") : null;
+                screen.clearDrag();
+                if (!moved || !targetPiece) return;
                 const target = Number(targetPiece.dataset.position);
-                if (source !== target && wasDragged) {
-                    JigsawScreen.swap(source, target);
-                }
+                if (source !== target) screen.swap(source, target);
             });
 
-            piece.addEventListener("pointercancel", function () {
-                JigsawScreen.clearDragVisual(this);
-                JigsawScreen.dragIndex = null;
-                JigsawScreen.dragElement = null;
-            });
+            piece.addEventListener("pointercancel", function () { screen.clearDrag(); });
         });
 
         const reset = document.getElementById("jigsawResetBtn");
-        if (reset) {
-            reset.onclick = function () {
-                if (JigsawScreen.presentationActive || JigsawScreen.isFinished()) return;
-
-                const resetDone = JigsawPuzzleHandler.reset(PuzzleEngine);
-                if (!resetDone) return;
-
-                JigsawScreen.startPresentation(PuzzleEngine.getState());
-            };
-        }
+        if (reset) reset.onclick = function () {
+            if (screen.isFinished()) return;
+            if (JigsawPuzzleHandler.reset(PuzzleEngine)) screen.render(PuzzleEngine.getState());
+        };
     },
 
-    clearDragVisual: function (piece) {
-        if (!piece) return;
-
-        piece.style.transform = "";
-        piece.style.transition = "";
-        piece.style.zIndex = "";
-        piece.style.pointerEvents = "";
+    renderImage: function (app, puzzle, core, state) {
+        const rows = Number(puzzle.rows), cols = Number(puzzle.cols), image = puzzle.image;
+        if (!Number.isInteger(rows) || !Number.isInteger(cols) || !image) return;
+        const pieces = [];
+        for (let position = 0; position < core.pieceCount; position += 1) {
+            const piece = core.pieces.find(function (item) { return item.currentIndex === position; });
+            if (!piece) continue;
+            const row = Math.floor(piece.correctIndex / cols), col = piece.correctIndex % cols;
+            pieces.push(`<button class="jigsawPiece" data-position="${position}" aria-label="قطعه ${piece.correctIndex + 1}" style="background-image:url('${this.escapeAttribute(image)}');background-position:${(col * 100) / (cols - 1 || 1)}% ${(row * 100) / (rows - 1 || 1)}%;--jigsaw-image-size:${cols * 100}% ${rows * 100}%"></button>`);
+        }
+        app.innerHTML = `<div class="screen puzzleScreen jigsawScreen" dir="rtl"><div class="jigsawHeader"><h1>${this.escapeHTML(puzzle.title || "پازل تصویری")}</h1><p class="jigsawObjective">${this.escapeHTML(puzzle.objective || "تصویر را کامل کن")}</p><p class="jigsawInstruction">${this.escapeHTML(puzzle.instruction || "قطعه‌ها را جابه‌جا کن تا تصویر کامل شود.")}</p></div><div id="jigsawBoard" class="jigsawBoard" style="grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr)">${pieces.join("")}</div><div id="jigsawStatus" class="jigsawStatus"></div><div class="jigsawControls"><button id="jigsawResetBtn" type="button">شروع دوباره</button></div><div class="jigsawMoves">حرکت‌ها: <span id="puzzleMoveCount">${state.moves || core.moves || 0}</span></div></div>`;
+        this.bindImageBoard();
     },
 
-    handleSelection: function (index) {
-        if (this.presentationActive || this.isFinished()) return;
-
-        if (this.selectedIndex === null) {
-            this.selectedIndex = index;
-            this.highlightSelection(index);
-            return;
-        }
-
-        if (this.selectedIndex === index) {
-            this.selectedIndex = null;
-            this.highlightSelection(null);
-            return;
-        }
-
-        const first = this.selectedIndex;
-        this.selectedIndex = null;
-        this.highlightSelection(null);
-        this.swap(first, index);
-    },
-
-    swap: function (from, to) {
-        if (this.presentationActive || this.isFinished()) return;
-
-        const moved = JigsawPuzzleHandler.move(PuzzleEngine, from, to);
-        if (!moved) return;
-
-        if (typeof JigsawPuzzle !== "undefined") {
-            const state = JigsawPuzzle.getState();
-            this.updateCorrectPieces(state);
-
-            // Completion is handled by JigsawPuzzleHandler.move() through
-            // PuzzleEngine.check(). The screen must not call finish() again.
-            if (state.solved) {
-                this.selectedIndex = null;
-                this.dragIndex = null;
-                this.dragElement = null;
-                this.highlightSelection(null);
-                this.showStatus("تصویر کامل شد! 🎉");
-            } else {
-                this.showStatus("");
-            }
-        }
-    },
-
-    highlightSelection: function (index) {
-        document.querySelectorAll(".jigsawPiece").forEach(function (piece) {
-            piece.classList.remove("jigsawTarget");
+    bindImageBoard: function () {
+        const board = document.getElementById("jigsawBoard");
+        if (!board) return;
+        const screen = this;
+        board.querySelectorAll(".jigsawPiece").forEach(function (piece) {
+            piece.addEventListener("click", function () {
+                if (screen.dragMoved || screen.isFinished()) { screen.dragMoved = false; return; }
+                const index = Number(piece.dataset.position);
+                if (screen.selectedIndex === null) screen.selectedIndex = index;
+                else { screen.swap(screen.selectedIndex, index); screen.selectedIndex = null; }
+            });
+            piece.addEventListener("pointerdown", function (event) {
+                if (screen.isFinished() || (event.button !== undefined && event.button !== 0)) return;
+                screen.dragIndex = Number(piece.dataset.position); screen.dragElement = piece; screen.dragStartX = event.clientX; screen.dragStartY = event.clientY; screen.dragMoved = false; piece.style.zIndex = "20"; piece.style.pointerEvents = "none";
+            });
+            piece.addEventListener("pointermove", function (event) {
+                if (screen.dragElement !== piece || screen.dragIndex === null) return;
+                const dx = event.clientX - screen.dragStartX, dy = event.clientY - screen.dragStartY;
+                if (Math.abs(dx) > 3 || Math.abs(dy) > 3) screen.dragMoved = true;
+                piece.style.transform = `translate3d(${dx}px,${dy}px,0)`;
+            });
+            piece.addEventListener("pointerup", function (event) {
+                if (screen.dragIndex === null) return;
+                const source = screen.dragIndex, moved = screen.dragMoved;
+                const targetEl = document.elementFromPoint(event.clientX, event.clientY);
+                const targetPiece = targetEl ? targetEl.closest(".jigsawPiece") : null;
+                screen.clearDrag();
+                if (moved && targetPiece) { const target = Number(targetPiece.dataset.position); if (source !== target) screen.swap(source, target); }
+            });
+            piece.addEventListener("pointercancel", function () { screen.clearDrag(); });
         });
-
-        if (index === null) return;
-
-        const selected = document.querySelector(`.jigsawPiece[data-position="${index}"]`);
-        if (selected) selected.classList.add("jigsawTarget");
+        const reset = document.getElementById("jigsawResetBtn");
+        if (reset) reset.onclick = function () { if (!screen.isFinished() && JigsawPuzzleHandler.reset(PuzzleEngine)) screen.render(PuzzleEngine.getState()); };
     },
 
-    updateCorrectPieces: function (state) {
-        if (!state || !Array.isArray(state.pieces)) return;
-
-        state.pieces.forEach(function (piece) {
-            const element = document.querySelector(`.jigsawPiece[data-position="${piece.currentIndex}"]`);
-            if (!element) return;
-
-            element.classList.toggle("jigsawCorrect", piece.currentIndex === piece.correctIndex);
-        });
-
-        const count = document.getElementById("puzzleMoveCount");
-        if (count) count.textContent = String(state.moves || 0);
+    swap: function (source, target) {
+        if (JigsawPuzzleHandler.move(PuzzleEngine, source, target)) {
+            this.showStatus(JigsawPuzzle.isSolved() ? "آفرین! جمله کامل شد 🎉" : "ادامه بده؛ جای واژه‌ها را پیدا کن.");
+        }
     },
 
-    showStatus: function (message) {
+    showStatus: function (text) {
         const status = document.getElementById("jigsawStatus");
-        if (status) status.textContent = message || "";
+        if (status) status.textContent = text || "";
+    },
+
+    clearDrag: function () {
+        if (this.dragElement) { this.dragElement.style.transform = ""; this.dragElement.style.zIndex = ""; this.dragElement.style.pointerEvents = ""; this.dragElement.classList.remove("isDragging"); }
+        this.dragIndex = null; this.dragElement = null; this.dragMoved = false;
+    },
+
+    isFinished: function () {
+        return !!(typeof PuzzleEngine !== "undefined" && PuzzleEngine.state && PuzzleEngine.state.isFinished);
     },
 
     escapeHTML: function (value) {
-        return String(value === null || value === undefined ? "" : value)
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/\"/g, "&quot;")
-            .replace(/'/g, "&#039;");
+        return String(value == null ? "" : value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     },
 
-    escapeAttribute: function (value) {
-        return this.escapeHTML(value);
-    }
+    escapeAttribute: function (value) { return this.escapeHTML(value); }
 };
 
 window.JigsawScreen = JigsawScreen;
-JigsawScreen.init();
+console.log("Jigsaw Screen v2.0 Ready");
