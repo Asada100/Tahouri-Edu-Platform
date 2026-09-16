@@ -1,12 +1,13 @@
 // =====================================
 // Tahouri Edu Platform
 // Content Lock Manager
-// Version 1.8
+// Version 1.9
 // Profile Scoped Persistent Lock System
 // Async initialization synchronization
 // Profile-scoped legacy migration
 // Unknown activities locked by default
 // Open-by-default records remain authoritative
+// Supports wrapped JSON content format
 // =====================================
 
 const ContentLockManager = {
@@ -80,10 +81,33 @@ const ContentLockManager = {
             }
 
             const data = await response.json();
+
+            // GitHub/file handling may expose the JSON file in the wrapped form:
+            // { "content": "[...]", "encoding": "utf-8" }
+            // The actual application data is inside `content` in that case.
+            let lockData = data;
+
+            if (
+                data &&
+                !Array.isArray(data) &&
+                typeof data.content === "string"
+            ) {
+                try {
+                    lockData = JSON.parse(data.content);
+                }
+                catch (parseError) {
+                    console.error(
+                        "Wrapped Content Locks JSON Parse Error",
+                        parseError
+                    );
+                    lockData = [];
+                }
+            }
+
             this.defaultLocks = {};
 
-            if (Array.isArray(data)) {
-                data.forEach(function (item) {
+            if (Array.isArray(lockData)) {
+                lockData.forEach(function (item) {
                     if (item && item.id) {
                         ContentLockManager.defaultLocks[item.id] =
                             item.locked === true;
@@ -179,8 +203,7 @@ const ContentLockManager = {
 
             // The content-lock definition is the source of truth for activities
             // explicitly declared as open. This prevents stale profile data from
-            // keeping an activity such as matchingManyToOne locked after its
-            // default was changed to unlocked.
+            // keeping an activity locked after its default was changed to unlocked.
             Object.keys(this.defaultLocks).forEach(function (id) {
                 if (ContentLockManager.defaultLocks[id] === false) {
                     ContentLockManager.lockedContents[id] = false;
