@@ -5,11 +5,14 @@
   "grade": "grade6",
   "subject": "persian",
   "chapter": "chapter1",
-  "engine": "jigsaw",
-  "type": "puzzle",
+  "engine": "puzzle",
   "version": "1.0",
   "puzzle": {
     "type": "jigsaw",
-    "image": "assets/images/farsi6pazel1.JPG"
+    "content": {
+      "rows": 3,
+      "cols": 3,
+      "image": "assets/images/farsi6pazel1.JPG"
+    }
   }
 }
