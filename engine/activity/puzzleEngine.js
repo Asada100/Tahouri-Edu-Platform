@@ -50,6 +50,18 @@ const PuzzleEngine = {
     prepareProviderActivity: function (activityData) {
         const puzzle = activityData.puzzle || {};
         const settings = activityData.settings || {};
+
+        // Jigsaw is a file-backed image puzzle. It must never fall through
+        // to the generated-puzzle path, even when an older cached activity
+        // configuration does not contain an explicit source field.
+        if (puzzle.type === "jigsaw") {
+            return {
+                ...activityData,
+                settings: { ...settings, questionSource: "file" },
+                puzzle: { ...puzzle, source: "file" }
+            };
+        }
+
         const hasExplicitSource = puzzle.source !== undefined || settings.questionSource !== undefined;
         if (hasExplicitSource) return activityData;
         const hasFixedData = Array.isArray(puzzle.items) || Array.isArray(puzzle.correctOrder) || Array.isArray(puzzle.options) || Array.isArray(puzzle.words) || Array.isArray(puzzle.cells) || Array.isArray(puzzle.inputs) || Array.isArray(puzzle.outputs);
