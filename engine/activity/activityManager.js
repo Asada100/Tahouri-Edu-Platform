@@ -47,12 +47,28 @@ const ActivityManager = {
 
         if (typeof ActivitySessionManager !== "undefined") {
             let existing = typeof ActivitySessionManager.load === "function" ? ActivitySessionManager.load(fullActivity.id) : null;
+
             const invalidClassificationSession = existing && fullActivity.engine === "classification" && existing.engineState && (!Array.isArray(existing.engineState.items) || !Array.isArray(existing.engineState.categories) || existing.engineState.items.length === 0 || existing.engineState.categories.length === 0 || Number(existing.engineState.totalItems || 0) <= 0);
             if (invalidClassificationSession) {
                 console.warn("ActivityManager: Clearing invalid classification session", fullActivity.id);
-                ActivitySessionManager.clear(fullActivity.id);
+                ActivitySessionManager.clear();
                 existing = null;
             }
+
+            // A failed PuzzleEngine start can leave behind a resumable puzzle
+            // session with no actual puzzle state. Such a session is not
+            // playable and must not block a fresh attempt or trigger resume.
+            const invalidPuzzleSession = existing && fullActivity.engine === "puzzle" && existing.engineState && (
+                existing.engineState.kind !== "puzzle" ||
+                !existing.engineState.puzzle ||
+                !existing.engineState.puzzle.type
+            );
+            if (invalidPuzzleSession) {
+                console.warn("ActivityManager: Clearing invalid puzzle session", fullActivity.id);
+                ActivitySessionManager.clear();
+                existing = null;
+            }
+
             const unfinished = existing && (existing.status === "resumable" || existing.status === "active") && existing.engineState;
             if (unfinished) {
                 const engineState = existing.engineState;
@@ -60,7 +76,7 @@ const ActivityManager = {
                 const completedSnapshot = state.isFinished === true || engineState.finished === true || engineState.completed === true;
                 if (completedSnapshot) {
                     console.log("ActivityManager: Clearing completed stale session", fullActivity.id);
-                    ActivitySessionManager.clear(fullActivity.id);
+                    ActivitySessionManager.clear();
                 } else {
                     console.warn("ActivityManager: New attempt blocked; unfinished session exists.", fullActivity.id);
                     this.showBlockedStartNotice(fullActivity, existing);
