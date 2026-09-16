@@ -1,4 +1,17 @@
 {
-  "content": "{\n  \"id\": \"persianLesson3TextJigsaw\",\n  \"title\": \"جورچین واژه‌ها\",\n  \"description\": \"واژه‌های شعر را در جای درست قرار بده.\",\n  \"grade\": \"grade6\",\n  \"subject\": \"persian\",\n  \"chapter\": \"chapter1\",\n  \"engine\": \"puzzle\",\n  \"version\": \"2.0\",\n  \"puzzle\": {\n    \"type\": \"jigsaw\",\n    \"source\": \"file\",\n    \"content\": {\n      \"words\": [\"توانا\", \"بود\", \"هر\", \"که\", \"دانا\", \"بود\"]\n    }\n  }\n}\n",
-  "encoding": "utf-8"
+  "id": "persianLesson3TextJigsaw",
+  "title": "جورچین واژه‌ها",
+  "description": "واژه‌های شعر را در جای درست قرار بده.",
+  "grade": "grade6",
+  "subject": "persian",
+  "chapter": "chapter1",
+  "engine": "puzzle",
+  "version": "2.0",
+  "puzzle": {
+    "type": "jigsaw",
+    "source": "file",
+    "content": {
+      "words": ["توانا", "بود", "هر", "که", "دانا", "بود"]
+    }
+  }
 }
