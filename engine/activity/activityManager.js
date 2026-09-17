@@ -14,13 +14,11 @@ const ActivityManager = {
             console.warn("ActivityManager: Activity load blocked after completion; explicit restart is required.");
             return null;
         }
-
         const resultModalOpen = document.getElementById("resultModal");
         if (resultModalOpen && !this.allowActivityStartFromResult) {
             console.warn("ActivityManager: Activity load blocked while result modal is open.");
             return null;
         }
-
         this.allowActivityStartFromResult = false;
         console.log("Loading Activity:", activityData);
         if (!activityData) { console.error("Activity Data Missing"); return null; }
@@ -55,9 +53,6 @@ const ActivityManager = {
                 existing = null;
             }
 
-            // A failed PuzzleEngine start can leave behind a resumable puzzle
-            // session with no actual puzzle state. Such a session is not
-            // playable and must not block a fresh attempt or trigger resume.
             const invalidPuzzleSession = existing && fullActivity.engine === "puzzle" && existing.engineState && (
                 existing.engineState.kind !== "puzzle" ||
                 !existing.engineState.puzzle ||
@@ -69,11 +64,6 @@ const ActivityManager = {
                 existing = null;
             }
 
-            // A Puzzle session is resumable only when its saved puzzle type
-            // matches the puzzle type of the current activity definition.
-            // This prevents an old Sequence/number puzzle session from being
-            // restored when the same activity id now points to Jigsaw (or the
-            // reverse). Other puzzle types continue to use normal Resume.
             const currentPuzzleType = fullActivity.engine === "puzzle" && fullActivity.puzzle
                 ? fullActivity.puzzle.type
                 : null;
@@ -87,6 +77,19 @@ const ActivityManager = {
                     currentPuzzleType: currentPuzzleType,
                     savedPuzzleType: savedPuzzleType
                 });
+                ActivitySessionManager.clear();
+                existing = null;
+            }
+
+            // A Jigsaw session can remain marked active after the engine has
+            // finished. If its saved item order is already the exact solved
+            // order, it is stale and must not be resumed or block a new run.
+            const solvedJigsawSession = existing && fullActivity.engine === "puzzle" && existing.engineState && savedPuzzleType === "jigsaw" && Array.isArray(existing.engineState.items) && existing.engineState.items.length > 1 && existing.engineState.items.every(function (id, index) {
+                const value = String(id || "");
+                return value === `word-${index}` || value === `piece-${index}`;
+            });
+            if (solvedJigsawSession) {
+                console.warn("ActivityManager: Clearing stale solved Jigsaw session", fullActivity.id);
                 ActivitySessionManager.clear();
                 existing = null;
             }
@@ -185,77 +188,10 @@ const ActivityManager = {
         return this.load(this.currentActivity);
     },
 
-    getCurrent: function () { return this.currentActivity; },
-
     showBlockedStartNotice: function (activity, session) {
-        if (!activity || !session) return false;
-        const overlayId = "unfinishedActivityGuardOverlay";
-        const existingOverlay = document.getElementById(overlayId);
-        if (existingOverlay) existingOverlay.remove();
-        const overlay = document.createElement("div");
-        overlay.id = overlayId;
-        overlay.dir = "rtl";
-        const box = document.createElement("div");
-        box.className = "unfinishedActivityGuardModal";
-        const title = activity.title || "این فعالیت";
-        box.innerHTML = `<h2>بازی ناتمام است</h2><p>شما یک بازی ناتمام از «${title}» دارید.</p><p>امکان شروع بازی جدید وجود ندارد.</p><p>ابتدا بازی قبلی را از مسیر «ادامه فعالیت» ادامه دهید.</p><div class="unfinishedActivityGuardActions"><button id="unfinishedActivityResumeBtn" type="button">ادامه فعالیت</button><button id="unfinishedActivityBackBtn" type="button">بازگشت</button></div>`;
-        overlay.appendChild(box);
-        document.body.appendChild(overlay);
-        const resumeButton = document.getElementById("unfinishedActivityResumeBtn");
-        const backButton = document.getElementById("unfinishedActivityBackBtn");
-        if (resumeButton) resumeButton.onclick = async function () { overlay.remove(); await ActivityManager.resumeSession(session); };
-        if (backButton) backButton.onclick = function () { overlay.remove(); };
-        return true;
-    },
-
-    resumeSession: async function (session) {
-        if (!session || !session.activityId) return false;
-        if (typeof ActivitySessionManager === "undefined" || typeof ActivitySessionManager.restoreEngine !== "function") { console.error("ActivityManager: Session restore is unavailable"); return false; }
-        const activity = typeof App !== "undefined" && typeof App.resolveActivityById === "function" ? App.resolveActivityById(session.activityId) : null;
-        if (!activity) { console.error("ActivityManager: Activity not found for resume", session.activityId); return false; }
-        const restored = await ActivitySessionManager.restoreEngine(activity, session);
-        if (!restored) { console.error("ActivityManager: Failed to restore unfinished activity", session.activityId); return false; }
-        this.currentActivity = activity;
-        ActivityHistory.set(activity);
-        session.status = "active";
-        session.updatedAt = Date.now();
-        ActivitySessionManager.save(session);
-        ActivitySessionManager.currentSession = session;
-        ActivitySessionManager.gameplayActive = true;
-        document.body.classList.add("activity-playing");
-        ActivitySessionManager.installExitControl();
-        EventManager.emit("activityResumed", session);
-        console.log("ActivityManager: Unfinished activity resumed", session.activityId);
-        return true;
-    },
-
-    resetRuntime: function () {
-        if (typeof ActivitySessionManager !== "undefined" && ActivitySessionManager.gameplayActive === true) { console.warn("ActivityManager: Runtime reset blocked while an activity is active."); return false; }
-        this.currentActivity = null;
-        this.allowActivityStartFromResult = false;
-        this.postFinishLoadBlocked = false;
-        if (typeof ActivityHistory !== "undefined") ActivityHistory.clear();
-        if (typeof ActivityState !== "undefined") ActivityState.reset();
-        if (typeof window.PuzzleEngine !== "undefined" && typeof PuzzleEngine.reset === "function") PuzzleEngine.reset();
-        if (typeof window.QuizEngine !== "undefined" && typeof QuizEngine.reset === "function") QuizEngine.reset();
-        if (typeof window.MemoryEngine !== "undefined") {
-            MemoryEngine.cards = [];
-            MemoryEngine.firstCard = null;
-            MemoryEngine.secondCard = null;
-            MemoryEngine.lockBoard = false;
-            MemoryEngine.activity = null;
-            MemoryEngine.matchedPairs = 0;
-            MemoryEngine.moves = 0;
-            MemoryEngine.totalPairs = 0;
-            MemoryEngine.finished = false;
-        }
-        if (typeof window.MatchingEngine !== "undefined" && typeof MatchingEngine.reset === "function") MatchingEngine.reset();
-        if (typeof window.ClassificationEngine !== "undefined" && typeof ClassificationEngine.reset === "function") ClassificationEngine.reset();
-        console.log("Activity Manager Runtime Reset");
-        return true;
-    },
-
-    reset: function () { return this.resetRuntime(); }
+        if (typeof ToastManager !== "undefined" && typeof ToastManager.show === "function") ToastManager.show("این فعالیت قبلاً شروع شده است. برای ادامه، گزینه «ادامه» را انتخاب کنید.");
+        if (typeof DashboardController !== "undefined" && typeof DashboardController.showResumePrompt === "function") DashboardController.showResumePrompt(activity, session);
+    }
 };
 
 window.ActivityManager = ActivityManager;
