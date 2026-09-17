@@ -10,6 +10,49 @@
 
     const originalRenderWordBuilder = JigsawScreen.renderWordBuilder.bind(JigsawScreen);
 
+    function getRowInsertIndex(row, event, direction) {
+        const pieces = [...row.querySelectorAll("[data-target-index]")];
+        if (!pieces.length) {
+            const all = [...document.querySelectorAll("#wordBuilderTarget [data-target-index]")];
+            return all.length;
+        }
+
+        let nearest = null;
+        let nearestDistance = Infinity;
+        pieces.forEach(function (piece) {
+            const rect = piece.getBoundingClientRect();
+            const dx = event.clientX - (rect.left + rect.width / 2);
+            const dy = event.clientY - (rect.top + rect.height / 2);
+            const inside = event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
+            const distance = inside ? 0 : (dx * dx + dy * dy);
+            if (distance < nearestDistance) {
+                nearestDistance = distance;
+                nearest = { piece: piece, rect: rect };
+            }
+        });
+
+        const all = [...document.querySelectorAll("#wordBuilderTarget [data-target-index]")];
+        const nearestGlobal = all.indexOf(nearest.piece);
+        const center = nearest.rect.left + nearest.rect.width / 2;
+        if (direction === "rtl") {
+            return event.clientX > center ? nearestGlobal : nearestGlobal + 1;
+        }
+        return event.clientX < center ? nearestGlobal : nearestGlobal + 1;
+    }
+
+    function getRowForPoint(target, event, firstLineLength) {
+        const rows = [...target.querySelectorAll(".wordBuilderPoetryLine")];
+        if (!rows.length) return null;
+
+        for (const row of rows) {
+            const rect = row.getBoundingClientRect();
+            if (event.clientY >= rect.top && event.clientY <= rect.bottom) return row;
+        }
+
+        const first = rows[0].getBoundingClientRect();
+        return event.clientY < first.top ? rows[0] : rows[rows.length - 1];
+    }
+
     function installInsertionDrag(target, source, engine) {
         if (!target || !source || !engine || !engine.puzzle || engine.puzzle.twoStageWordOrder !== true) return;
 
@@ -27,32 +70,6 @@
             }, true);
         });
 
-        function getInsertIndex(event) {
-            const pieces = [...target.querySelectorAll("[data-target-index]")];
-            if (!pieces.length) return 0;
-
-            let nearest = null;
-            let nearestDistance = Infinity;
-            pieces.forEach(function (piece, index) {
-                const rect = piece.getBoundingClientRect();
-                const dx = event.clientX - (rect.left + rect.width / 2);
-                const dy = event.clientY - (rect.top + rect.height / 2);
-                const inside = event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
-                const distance = inside ? 0 : (dx * dx + dy * dy);
-                if (distance < nearestDistance) {
-                    nearestDistance = distance;
-                    nearest = { index: index, rect: rect };
-                }
-            });
-
-            const direction = getComputedStyle(target).direction || "ltr";
-            const center = nearest.rect.left + nearest.rect.width / 2;
-            if (direction === "rtl") {
-                return event.clientX > center ? nearest.index : nearest.index + 1;
-            }
-            return event.clientX < center ? nearest.index : nearest.index + 1;
-        }
-
         target.addEventListener("dragover", function (event) {
             if (!dragData) return;
             event.preventDefault();
@@ -64,13 +81,24 @@
             event.preventDefault();
             event.stopImmediatePropagation();
 
+            const firstLineLength = Number(engine.puzzle.firstLineLength || 0);
+            const row = getRowForPoint(target, event, firstLineLength);
+            const direction = getComputedStyle(target).direction || "rtl";
+            let insertAt = getRowInsertIndex(row, event, direction);
+
+            // A poetry row is a hard boundary. Never allow a word dropped on
+            // the second hemistich to be inserted into the first one.
+            if (row && row.classList.contains("wordBuilderPoetryLineSecond")) {
+                insertAt = Math.max(firstLineLength, insertAt);
+            } else if (row && row.classList.contains("wordBuilderPoetryLineFirst")) {
+                insertAt = Math.min(firstLineLength, insertAt);
+            }
+
             if (dragData.zone === "source") {
-                const insertAt = getInsertIndex(event);
                 if (JigsawPuzzleHandler.moveWordToTarget(engine, dragData.index, insertAt)) {
                     JigsawScreen.render(engine.getState());
                 }
             } else if (dragData.zone === "target") {
-                const insertAt = getInsertIndex(event);
                 let toIndex = insertAt;
                 if (toIndex > dragData.index) toIndex--;
                 if (toIndex !== dragData.index && JigsawPuzzleHandler.reorderTarget(engine, dragData.index, toIndex)) {
@@ -90,18 +118,20 @@
         firstRow.className = "wordBuilderPoetryLine wordBuilderPoetryLineFirst";
         secondRow.className = "wordBuilderPoetryLine wordBuilderPoetryLineSecond";
 
-        firstRow.style.width = "100%";
-        secondRow.style.width = "100%";
-        firstRow.style.display = "flex";
-        secondRow.style.display = "flex";
-        firstRow.style.flexWrap = "wrap";
-        secondRow.style.flexWrap = "wrap";
-        firstRow.style.justifyContent = "center";
-        secondRow.style.justifyContent = "center";
-        firstRow.style.alignItems = "center";
-        secondRow.style.alignItems = "center";
-        firstRow.style.gap = "10px";
-        secondRow.style.gap = "10px";
+        [firstRow, secondRow].forEach(function (row) {
+            row.style.width = "100%";
+            row.style.display = "flex";
+            row.style.flexWrap = "wrap";
+            row.style.justifyContent = "center";
+            row.style.alignItems = "center";
+            row.style.gap = "10px";
+            row.style.minHeight = "54px";
+            row.style.boxSizing = "border-box";
+            row.style.border = "2px dashed rgba(120,120,120,.45)";
+            row.style.borderRadius = "10px";
+            row.style.padding = "8px";
+            row.style.marginBottom = "8px";
+        });
 
         pieces.forEach(function (piece, index) {
             if (index < firstLineLength) firstRow.appendChild(piece);
@@ -109,7 +139,22 @@
         });
 
         target.appendChild(firstRow);
-        if (secondRow.children.length) target.appendChild(secondRow);
+        target.appendChild(secondRow);
+    }
+
+    function applyPunctuation(target, punctuation) {
+        const pieces = [...target.querySelectorAll("[data-target-index]")];
+        pieces.forEach(function (piece) {
+            const index = String(piece.dataset.targetIndex);
+            const mark = punctuation && punctuation[index] ? String(punctuation[index]) : "";
+            piece.querySelectorAll(".wordBuilderPunctuation").forEach(function (node) { node.remove(); });
+            if (!mark) return;
+            const span = document.createElement("span");
+            span.className = "wordBuilderPunctuation";
+            span.textContent = mark;
+            span.setAttribute("aria-hidden", "true");
+            piece.appendChild(span);
+        });
     }
 
     JigsawScreen.renderWordBuilder = function (state) {
@@ -126,8 +171,9 @@
             applyPoetryRows(target, firstLineLength);
         }
 
+        applyPunctuation(target, puzzle.punctuation || {});
         installInsertionDrag(target, source, engine);
     };
 
-    console.log("Setayesh Jigsaw Poetry Layout Ready");
+    console.log("Setayesh Jigsaw Poetry Layout v2.0 Ready");
 })();
