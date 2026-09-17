@@ -100,15 +100,43 @@
 if (typeof PuzzleScreen === "undefined" || typeof JigsawScreen === "undefined") return;
 const originalShow = PuzzleScreen.show.bind(PuzzleScreen);
 const originalHandleActivityReady = PuzzleScreen.handleActivityReady.bind(PuzzleScreen);
-PuzzleScreen.show = function (state) {
-    if (state && state.type === "jigsaw") return JigsawScreen.show(state);
-    return originalShow(state);
-};
-PuzzleScreen.handleActivityReady = function (payload) {
-    if (payload && payload.result && payload.result.type === "jigsaw") return;
-    return originalHandleActivityReady(payload);
-};
+PuzzleScreen.show = function (state) { if (state && state.type === "jigsaw") return JigsawScreen.show(state); return originalShow(state); };
+PuzzleScreen.handleActivityReady = function (payload) { if (payload && payload.result && payload.result.type === "jigsaw") return; return originalHandleActivityReady(payload); };
 })();
 </script>
+<script src="engine/ui/quizScreen.js"></script>
+<script src="engine/ui/divisibilityScreen.js"></script>
+<script src="engine/ui/profileScreen.js"></script>
+<script src="engine/ui/activityScreen.js"></script>
+<script src="engine/ui/components.js"></script>
+<script src="engine/ui/memoryScreen.js"></script>
+<script src="engine/ui/matchingScreen.js"></script>
+<script src="engine/ui/classificationScreen.js"></script>
+<script src="engine/ui/screen.js"></script>
+<script src="engine/ui/learningCards.js?v=1.0"></script>
+<script src="engine/ui/welcomeManager.js?v=3.0"></script>
+<script src="engine/ui/resultModal.js"></script>
+<script src="engine/ui/dashboardScreen.js"></script>
+<script src="engine/ui/dailyMessageScreen.js"></script>
+<script src="engine/core/dashboardController.js"></script>
+<script src="engine/progress/progressTracker.js"></script>
+<script src="engine/core/licenseHistoryManager.js"></script>
+<script src="engine/core/licenseManager.js"></script>
+<script src="engine/ui/licenseScreen.js"></script>
+<script src="engine/core/activationGate.js"></script>
+<script src="engine/core/notificationStore.js"></script>
+<script src="engine/core/toastManager.js"></script>
+<script src="engine/core/homeBannerManager.js"></script>
+<script src="engine/core/pushManager.js"></script>
+<script src="engine/core/pushSubscriptionManager.js"></script>
+<script src="engine/ui/notificationScreen.js"></script>
+<script src="engine/ui/headerManager.js"></script>
+<script src="engine/ui/bottomNavigation.js"></script>
+<script src="engine/core/reminderManager.js"></script>
+<script src="engine/core/notificationManager.js"></script>
+<script src="engine/core/dailyMessageManager.js"></script>
+<script src="engine/ui/dashboardPolish.js"></script>
+<script src="engine/ui/puzzleTestLauncher.js"></script>
+<script src="app.js"></script>
 </body>
 </html>
