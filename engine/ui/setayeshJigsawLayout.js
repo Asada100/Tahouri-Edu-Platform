@@ -16,13 +16,13 @@
         let dragData = null;
 
         target.querySelectorAll("[data-target-index]").forEach(function (piece) {
-            piece.addEventListener("dragstart", function (event) {
+            piece.addEventListener("dragstart", function () {
                 dragData = { zone: "target", index: Number(piece.dataset.targetIndex) };
             }, true);
         });
 
         source.querySelectorAll("[data-source-index]").forEach(function (piece) {
-            piece.addEventListener("dragstart", function (event) {
+            piece.addEventListener("dragstart", function () {
                 dragData = { zone: "source", index: Number(piece.dataset.sourceIndex) };
             }, true);
         });
@@ -35,9 +35,9 @@
             let nearestDistance = Infinity;
             pieces.forEach(function (piece, index) {
                 const rect = piece.getBoundingClientRect();
-                const inside = event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
                 const dx = event.clientX - (rect.left + rect.width / 2);
                 const dy = event.clientY - (rect.top + rect.height / 2);
+                const inside = event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
                 const distance = inside ? 0 : (dx * dx + dy * dy);
                 if (distance < nearestDistance) {
                     nearestDistance = distance;
@@ -54,46 +54,62 @@
         }
 
         target.addEventListener("dragover", function (event) {
-            if (!dragData || dragData.zone !== "source") return;
+            if (!dragData) return;
             event.preventDefault();
             if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
         }, true);
 
         target.addEventListener("drop", function (event) {
-            if (!dragData || dragData.zone !== "source") return;
+            if (!dragData) return;
             event.preventDefault();
             event.stopImmediatePropagation();
 
-            const insertAt = getInsertIndex(event);
-            if (JigsawPuzzleHandler.moveWordToTarget(engine, dragData.index, insertAt)) {
-                JigsawScreen.render(engine.getState());
-            }
-            dragData = null;
-        }, true);
-
-        target.addEventListener("dragover", function (event) {
-            if (!dragData || dragData.zone !== "target") return;
-            event.preventDefault();
-            if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
-        }, true);
-
-        target.addEventListener("drop", function (event) {
-            if (!dragData || dragData.zone !== "target") return;
-            event.preventDefault();
-            event.stopImmediatePropagation();
-
-            const pieces = [...target.querySelectorAll("[data-target-index]")];
-            if (pieces.length) {
+            if (dragData.zone === "source") {
+                const insertAt = getInsertIndex(event);
+                if (JigsawPuzzleHandler.moveWordToTarget(engine, dragData.index, insertAt)) {
+                    JigsawScreen.render(engine.getState());
+                }
+            } else if (dragData.zone === "target") {
                 const insertAt = getInsertIndex(event);
                 let toIndex = insertAt;
                 if (toIndex > dragData.index) toIndex--;
-                if (toIndex !== dragData.index) {
-                    JigsawPuzzleHandler.reorderTarget(engine, dragData.index, toIndex);
+                if (toIndex !== dragData.index && JigsawPuzzleHandler.reorderTarget(engine, dragData.index, toIndex)) {
                     JigsawScreen.render(engine.getState());
                 }
             }
             dragData = null;
         }, true);
+    }
+
+    function applyPoetryRows(target, firstLineLength) {
+        const pieces = [...target.querySelectorAll("[data-target-index]")];
+        if (!pieces.length || !Number.isInteger(firstLineLength) || firstLineLength <= 0) return;
+
+        const firstRow = document.createElement("div");
+        const secondRow = document.createElement("div");
+        firstRow.className = "wordBuilderPoetryLine wordBuilderPoetryLineFirst";
+        secondRow.className = "wordBuilderPoetryLine wordBuilderPoetryLineSecond";
+
+        firstRow.style.width = "100%";
+        secondRow.style.width = "100%";
+        firstRow.style.display = "flex";
+        secondRow.style.display = "flex";
+        firstRow.style.flexWrap = "wrap";
+        secondRow.style.flexWrap = "wrap";
+        firstRow.style.justifyContent = "center";
+        secondRow.style.justifyContent = "center";
+        firstRow.style.alignItems = "center";
+        secondRow.style.alignItems = "center";
+        firstRow.style.gap = "10px";
+        secondRow.style.gap = "10px";
+
+        pieces.forEach(function (piece, index) {
+            if (index < firstLineLength) firstRow.appendChild(piece);
+            else secondRow.appendChild(piece);
+        });
+
+        target.appendChild(firstRow);
+        if (secondRow.children.length) target.appendChild(secondRow);
     }
 
     JigsawScreen.renderWordBuilder = function (state) {
@@ -105,23 +121,12 @@
         const puzzle = engine && engine.puzzle ? engine.puzzle : null;
         if (!target || !source || !puzzle || puzzle.twoStageWordOrder !== true) return;
 
-        installInsertionDrag(target, source, engine);
-
         const firstLineLength = Number(puzzle.firstLineLength || 0);
-        if (!Number.isInteger(firstLineLength) || firstLineLength <= 0) return;
+        if (Number.isInteger(firstLineLength) && firstLineLength > 0) {
+            applyPoetryRows(target, firstLineLength);
+        }
 
-        const pieces = [...target.querySelectorAll("[data-target-index]")];
-        if (pieces.length <= firstLineLength) return;
-
-        const breakElement = document.createElement("span");
-        breakElement.className = "wordBuilderHemistichBreak";
-        breakElement.setAttribute("aria-hidden", "true");
-        breakElement.style.flexBasis = "100%";
-        breakElement.style.width = "0";
-        breakElement.style.height = "0";
-        breakElement.style.padding = "0";
-        breakElement.style.margin = "0";
-        pieces[firstLineLength - 1].insertAdjacentElement("afterend", breakElement);
+        installInsertionDrag(target, source, engine);
     };
 
     console.log("Setayesh Jigsaw Poetry Layout Ready");
