@@ -96,6 +96,30 @@
 <script src="engine/ui/difficultyModal.js"></script>
 <script src="engine/ui/puzzleScreen.js"></script>
 <script src="engine/ui/jigsawScreen.js"></script>
+<script>
+// Compatibility routing: restored Jigsaw sessions arrive through PuzzleScreen,
+// while the dedicated JigsawScreen owns the Jigsaw UI.
+(function () {
+    if (typeof PuzzleScreen === "undefined" || typeof JigsawScreen === "undefined") return;
+
+    const originalShow = PuzzleScreen.show.bind(PuzzleScreen);
+    const originalHandleActivityReady = PuzzleScreen.handleActivityReady.bind(PuzzleScreen);
+
+    PuzzleScreen.show = function (state) {
+        if (state && state.type === "jigsaw") {
+            return JigsawScreen.show(state);
+        }
+        return originalShow(state);
+    };
+
+    PuzzleScreen.handleActivityReady = function (payload) {
+        if (payload && payload.result && payload.result.type === "jigsaw") {
+            return;
+        }
+        return originalHandleActivityReady(payload);
+    };
+})();
+</script>
 <script src="engine/ui/quizScreen.js"></script>
 <script src="engine/ui/divisibilityScreen.js"></script>
 <script src="engine/ui/profileScreen.js"></script>
