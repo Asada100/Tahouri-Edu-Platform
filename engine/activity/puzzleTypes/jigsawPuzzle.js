@@ -1,9 +1,9 @@
 // =====================================
 // Tahouri Edu Platform
 // Jigsaw Puzzle Handler
-// Version 2.2
+// Version 2.3
 // Supports image and word/sentence jigsaw
-// Two-stage word jigsaw is initialized explicitly for Stage 2.
+// Two-stage word jigsaw starts directly with both word boxes visible.
 // =====================================
 
 const JigsawPuzzleHandler = {
@@ -23,31 +23,35 @@ const JigsawPuzzleHandler = {
                 ? data.correctOrder.map(String)
                 : [];
 
+        const words = (Array.isArray(result.words) ? result.words : []).map(String);
+
         engine.puzzle = {
             type: "jigsaw",
             dataType: isWords ? "text" : "image",
             mode: result.mode,
             source: data.source || "file",
-            instruction: data.instruction || (isWords ? "هر واژه را در جای درست قرار بده." : "قطعه‌ها را جابه‌جا کن تا تصویر کامل شود."),
-            objective: data.objective || (isWords ? "جمله را کامل کن" : "تصویر را کامل کن"),
+            instruction: data.instruction || (isWords ? "هر واژه را از بخش کلمات به پاسخ خود منتقل کن." : "قطعه‌ها را جابه‌جا کن تا تصویر کامل شود."),
+            objective: data.objective || (isWords ? "واژه‌ها را به ترتیب درست بچین" : "تصویر را کامل کن"),
             title: data.title || (isWords ? "جورچین واژه‌ها" : "پازل تصویری"),
             difficulty: result.difficulty,
             image: result.image,
             rows: result.rows,
             cols: result.cols,
-            words: result.words,
+            words: words,
             pieceCount: result.pieceCount,
             twoStageWordOrder: hasTwoStage,
-            stage: hasTwoStage ? 1 : undefined,
-            availableWords: hasTwoStage ? [] : undefined,
+            stage: hasTwoStage ? 2 : undefined,
+            availableWords: hasTwoStage ? words.slice() : undefined,
             targetWords: hasTwoStage ? [] : undefined,
             history: hasTwoStage ? [] : undefined,
             hintUsed: false,
-            correctOrder: correctOrder
+            correctOrder: correctOrder.length ? correctOrder : words.slice()
         };
 
-        engine.items = result.pieces.slice().sort(function (a, b) { return a.currentIndex - b.currentIndex; }).map(function (piece) { return piece.id; });
-        engine.moves = result.moves;
+        // The two-stage word activity is a word-transfer activity from the
+        // moment it opens. Do not wait for the old Jigsaw completion first.
+        engine.items = hasTwoStage ? [] : result.pieces.slice().sort(function (a, b) { return a.currentIndex - b.currentIndex; }).map(function (piece) { return piece.id; });
+        engine.moves = 0;
         engine.emitStarted();
         console.log("Jigsaw Puzzle Handler Started", { mode: result.mode, twoStageWordOrder: hasTwoStage, stage: engine.puzzle.stage || 1 });
         return engine.getState();
@@ -79,6 +83,13 @@ const JigsawPuzzleHandler = {
 
     check: function (engine) {
         if (!engine || !engine.puzzle || engine.puzzle.type !== "jigsaw") return false;
+        if (engine.puzzle.twoStageWordOrder === true) {
+            // Stage 2 is checked by the Stage 2 UI extension.
+            if (engine.puzzle.stage === 2 && typeof JigsawPuzzleHandler.checkStage2 === "function") {
+                return JigsawPuzzleHandler.checkStage2(engine);
+            }
+            return false;
+        }
         if (engine.state && engine.state.isFinished) return !!(JigsawPuzzle.state && JigsawPuzzle.state.solved);
         const solved = JigsawPuzzle.check();
         if (solved) {
@@ -93,4 +104,4 @@ const JigsawPuzzleHandler = {
 
 window.JigsawPuzzleHandler = JigsawPuzzleHandler;
 PuzzleTypeRegistry.register("jigsaw", JigsawPuzzleHandler);
-console.log("Jigsaw Puzzle Handler v2.2 Ready");
+console.log("Jigsaw Puzzle Handler v2.3 Ready");
