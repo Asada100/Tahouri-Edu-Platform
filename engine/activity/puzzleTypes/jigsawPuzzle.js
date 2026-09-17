@@ -1,9 +1,9 @@
 // =====================================
 // Tahouri Edu Platform
 // Jigsaw Puzzle Handler
-// Version 2.5
+// Version 2.6
 // Supports image and word/sentence jigsaw
-// Two-stage word jigsaw starts directly with both word boxes visible.
+// Group-aware word jigsaw supports independent drop rows/zones.
 // =====================================
 
 const JigsawPuzzleHandler = {
@@ -37,6 +37,16 @@ const JigsawPuzzleHandler = {
 
         const words = (Array.isArray(result.words) ? result.words : []).map(String);
         const firstLineLength = Number(content.firstLineLength || data.firstLineLength || 0);
+        const configuredGroups = Array.isArray(content.groupLengths)
+            ? content.groupLengths
+            : Array.isArray(data.groupLengths)
+                ? data.groupLengths
+                : null;
+        const groupLengths = configuredGroups
+            ? configuredGroups.map(Number).filter(function (value) { return Number.isInteger(value) && value > 0; })
+            : (Number.isInteger(firstLineLength) && firstLineLength > 0 && firstLineLength < words.length
+                ? [firstLineLength, words.length - firstLineLength]
+                : []);
         const punctuation = content.punctuation || data.punctuation || {};
 
         engine.puzzle = {
@@ -57,9 +67,11 @@ const JigsawPuzzleHandler = {
             stage: hasTwoStage ? 2 : undefined,
             availableWords: hasTwoStage ? this.shuffleWordList(words) : undefined,
             targetWords: hasTwoStage ? [] : undefined,
+            targetGroups: hasTwoStage && groupLengths.length ? groupLengths.map(function () { return []; }) : undefined,
             history: hasTwoStage ? [] : undefined,
             hintUsed: false,
             firstLineLength: Number.isInteger(firstLineLength) && firstLineLength > 0 ? firstLineLength : null,
+            groupLengths: groupLengths,
             punctuation: punctuation && typeof punctuation === "object" ? { ...punctuation } : {},
             correctOrder: correctOrder.length ? correctOrder : words.slice()
         };
@@ -67,7 +79,12 @@ const JigsawPuzzleHandler = {
         engine.items = hasTwoStage ? [] : result.pieces.slice().sort(function (a, b) { return a.currentIndex - b.currentIndex; }).map(function (piece) { return piece.id; });
         engine.moves = 0;
         engine.emitStarted();
-        console.log("Jigsaw Puzzle Handler Started", { mode: result.mode, twoStageWordOrder: hasTwoStage, stage: engine.puzzle.stage || 1, firstLineLength: engine.puzzle.firstLineLength });
+        console.log("Jigsaw Puzzle Handler Started", {
+            mode: result.mode,
+            twoStageWordOrder: hasTwoStage,
+            stage: engine.puzzle.stage || 1,
+            groupLengths: engine.puzzle.groupLengths
+        });
         return engine.getState();
     },
 
@@ -113,4 +130,4 @@ const JigsawPuzzleHandler = {
 
 window.JigsawPuzzleHandler = JigsawPuzzleHandler;
 PuzzleTypeRegistry.register("jigsaw", JigsawPuzzleHandler);
-console.log("Jigsaw Puzzle Handler v2.5 Ready");
+console.log("Jigsaw Puzzle Handler v2.6 Ready");
