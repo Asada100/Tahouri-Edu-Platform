@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 3.7
+// Version 3.8
 // Activity Screen
 // =====================================
 
@@ -20,41 +20,51 @@ const ActivityScreen = {
         }
 
         const groupedActivities = {};
-        const normalActivities = [];
+        const displayItems = [];
+        const seenGroups = {};
 
+        // Preserve the order from data/activities.json while collapsing each
+        // group into one button at the position of its first activity.
         activityList.forEach(function (activity) {
             if (activity.group) {
                 if (!groupedActivities[activity.group]) {
                     groupedActivities[activity.group] = [];
                 }
                 groupedActivities[activity.group].push(activity);
+
+                if (!seenGroups[activity.group]) {
+                    seenGroups[activity.group] = true;
+                    displayItems.push({ type: "group", id: activity.group });
+                }
             } else {
-                normalActivities.push(activity);
+                displayItems.push({ type: "activity", activity: activity });
             }
         });
 
         let activitiesHTML = "";
 
-        normalActivities.forEach(function (activity) {
-            const locked = ActivityScreen.isLocked(activity);
+        displayItems.forEach(function (item) {
+            if (item.type === "activity") {
+                const activity = item.activity;
+                const locked = ActivityScreen.isLocked(activity);
 
-            activitiesHTML += `
-                <button
-                    class="activitySelectBtn"
-                    data-id="${activity.id}"
-                    type="button">
-                    ${locked ? "🔒" : ""}
-                    ${activity.title}
-                </button>
-            `;
-        });
+                activitiesHTML += `
+                    <button
+                        class="activitySelectBtn"
+                        data-id="${activity.id}"
+                        type="button">
+                        ${locked ? "🔒" : ""}
+                        ${activity.title}
+                    </button>
+                `;
+                return;
+            }
 
-        Object.keys(groupedActivities).forEach(function (groupId) {
-            const groupActivities = groupedActivities[groupId];
+            const groupId = item.id;
+            const groupActivities = groupedActivities[groupId] || [];
             const groupLocked = groupActivities.every(function (activity) {
                 return ActivityScreen.isLocked(activity);
             });
-
             const groupTitle = ActivityScreen.getGroupTitle(groupId);
             const groupIcon = ActivityScreen.getGroupIcon(groupId);
 
@@ -91,7 +101,7 @@ const ActivityScreen = {
             </div>
         `;
 
-        this.bindActivityButtons(normalActivities);
+        this.bindActivityButtons(activityList);
         this.bindGroupButtons(groupedActivities);
 
         const backButton = document.getElementById("backChaptersBtn");
@@ -260,8 +270,6 @@ const ActivityScreen = {
                     return;
                 }
 
-                // Fallback: return through Navigation when the Screen facade
-                // does not expose showActivities directly.
                 if (typeof Navigation !== "undefined" && typeof Navigation.selectChapter === "function") {
                     Navigation.selectChapter(AppState.chapter);
                 }
@@ -311,4 +319,4 @@ const ActivityScreen = {
 
 window.ActivityScreen = ActivityScreen;
 
-console.log("Activity Screen v3.7 Ready");
+console.log("Activity Screen v3.8 Ready");
