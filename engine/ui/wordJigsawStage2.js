@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Word Jigsaw Stage 2
-// Version 1.3
+// Version 1.4
 // =====================================
 
 (function () {
@@ -33,7 +33,7 @@
         if (!Array.isArray(engine.puzzle.targetWords)) engine.puzzle.targetWords = [];
         if (!Array.isArray(engine.puzzle.history)) engine.puzzle.history = [];
         if (!Array.isArray(engine.puzzle.correctOrder) || !engine.puzzle.correctOrder.length) engine.puzzle.correctOrder = definition.correctOrder.slice();
-        if (!engine.puzzle.words || !engine.puzzle.words.length) engine.puzzle.words = definition.words.slice();
+        if (!Array.isArray(engine.puzzle.words) || !engine.puzzle.words.length) engine.puzzle.words = definition.words.slice();
         if (engine.puzzle.hintUsed !== true) engine.puzzle.hintUsed = false;
         return true;
     }
@@ -78,15 +78,7 @@
         if (isCorrect(engine)) {
             engine.puzzle.stage = 3;
             console.log("Word Jigsaw Stage 2 Correct → Activity Complete");
-
-            // PuzzleEngine.check() must NOT be called again here: it would
-            // dispatch back to this same Jigsaw handler and recurse through
-            // Stage 2. At this point we are already inside the explicit
-            // check() call, so finish() is the correct lifecycle transition.
-            if (typeof engine.finish === "function") {
-                const result = engine.finish();
-                return result !== false;
-            }
+            if (typeof engine.finish === "function") return engine.finish() !== false;
             return false;
         }
 
@@ -96,9 +88,6 @@
         return false;
     }
 
-    // Stage 1 completion is handled here, at the Jigsaw check point.
-    // PuzzleEngine.finish() is intentionally left untouched so the normal
-    // activity/report lifecycle is used only after Stage 2 is correct.
     JigsawPuzzleHandler.check = function (engine) {
         if (!enable(engine)) return false;
 
@@ -116,6 +105,11 @@
         return false;
     };
 
+    // Stage 2 always has two live boxes at the same time.
+    // Source → Target: click a word in «کلمات».
+    // Target → Source: click a word in «پاسخ شما».
+    // Completion is checked ONLY by «بررسی پاسخ»; moving the last word
+    // must never call finish() automatically.
     JigsawPuzzleHandler.moveWordToTarget = function (engine, sourceIndex) {
         if (!isStage2(engine)) return false;
         const index = Number(sourceIndex);
@@ -124,7 +118,6 @@
         engine.puzzle.history.push({ availableWords: [...source], targetWords: [...engine.puzzle.targetWords], hintUsed: !!engine.puzzle.hintUsed });
         engine.puzzle.targetWords.push(source.splice(index, 1)[0]);
         emitChanged(engine);
-        if (engine.puzzle.targetWords.length === engine.puzzle.correctOrder.length) checkStage2(engine);
         return true;
     };
 
@@ -147,7 +140,6 @@
         const word = target.splice(from, 1)[0];
         target.splice(to, 0, word);
         emitChanged(engine);
-        if (target.length === engine.puzzle.correctOrder.length) checkStage2(engine);
         return true;
     };
 
@@ -171,7 +163,7 @@
         engine.puzzle.hintUsed = true;
         emitChanged(engine);
         const message = document.getElementById("wordBuilderMessage");
-        if (message) message.textContent = "کلمات به ترتیب الفبایی چیده شدند؛ حالا ترتیب پاسخ را بررسی کن.";
+        if (message) message.textContent = "کلمات به ترتیب الفبایی چیده شدند؛ حالا «بررسی پاسخ» را بزن.";
         return true;
     };
 
@@ -224,11 +216,11 @@
                 <div class="jigsawHeader wordJigsawHeader">
                     <div class="wordJigsawBadge">مرحله دوم</div>
                     <h1>ساختن شعر</h1>
-                    <p class="jigsawObjective">کلمات را به ترتیب درست در بخش پاسخ قرار بده.</p>
-                    <p class="jigsawInstruction">کلمه‌ها را جابه‌جا کن یا به باکس اولیه برگردان.</p>
+                    <p class="jigsawObjective">کلمات را به ترتیب درست در «پاسخ شما» قرار بده.</p>
+                    <p class="jigsawInstruction">از «کلمات» به «پاسخ شما» منتقل کن؛ با کلیک روی هر کلمه می‌توانی آن را به باکس دیگر برگردانی.</p>
                 </div>
-                <section class="wordBuilderSection"><h2>کلمات</h2><div id="wordBuilderSource" class="wordBuilderBox">${source.map((w,i)=>`<button class="wordBuilderPiece" data-source-index="${i}" type="button">${esc(w)}</button>`).join("") || '<span class="wordBuilderEmpty">همه کلمات منتقل شده‌اند.</span>'}</div></section>
-                <section class="wordBuilderSection wordBuilderAnswerSection"><h2>پاسخ شما</h2><div id="wordBuilderTarget" class="wordBuilderBox wordBuilderTarget">${target.map((w,i)=>`<button class="wordBuilderPiece wordBuilderTargetPiece" data-target-index="${i}" type="button">${esc(w)}</button>`).join("") || '<span class="wordBuilderEmpty">کلمات را اینجا قرار بده.</span>'}</div></section>
+                <section class="wordBuilderSection"><h2>کلمات</h2><div id="wordBuilderSource" class="wordBuilderBox">${source.map((w,i)=>`<button class="wordBuilderPiece" data-source-index="${i}" type="button">${esc(w)}</button>`).join("") || '<span class="wordBuilderEmpty">همه کلمات در پاسخ شما هستند.</span>'}</div></section>
+                <section class="wordBuilderSection wordBuilderAnswerSection"><h2>پاسخ شما</h2><div id="wordBuilderTarget" class="wordBuilderBox wordBuilderTarget">${target.map((w,i)=>`<button class="wordBuilderPiece wordBuilderTargetPiece" data-target-index="${i}" type="button">${esc(w)}</button>`).join("") || '<span class="wordBuilderEmpty">کلمات را از باکس «کلمات» انتخاب کن.</span>'}</div></section>
                 <div class="wordBuilderControls"><button id="wordBuilderCheck" type="button">بررسی پاسخ</button><button id="wordBuilderUndo" type="button">↩ برگشت</button><button id="wordBuilderAlphabet" type="button">مرتب‌سازی الفبایی</button><button id="wordBuilderReset" type="button">شروع دوباره</button></div>
                 <div id="wordBuilderMessage" class="wordBuilderMessage" aria-live="polite"></div>
                 <div class="jigsawMoves">حرکت‌ها: <span>${state.moves || 0}</span></div>
@@ -241,19 +233,35 @@
         const target = document.getElementById("wordBuilderTarget");
         if (!source || !target) return;
         const screen = this;
-        source.querySelectorAll("[data-source-index]").forEach(function (button) { button.onclick = function () { JigsawPuzzleHandler.moveWordToTarget(PuzzleEngine, Number(button.dataset.sourceIndex)); screen.render(PuzzleEngine.getState()); }; });
-        target.querySelectorAll("[data-target-index]").forEach(function (button) { button.onclick = function () { JigsawPuzzleHandler.moveWordToSource(PuzzleEngine, Number(button.dataset.targetIndex)); screen.render(PuzzleEngine.getState()); }; });
+        source.querySelectorAll("[data-source-index]").forEach(function (button) {
+            button.onclick = function () {
+                JigsawPuzzleHandler.moveWordToTarget(PuzzleEngine, Number(button.dataset.sourceIndex));
+                screen.render(PuzzleEngine.getState());
+            };
+        });
+        target.querySelectorAll("[data-target-index]").forEach(function (button) {
+            button.onclick = function () {
+                JigsawPuzzleHandler.moveWordToSource(PuzzleEngine, Number(button.dataset.targetIndex));
+                screen.render(PuzzleEngine.getState());
+            };
+        });
         const check = document.getElementById("wordBuilderCheck");
         if (check) check.onclick = function () { PuzzleEngine.check(); };
         const undo = document.getElementById("wordBuilderUndo");
-        if (undo) undo.onclick = function () { if (JigsawPuzzleHandler.undoStage2(PuzzleEngine)) screen.render(PuzzleEngine.getState()); else screen.showWordBuilderMessage("حرکت قبلی برای برگشت وجود ندارد."); };
+        if (undo) undo.onclick = function () {
+            if (JigsawPuzzleHandler.undoStage2(PuzzleEngine)) screen.render(PuzzleEngine.getState());
+            else screen.showWordBuilderMessage("حرکت قبلی برای برگشت وجود ندارد.");
+        };
         const alphabet = document.getElementById("wordBuilderAlphabet");
         if (alphabet) alphabet.onclick = function () { JigsawPuzzleHandler.alphabeticalHint(PuzzleEngine); screen.render(PuzzleEngine.getState()); };
         const reset = document.getElementById("wordBuilderReset");
         if (reset) reset.onclick = function () { if (JigsawPuzzleHandler.reset(PuzzleEngine)) screen.render(PuzzleEngine.getState()); };
     };
 
-    JigsawScreen.showWordBuilderMessage = function (text) { const message = document.getElementById("wordBuilderMessage"); if (message) message.textContent = text || ""; };
+    JigsawScreen.showWordBuilderMessage = function (text) {
+        const message = document.getElementById("wordBuilderMessage");
+        if (message) message.textContent = text || "";
+    };
 
     if (originalBuildResult) {
         PuzzleEngine.buildResult = function () {
@@ -263,5 +271,5 @@
         };
     }
 
-    console.log("Word Jigsaw Stage 2 v1.3 Ready");
+    console.log("Word Jigsaw Stage 2 v1.4 Ready");
 })();
