@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 3.8
+// Version 3.9
 // Activity Screen
 // =====================================
 
@@ -23,8 +23,6 @@ const ActivityScreen = {
         const displayItems = [];
         const seenGroups = {};
 
-        // Preserve the order from data/activities.json while collapsing each
-        // group into one button at the position of its first activity.
         activityList.forEach(function (activity) {
             if (activity.group) {
                 if (!groupedActivities[activity.group]) {
@@ -94,37 +92,15 @@ const ActivityScreen = {
                 <div id="activityList" class="activityList">
                     ${activitiesHTML}
                 </div>
-                <br>
-                <button id="backChaptersBtn">
-                    ⬅ بازگشت به فصل‌ها
-                </button>
             </div>
         `;
 
         this.bindActivityButtons(activityList);
         this.bindGroupButtons(groupedActivities);
 
-        const backButton = document.getElementById("backChaptersBtn");
-
-        if (backButton) {
-            backButton.onclick = function () {
-                if (typeof Screen !== "undefined" && typeof Screen.showChapters === "function") {
-                    const gradeId = AppState.grade;
-                    const subjectId = AppState.subject;
-                    Screen.showChapters(gradeId, subjectId);
-                    return;
-                }
-
-                console.error("Activity Screen: Back To Chapters Not Available");
-            };
-        }
-
         console.log("Activity Screen Displayed:", activityList.length);
     },
 
-    // =====================================
-    // LOCK RESOLUTION
-    // =====================================
     isLocked: function (activity) {
         if (!activity || !activity.id) {
             return true;
@@ -188,15 +164,11 @@ const ActivityScreen = {
         });
     },
 
-    // =====================================
-    // GENERIC ACTIVITY GROUP SCREEN
-    // =====================================
     openGroup: function (groupId, activities) {
         if (!Array.isArray(activities) || activities.length === 0) {
             return;
         }
 
-        // Keep the existing divisibility flow untouched.
         if (groupId === "divisibility") {
             if (typeof DivisibilityScreen !== "undefined" && typeof DivisibilityScreen.show === "function") {
                 const firstActivity = activities[0];
@@ -243,7 +215,7 @@ const ActivityScreen = {
         });
 
         app.innerHTML = `
-            <div class="screen activityScreen activityGroupScreen" dir="rtl">
+            <div class="screen activityScreen activityGroupScreen" data-group-id="${groupId}" dir="rtl">
                 <div class="activityGroupHeading">
                     <div class="activityGroupHeadingIcon" aria-hidden="true">${groupIcon}</div>
                     <h1>${groupTitle}</h1>
@@ -253,28 +225,10 @@ const ActivityScreen = {
                 <div id="activityList" class="activityList">
                     ${buttonsHTML}
                 </div>
-
-                <button id="backToActivitiesBtn" type="button">
-                    ⬅ بازگشت به فعالیت‌ها
-                </button>
             </div>
         `;
 
         this.bindActivityButtons(activities);
-
-        const backButton = document.getElementById("backToActivitiesBtn");
-        if (backButton) {
-            backButton.onclick = function () {
-                if (typeof Screen !== "undefined" && typeof Screen.showActivities === "function") {
-                    Screen.showActivities(AppState.grade, AppState.subject, AppState.chapter);
-                    return;
-                }
-
-                if (typeof Navigation !== "undefined" && typeof Navigation.selectChapter === "function") {
-                    Navigation.selectChapter(AppState.chapter);
-                }
-            };
-        }
 
         console.log("Activity Group Displayed:", groupId, activities.length);
     },
@@ -319,4 +273,4 @@ const ActivityScreen = {
 
 window.ActivityScreen = ActivityScreen;
 
-console.log("Activity Screen v3.8 Ready");
+console.log("Activity Screen v3.9 Ready");
