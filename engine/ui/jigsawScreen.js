@@ -35,6 +35,13 @@ const JigsawScreen = {
         this.render(payload.result || PuzzleEngine.getState());
     },
 
+    // Compatibility entry point used by ActivitySessionManager when restoring
+    // a puzzle session. Jigsaw owns its own renderer, but restore historically
+    // called the generic PuzzleScreen.show() method.
+    show: function (state) {
+        return this.render(state);
+    },
+
     render: function (state) {
         const app = document.getElementById("app");
         const puzzle = typeof PuzzleEngine !== "undefined" ? PuzzleEngine.puzzle : null;
