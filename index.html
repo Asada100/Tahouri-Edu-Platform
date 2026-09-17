@@ -23,7 +23,7 @@
     <link rel="stylesheet" href="engine/ui/memoryEngine.css?v=1.0">
     <link rel="stylesheet" href="engine/ui/puzzleEngine.css?v=1.0">
     <link rel="stylesheet" href="engine/ui/puzzleUX.css?v=1.0">
-    <link rel="stylesheet" href="engine/ui/jigsawPuzzle.css?v=1.0">
+    <link rel="stylesheet" href="engine/ui/jigsawPuzzle.css?v=3.0">
     <link rel="stylesheet" href="engine/ui/puzzleTestLauncher.css?v=1.0">
     <link rel="stylesheet" href="engine/ui/matchingEngine.css?v=1.0">
     <link rel="stylesheet" href="engine/ui/classificationEngine.css?v=1.0">
@@ -96,26 +96,18 @@
 <script src="engine/ui/difficultyModal.js"></script>
 <script src="engine/ui/puzzleScreen.js"></script>
 <script src="engine/ui/jigsawScreen.js"></script>
+<script src="engine/ui/wordJigsawStage2.js"></script>
 <script>
-// Compatibility routing: restored Jigsaw sessions arrive through PuzzleScreen,
-// while the dedicated JigsawScreen owns the Jigsaw UI.
 (function () {
     if (typeof PuzzleScreen === "undefined" || typeof JigsawScreen === "undefined") return;
-
     const originalShow = PuzzleScreen.show.bind(PuzzleScreen);
     const originalHandleActivityReady = PuzzleScreen.handleActivityReady.bind(PuzzleScreen);
-
     PuzzleScreen.show = function (state) {
-        if (state && state.type === "jigsaw") {
-            return JigsawScreen.show(state);
-        }
+        if (state && state.type === "jigsaw") return JigsawScreen.show(state);
         return originalShow(state);
     };
-
     PuzzleScreen.handleActivityReady = function (payload) {
-        if (payload && payload.result && payload.result.type === "jigsaw") {
-            return;
-        }
+        if (payload && payload.result && payload.result.type === "jigsaw") return;
         return originalHandleActivityReady(payload);
     };
 })();
