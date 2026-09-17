@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Word Jigsaw Stage 2
-// Version 1.4
+// Version 1.5
 // =====================================
 
 (function () {
@@ -28,7 +28,7 @@
     function enable(engine) {
         const definition = getDefinition(engine);
         if (!definition) return false;
-        if (!Number.isInteger(engine.puzzle.stage)) engine.puzzle.stage = 1;
+        if (!Number.isInteger(engine.puzzle.stage)) engine.puzzle.stage = 2;
         if (!Array.isArray(engine.puzzle.availableWords)) engine.puzzle.availableWords = [];
         if (!Array.isArray(engine.puzzle.targetWords)) engine.puzzle.targetWords = [];
         if (!Array.isArray(engine.puzzle.history)) engine.puzzle.history = [];
@@ -48,20 +48,16 @@
         EventManager.emit("puzzleChanged", engine.getState());
     }
 
-    function enterStage2(engine) {
-        if (!enable(engine) || engine.puzzle.stage !== 1) return false;
-        const words = [...(engine.puzzle.words || [])];
-        engine.puzzle.stage = 2;
-        engine.puzzle.availableWords = words;
-        engine.puzzle.targetWords = [];
-        engine.puzzle.history = [];
-        engine.puzzle.hintUsed = false;
-        engine.items = [];
-        if (engine.state) engine.state.isFinished = false;
-        if (typeof JigsawPuzzle !== "undefined" && JigsawPuzzle.state) JigsawPuzzle.state.solved = true;
-        EventManager.emit("puzzleChanged", engine.getState());
-        console.log("Word Jigsaw Stage 1 Complete → Stage 2 Ready", { wordCount: words.length });
-        return true;
+    function shuffleWords(words) {
+        const shuffled = words.slice();
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        if (shuffled.length > 1 && shuffled.every((word, i) => word === words[i])) {
+            [shuffled[0], shuffled[1]] = [shuffled[1], shuffled[0]];
+        }
+        return shuffled;
     }
 
     function isCorrect(engine) {
@@ -84,47 +80,34 @@
 
         if (typeof engine.emitWrong === "function") engine.emitWrong();
         const message = document.getElementById("wordBuilderMessage");
-        if (message) message.textContent = "این ترتیب درست نیست؛ می‌توانی کلمات را جابه‌جا کنی و دوباره تلاش کنی.";
+        if (message) message.textContent = "این ترتیب درست نیست؛ کلمات را جابه‌جا کن و دوباره «بررسی پاسخ» را بزن.";
         return false;
     }
 
     JigsawPuzzleHandler.check = function (engine) {
         if (!enable(engine)) return false;
-
-        if (engine.puzzle.stage === 1) {
-            const solved = typeof JigsawPuzzle !== "undefined" && JigsawPuzzle.check();
-            if (solved) {
-                enterStage2(engine);
-                return true;
-            }
-            if (typeof engine.emitWrong === "function") engine.emitWrong();
-            return false;
-        }
-
         if (engine.puzzle.stage === 2) return checkStage2(engine);
         return false;
     };
 
-    // Stage 2 always has two live boxes at the same time.
-    // Source → Target: click a word in «کلمات».
-    // Target → Source: click a word in «پاسخ شما».
-    // Completion is checked ONLY by «بررسی پاسخ»; moving the last word
-    // must never call finish() automatically.
-    JigsawPuzzleHandler.moveWordToTarget = function (engine, sourceIndex) {
+    JigsawPuzzleHandler.moveWordToTarget = function (engine, sourceIndex, targetIndex) {
         if (!isStage2(engine)) return false;
-        const index = Number(sourceIndex);
         const source = engine.puzzle.availableWords || [];
+        const index = Number(sourceIndex);
         if (!Number.isInteger(index) || index < 0 || index >= source.length) return false;
         engine.puzzle.history.push({ availableWords: [...source], targetWords: [...engine.puzzle.targetWords], hintUsed: !!engine.puzzle.hintUsed });
-        engine.puzzle.targetWords.push(source.splice(index, 1)[0]);
+        const word = source.splice(index, 1)[0];
+        const target = engine.puzzle.targetWords || [];
+        const insertAt = Number.isInteger(Number(targetIndex)) ? Math.max(0, Math.min(Number(targetIndex), target.length)) : target.length;
+        target.splice(insertAt, 0, word);
         emitChanged(engine);
         return true;
     };
 
     JigsawPuzzleHandler.moveWordToSource = function (engine, targetIndex) {
         if (!isStage2(engine)) return false;
-        const index = Number(targetIndex);
         const target = engine.puzzle.targetWords || [];
+        const index = Number(targetIndex);
         if (!Number.isInteger(index) || index < 0 || index >= target.length) return false;
         engine.puzzle.history.push({ availableWords: [...engine.puzzle.availableWords], targetWords: [...target], hintUsed: !!engine.puzzle.hintUsed });
         engine.puzzle.availableWords.push(target.splice(index, 1)[0]);
@@ -162,27 +145,29 @@
         engine.puzzle.targetWords = allWords.sort(function (a, b) { return String(a).localeCompare(String(b), "fa"); });
         engine.puzzle.hintUsed = true;
         emitChanged(engine);
-        const message = document.getElementById("wordBuilderMessage");
-        if (message) message.textContent = "کلمات به ترتیب الفبایی چیده شدند؛ حالا «بررسی پاسخ» را بزن.";
         return true;
     };
 
     JigsawPuzzleHandler.reset = function (engine) {
         if (!enable(engine)) return originalReset(engine);
         if (engine.state && engine.state.isFinished) return false;
-        engine.puzzle.stage = 1;
-        engine.puzzle.availableWords = [];
+        const words = engine.puzzle.words.slice();
+        engine.puzzle.stage = 2;
+        engine.puzzle.availableWords = shuffleWords(words);
         engine.puzzle.targetWords = [];
         engine.puzzle.history = [];
         engine.puzzle.hintUsed = false;
+        engine.items = [];
+        engine.moves = 0;
         if (typeof JigsawPuzzle !== "undefined") JigsawPuzzle.reset();
+        if (engine.state) engine.state.isFinished = false;
         EventManager.emit("puzzleChanged", engine.getState());
         return engine.getState();
     };
 
     JigsawPuzzleHandler.move = function (engine, fromIndex, toIndex) {
-        if (!enable(engine) || engine.puzzle.stage === 1) return originalMove(engine, fromIndex, toIndex);
-        return false;
+        if (!enable(engine) || engine.puzzle.stage === 2) return false;
+        return originalMove(engine, fromIndex, toIndex);
     };
 
     const originalState = PuzzleEngine.getState.bind(PuzzleEngine);
@@ -190,7 +175,7 @@
         const state = originalState();
         if (this.puzzle && enable(this)) {
             state.twoStageWordOrder = true;
-            state.stage = this.puzzle.stage || 1;
+            state.stage = this.puzzle.stage || 2;
             state.availableWords = [...(this.puzzle.availableWords || [])];
             state.targetWords = [...(this.puzzle.targetWords || [])];
             state.correctWords = [...(this.puzzle.correctOrder || this.puzzle.words || [])];
@@ -214,13 +199,12 @@
         app.innerHTML = `
             <div class="screen puzzleScreen jigsawScreen wordBuilderScreen" dir="rtl">
                 <div class="jigsawHeader wordJigsawHeader">
-                    <div class="wordJigsawBadge">مرحله دوم</div>
+                    <div class="wordJigsawBadge">جورچین واژه‌ها</div>
                     <h1>ساختن شعر</h1>
-                    <p class="jigsawObjective">کلمات را به ترتیب درست در «پاسخ شما» قرار بده.</p>
-                    <p class="jigsawInstruction">از «کلمات» به «پاسخ شما» منتقل کن؛ با کلیک روی هر کلمه می‌توانی آن را به باکس دیگر برگردانی.</p>
+                    <p class="jigsawObjective">کلمات را با کشیدن و رها کردن به «پاسخ شما» منتقل کن و ترتیب درست را بساز.</p>
                 </div>
-                <section class="wordBuilderSection"><h2>کلمات</h2><div id="wordBuilderSource" class="wordBuilderBox">${source.map((w,i)=>`<button class="wordBuilderPiece" data-source-index="${i}" type="button">${esc(w)}</button>`).join("") || '<span class="wordBuilderEmpty">همه کلمات در پاسخ شما هستند.</span>'}</div></section>
-                <section class="wordBuilderSection wordBuilderAnswerSection"><h2>پاسخ شما</h2><div id="wordBuilderTarget" class="wordBuilderBox wordBuilderTarget">${target.map((w,i)=>`<button class="wordBuilderPiece wordBuilderTargetPiece" data-target-index="${i}" type="button">${esc(w)}</button>`).join("") || '<span class="wordBuilderEmpty">کلمات را از باکس «کلمات» انتخاب کن.</span>'}</div></section>
+                <section class="wordBuilderSection"><h2>کلمات</h2><div id="wordBuilderSource" class="wordBuilderBox" data-drop-zone="source">${source.map((w,i)=>`<button class="wordBuilderPiece" draggable="true" data-source-index="${i}" data-word-index="${i}" type="button">${esc(w)}</button>`).join("") || '<span class="wordBuilderEmpty">همه کلمات در پاسخ شما هستند.</span>'}</div></section>
+                <section class="wordBuilderSection wordBuilderAnswerSection"><h2>پاسخ شما</h2><div id="wordBuilderTarget" class="wordBuilderBox wordBuilderTarget" data-drop-zone="target">${target.map((w,i)=>`<button class="wordBuilderPiece wordBuilderTargetPiece" draggable="true" data-target-index="${i}" type="button">${esc(w)}</button>`).join("") || '<span class="wordBuilderEmpty">کلمات را اینجا رها کن.</span>'}</div></section>
                 <div class="wordBuilderControls"><button id="wordBuilderCheck" type="button">بررسی پاسخ</button><button id="wordBuilderUndo" type="button">↩ برگشت</button><button id="wordBuilderAlphabet" type="button">مرتب‌سازی الفبایی</button><button id="wordBuilderReset" type="button">شروع دوباره</button></div>
                 <div id="wordBuilderMessage" class="wordBuilderMessage" aria-live="polite"></div>
                 <div class="jigsawMoves">حرکت‌ها: <span>${state.moves || 0}</span></div>
@@ -233,29 +217,107 @@
         const target = document.getElementById("wordBuilderTarget");
         if (!source || !target) return;
         const screen = this;
+        let dragData = null;
+
+        function rerender() {
+            screen.render(PuzzleEngine.getState());
+        }
+
+        function rememberDrag(button, fromZone, index) {
+            dragData = { fromZone: fromZone, index: Number(index), button: button };
+        }
+
         source.querySelectorAll("[data-source-index]").forEach(function (button) {
-            button.onclick = function () {
-                JigsawPuzzleHandler.moveWordToTarget(PuzzleEngine, Number(button.dataset.sourceIndex));
-                screen.render(PuzzleEngine.getState());
-            };
+            button.addEventListener("dragstart", function (event) {
+                rememberDrag(button, "source", button.dataset.sourceIndex);
+                button.classList.add("is-dragging");
+                if (event.dataTransfer) {
+                    event.dataTransfer.effectAllowed = "move";
+                    event.dataTransfer.setData("text/plain", "word");
+                }
+            });
+            button.addEventListener("dragend", function () {
+                button.classList.remove("is-dragging");
+                dragData = null;
+            });
         });
+
         target.querySelectorAll("[data-target-index]").forEach(function (button) {
-            button.onclick = function () {
-                JigsawPuzzleHandler.moveWordToSource(PuzzleEngine, Number(button.dataset.targetIndex));
-                screen.render(PuzzleEngine.getState());
-            };
+            button.addEventListener("dragstart", function (event) {
+                rememberDrag(button, "target", button.dataset.targetIndex);
+                button.classList.add("is-dragging");
+                if (event.dataTransfer) {
+                    event.dataTransfer.effectAllowed = "move";
+                    event.dataTransfer.setData("text/plain", "word");
+                }
+            });
+            button.addEventListener("dragend", function () {
+                button.classList.remove("is-dragging");
+                dragData = null;
+            });
         });
+
+        source.addEventListener("dragover", function (event) {
+            event.preventDefault();
+            source.classList.add("is-drag-over");
+            if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+        });
+        source.addEventListener("dragleave", function () { source.classList.remove("is-drag-over"); });
+        source.addEventListener("drop", function (event) {
+            event.preventDefault();
+            source.classList.remove("is-drag-over");
+            if (!dragData) return;
+            if (dragData.fromZone === "target") {
+                JigsawPuzzleHandler.moveWordToSource(PuzzleEngine, dragData.index);
+                rerender();
+            }
+        });
+
+        target.addEventListener("dragover", function (event) {
+            event.preventDefault();
+            target.classList.add("is-drag-over");
+            if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+        });
+        target.addEventListener("dragleave", function () { target.classList.remove("is-drag-over"); });
+        target.addEventListener("drop", function (event) {
+            event.preventDefault();
+            target.classList.remove("is-drag-over");
+            if (!dragData) return;
+            if (dragData.fromZone === "source") {
+                JigsawPuzzleHandler.moveWordToTarget(PuzzleEngine, dragData.index);
+                rerender();
+            } else if (dragData.fromZone === "target") {
+                const rect = target.getBoundingClientRect();
+                const x = event.clientX - rect.left;
+                const pieces = [...target.querySelectorAll("[data-target-index]")];
+                let toIndex = pieces.length;
+                for (let i = 0; i < pieces.length; i++) {
+                    const pieceRect = pieces[i].getBoundingClientRect();
+                    if (event.clientX < pieceRect.left + pieceRect.width / 2) {
+                        toIndex = i;
+                        break;
+                    }
+                }
+                void x;
+                if (toIndex !== dragData.index && toIndex !== dragData.index + 1) {
+                    if (toIndex > dragData.index) toIndex--;
+                    JigsawPuzzleHandler.reorderTarget(PuzzleEngine, dragData.index, toIndex);
+                    rerender();
+                }
+            }
+        });
+
         const check = document.getElementById("wordBuilderCheck");
         if (check) check.onclick = function () { PuzzleEngine.check(); };
         const undo = document.getElementById("wordBuilderUndo");
         if (undo) undo.onclick = function () {
-            if (JigsawPuzzleHandler.undoStage2(PuzzleEngine)) screen.render(PuzzleEngine.getState());
+            if (JigsawPuzzleHandler.undoStage2(PuzzleEngine)) rerender();
             else screen.showWordBuilderMessage("حرکت قبلی برای برگشت وجود ندارد.");
         };
         const alphabet = document.getElementById("wordBuilderAlphabet");
-        if (alphabet) alphabet.onclick = function () { JigsawPuzzleHandler.alphabeticalHint(PuzzleEngine); screen.render(PuzzleEngine.getState()); };
+        if (alphabet) alphabet.onclick = function () { JigsawPuzzleHandler.alphabeticalHint(PuzzleEngine); rerender(); };
         const reset = document.getElementById("wordBuilderReset");
-        if (reset) reset.onclick = function () { if (JigsawPuzzleHandler.reset(PuzzleEngine)) screen.render(PuzzleEngine.getState()); };
+        if (reset) reset.onclick = function () { if (JigsawPuzzleHandler.reset(PuzzleEngine)) rerender(); };
     };
 
     JigsawScreen.showWordBuilderMessage = function (text) {
@@ -271,5 +333,5 @@
         };
     }
 
-    console.log("Word Jigsaw Stage 2 v1.4 Ready");
+    console.log("Word Jigsaw Stage 2 v1.5 Ready");
 })();
