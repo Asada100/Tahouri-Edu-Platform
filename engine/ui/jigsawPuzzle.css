@@ -1,7 +1,7 @@
 /* =====================================
    Tahouri Edu Platform
    Jigsaw Puzzle UI
-   Version 3.2
+   Version 3.3
    Image + Word/Sentence Jigsaw + Word Builder
    ===================================== */
 
@@ -31,13 +31,12 @@
 .wordJigsawText { display:block; white-space:nowrap; }
 .wordJigsawHint { min-height:28px; text-align:center; font-weight:700; opacity:.78; margin:2px 0 8px; }
 
-/* Word Builder: both boxes are visible from the start. */
 .wordBuilderScreen { max-width:980px; }
 .wordBuilderSection { width:min(100%,900px); margin:8px auto; }
 .wordBuilderSection h2 { margin:0 0 7px; font-size:1.05rem; text-align:right; }
 .wordBuilderBox { min-height:110px; padding:16px; display:flex; flex-wrap:wrap; align-content:flex-start; justify-content:center; align-items:center; gap:10px; border:2px dashed #d7e0ea; border-radius:20px; background:#f8fafc; direction:rtl; transition:border-color .15s ease,background .15s ease,box-shadow .15s ease; }
 .wordBuilderBox.is-drag-over { border-color:#7aa2d8; background:#f0f6ff; box-shadow:0 0 0 3px rgba(37,99,235,.08); }
-.wordBuilderTarget { min-height:125px; background:linear-gradient(145deg,#ffffff,#f7fbff); border-style:solid; }
+.wordBuilderTarget { min-height:145px; background:linear-gradient(145deg,#ffffff,#f7fbff); border-style:solid; }
 .wordBuilderPiece { min-width:82px; min-height:50px; padding:9px 15px; border:1px solid #d7e0ea; border-radius:14px; background:#fff; color:#172033; box-shadow:0 4px 10px rgba(31,41,55,.08); font:inherit; font-weight:800; font-size:clamp(.95rem,2vw,1.1rem); cursor:grab; touch-action:none; user-select:none; }
 .wordBuilderPiece:hover { transform:translateY(-2px); box-shadow:0 8px 16px rgba(31,41,55,.12); }
 .wordBuilderPiece.is-dragging { opacity:.45; transform:scale(.98); cursor:grabbing; }
@@ -46,6 +45,10 @@
 .wordBuilderControls { display:flex; justify-content:center; flex-wrap:wrap; gap:8px; margin:10px auto; }
 .wordBuilderControls button { min-width:130px; }
 .wordBuilderMessage { min-height:28px; text-align:center; font-weight:800; margin:5px 0; }
+.wordBuilderPoetryLine { box-sizing:border-box; min-height:74px; padding:8px 10px; border:2px dashed #b9cbe2; border-radius:15px; background:rgba(255,255,255,.72); }
+.wordBuilderPoetryLine + .wordBuilderPoetryLine { margin-top:9px; }
+.wordBuilderPunctuation { margin-inline-start:3px; font-weight:900; }
+.wordBuilderWord { white-space:nowrap; }
 
 @media (max-width:600px) {
     .jigsawScreen { padding:10px 10px 16px; }
@@ -56,7 +59,8 @@
     .jigsawBoard { width:100%; gap:2px; padding:2px; border-radius:11px; }
     .jigsawPiece { border-radius:5px; }
     .wordBuilderBox { min-height:100px; padding:12px 8px; gap:7px; border-radius:17px; }
-    .wordBuilderTarget { min-height:115px; }
+    .wordBuilderTarget { min-height:140px; }
+    .wordBuilderPoetryLine { min-height:66px; padding:7px 6px; border-radius:13px; gap:7px; }
     .wordBuilderPiece { min-width:70px; min-height:46px; padding:8px 11px; font-size:.94rem; border-radius:12px; }
     .wordBuilderControls button { min-width:112px; }
 }
