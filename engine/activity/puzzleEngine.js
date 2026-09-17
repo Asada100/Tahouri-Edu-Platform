@@ -1,9 +1,10 @@
 // =====================================
 // Tahouri Edu Platform
 // Puzzle Engine
-// Version 3.3
+// Version 3.4
 // Multi-question lifecycle + aggregated result
 // Explicit-check completion guard
+// Supports file-defined question sequences with optional random order
 // =====================================
 
 const PuzzleEngine = {
@@ -33,10 +34,19 @@ const PuzzleEngine = {
         this.moves = 0;
         if (typeof QuestionProvider === "undefined") { console.error("Puzzle Engine: QuestionProvider Not Available"); this.state.started = false; return null; }
         if (typeof PuzzleTypeRegistry === "undefined") { console.error("Puzzle Engine: PuzzleTypeRegistry Not Available"); this.state.started = false; return null; }
-        const providerActivity = this.prepareProviderActivity(activityData);
+
+        const fileQuestions = this.getFileDefinedQuestions(activityData);
         let puzzleQuestions;
-        try { puzzleQuestions = await QuestionProvider.getPuzzleQuestions(providerActivity); }
-        catch (error) { console.error("Puzzle Engine: QuestionProvider Error:", error); this.state.started = false; return null; }
+
+        if (fileQuestions) {
+            puzzleQuestions = fileQuestions;
+            console.log("Puzzle Engine: File-defined questions:", puzzleQuestions.length);
+        } else {
+            const providerActivity = this.prepareProviderActivity(activityData);
+            try { puzzleQuestions = await QuestionProvider.getPuzzleQuestions(providerActivity); }
+            catch (error) { console.error("Puzzle Engine: QuestionProvider Error:", error); this.state.started = false; return null; }
+        }
+
         if (!Array.isArray(puzzleQuestions) || puzzleQuestions.length === 0) { console.error("Puzzle Engine: No Puzzle Content Available"); this.state.started = false; return null; }
         this.questions = puzzleQuestions.filter(Boolean);
         if (this.questions.length === 0) { console.error("Puzzle Engine: No Valid Puzzle Questions"); this.state.started = false; return null; }
@@ -45,6 +55,37 @@ const PuzzleEngine = {
         EventManager.emit("activityPlaying");
         console.log("Puzzle Questions Ready:", this.questions.length);
         return this.startCurrentQuestion(false);
+    },
+
+    getFileDefinedQuestions: function (activityData) {
+        const puzzle = activityData && activityData.puzzle;
+        if (!puzzle || !Array.isArray(puzzle.questions) || puzzle.questions.length === 0) return null;
+
+        const questions = puzzle.questions.map(function (question) {
+            if (!question || typeof question !== "object") return null;
+            if (question.type) return { ...question };
+            return {
+                type: puzzle.type || "jigsaw",
+                source: "file",
+                title: question.title || puzzle.title || activityData.title || "پازل",
+                instruction: question.instruction || puzzle.instruction || "کلمات را به ترتیب درست بچین.",
+                objective: question.objective || puzzle.objective || "واژه‌ها را به ترتیب درست بچین",
+                content: {
+                    ...question,
+                    twoStageWordOrder: question.twoStageWordOrder !== false
+                },
+                twoStageWordOrder: question.twoStageWordOrder !== false
+            };
+        }).filter(Boolean);
+
+        if (puzzle.randomQuestionOrder === true) {
+            for (let i = questions.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [questions[i], questions[j]] = [questions[j], questions[i]];
+            }
+        }
+
+        return questions;
     },
 
     prepareProviderActivity: function (activityData) {
@@ -187,4 +228,4 @@ const PuzzleEngine = {
 };
 
 window.PuzzleEngine = PuzzleEngine;
-console.log("Puzzle Engine v3.3 Ready");
+console.log("Puzzle Engine v3.4 Ready");
