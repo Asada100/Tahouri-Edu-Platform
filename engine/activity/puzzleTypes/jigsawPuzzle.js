@@ -1,9 +1,9 @@
 // =====================================
 // Tahouri Edu Platform
 // Jigsaw Puzzle Handler
-// Version 2.1
+// Version 2.2
 // Supports image and word/sentence jigsaw
-// Two-stage word jigsaw configuration is preserved for Stage 2.
+// Two-stage word jigsaw is initialized explicitly for Stage 2.
 // =====================================
 
 const JigsawPuzzleHandler = {
@@ -38,13 +38,18 @@ const JigsawPuzzleHandler = {
             words: result.words,
             pieceCount: result.pieceCount,
             twoStageWordOrder: hasTwoStage,
+            stage: hasTwoStage ? 1 : undefined,
+            availableWords: hasTwoStage ? [] : undefined,
+            targetWords: hasTwoStage ? [] : undefined,
+            history: hasTwoStage ? [] : undefined,
+            hintUsed: false,
             correctOrder: correctOrder
         };
 
         engine.items = result.pieces.slice().sort(function (a, b) { return a.currentIndex - b.currentIndex; }).map(function (piece) { return piece.id; });
         engine.moves = result.moves;
         engine.emitStarted();
-        console.log("Jigsaw Puzzle Handler Started", { mode: result.mode, twoStageWordOrder: hasTwoStage });
+        console.log("Jigsaw Puzzle Handler Started", { mode: result.mode, twoStageWordOrder: hasTwoStage, stage: engine.puzzle.stage || 1 });
         return engine.getState();
     },
 
@@ -88,4 +93,4 @@ const JigsawPuzzleHandler = {
 
 window.JigsawPuzzleHandler = JigsawPuzzleHandler;
 PuzzleTypeRegistry.register("jigsaw", JigsawPuzzleHandler);
-console.log("Jigsaw Puzzle Handler v2.1 Ready");
+console.log("Jigsaw Puzzle Handler v2.2 Ready");
