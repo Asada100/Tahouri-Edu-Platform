@@ -1,35 +1,82 @@
 // =====================================
 // Tahouri Edu Platform
 // Word Jigsaw Stage 2
-// Version 1.0
+// Version 1.1
 //
-// Purpose:
-// - Extend word Jigsaw with a second sentence-building stage
-// - Keep the existing Jigsaw engine and lifecycle intact
-// - Source box -> target box -> validation
-// - Undo / return / alphabetical hint
+// Two-stage word Jigsaw:
+// Stage 1: solve the existing Jigsaw.
+// Stage 2: move and order the words in a target box.
 // =====================================
 
 (function () {
     "use strict";
 
-    if (typeof JigsawPuzzleHandler === "undefined" || typeof PuzzleEngine === "undefined" || typeof JigsawScreen === "undefined") {
-        console.error("Word Jigsaw Stage 2: Required modules are not available");
+    if (typeof PuzzleEngine === "undefined" || typeof JigsawScreen === "undefined" || typeof JigsawPuzzleHandler === "undefined") {
+        console.error("Word Jigsaw Stage 2: required modules are not available");
         return;
     }
 
-    const originalStart = JigsawPuzzleHandler.start.bind(JigsawPuzzleHandler);
-    const originalCheck = JigsawPuzzleHandler.check.bind(JigsawPuzzleHandler);
+    const originalFinish = PuzzleEngine.finish.bind(PuzzleEngine);
+    const originalCheck = typeof PuzzleEngine.check === "function" ? PuzzleEngine.check.bind(PuzzleEngine) : null;
     const originalReset = JigsawPuzzleHandler.reset.bind(JigsawPuzzleHandler);
     const originalMove = JigsawPuzzleHandler.move.bind(JigsawPuzzleHandler);
     const originalGetState = PuzzleEngine.getState.bind(PuzzleEngine);
+    const originalRender = JigsawScreen.render.bind(JigsawScreen);
+    const originalBuildResult = typeof PuzzleEngine.buildResult === "function" ? PuzzleEngine.buildResult.bind(PuzzleEngine) : null;
+
+    function getTwoStageDefinition(engine) {
+        const puzzle = engine && engine.puzzle ? engine.puzzle : {};
+        const nested = puzzle.content && typeof puzzle.content === "object" ? puzzle.content : {};
+        const definition = puzzle.definition && typeof puzzle.definition === "object" ? puzzle.definition : {};
+        const definitionContent = definition.content && typeof definition.content === "object" ? definition.content : {};
+
+        const enabled = puzzle.twoStageWordOrder === true ||
+            nested.twoStageWordOrder === true ||
+            definitionContent.twoStageWordOrder === true;
+
+        if (!enabled) return null;
+
+        const words = Array.isArray(puzzle.words) ? puzzle.words.map(String) :
+            Array.isArray(nested.words) ? nested.words.map(String) :
+            Array.isArray(definitionContent.words) ? definitionContent.words.map(String) : [];
+
+        const correctOrder = Array.isArray(puzzle.correctOrder) ? puzzle.correctOrder.map(String) :
+            Array.isArray(nested.correctOrder) ? nested.correctOrder.map(String) :
+            Array.isArray(definitionContent.correctOrder) ? definitionContent.correctOrder.map(String) : words.slice();
+
+        return { words: words, correctOrder: correctOrder };
+    }
+
+    function ensureTwoStage(engine) {
+        const definition = getTwoStageDefinition(engine);
+        if (!definition || !engine.puzzle || engine.puzzle.type !== "jigsaw") return false;
+
+        if (engine.puzzle.twoStageWordOrder !== true) {
+            engine.puzzle.twoStageWordOrder = true;
+            engine.puzzle.stage = 1;
+            engine.puzzle.availableWords = [];
+            engine.puzzle.targetWords = [];
+            engine.puzzle.history = [];
+            engine.puzzle.hintUsed = false;
+            engine.puzzle.correctOrder = definition.correctOrder.slice();
+            if (!Array.isArray(engine.puzzle.words) || !engine.puzzle.words.length) {
+                engine.puzzle.words = definition.words.slice();
+            }
+            console.log("Word Jigsaw Stage 2 Enabled", {
+                stage: 1,
+                wordCount: definition.words.length
+            });
+        }
+
+        return true;
+    }
 
     function isTwoStage(engine) {
-        return !!(engine && engine.puzzle && engine.puzzle.twoStageWordOrder);
+        return !!(ensureTwoStage(engine) && engine.puzzle.stage !== undefined);
     }
 
     function pushHistory(engine) {
-        if (!engine.puzzle || !isTwoStage(engine)) return;
+        if (!isTwoStage(engine) || engine.puzzle.stage !== 2) return;
         if (!Array.isArray(engine.puzzle.history)) engine.puzzle.history = [];
         engine.puzzle.history.push({
             availableWords: [...(engine.puzzle.availableWords || [])],
@@ -45,65 +92,68 @@
         EventManager.emit("puzzleChanged", engine.getState());
     }
 
-    JigsawPuzzleHandler.start = function (engine, data) {
-        const result = originalStart(engine, data);
-        if (!result || !engine.puzzle) return result;
+    function enterStage2(engine) {
+        if (!isTwoStage(engine) || engine.puzzle.stage !== 1) return false;
 
-        const content = data && data.content ? data.content : {};
-        if (content.twoStageWordOrder !== true || result.mode !== "words") return result;
-
-        engine.puzzle.twoStageWordOrder = true;
-        engine.puzzle.stage = 1;
-        engine.puzzle.availableWords = [];
+        const words = Array.isArray(engine.puzzle.words) ? engine.puzzle.words.map(String) : [];
+        engine.puzzle.stage = 2;
+        engine.puzzle.availableWords = words.slice();
         engine.puzzle.targetWords = [];
         engine.puzzle.history = [];
         engine.puzzle.hintUsed = false;
-        engine.puzzle.correctOrder = Array.isArray(content.correctOrder)
-            ? [...content.correctOrder]
-            : [...result.words];
+        engine.items = [];
 
-        return engine.getState();
+        if (typeof JigsawPuzzle !== "undefined" && JigsawPuzzle.state) {
+            JigsawPuzzle.state.solved = true;
+        }
+
+        if (engine.state) engine.state.isFinished = false;
+        EventManager.emit("puzzleChanged", engine.getState());
+        console.log("Word Jigsaw Stage 1 Complete → Stage 2 Ready");
+        return true;
+    }
+
+    // The normal PuzzleEngine finishes immediately when a Jigsaw becomes solved.
+    // Intercept that finish only for Stage 1 and turn it into the Stage 2 transition.
+    PuzzleEngine.finish = function () {
+        if (enterStage2(this)) return this.getState();
+        return originalFinish();
     };
 
-    JigsawPuzzleHandler.check = function (engine) {
-        if (!isTwoStage(engine)) return originalCheck(engine);
+    // Keep an explicit check available for the Stage 2 button.
+    if (originalCheck) {
+        PuzzleEngine.check = function () {
+            if (!isTwoStage(this)) return originalCheck();
 
-        if (engine.puzzle.stage === 1) {
-            const solved = typeof JigsawPuzzle !== "undefined" && JigsawPuzzle.check();
-            if (!solved) {
-                engine.emitWrong();
+            if (this.puzzle.stage === 1) {
+                if (typeof JigsawPuzzle !== "undefined" && JigsawPuzzle.check()) {
+                    enterStage2(this);
+                    return true;
+                }
+                if (typeof this.emitWrong === "function") this.emitWrong();
                 return false;
             }
 
-            engine.puzzle.stage = 2;
-            engine.puzzle.availableWords = Array.isArray(engine.puzzle.words)
-                ? [...engine.puzzle.words]
-                : [];
-            engine.puzzle.targetWords = [];
-            engine.puzzle.history = [];
-            engine.puzzle.hintUsed = false;
-            engine.items = [];
-            EventManager.emit("puzzleChanged", engine.getState());
-            console.log("Word Jigsaw Stage 1 Complete → Stage 2 Ready");
-            return true;
-        }
+            if (this.puzzle.stage === 2) {
+                const current = this.puzzle.targetWords || [];
+                const correct = this.puzzle.correctOrder || this.puzzle.words || [];
+                const solved = current.length === correct.length && current.every(function (word, index) {
+                    return String(word) === String(correct[index]);
+                });
 
-        if (engine.puzzle.stage === 2) {
-            const current = engine.puzzle.targetWords || [];
-            const correct = engine.puzzle.correctOrder || engine.puzzle.words || [];
-            const solved = PuzzleEngine.areArraysEqual(current, correct);
+                if (solved) {
+                    this.puzzle.stage = 3;
+                    originalFinish();
+                    return true;
+                }
 
-            if (solved) {
-                engine.finish();
-                return true;
+                if (typeof this.emitWrong === "function") this.emitWrong();
+                return false;
             }
 
-            engine.emitWrong();
             return false;
-        }
-
-        return false;
-    };
+        };
+    }
 
     JigsawPuzzleHandler.moveWordToTarget = function (engine, sourceIndex) {
         if (!isTwoStage(engine) || engine.puzzle.stage !== 2) return false;
@@ -138,8 +188,8 @@
         if (!Number.isInteger(from) || !Number.isInteger(to) || from < 0 || to < 0 || from >= target.length || to >= target.length || from === to) return false;
 
         pushHistory(engine);
-        const item = target.splice(from, 1)[0];
-        target.splice(to, 0, item);
+        const word = target.splice(from, 1)[0];
+        target.splice(to, 0, word);
         emitChanged(engine);
         return true;
     };
@@ -185,19 +235,27 @@
         engine.puzzle.targetWords = [];
         engine.puzzle.history = [];
         engine.puzzle.hintUsed = false;
-        engine.items = [];
+        engine.puzzle.stage2Complete = false;
 
         if (typeof JigsawPuzzle !== "undefined") {
-            JigsawPuzzle.state.solved = false;
+            JigsawPuzzle.reset();
         }
 
-        return originalReset(engine);
+        EventManager.emit("puzzleChanged", engine.getState());
+        return engine.getState();
     };
 
-    // Expose Stage 2 fields through the existing PuzzleEngine state contract.
+    JigsawPuzzleHandler.move = function (engine, fromIndex, toIndex) {
+        if (!isTwoStage(engine) || engine.puzzle.stage === 1) {
+            return originalMove(engine, fromIndex, toIndex);
+        }
+        return false;
+    };
+
+    const originalState = PuzzleEngine.getState.bind(PuzzleEngine);
     PuzzleEngine.getState = function () {
-        const state = originalGetState();
-        if (this.puzzle && this.puzzle.type === "jigsaw" && this.puzzle.twoStageWordOrder) {
+        const state = originalState();
+        if (this.puzzle && isTwoStage(this)) {
             state.twoStageWordOrder = true;
             state.stage = this.puzzle.stage || 1;
             state.availableWords = [...(this.puzzle.availableWords || [])];
@@ -208,20 +266,8 @@
         return state;
     };
 
-    // A small compatibility wrapper: Stage 2 never sends its actions through
-    // the old Jigsaw piece mover because Stage 1 has already been solved.
-    JigsawPuzzleHandler.move = function (engine, fromIndex, toIndex) {
-        if (!isTwoStage(engine) || engine.puzzle.stage === 1) {
-            return originalMove(engine, fromIndex, toIndex);
-        }
-        return false;
-    };
-
-    // =====================================
-    // Stage 2 UI
-    // =====================================
-
-    const originalRender = JigsawScreen.render.bind(JigsawScreen);
+    // The first render is the safest place to detect the flag because the
+    // content has already been normalized into PuzzleEngine.puzzle.
     JigsawScreen.render = function (state) {
         const engine = typeof PuzzleEngine !== "undefined" ? PuzzleEngine : null;
         if (isTwoStage(engine) && engine.puzzle.stage === 2) {
@@ -236,7 +282,6 @@
 
         const source = Array.isArray(state.availableWords) ? state.availableWords : [];
         const target = Array.isArray(state.targetWords) ? state.targetWords : [];
-        const hintUsed = !!state.hintUsed;
         const screen = this;
 
         const sourceHTML = source.map(function (word, index) {
@@ -253,7 +298,7 @@
                     <div class="wordJigsawBadge">مرحله دوم</div>
                     <h1>ساختن شعر</h1>
                     <p class="jigsawObjective">کلمات را به ترتیب درست در بخش پاسخ قرار بده.</p>
-                    <p class="jigsawInstruction">می‌توانی کلمات را جابه‌جا کنی یا دوباره به باکس اولیه برگردانی.</p>
+                    <p class="jigsawInstruction">کلمه‌ها را بکش، جابه‌جا کن یا دوباره به باکس اولیه برگردان.</p>
                 </div>
 
                 <section class="wordBuilderSection">
@@ -273,9 +318,7 @@
                     <button id="wordBuilderReset" type="button">شروع دوباره</button>
                 </div>
 
-                <div id="wordBuilderMessage" class="wordBuilderMessage" aria-live="polite">
-                    ${hintUsed ? "راهنمای الفبایی استفاده شده است." : ""}
-                </div>
+                <div id="wordBuilderMessage" class="wordBuilderMessage" aria-live="polite"></div>
                 <div class="jigsawMoves">حرکت‌ها: <span>${state.moves || 0}</span></div>
             </div>`;
 
@@ -303,8 +346,7 @@
         const check = document.getElementById("wordBuilderCheck");
         if (check) check.onclick = function () {
             const correct = PuzzleEngine.check();
-            const message = document.getElementById("wordBuilderMessage");
-            if (message && !correct) message.textContent = "هنوز ترتیب کلمات درست نیست؛ دوباره تلاش کن.";
+            if (!correct) screen.showWordBuilderMessage("هنوز ترتیب کلمات درست نیست؛ دوباره تلاش کن.");
         };
 
         const undo = document.getElementById("wordBuilderUndo");
@@ -324,38 +366,29 @@
             if (JigsawPuzzleHandler.reset(PuzzleEngine)) screen.render(PuzzleEngine.getState());
         };
 
-        // Pointer drag: source -> target and target -> source.
         this.bindWordBuilderPointerDrag(source, "source");
         this.bindWordBuilderPointerDrag(target, "target");
     };
 
     JigsawScreen.bindWordBuilderPointerDrag = function (container, kind) {
-        const screen = this;
-        let dragButton = null;
-        let moved = false;
-        let startX = 0;
-        let startY = 0;
-
         container.querySelectorAll(".wordBuilderPiece").forEach(function (button) {
+            let moved = false;
+            let startX = 0;
+            let startY = 0;
+
             button.addEventListener("pointerdown", function (event) {
-                dragButton = button;
                 moved = false;
                 startX = event.clientX;
                 startY = event.clientY;
-                button.setPointerCapture?.(event.pointerId);
+                try { button.setPointerCapture(event.pointerId); } catch (e) {}
             });
 
             button.addEventListener("pointermove", function (event) {
-                if (dragButton !== button) return;
                 if (Math.abs(event.clientX - startX) > 5 || Math.abs(event.clientY - startY) > 5) moved = true;
             });
 
             button.addEventListener("pointerup", function (event) {
-                if (dragButton !== button) return;
-                const wasMoved = moved;
-                dragButton = null;
-                if (!wasMoved) return;
-
+                if (!moved) return;
                 const targetEl = document.elementFromPoint(event.clientX, event.clientY);
                 if (!targetEl) return;
 
@@ -378,17 +411,16 @@
         if (message) message.textContent = text || "";
     };
 
-    // Alphabetical help is a hint, not a wrong answer. It reduces the raw
-    // score by 2 points after successful completion and is recorded in state.
-    const originalBuildResult = PuzzleEngine.buildResult.bind(PuzzleEngine);
-    PuzzleEngine.buildResult = function () {
-        const result = originalBuildResult();
-        if (this.puzzle && this.puzzle.twoStageWordOrder && this.puzzle.hintUsed) {
-            result.score = Math.max(0, Number(result.score || 0) - 2);
-            result.message = "🎉 پازل تمام شد — با استفاده از راهنمای الفبایی";
-        }
-        return result;
-    };
+    if (originalBuildResult) {
+        PuzzleEngine.buildResult = function () {
+            const result = originalBuildResult();
+            if (this.puzzle && this.puzzle.twoStageWordOrder && this.puzzle.hintUsed) {
+                result.score = Math.max(0, Number(result.score || 0) - 2);
+                result.message = "🎉 پازل تمام شد — با استفاده از راهنمای الفبایی";
+            }
+            return result;
+        };
+    }
 
-    console.log("Word Jigsaw Stage 2 v1.0 Ready");
+    console.log("Word Jigsaw Stage 2 v1.1 Ready");
 })();
