@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Jigsaw Puzzle Handler
-// Version 2.4
+// Version 2.5
 // Supports image and word/sentence jigsaw
 // Two-stage word jigsaw starts directly with both word boxes visible.
 // =====================================
@@ -37,6 +37,7 @@ const JigsawPuzzleHandler = {
 
         const words = (Array.isArray(result.words) ? result.words : []).map(String);
         const firstLineLength = Number(content.firstLineLength || data.firstLineLength || 0);
+        const punctuation = content.punctuation || data.punctuation || {};
 
         engine.puzzle = {
             type: "jigsaw",
@@ -59,6 +60,7 @@ const JigsawPuzzleHandler = {
             history: hasTwoStage ? [] : undefined,
             hintUsed: false,
             firstLineLength: Number.isInteger(firstLineLength) && firstLineLength > 0 ? firstLineLength : null,
+            punctuation: punctuation && typeof punctuation === "object" ? { ...punctuation } : {},
             correctOrder: correctOrder.length ? correctOrder : words.slice()
         };
 
@@ -73,12 +75,10 @@ const JigsawPuzzleHandler = {
         if (!engine || !engine.puzzle || engine.puzzle.type !== "jigsaw" || (engine.state && engine.state.isFinished)) return false;
         const moved = JigsawPuzzle.move(fromIndex, toIndex);
         if (!moved) return false;
-
         const state = JigsawPuzzle.getState();
         engine.items = state.pieces.slice().sort(function (a, b) { return a.currentIndex - b.currentIndex; }).map(function (piece) { return piece.id; });
         engine.moves = state.moves;
         EventManager.emit("puzzleChanged", engine.getState());
-
         if (state.solved) engine.check();
         return true;
     },
@@ -96,9 +96,7 @@ const JigsawPuzzleHandler = {
     check: function (engine) {
         if (!engine || !engine.puzzle || engine.puzzle.type !== "jigsaw") return false;
         if (engine.puzzle.twoStageWordOrder === true) {
-            if (engine.puzzle.stage === 2 && typeof JigsawPuzzleHandler.checkStage2 === "function") {
-                return JigsawPuzzleHandler.checkStage2(engine);
-            }
+            if (engine.puzzle.stage === 2 && typeof JigsawPuzzleHandler.checkStage2 === "function") return JigsawPuzzleHandler.checkStage2(engine);
             return false;
         }
         if (engine.state && engine.state.isFinished) return !!(JigsawPuzzle.state && JigsawPuzzle.state.solved);
@@ -115,4 +113,4 @@ const JigsawPuzzleHandler = {
 
 window.JigsawPuzzleHandler = JigsawPuzzleHandler;
 PuzzleTypeRegistry.register("jigsaw", JigsawPuzzleHandler);
-console.log("Jigsaw Puzzle Handler v2.4 Ready");
+console.log("Jigsaw Puzzle Handler v2.5 Ready");
