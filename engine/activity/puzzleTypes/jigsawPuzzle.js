@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Jigsaw Puzzle Handler
-// Version 2.3
+// Version 2.4
 // Supports image and word/sentence jigsaw
 // Two-stage word jigsaw starts directly with both word boxes visible.
 // =====================================
@@ -13,7 +13,6 @@ const JigsawPuzzleHandler = {
             const j = Math.floor(Math.random() * (i + 1));
             [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
         }
-        // Make sure a multi-word poem does not accidentally open in its original order.
         if (shuffled.length > 1 && shuffled.every(function (word, index) { return word === words[index]; })) {
             [shuffled[0], shuffled[1]] = [shuffled[1], shuffled[0]];
         }
@@ -37,6 +36,7 @@ const JigsawPuzzleHandler = {
                 : [];
 
         const words = (Array.isArray(result.words) ? result.words : []).map(String);
+        const firstLineLength = Number(content.firstLineLength || data.firstLineLength || 0);
 
         engine.puzzle = {
             type: "jigsaw",
@@ -58,15 +58,14 @@ const JigsawPuzzleHandler = {
             targetWords: hasTwoStage ? [] : undefined,
             history: hasTwoStage ? [] : undefined,
             hintUsed: false,
+            firstLineLength: Number.isInteger(firstLineLength) && firstLineLength > 0 ? firstLineLength : null,
             correctOrder: correctOrder.length ? correctOrder : words.slice()
         };
 
-        // The two-stage word activity is a word-transfer activity from the
-        // moment it opens. Do not wait for the old Jigsaw completion first.
         engine.items = hasTwoStage ? [] : result.pieces.slice().sort(function (a, b) { return a.currentIndex - b.currentIndex; }).map(function (piece) { return piece.id; });
         engine.moves = 0;
         engine.emitStarted();
-        console.log("Jigsaw Puzzle Handler Started", { mode: result.mode, twoStageWordOrder: hasTwoStage, stage: engine.puzzle.stage || 1 });
+        console.log("Jigsaw Puzzle Handler Started", { mode: result.mode, twoStageWordOrder: hasTwoStage, stage: engine.puzzle.stage || 1, firstLineLength: engine.puzzle.firstLineLength });
         return engine.getState();
     },
 
@@ -97,7 +96,6 @@ const JigsawPuzzleHandler = {
     check: function (engine) {
         if (!engine || !engine.puzzle || engine.puzzle.type !== "jigsaw") return false;
         if (engine.puzzle.twoStageWordOrder === true) {
-            // Stage 2 is checked by the Stage 2 UI extension.
             if (engine.puzzle.stage === 2 && typeof JigsawPuzzleHandler.checkStage2 === "function") {
                 return JigsawPuzzleHandler.checkStage2(engine);
             }
@@ -117,4 +115,4 @@ const JigsawPuzzleHandler = {
 
 window.JigsawPuzzleHandler = JigsawPuzzleHandler;
 PuzzleTypeRegistry.register("jigsaw", JigsawPuzzleHandler);
-console.log("Jigsaw Puzzle Handler v2.3 Ready");
+console.log("Jigsaw Puzzle Handler v2.4 Ready");
