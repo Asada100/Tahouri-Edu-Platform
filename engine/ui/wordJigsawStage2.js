@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Word Jigsaw Stage 2
-// Version 1.2
+// Version 1.3
 // =====================================
 
 (function () {
@@ -12,7 +12,6 @@
         return;
     }
 
-    const originalCheck = typeof PuzzleEngine.check === "function" ? PuzzleEngine.check.bind(PuzzleEngine) : null;
     const originalReset = JigsawPuzzleHandler.reset.bind(JigsawPuzzleHandler);
     const originalMove = JigsawPuzzleHandler.move.bind(JigsawPuzzleHandler);
     const originalRender = JigsawScreen.render.bind(JigsawScreen);
@@ -75,11 +74,22 @@
 
     function checkStage2(engine) {
         if (!isStage2(engine)) return false;
+
         if (isCorrect(engine)) {
             engine.puzzle.stage = 3;
             console.log("Word Jigsaw Stage 2 Correct → Activity Complete");
-            return originalCheck ? originalCheck() : false;
+
+            // PuzzleEngine.check() must NOT be called again here: it would
+            // dispatch back to this same Jigsaw handler and recurse through
+            // Stage 2. At this point we are already inside the explicit
+            // check() call, so finish() is the correct lifecycle transition.
+            if (typeof engine.finish === "function") {
+                const result = engine.finish();
+                return result !== false;
+            }
+            return false;
         }
+
         if (typeof engine.emitWrong === "function") engine.emitWrong();
         const message = document.getElementById("wordBuilderMessage");
         if (message) message.textContent = "این ترتیب درست نیست؛ می‌توانی کلمات را جابه‌جا کنی و دوباره تلاش کنی.";
@@ -87,9 +97,8 @@
     }
 
     // Stage 1 completion is handled here, at the Jigsaw check point.
-    // We deliberately do NOT replace PuzzleEngine.finish(), because that
-    // caused the finish/report lifecycle to run before Stage 2 in the
-    // previous implementation.
+    // PuzzleEngine.finish() is intentionally left untouched so the normal
+    // activity/report lifecycle is used only after Stage 2 is correct.
     JigsawPuzzleHandler.check = function (engine) {
         if (!enable(engine)) return false;
 
@@ -232,14 +241,14 @@
         const target = document.getElementById("wordBuilderTarget");
         if (!source || !target) return;
         const screen = this;
-        source.querySelectorAll("[data-source-index]").forEach(function (button) { button.onclick = function () { JigsawPuzzleHandler.moveWordToTarget(PuzzleEngine, Number(button.dataset.sourceIndex)); }; });
-        target.querySelectorAll("[data-target-index]").forEach(function (button) { button.onclick = function () { JigsawPuzzleHandler.moveWordToSource(PuzzleEngine, Number(button.dataset.targetIndex)); }; });
+        source.querySelectorAll("[data-source-index]").forEach(function (button) { button.onclick = function () { JigsawPuzzleHandler.moveWordToTarget(PuzzleEngine, Number(button.dataset.sourceIndex)); screen.render(PuzzleEngine.getState()); }; });
+        target.querySelectorAll("[data-target-index]").forEach(function (button) { button.onclick = function () { JigsawPuzzleHandler.moveWordToSource(PuzzleEngine, Number(button.dataset.targetIndex)); screen.render(PuzzleEngine.getState()); }; });
         const check = document.getElementById("wordBuilderCheck");
         if (check) check.onclick = function () { PuzzleEngine.check(); };
         const undo = document.getElementById("wordBuilderUndo");
-        if (undo) undo.onclick = function () { if (!JigsawPuzzleHandler.undoStage2(PuzzleEngine)) screen.showWordBuilderMessage("حرکت قبلی برای برگشت وجود ندارد."); };
+        if (undo) undo.onclick = function () { if (JigsawPuzzleHandler.undoStage2(PuzzleEngine)) screen.render(PuzzleEngine.getState()); else screen.showWordBuilderMessage("حرکت قبلی برای برگشت وجود ندارد."); };
         const alphabet = document.getElementById("wordBuilderAlphabet");
-        if (alphabet) alphabet.onclick = function () { JigsawPuzzleHandler.alphabeticalHint(PuzzleEngine); };
+        if (alphabet) alphabet.onclick = function () { JigsawPuzzleHandler.alphabeticalHint(PuzzleEngine); screen.render(PuzzleEngine.getState()); };
         const reset = document.getElementById("wordBuilderReset");
         if (reset) reset.onclick = function () { if (JigsawPuzzleHandler.reset(PuzzleEngine)) screen.render(PuzzleEngine.getState()); };
     };
@@ -254,5 +263,5 @@
         };
     }
 
-    console.log("Word Jigsaw Stage 2 v1.2 Ready");
+    console.log("Word Jigsaw Stage 2 v1.3 Ready");
 })();
