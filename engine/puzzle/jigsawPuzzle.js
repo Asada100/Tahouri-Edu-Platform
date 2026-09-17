@@ -47,7 +47,7 @@ const JigsawPuzzle = {
     },
 
     restoreFromEngine: function () {
-        if (this.state || typeof PuzzleEngine === "undefined" || !PuzzleEngine.puzzle || PuzzleEngine.puzzle.type !== "jigsaw") return !!this.state;
+        if (typeof PuzzleEngine === "undefined" || !PuzzleEngine.puzzle || PuzzleEngine.puzzle.type !== "jigsaw") return false;
         const puzzle = PuzzleEngine.puzzle;
         const items = Array.isArray(PuzzleEngine.items) ? PuzzleEngine.items : [];
         const words = Array.isArray(puzzle.words) ? puzzle.words.map(function (word) { return String(word); }) : null;
@@ -61,12 +61,21 @@ const JigsawPuzzle = {
             for (let i = 0; i < count; i += 1) pieces.push({ id: `piece-${i}`, correctIndex: i, currentIndex: i });
             mode = "image";
         }
+        // Rebuild from the persisted engine state every time. Never reuse a
+        // previous in-memory Jigsaw state, because it may belong to another
+        // attempt and may already be solved.
         if (items.length === pieces.length) {
-            pieces.forEach(function (piece) { piece.currentIndex = 0; });
+            const used = new Set();
+            let valid = true;
             items.forEach(function (id, position) {
-                const piece = pieces.find(function (item) { return item.id === id; });
-                if (piece) piece.currentIndex = position;
+                const piece = pieces.find(function (item) { return item.id === id && !used.has(item.id); });
+                if (!piece) { valid = false; return; }
+                piece.currentIndex = position;
+                used.add(piece.id);
             });
+            if (!valid || used.size !== pieces.length) {
+                pieces.forEach(function (piece, index) { piece.currentIndex = index; });
+            }
         }
         this.state = {
             type: "jigsaw", mode: mode, image: puzzle.image, rows: puzzle.rows, cols: puzzle.cols,
@@ -74,7 +83,7 @@ const JigsawPuzzle = {
             pieces: pieces, moves: Number(PuzzleEngine.moves || 0), solved: false
         };
         this.state.solved = this.isSolved();
-        console.log("Jigsaw Puzzle State Restored", { mode: mode, pieceCount: pieces.length, moves: this.state.moves });
+        console.log("Jigsaw Puzzle State Restored", { mode: mode, pieceCount: pieces.length, moves: this.state.moves, solved: this.state.solved });
         return true;
     },
 
