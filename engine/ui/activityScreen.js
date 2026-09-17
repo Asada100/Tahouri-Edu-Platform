@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 3.5
+// Version 3.6
 // Activity Screen
 // =====================================
 
@@ -36,9 +36,7 @@ const ActivityScreen = {
         let activitiesHTML = "";
 
         normalActivities.forEach(function (activity) {
-            const locked = typeof ContentLockManager !== "undefined"
-                ? ContentLockManager.isLocked(activity.id)
-                : false;
+            const locked = ActivityScreen.isLocked(activity);
 
             activitiesHTML += `
                 <button
@@ -56,8 +54,7 @@ const ActivityScreen = {
             let groupLocked = true;
 
             groupActivities.forEach(function (activity) {
-                if (typeof ContentLockManager === "undefined" ||
-                    ContentLockManager.canOpen(activity.id)) {
+                if (!ActivityScreen.isLocked(activity)) {
                     groupLocked = false;
                 }
             });
@@ -117,6 +114,29 @@ const ActivityScreen = {
         console.log("Activity Screen Displayed:", activityList.length);
     },
 
+    // =====================================
+    // LOCK RESOLUTION
+    // =====================================
+    // The activity catalog explicitly declares locked:false for activities
+    // that are intentionally open. That declaration must not be overridden
+    // by stale profile lock data. Activities declared locked:true continue
+    // to use ContentLockManager for the actual platform lock state.
+    isLocked: function (activity) {
+        if (!activity || !activity.id) {
+            return true;
+        }
+
+        if (activity.locked === false) {
+            return false;
+        }
+
+        if (typeof ContentLockManager === "undefined") {
+            return activity.locked === true;
+        }
+
+        return ContentLockManager.isLocked(activity.id);
+    },
+
     bindActivityButtons: function (activityList) {
         document.querySelectorAll(".activitySelectBtn").forEach(function (button) {
             button.onclick = function () {
@@ -130,8 +150,7 @@ const ActivityScreen = {
                     return;
                 }
 
-                if (typeof ContentLockManager !== "undefined" &&
-                    !ContentLockManager.canOpen(id)) {
+                if (ActivityScreen.isLocked(activity)) {
                     alert("🔒 این فعالیت هنوز قفل است.\n\nبرای ورود، ابتدا شرایط باز شدن آن را کامل کنید.");
                     return;
                 }
@@ -152,8 +171,7 @@ const ActivityScreen = {
                 }
 
                 const groupLocked = groupActivities.every(function (activity) {
-                    return typeof ContentLockManager !== "undefined" &&
-                        !ContentLockManager.canOpen(activity.id);
+                    return ActivityScreen.isLocked(activity);
                 });
 
                 if (groupLocked) {
@@ -219,4 +237,4 @@ const ActivityScreen = {
 
 window.ActivityScreen = ActivityScreen;
 
-console.log("Activity Screen v3.5 Ready");
+console.log("Activity Screen v3.6 Ready");
