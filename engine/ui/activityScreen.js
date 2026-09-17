@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 3.6
+// Version 3.7
 // Activity Screen
 // =====================================
 
@@ -51,15 +51,12 @@ const ActivityScreen = {
 
         Object.keys(groupedActivities).forEach(function (groupId) {
             const groupActivities = groupedActivities[groupId];
-            let groupLocked = true;
-
-            groupActivities.forEach(function (activity) {
-                if (!ActivityScreen.isLocked(activity)) {
-                    groupLocked = false;
-                }
+            const groupLocked = groupActivities.every(function (activity) {
+                return ActivityScreen.isLocked(activity);
             });
 
             const groupTitle = ActivityScreen.getGroupTitle(groupId);
+            const groupIcon = ActivityScreen.getGroupIcon(groupId);
 
             activitiesHTML += `
                 <button
@@ -67,7 +64,8 @@ const ActivityScreen = {
                     data-group="${groupId}"
                     type="button">
                     ${groupLocked ? "🔒" : ""}
-                    ${groupTitle}
+                    <span class="activityGroupIcon" aria-hidden="true">${groupIcon}</span>
+                    <span>${groupTitle}</span>
                 </button>
             `;
         });
@@ -117,10 +115,6 @@ const ActivityScreen = {
     // =====================================
     // LOCK RESOLUTION
     // =====================================
-    // The activity catalog explicitly declares locked:false for activities
-    // that are intentionally open. That declaration must not be overridden
-    // by stale profile lock data. Activities declared locked:true continue
-    // to use ContentLockManager for the actual platform lock state.
     isLocked: function (activity) {
         if (!activity || !activity.id) {
             return true;
@@ -175,7 +169,7 @@ const ActivityScreen = {
                 });
 
                 if (groupLocked) {
-                    alert("🔒 این بخش هنوز قفل است.\n\nبرای ورود، ابتدا حداقل ۸۰٪ امتیاز بازی قبلی را کسب کنید.");
+                    alert("🔒 این بخش هنوز قفل است.\n\nبرای ورود، ابتدا شرایط باز شدن آن را کامل کنید.");
                     return;
                 }
 
@@ -184,9 +178,15 @@ const ActivityScreen = {
         });
     },
 
+    // =====================================
+    // GENERIC ACTIVITY GROUP SCREEN
+    // =====================================
     openGroup: function (groupId, activities) {
-        console.log("Opening Activity Group:", groupId);
+        if (!Array.isArray(activities) || activities.length === 0) {
+            return;
+        }
 
+        // Keep the existing divisibility flow untouched.
         if (groupId === "divisibility") {
             if (typeof DivisibilityScreen !== "undefined" && typeof DivisibilityScreen.show === "function") {
                 const firstActivity = activities[0];
@@ -204,15 +204,89 @@ const ActivityScreen = {
             return;
         }
 
-        console.warn("Activity Group Not Supported Yet:", groupId);
+        ActivityScreen.showGroupActivities(groupId, activities);
+    },
+
+    showGroupActivities: function (groupId, activities) {
+        const app = document.getElementById("app");
+        if (!app) {
+            console.error("Activity Screen: App Container Not Found");
+            return;
+        }
+
+        const groupTitle = this.getGroupTitle(groupId);
+        const groupIcon = this.getGroupIcon(groupId);
+
+        let buttonsHTML = "";
+
+        activities.forEach(function (activity) {
+            const locked = ActivityScreen.isLocked(activity);
+            buttonsHTML += `
+                <button
+                    class="activitySelectBtn"
+                    data-id="${activity.id}"
+                    type="button">
+                    ${locked ? "🔒" : ""}
+                    <span>${activity.title}</span>
+                </button>
+            `;
+        });
+
+        app.innerHTML = `
+            <div class="screen activityScreen activityGroupScreen" dir="rtl">
+                <div class="activityGroupHeading">
+                    <div class="activityGroupHeadingIcon" aria-hidden="true">${groupIcon}</div>
+                    <h1>${groupTitle}</h1>
+                    <p>یک بازی را انتخاب کن و شروع کن!</p>
+                </div>
+
+                <div id="activityList" class="activityList">
+                    ${buttonsHTML}
+                </div>
+
+                <button id="backToActivitiesBtn" type="button">
+                    ⬅ بازگشت به فعالیت‌ها
+                </button>
+            </div>
+        `;
+
+        this.bindActivityButtons(activities);
+
+        const backButton = document.getElementById("backToActivitiesBtn");
+        if (backButton) {
+            backButton.onclick = function () {
+                if (typeof Screen !== "undefined" && typeof Screen.showActivities === "function") {
+                    Screen.showActivities(AppState.grade, AppState.subject, AppState.chapter);
+                    return;
+                }
+
+                // Fallback: return through Navigation when the Screen facade
+                // does not expose showActivities directly.
+                if (typeof Navigation !== "undefined" && typeof Navigation.selectChapter === "function") {
+                    Navigation.selectChapter(AppState.chapter);
+                }
+            };
+        }
+
+        console.log("Activity Group Displayed:", groupId, activities.length);
     },
 
     getGroupTitle: function (groupId) {
         const titles = {
-            divisibility: "بخش‌پذیری"
+            divisibility: "بخش‌پذیری",
+            setayesh: "ستایش"
         };
 
         return titles[groupId] || groupId;
+    },
+
+    getGroupIcon: function (groupId) {
+        const icons = {
+            divisibility: "➗",
+            setayesh: "📖"
+        };
+
+        return icons[groupId] || "🎮";
     },
 
     startActivity: function (activity) {
@@ -237,4 +311,4 @@ const ActivityScreen = {
 
 window.ActivityScreen = ActivityScreen;
 
-console.log("Activity Screen v3.6 Ready");
+console.log("Activity Screen v3.7 Ready");
