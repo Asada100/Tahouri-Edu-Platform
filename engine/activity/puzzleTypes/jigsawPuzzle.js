@@ -7,6 +7,19 @@
 // =====================================
 
 const JigsawPuzzleHandler = {
+    shuffleWordList: function (words) {
+        const shuffled = Array.isArray(words) ? words.slice() : [];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        // Make sure a multi-word poem does not accidentally open in its original order.
+        if (shuffled.length > 1 && shuffled.every(function (word, index) { return word === words[index]; })) {
+            [shuffled[0], shuffled[1]] = [shuffled[1], shuffled[0]];
+        }
+        return shuffled;
+    },
+
     start: function (engine, data) {
         if (typeof JigsawPuzzle === "undefined") return null;
 
@@ -41,7 +54,7 @@ const JigsawPuzzleHandler = {
             pieceCount: result.pieceCount,
             twoStageWordOrder: hasTwoStage,
             stage: hasTwoStage ? 2 : undefined,
-            availableWords: hasTwoStage ? words.slice() : undefined,
+            availableWords: hasTwoStage ? this.shuffleWordList(words) : undefined,
             targetWords: hasTwoStage ? [] : undefined,
             history: hasTwoStage ? [] : undefined,
             hintUsed: false,
