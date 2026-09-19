@@ -343,6 +343,13 @@ const ActivitySessionManager = {
             engine.userAnswer = data.userAnswer;
             engine.moves = Number(data.moves || 0);
 
+            // Rebuild the in-memory Jigsaw core from the restored PuzzleEngine state
+            // before rendering. Without this, the board is visible but move/reset
+            // operations have no Jigsaw core state to operate on.
+            if (engine.puzzle && engine.puzzle.type === "jigsaw" && typeof JigsawPuzzle !== "undefined" && typeof JigsawPuzzle.restoreFromEngine === "function") {
+                JigsawPuzzle.restoreFromEngine();
+            }
+
             if (typeof PuzzleScreen !== "undefined" && typeof PuzzleScreen.show === "function") {
                 PuzzleScreen.show(engine.getState());
             }
