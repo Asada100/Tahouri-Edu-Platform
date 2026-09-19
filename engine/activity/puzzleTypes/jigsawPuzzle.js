@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Jigsaw Puzzle Handler
-// Version 2.6
+// Version 2.7
 // Supports image and word/sentence jigsaw
 // Group-aware word jigsaw supports independent drop rows/zones.
 // =====================================
@@ -22,7 +22,7 @@ const JigsawPuzzleHandler = {
     start: function (engine, data) {
         if (typeof JigsawPuzzle === "undefined") return null;
 
-        const content = data.content || {};
+        const content = { ...data, ...(data.content || {}) };
         const definition = { ...data, type: "jigsaw", content: content };
         const result = JigsawPuzzle.start(definition);
         if (!result) return null;
