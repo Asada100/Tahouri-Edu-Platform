@@ -31,12 +31,16 @@ const JigsawPuzzle = {
             console.error("Jigsaw Puzzle: Invalid image definition");
             return null;
         }
+        // Resolve repository-relative image paths against the actual application URL.
+        // This prevents the CSS background-image from resolving the asset against
+        // whatever route/path the activity was opened from (including GitHub Pages).
+        const resolvedImage = new URL(String(image), document.baseURI).href;
         const count = rows * cols;
         const pieces = [];
         for (let correctIndex = 0; correctIndex < count; correctIndex += 1) pieces.push({ id: `piece-${correctIndex}`, correctIndex: correctIndex, currentIndex: correctIndex });
         const arrangement = this.shuffleIndexes(count);
         pieces.forEach(function (piece, index) { piece.currentIndex = arrangement[index]; });
-        this.state = { type: "jigsaw", mode: "image", image: image, rows: rows, cols: cols, pieceCount: count, difficulty: Number(puzzle.difficulty || 1), pieces: pieces, moves: 0, solved: false };
+        this.state = { type: "jigsaw", mode: "image", image: resolvedImage, rows: rows, cols: cols, pieceCount: count, difficulty: Number(puzzle.difficulty || 1), pieces: pieces, moves: 0, solved: false };
         if (this.isSolved() && count > 1) {
             const last = pieces[count - 1].currentIndex;
             pieces[count - 1].currentIndex = pieces[count - 2].currentIndex;
