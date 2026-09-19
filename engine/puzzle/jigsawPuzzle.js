@@ -9,6 +9,36 @@ const JigsawPuzzle = {
     VERSION: "2.0",
     state: null,
 
+    resolveImagePath: function (image) {
+        if (!image) return image;
+        const raw = String(image).trim();
+        if (!raw) return raw;
+
+        // Activity content stores repository-relative asset paths. Always resolve
+        // those paths from the application root, not from the current route and
+        // not from a previously persisted absolute URL.
+        let assetPath = raw;
+        try {
+            const parsed = new URL(raw, document.baseURI);
+            assetPath = parsed.pathname || raw;
+        } catch (e) {}
+
+        const match = assetPath.match(/(?:^|\\/)assets\\/(.*)$/);
+        if (match) {
+            const script = Array.from(document.scripts || []).find(function (item) {
+                return item.src && /(?:^|\\/)engine\\//.test(item.src);
+            });
+            if (script && script.src) {
+                const root = new URL(".", new URL(script.src, document.baseURI));
+                return new URL("assets/" + match[1], root).href;
+            }
+            const basePath = document.baseURI.replace(/[^/]*$/, "");
+            return new URL("assets/" + match[1], basePath).href;
+        }
+
+        return new URL(raw, document.baseURI).href;
+    },
+
     start: function (definition) {
         const puzzle = definition || {};
         const content = puzzle.content || {};
@@ -34,7 +64,7 @@ const JigsawPuzzle = {
         // Resolve repository-relative image paths against the actual application URL.
         // This prevents the CSS background-image from resolving the asset against
         // whatever route/path the activity was opened from (including GitHub Pages).
-        const resolvedImage = new URL(String(image), document.baseURI).href;
+        const resolvedImage = this.resolveImagePath(image);
         const count = rows * cols;
         const pieces = [];
         for (let correctIndex = 0; correctIndex < count; correctIndex += 1) pieces.push({ id: `piece-${correctIndex}`, correctIndex: correctIndex, currentIndex: correctIndex });
@@ -81,9 +111,7 @@ const JigsawPuzzle = {
                 pieces.forEach(function (piece, index) { piece.currentIndex = index; });
             }
         }
-        const restoredImage = puzzle.image
-            ? new URL(String(puzzle.image), document.baseURI).href
-            : puzzle.image;
+        const restoredImage = this.resolveImagePath(puzzle.image);
         this.state = {
             type: "jigsaw", mode: mode, image: restoredImage, rows: puzzle.rows, cols: puzzle.cols,
             words: words || undefined, pieceCount: pieces.length, difficulty: Number(puzzle.difficulty || 1),
