@@ -10,10 +10,8 @@
   "puzzle": {
     "type": "jigsaw",
     "source": "file",
-    "content": {
-      "rows": 3,
-      "cols": 3,
-      "image": "assets/images/farsi6pazel1.JPG"
-    }
+    "rows": 3,
+    "cols": 3,
+    "image": "assets/images/farsi6pazel1.JPG"
   }
 }
