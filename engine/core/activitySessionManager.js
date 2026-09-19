@@ -276,6 +276,7 @@ const ActivitySessionManager = {
             engine.userAnswer = data.userAnswer;
             engine.moves = Number(data.moves || 0);
             engine.transitioning = false;
+            if (engine.puzzle && engine.puzzle.type === "jigsaw" && typeof JigsawPuzzle !== "undefined" && typeof JigsawPuzzle.restoreFromEngine === "function") JigsawPuzzle.restoreFromEngine();
             engine.checking = false;
             if (typeof ScoreManager !== "undefined") {
                 ScoreManager.score = Number(data.score || 0);
