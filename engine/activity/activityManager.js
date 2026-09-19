@@ -49,7 +49,17 @@ const ActivityManager = {
                 const state = engineState.state || {};
                 const completedSnapshot = state.isFinished === true || engineState.finished === true || engineState.completed === true;
                 if (completedSnapshot) ActivitySessionManager.clear();
-                else { console.warn("ActivityManager: New attempt blocked; unfinished session exists.", fullActivity.id); this.showBlockedStartNotice(fullActivity, existing); return null; }
+                else {
+                    // An explicit activity click must not dead-end on a stale resumable
+                    // session. Try to restore it first; if restoration fails, discard the
+                    // broken session and start a clean attempt.
+                    if (typeof ActivitySessionManager.resume === "function") {
+                        const resumed = await ActivitySessionManager.resume();
+                        if (resumed) return ActivitySessionManager.currentSession;
+                    }
+                    ActivitySessionManager.clear();
+                    console.warn("ActivityManager: Invalid resumable session cleared; starting fresh.", fullActivity.id);
+                }
             }
         }
         this.currentActivity = fullActivity;
