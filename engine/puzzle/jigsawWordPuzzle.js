@@ -58,13 +58,6 @@ const JigsawWordPuzzle = {
         return true;
     },
     check: function () { if (!this.state) return false; this.state.solved = this.isSolved(); return this.state.solved; },
-    isSolved: function () {
-        if (!this.state || !Array.isArray(this.state.words)) return false;
-        return this.state.words.every(function (expected, position) {
-            const piece = JigsawWordPuzzle.getPieceAt(position);
-            return !!piece && JigsawWordPuzzle.normalizeWord(piece.word) === JigsawWordPuzzle.normalizeWord(expected);
-        });
-    },
     isSolved: function (pieces, words) {
         if (!Array.isArray(pieces) || !Array.isArray(words)) return false;
         return words.every(function (expected, position) {
