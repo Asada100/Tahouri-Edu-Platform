@@ -326,6 +326,19 @@ const ActivitySessionManager = {
             engine.activity = data.activity || activity;
             engine.state = { ...(data.state || {}), started: true, isFinished: false };
             engine.puzzle = data.puzzle ? JSON.parse(JSON.stringify(data.puzzle)) : null;
+            // Reconcile persisted Jigsaw state with the current activity definition.
+            // Older sessions may contain the old nested { content: { image, rows, cols } }
+            // shape, so the saved session must not override the current asset definition.
+            if (engine.puzzle && engine.puzzle.type === "jigsaw" && activity.puzzle) {
+                const currentPuzzle = activity.puzzle;
+                const currentContent = currentPuzzle.content || {};
+                const currentImage = currentPuzzle.image || currentContent.image;
+                const currentRows = currentPuzzle.rows || currentContent.rows;
+                const currentCols = currentPuzzle.cols || currentContent.cols;
+                if (currentImage) engine.puzzle.image = currentImage;
+                if (currentRows) engine.puzzle.rows = currentRows;
+                if (currentCols) engine.puzzle.cols = currentCols;
+            }
             engine.items = Array.isArray(data.items) ? JSON.parse(JSON.stringify(data.items)) : [];
             engine.userAnswer = data.userAnswer;
             engine.moves = Number(data.moves || 0);
