@@ -232,4 +232,5 @@ const JigsawScreen = {
 };
 
 window.JigsawScreen = JigsawScreen;
+JigsawScreen.init();
 console.log("Jigsaw Screen v2.0 Ready");
