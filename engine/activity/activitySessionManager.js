@@ -214,13 +214,15 @@ const ActivitySessionManager = {
         return true;
     },
 
-    getResumable() {
+    getResumable(activityId) {
         const session = this.load();
-        return session && session.status === "resumable" && session.engineState ? session : null;
+        if (!session || session.status !== "resumable" || !session.engineState) return null;
+        if (activityId && session.activityId !== activityId) return null;
+        return session;
     },
 
-    async resume() {
-        const session = this.getResumable();
+    async resume(activityId) {
+        const session = this.getResumable(activityId);
         if (!session) return false;
 
         if (typeof App === "undefined" || typeof App.resolveActivityById !== "function") {
