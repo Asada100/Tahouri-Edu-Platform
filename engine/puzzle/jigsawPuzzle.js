@@ -81,8 +81,11 @@ const JigsawPuzzle = {
                 pieces.forEach(function (piece, index) { piece.currentIndex = index; });
             }
         }
+        const restoredImage = puzzle.image
+            ? new URL(String(puzzle.image), document.baseURI).href
+            : puzzle.image;
         this.state = {
-            type: "jigsaw", mode: mode, image: puzzle.image, rows: puzzle.rows, cols: puzzle.cols,
+            type: "jigsaw", mode: mode, image: restoredImage, rows: puzzle.rows, cols: puzzle.cols,
             words: words || undefined, pieceCount: pieces.length, difficulty: Number(puzzle.difficulty || 1),
             pieces: pieces, moves: Number(PuzzleEngine.moves || 0), solved: false
         };
