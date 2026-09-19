@@ -20,7 +20,8 @@ const JigsawImagePuzzle = {
                 return item.src && /(?:^|\/)engine\//.test(item.src);
             });
             if (script && script.src) {
-                const root = new URL(".", new URL(script.src, document.baseURI));
+                const scriptURL = new URL(script.src, document.baseURI);
+                const root = new URL("../../", scriptURL);
                 return new URL("assets/" + match[1], root).href;
             }
             const basePath = document.baseURI.replace(/[^/]*$/, "");
