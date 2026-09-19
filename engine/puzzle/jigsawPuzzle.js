@@ -23,10 +23,10 @@ const JigsawPuzzle = {
             assetPath = parsed.pathname || raw;
         } catch (e) {}
 
-        const match = assetPath.match(/(?:^|\\/)assets\\/(.*)$/);
+        const match = assetPath.match(/(?:^|\/)assets\/(.*)$/);
         if (match) {
             const script = Array.from(document.scripts || []).find(function (item) {
-                return item.src && /(?:^|\\/)engine\\//.test(item.src);
+                return item.src && /(?:^|\/)engine\//.test(item.src);
             });
             if (script && script.src) {
                 const root = new URL(".", new URL(script.src, document.baseURI));
