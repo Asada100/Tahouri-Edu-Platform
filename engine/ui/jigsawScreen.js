@@ -182,7 +182,7 @@ const JigsawScreen = {
             });
             piece.addEventListener("pointerdown", function (event) {
                 if (screen.isFinished() || (event.button !== undefined && event.button !== 0)) return;
-                screen.dragIndex = Number(piece.dataset.position); screen.dragElement = piece; screen.dragStartX = event.clientX; screen.dragStartY = event.clientY; screen.dragMoved = false; piece.style.zIndex = "20"; piece.style.pointerEvents = "none";
+                screen.dragIndex = Number(piece.dataset.position); screen.dragElement = piece; screen.dragStartX = event.clientX; screen.dragStartY = event.clientY; screen.dragMoved = false; piece.style.zIndex = "20"; if (piece.setPointerCapture) { try { piece.setPointerCapture(event.pointerId); } catch (e) {} }
             });
             piece.addEventListener("pointermove", function (event) {
                 if (screen.dragElement !== piece || screen.dragIndex === null) return;
