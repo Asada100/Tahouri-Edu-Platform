@@ -194,6 +194,9 @@ const JigsawScreen = {
                 if (screen.dragIndex === null) return;
                 const source = screen.dragIndex, moved = screen.dragMoved;
                 const x = event.clientX, y = event.clientY;
+                if (piece.releasePointerCapture && event.pointerId !== undefined) {
+                    try { piece.releasePointerCapture(event.pointerId); } catch (e) {}
+                }
                 screen.clearDrag();
                 if (!moved) return;
                 const targetEl = document.elementFromPoint(x, y);
