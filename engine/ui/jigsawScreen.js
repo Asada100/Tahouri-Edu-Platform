@@ -14,6 +14,7 @@ const JigsawScreen = {
     dragMoved: false,
     selectedIndex: null,
     suppressClick: false,
+    dragTargetIndex: null,
 
     init: function () {
         if (typeof EventManager === "undefined" || this.connected) return;
@@ -194,6 +195,7 @@ const JigsawScreen = {
                 screen.dragStartX = event.clientX;
                 screen.dragStartY = event.clientY;
                 screen.dragMoved = false;
+                screen.dragTargetIndex = null;
                 piece.style.zIndex = "20";
                 if (piece.setPointerCapture) {
                     try { piece.setPointerCapture(event.pointerId); } catch (e) {}
@@ -204,32 +206,31 @@ const JigsawScreen = {
                 const dx = event.clientX - screen.dragStartX, dy = event.clientY - screen.dragStartY;
                 if (Math.abs(dx) > 3 || Math.abs(dy) > 3) screen.dragMoved = true;
                 piece.style.transform = `translate3d(${dx}px,${dy}px,0)`;
+
+                // Track the board cell under the pointer while dragging.
+                // Pointer capture keeps pointermove on the source piece, so
+                // drop detection must be calculated explicitly from cell bounds.
+                if (screen.dragMoved) {
+                    screen.dragTargetIndex = null;
+                    const candidates = board.querySelectorAll(".jigsawPiece");
+                    candidates.forEach(function (candidate) {
+                        if (screen.dragTargetIndex !== null || candidate === piece) return;
+                        const rect = candidate.getBoundingClientRect();
+                        if (event.clientX >= rect.left && event.clientX <= rect.right &&
+                            event.clientY >= rect.top && event.clientY <= rect.bottom) {
+                            screen.dragTargetIndex = Number(candidate.dataset.position);
+                        }
+                    });
+                }
             });
             piece.addEventListener("pointerup", function (event) {
                 if (screen.dragIndex === null) return;
                 const source = screen.dragIndex;
                 const moved = screen.dragMoved;
-                const x = event.clientX, y = event.clientY;
+                const target = screen.dragTargetIndex;
 
                 if (piece.releasePointerCapture && event.pointerId !== undefined) {
                     try { piece.releasePointerCapture(event.pointerId); } catch (e) {}
-                }
-
-                let targetPiece = null;
-                if (moved) {
-                    // Temporarily remove the dragged piece from hit testing.
-                    // This makes drop detection reliable even when the pointer
-                    // was captured by the source button.
-                    piece.style.pointerEvents = "none";
-                    const candidates = board.querySelectorAll(".jigsawPiece");
-                    candidates.forEach(function (candidate) {
-                        if (targetPiece || candidate === piece) return;
-                        const rect = candidate.getBoundingClientRect();
-                        if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
-                            targetPiece = candidate;
-                        }
-                    });
-                    piece.style.pointerEvents = "";
                 }
 
                 screen.clearDrag();
@@ -238,9 +239,8 @@ const JigsawScreen = {
                 screen.suppressClick = true;
                 setTimeout(function () { screen.suppressClick = false; }, 0);
 
-                if (targetPiece) {
-                    const target = Number(targetPiece.dataset.position);
-                    if (source !== target) screen.swap(source, target);
+                if (target !== null && source !== target) {
+                    screen.swap(source, target);
                 }
             });
             piece.addEventListener("pointercancel", function () {
@@ -274,6 +274,7 @@ const JigsawScreen = {
         this.dragIndex = null;
         this.dragElement = null;
         this.dragMoved = false;
+        this.dragTargetIndex = null;
     },
 
     isFinished: function () {
