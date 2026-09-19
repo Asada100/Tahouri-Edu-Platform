@@ -229,10 +229,13 @@ const ActivitySessionManager = {
         return true;
     },
 
-    getResumable: function () {
+    getResumable: function (activityId) {
         const sessions = this.loadAll();
         const resumable = Object.values(sessions).filter(function (session) {
-            return session && session.status === "resumable" && session.engineState;
+            return session &&
+                session.status === "resumable" &&
+                session.engineState &&
+                (!activityId || session.activityId === activityId);
         });
         resumable.sort(function (a, b) { return Number(b.updatedAt || 0) - Number(a.updatedAt || 0); });
         const session = resumable.length ? resumable[0] : null;
@@ -240,8 +243,8 @@ const ActivitySessionManager = {
         return session;
     },
 
-    resume: async function () {
-        const session = this.getResumable();
+    resume: async function (activityId) {
+        const session = this.getResumable(activityId);
         if (!session) return false;
         if (typeof App === "undefined" || typeof App.resolveActivityById !== "function") return false;
         const activity = App.resolveActivityById(session.activityId);
