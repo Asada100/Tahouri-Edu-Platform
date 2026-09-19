@@ -193,10 +193,15 @@ const JigsawScreen = {
             piece.addEventListener("pointerup", function (event) {
                 if (screen.dragIndex === null) return;
                 const source = screen.dragIndex, moved = screen.dragMoved;
-                const targetEl = document.elementFromPoint(event.clientX, event.clientY);
-                const targetPiece = targetEl ? targetEl.closest(".jigsawPiece") : null;
+                const x = event.clientX, y = event.clientY;
                 screen.clearDrag();
-                if (moved && targetPiece) { const target = Number(targetPiece.dataset.position); if (source !== target) screen.swap(source, target); }
+                if (!moved) return;
+                const targetEl = document.elementFromPoint(x, y);
+                const targetPiece = targetEl ? targetEl.closest(".jigsawPiece") : null;
+                if (targetPiece) {
+                    const target = Number(targetPiece.dataset.position);
+                    if (source !== target) screen.swap(source, target);
+                }
             });
             piece.addEventListener("pointercancel", function () { screen.clearDrag(); });
         });
