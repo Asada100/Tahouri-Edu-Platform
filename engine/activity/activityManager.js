@@ -54,7 +54,7 @@ const ActivityManager = {
                     // session. Try to restore it first; if restoration fails, discard the
                     // broken session and start a clean attempt.
                     if (typeof ActivitySessionManager.resume === "function") {
-                        const resumed = await ActivitySessionManager.resume();
+                        const resumed = await ActivitySessionManager.resume(fullActivity.id);
                         if (resumed) return ActivitySessionManager.currentSession;
                     }
                     ActivitySessionManager.clear();
