@@ -331,12 +331,47 @@ const JigsawScreen = {
             mode: JigsawPuzzle && JigsawPuzzle.state ? JigsawPuzzle.state.mode : null
         });
 
-        const moved = JigsawPuzzleHandler.move(PuzzleEngine, from, to);
+        let moved = false;
+
+        // Image Jigsaw must bypass the shared handler wrapper here. The Word
+        // Jigsaw Stage-2 extension wraps JigsawPuzzleHandler.move globally,
+        // while image pieces have their own core movement implementation.
+        const isImageJigsaw = PuzzleEngine &&
+            PuzzleEngine.puzzle &&
+            PuzzleEngine.puzzle.type === "jigsaw" &&
+            PuzzleEngine.puzzle.dataType === "image";
+
+        if (isImageJigsaw && typeof JigsawImagePuzzle !== "undefined") {
+            if (!JigsawImagePuzzle.state &&
+                typeof JigsawImagePuzzle.restoreFromEngine === "function") {
+                JigsawImagePuzzle.restoreFromEngine();
+            }
+
+            moved = JigsawImagePuzzle.move(from, to);
+
+            if (moved) {
+                const state = JigsawImagePuzzle.getState();
+                PuzzleEngine.items = state.pieces
+                    .slice()
+                    .sort(function (a, b) { return a.currentIndex - b.currentIndex; })
+                    .map(function (piece) { return piece.id; });
+                PuzzleEngine.moves = state.moves;
+                if (typeof EventManager !== "undefined" && EventManager.emit) {
+                    EventManager.emit("puzzleChanged", PuzzleEngine.getState());
+                }
+                if (state.solved && PuzzleEngine.check) {
+                    PuzzleEngine.check();
+                }
+            }
+        } else {
+            moved = JigsawPuzzleHandler.move(PuzzleEngine, from, to);
+        }
 
         console.log("[Jigsaw][SWAP_RESULT]", {
             moved: moved,
             source: from,
             target: to,
+            imageDirect: isImageJigsaw,
             items: PuzzleEngine && Array.isArray(PuzzleEngine.items) ? PuzzleEngine.items.slice() : [],
             moves: PuzzleEngine ? PuzzleEngine.moves : null
         });
