@@ -74,6 +74,14 @@ const Screen = {
 
     showHome: function () {
 
+        console.trace(
+            "Screen.showHome CALL STACK",
+            {
+                resultModalPresent:
+                    !!document.getElementById("resultModal")
+            }
+        );
+
         // A finished activity must remain on the result modal until
         // the user explicitly chooses a result action.
         // ResultModal's own Home button closes the modal before calling Home.
