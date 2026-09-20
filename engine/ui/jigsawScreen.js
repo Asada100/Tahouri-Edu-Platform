@@ -323,6 +323,16 @@ const JigsawScreen = {
             typeof JigsawPuzzle !== "undefined") {
             const restored = JigsawImagePuzzle.restoreFromEngine();
             if (restored) JigsawPuzzle.state = JigsawImagePuzzle.state;
+
+            // A restored session may already be solved. In that case the
+            // previous completion event may have been missed; complete it now
+            // instead of trying another move against a solved core.
+            if (restored && JigsawImagePuzzle.state && JigsawImagePuzzle.state.solved &&
+                PuzzleEngine && typeof PuzzleEngine.check === "function") {
+                console.log("[Jigsaw][RESTORED_SOLVED] Completing restored image puzzle.");
+                PuzzleEngine.check();
+                return false;
+            }
         }
 
         console.log("[Jigsaw][SWAP]", {
