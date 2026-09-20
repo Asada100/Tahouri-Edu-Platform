@@ -71,7 +71,7 @@ const ResultModal = {
                     <button id="retryActivityBtn" type="button">🔄 دوباره بازی کن</button>
                     <button id="backActivitiesBtn" type="button">📚 بازگشت به فعالیت‌ها</button>
                     <button id="dashboardBtn" type="button">📊 گزارش عملکرد من</button>
-                    <button id="homeBtn" type="button">🏠 صفحه اصلی</button>
+                    <button id="resultModalHomeBtn" type="button">🏠 صفحه اصلی</button>
                 </div>
             </div>
         `;
@@ -81,7 +81,7 @@ const ResultModal = {
         const retryButton = document.getElementById("retryActivityBtn");
         const backButton = document.getElementById("backActivitiesBtn");
         const dashboardButton = document.getElementById("dashboardBtn");
-        const homeButton = document.getElementById("homeBtn");
+        const homeButton = document.getElementById("resultModalHomeBtn");
 
         if(retryButton){
             retryButton.onclick = async function(){
