@@ -74,6 +74,15 @@ const Screen = {
 
     showHome: function () {
 
+        // A finished activity must remain on the result modal until
+        // the user explicitly chooses a result action.
+        // ResultModal's own Home button closes the modal before calling Home.
+        const resultModal = document.getElementById("resultModal");
+        if (resultModal) {
+            console.warn("Screen.showHome: Home navigation blocked while result modal is open.");
+            return false;
+        }
+
         const app =
             document.getElementById("app");
 
