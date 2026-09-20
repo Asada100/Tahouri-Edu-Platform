@@ -105,9 +105,31 @@ const JigsawPuzzleHandler = {
             }
         }
 
-        const moved = isImage && typeof JigsawImagePuzzle !== "undefined"
+        let moved = isImage && typeof JigsawImagePuzzle !== "undefined"
             ? JigsawImagePuzzle.move(fromIndex, toIndex)
             : JigsawPuzzle.move(fromIndex, toIndex);
+
+        // The persisted image-jigsaw session can contain a valid piece order
+        // while the core state is reconstructed from that order. If the core
+        // rejects the move, use the engine's position array as the authoritative
+        // image arrangement and synchronize the core from it.
+        if (!moved && isImage && Array.isArray(engine.items)) {
+            const from = Number(fromIndex);
+            const to = Number(toIndex);
+            if (Number.isInteger(from) && Number.isInteger(to) &&
+                from >= 0 && to >= 0 && from < engine.items.length && to < engine.items.length &&
+                from !== to) {
+                [engine.items[from], engine.items[to]] = [engine.items[to], engine.items[from]];
+                engine.moves = Number(engine.moves || 0) + 1;
+                if (typeof JigsawImagePuzzle.restoreFromEngine === "function") {
+                    JigsawImagePuzzle.restoreFromEngine();
+                }
+                if (typeof JigsawPuzzle !== "undefined") {
+                    JigsawPuzzle.state = JigsawImagePuzzle.state;
+                }
+                moved = true;
+            }
+        }
 
         if (!moved) return false;
 
