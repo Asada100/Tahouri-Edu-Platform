@@ -373,7 +373,15 @@ const JigsawScreen = {
                     EventManager.emit("puzzleChanged", PuzzleEngine.getState());
                 }
                 if (state.solved && PuzzleEngine.check) {
-                    PuzzleEngine.check();
+                    const completed = PuzzleEngine.check();
+                    // The image core is authoritative: if it is solved but the
+                    // generic check path did not complete the activity, finish
+                    // the activity directly. This is limited to Image Jigsaw.
+                    if (!completed && PuzzleEngine.state && !PuzzleEngine.state.isFinished &&
+                        typeof PuzzleEngine.completeActivity === "function") {
+                        console.warn("[Jigsaw][IMAGE_COMPLETE_FALLBACK] Core solved; completing activity.");
+                        PuzzleEngine.completeActivity();
+                    }
                 }
             }
         } else {
