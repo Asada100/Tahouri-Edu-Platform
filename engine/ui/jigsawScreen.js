@@ -38,9 +38,6 @@ const JigsawScreen = {
         this.render(payload.result || PuzzleEngine.getState());
     },
 
-    // Compatibility entry point used by ActivitySessionManager when restoring
-    // a puzzle session. Jigsaw owns its own renderer, but restore historically
-    // called the generic PuzzleScreen.show() method.
     show: function (state) {
         return this.render(state);
     },
@@ -76,17 +73,9 @@ const JigsawScreen = {
                     <p class="jigsawObjective">${this.escapeHTML(puzzle.objective || "واژه‌ها را در جای درست قرار بده")}</p>
                     <p class="jigsawInstruction">${this.escapeHTML(puzzle.instruction || "هر کارت را بکش و در جای مناسب رها کن.")}</p>
                 </div>
-
-                <div class="wordJigsawBoard" id="jigsawBoard" aria-label="جورچین واژه‌ها">
-                    ${slots.join("")}
-                </div>
-
+                <div class="wordJigsawBoard" id="jigsawBoard" aria-label="جورچین واژه‌ها">${slots.join("")}</div>
                 <div class="wordJigsawHint" id="jigsawStatus">واژه‌ها را جابه‌جا کن تا جمله کامل شود.</div>
-
-                <div class="jigsawControls">
-                    <button id="jigsawResetBtn" type="button">شروع دوباره</button>
-                </div>
-
+                <div class="jigsawControls"><button id="jigsawResetBtn" type="button">شروع دوباره</button></div>
                 <div class="jigsawMoves">حرکت‌ها: <span id="puzzleMoveCount">${state.moves || core.moves || 0}</span></div>
             </div>`;
 
@@ -183,31 +172,22 @@ const JigsawScreen = {
         function getTargetIndex(clientX, clientY) {
             const currentBoard = document.getElementById("jigsawBoard");
             if (!currentBoard || !rows || !cols) return null;
-
             const rect = currentBoard.getBoundingClientRect();
             if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) return null;
-
             const cellWidth = rect.width / cols;
             const cellHeight = rect.height / rows;
             if (!cellWidth || !cellHeight) return null;
-
             const col = Math.max(0, Math.min(cols - 1, Math.floor((clientX - rect.left) / cellWidth)));
             const row = Math.max(0, Math.min(rows - 1, Math.floor((clientY - rect.top) / cellHeight)));
             return row * cols + col;
         }
 
         board.querySelectorAll(".jigsawPiece").forEach(function (piece) {
-            piece.addEventListener("dragstart", function (event) {
-                event.preventDefault();
-            });
+            piece.addEventListener("dragstart", function (event) { event.preventDefault(); });
 
             piece.addEventListener("click", function () {
-                if (screen.suppressClick) {
-                    screen.suppressClick = false;
-                    return;
-                }
+                if (screen.suppressClick) { screen.suppressClick = false; return; }
                 if (screen.isFinished()) return;
-
                 const index = Number(piece.dataset.position);
                 if (screen.selectedIndex === null) {
                     screen.selectedIndex = index;
@@ -222,7 +202,6 @@ const JigsawScreen = {
 
             piece.addEventListener("pointerdown", function (event) {
                 if (screen.isFinished() || (event.button !== undefined && event.button !== 0)) return;
-
                 screen.selectedIndex = null;
                 screen.suppressClick = false;
                 screen.dragIndex = Number(piece.dataset.position);
@@ -232,63 +211,36 @@ const JigsawScreen = {
                 screen.dragMoved = false;
                 screen.dragTargetIndex = null;
                 piece.style.zIndex = "20";
-
-                // Keep the pointer owned by the dragged piece until release.
-                // This is required when the pointer leaves the piece while dragging.
                 if (piece.setPointerCapture && event.pointerId !== undefined) {
                     try { piece.setPointerCapture(event.pointerId); } catch (e) {}
                 }
-
-                console.log("[Jigsaw][DOWN]", {
-                    source: screen.dragIndex,
-                    x: event.clientX,
-                    y: event.clientY
-                });
+                console.log("[Jigsaw][DOWN]", { source: screen.dragIndex, x: event.clientX, y: event.clientY });
             });
 
             piece.addEventListener("pointermove", function (event) {
                 if (screen.dragElement !== piece || screen.dragIndex === null) return;
-
                 const dx = event.clientX - screen.dragStartX;
                 const dy = event.clientY - screen.dragStartY;
-
                 if (Math.abs(dx) > 3 || Math.abs(dy) > 3) screen.dragMoved = true;
-
                 piece.style.transform = `translate3d(${dx}px,${dy}px,0)`;
-
-                if (screen.dragMoved) {
-                    screen.dragTargetIndex = getTargetIndex(event.clientX, event.clientY);
-                }
+                if (screen.dragMoved) screen.dragTargetIndex = getTargetIndex(event.clientX, event.clientY);
             });
 
             piece.addEventListener("pointerup", function (event) {
                 if (screen.dragElement !== piece || screen.dragIndex === null) return;
-
                 const source = screen.dragIndex;
                 const moved = screen.dragMoved;
                 const x = event.clientX;
                 const y = event.clientY;
-
-                // Release capture before calculating the board target.
                 if (piece.releasePointerCapture && event.pointerId !== undefined) {
                     try { piece.releasePointerCapture(event.pointerId); } catch (e) {}
                 }
-
                 const target = moved ? getTargetIndex(x, y) : null;
-
-                console.log("[Jigsaw][DROP]", {
-                    source: source,
-                    target: target,
-                    moved: moved
-                });
-
+                console.log("[Jigsaw][DROP]", { source: source, target: target, moved: moved });
                 screen.clearDrag();
                 screen.suppressClick = moved;
                 if (moved) setTimeout(function () { screen.suppressClick = false; }, 0);
-
-                if (moved && target !== null && source !== target) {
-                    screen.swap(source, target);
-                }
+                if (moved && target !== null && source !== target) screen.swap(source, target);
             });
 
             piece.addEventListener("pointercancel", function (event) {
@@ -301,32 +253,20 @@ const JigsawScreen = {
 
         const reset = document.getElementById("jigsawResetBtn");
         if (reset) reset.onclick = function () {
-            if (!screen.isFinished() && JigsawPuzzleHandler.reset(PuzzleEngine)) {
-                screen.render(PuzzleEngine.getState());
-            }
+            if (!screen.isFinished() && JigsawPuzzleHandler.reset(PuzzleEngine)) screen.render(PuzzleEngine.getState());
         };
     },
+
     swap: function (source, target) {
         const from = Number(source);
         const to = Number(target);
-
         if (!Number.isInteger(from) || !Number.isInteger(to) || from === to) return false;
 
-        // Image Jigsaw can be restored from a saved session. Synchronize the
-        // dispatcher/core with the engine's current arrangement immediately
-        // before the move so the visual position and logical position match.
-        // The restored activity can have a valid Image Jigsaw core state while
-        // the dispatcher facade has not been synchronized yet. For image Jigsaw,
-        // restore the image core explicitly and bind that state to the dispatcher.
         if (typeof JigsawImagePuzzle !== "undefined" &&
             typeof JigsawImagePuzzle.restoreFromEngine === "function" &&
             typeof JigsawPuzzle !== "undefined") {
             const restored = JigsawImagePuzzle.restoreFromEngine();
             if (restored) JigsawPuzzle.state = JigsawImagePuzzle.state;
-
-            // A restored session may already be solved. In that case the
-            // previous completion event may have been missed; complete it now
-            // instead of trying another move against a solved core.
             if (restored && JigsawImagePuzzle.state && JigsawImagePuzzle.state.solved &&
                 PuzzleEngine && typeof PuzzleEngine.check === "function") {
                 console.log("[Jigsaw][RESTORED_SOLVED] Completing restored image puzzle.");
@@ -335,25 +275,15 @@ const JigsawScreen = {
             }
         }
 
-        console.log("[Jigsaw][SWAP]", {
-            source: from,
-            target: to,
-            mode: JigsawPuzzle && JigsawPuzzle.state ? JigsawPuzzle.state.mode : null
-        });
-
+        console.log("[Jigsaw][SWAP]", { source: from, target: to, mode: JigsawPuzzle && JigsawPuzzle.state ? JigsawPuzzle.state.mode : null });
         let moved = false;
-
-        // Image Jigsaw must bypass the shared handler wrapper here. The Word
-        // Jigsaw Stage-2 extension wraps JigsawPuzzleHandler.move globally,
-        // while image pieces have their own core movement implementation.
         const isImageJigsaw = PuzzleEngine &&
             PuzzleEngine.puzzle &&
             PuzzleEngine.puzzle.type === "jigsaw" &&
             PuzzleEngine.puzzle.dataType === "image";
 
         if (isImageJigsaw && typeof JigsawImagePuzzle !== "undefined") {
-            if (!JigsawImagePuzzle.state &&
-                typeof JigsawImagePuzzle.restoreFromEngine === "function") {
+            if (!JigsawImagePuzzle.state && typeof JigsawImagePuzzle.restoreFromEngine === "function") {
                 JigsawImagePuzzle.restoreFromEngine();
             }
 
@@ -361,26 +291,22 @@ const JigsawScreen = {
 
             if (moved) {
                 const state = JigsawImagePuzzle.getState();
-                if (typeof JigsawPuzzle !== "undefined") {
-                    JigsawPuzzle.state = state;
-                }
-                PuzzleEngine.items = state.pieces
-                    .slice()
-                    .sort(function (a, b) { return a.currentIndex - b.currentIndex; })
-                    .map(function (piece) { return piece.id; });
+                if (typeof JigsawPuzzle !== "undefined") JigsawPuzzle.state = state;
+                PuzzleEngine.items = state.pieces.slice().sort(function (a, b) { return a.currentIndex - b.currentIndex; }).map(function (piece) { return piece.id; });
                 PuzzleEngine.moves = state.moves;
-                if (typeof EventManager !== "undefined" && EventManager.emit) {
-                    EventManager.emit("puzzleChanged", PuzzleEngine.getState());
-                }
+                if (typeof EventManager !== "undefined" && EventManager.emit) EventManager.emit("puzzleChanged", PuzzleEngine.getState());
+
                 if (state.solved && PuzzleEngine.check) {
                     const completed = PuzzleEngine.check();
-                    // The image core is authoritative: if it is solved but the
-                    // generic check path did not complete the activity, finish
-                    // the activity directly. This is limited to Image Jigsaw.
                     if (!completed && PuzzleEngine.state && !PuzzleEngine.state.isFinished &&
                         typeof PuzzleEngine.finish === "function") {
-                        console.warn("[Jigsaw][IMAGE_COMPLETE_FALLBACK] Core solved; completing activity.");
-                        PuzzleEngine.finish();
+                        console.warn("[Jigsaw][IMAGE_COMPLETE_FALLBACK] Core solved; completing activity through the explicit check context.");
+                        PuzzleEngine.checking = true;
+                        try {
+                            PuzzleEngine.finish();
+                        } finally {
+                            PuzzleEngine.checking = false;
+                        }
                     }
                 }
             }
