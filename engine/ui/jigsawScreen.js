@@ -378,9 +378,9 @@ const JigsawScreen = {
                     // generic check path did not complete the activity, finish
                     // the activity directly. This is limited to Image Jigsaw.
                     if (!completed && PuzzleEngine.state && !PuzzleEngine.state.isFinished &&
-                        typeof PuzzleEngine.completeActivity === "function") {
+                        typeof PuzzleEngine.finish === "function") {
                         console.warn("[Jigsaw][IMAGE_COMPLETE_FALLBACK] Core solved; completing activity.");
-                        PuzzleEngine.completeActivity();
+                        PuzzleEngine.finish();
                     }
                 }
             }
