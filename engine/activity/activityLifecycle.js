@@ -31,6 +31,10 @@ const ActivityLifecycle = {
    SessionManager.addActivity(result.score);StatisticsManager.addResult(activity,result);ActivityState.set("completed");
    // IMPORTANT: cleanup only after all completion consumers have read ActivityHistory.
    if(typeof ActivitySessionManager!=="undefined"&&typeof ActivitySessionManager.complete==="function") ActivitySessionManager.complete();
+   // Completion is terminal until the user explicitly chooses a result action.
+   // PuzzleEngine emits activityFinished directly, so ActivityManager.finish()
+   // is not always reached; block any stray ActivityManager.load() calls here.
+   if(typeof ActivityManager!=="undefined"&&typeof ActivityManager.blockPostFinishLoads==="function") ActivityManager.blockPostFinishLoads();
    Screen.showFinish(result);
   });
   console.log("Activity Lifecycle Connected");
