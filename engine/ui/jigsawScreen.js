@@ -351,6 +351,9 @@ const JigsawScreen = {
 
             if (moved) {
                 const state = JigsawImagePuzzle.getState();
+                if (typeof JigsawPuzzle !== "undefined") {
+                    JigsawPuzzle.state = state;
+                }
                 PuzzleEngine.items = state.pieces
                     .slice()
                     .sort(function (a, b) { return a.currentIndex - b.currentIndex; })
