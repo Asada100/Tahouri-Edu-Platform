@@ -90,9 +90,32 @@ const JigsawPuzzleHandler = {
 
     move: function (engine, fromIndex, toIndex) {
         if (!engine || !engine.puzzle || engine.puzzle.type !== "jigsaw" || (engine.state && engine.state.isFinished)) return false;
-        const moved = JigsawPuzzle.move(fromIndex, toIndex);
+
+        const isImage = engine.puzzle.dataType === "image" || engine.puzzle.mode === "image";
+
+        // Image Jigsaw owns its movement in JigsawImagePuzzle. Keep the image
+        // path explicit here so the Word Jigsaw Stage-2 wrapper cannot
+        // interfere with image-piece movement.
+        if (isImage && typeof JigsawImagePuzzle !== "undefined") {
+            if (typeof JigsawImagePuzzle.restoreFromEngine === "function") {
+                JigsawImagePuzzle.restoreFromEngine();
+            }
+            if (typeof JigsawPuzzle !== "undefined") {
+                JigsawPuzzle.state = JigsawImagePuzzle.state;
+            }
+        }
+
+        const moved = isImage && typeof JigsawImagePuzzle !== "undefined"
+            ? JigsawImagePuzzle.move(fromIndex, toIndex)
+            : JigsawPuzzle.move(fromIndex, toIndex);
+
         if (!moved) return false;
-        const state = JigsawPuzzle.getState();
+
+        const state = isImage && typeof JigsawImagePuzzle !== "undefined"
+            ? JigsawImagePuzzle.getState()
+            : JigsawPuzzle.getState();
+
+        if (typeof JigsawPuzzle !== "undefined") JigsawPuzzle.state = state;
         engine.items = state.pieces.slice().sort(function (a, b) { return a.currentIndex - b.currentIndex; }).map(function (piece) { return piece.id; });
         engine.moves = state.moves;
         EventManager.emit("puzzleChanged", engine.getState());
