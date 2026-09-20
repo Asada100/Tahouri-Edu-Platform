@@ -307,10 +307,30 @@ const JigsawScreen = {
         };
     },
     swap: function (source, target) {
-        console.log("[Jigsaw][SWAP]", { source, target });
-        const moved = JigsawPuzzleHandler.move(PuzzleEngine, source, target);
+        const from = Number(source);
+        const to = Number(target);
+
+        if (!Number.isInteger(from) || !Number.isInteger(to) || from === to) return false;
+
+        // Image Jigsaw can be restored from a saved session. Synchronize the
+        // dispatcher/core with the engine's current arrangement immediately
+        // before the move so the visual position and logical position match.
+        if (typeof JigsawPuzzle !== "undefined" && typeof JigsawPuzzle.restoreFromEngine === "function") {
+            JigsawPuzzle.restoreFromEngine();
+        }
+
+        console.log("[Jigsaw][SWAP]", {
+            source: from,
+            target: to,
+            mode: JigsawPuzzle && JigsawPuzzle.state ? JigsawPuzzle.state.mode : null
+        });
+
+        const moved = JigsawPuzzleHandler.move(PuzzleEngine, from, to);
+
         console.log("[Jigsaw][SWAP_RESULT]", {
             moved: moved,
+            source: from,
+            target: to,
             items: PuzzleEngine && Array.isArray(PuzzleEngine.items) ? PuzzleEngine.items.slice() : [],
             moves: PuzzleEngine ? PuzzleEngine.moves : null
         });
