@@ -315,8 +315,14 @@ const JigsawScreen = {
         // Image Jigsaw can be restored from a saved session. Synchronize the
         // dispatcher/core with the engine's current arrangement immediately
         // before the move so the visual position and logical position match.
-        if (typeof JigsawPuzzle !== "undefined" && typeof JigsawPuzzle.restoreFromEngine === "function") {
-            JigsawPuzzle.restoreFromEngine();
+        // The restored activity can have a valid Image Jigsaw core state while
+        // the dispatcher facade has not been synchronized yet. For image Jigsaw,
+        // restore the image core explicitly and bind that state to the dispatcher.
+        if (typeof JigsawImagePuzzle !== "undefined" &&
+            typeof JigsawImagePuzzle.restoreFromEngine === "function" &&
+            typeof JigsawPuzzle !== "undefined") {
+            const restored = JigsawImagePuzzle.restoreFromEngine();
+            if (restored) JigsawPuzzle.state = JigsawImagePuzzle.state;
         }
 
         console.log("[Jigsaw][SWAP]", {
