@@ -175,12 +175,36 @@ const JigsawScreen = {
         const board = document.getElementById("jigsawBoard");
         if (!board) return;
         const screen = this;
+        const puzzle = typeof PuzzleEngine !== "undefined" ? PuzzleEngine.puzzle : null;
+        const rows = puzzle ? Number(puzzle.rows) : 0;
+        const cols = puzzle ? Number(puzzle.cols) : 0;
+
+        function getTargetIndex(clientX, clientY) {
+            if (!rows || !cols) return null;
+            const rect = board.getBoundingClientRect();
+            if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) return null;
+            const cellWidth = rect.width / cols;
+            const cellHeight = rect.height / rows;
+            const col = Math.max(0, Math.min(cols - 1, Math.floor((clientX - rect.left) / cellWidth)));
+            const row = Math.max(0, Math.min(rows - 1, Math.floor((clientY - rect.top) / cellHeight)));
+            return row * cols + col;
+        }
+
+        function finishPointer(event) {
+            if (screen.dragElement === null || screen.dragIndex === null) return;
+            const source = screen.dragIndex;
+            const moved = screen.dragMoved;
+            const target = moved ? getTargetIndex(event.clientX, event.clientY) : null;
+            console.log("[Jigsaw][DROP]", { source, target, moved });
+            screen.clearDrag();
+            screen.suppressClick = moved;
+            if (moved) setTimeout(function () { screen.suppressClick = false; }, 0);
+            if (moved && target !== null && source !== target) screen.swap(source, target);
+        }
+
         board.querySelectorAll(".jigsawPiece").forEach(function (piece) {
             piece.addEventListener("click", function () {
-                if (screen.suppressClick) {
-                    screen.suppressClick = false;
-                    return;
-                }
+                if (screen.suppressClick) { screen.suppressClick = false; return; }
                 if (screen.isFinished()) return;
                 const index = Number(piece.dataset.position);
                 if (screen.selectedIndex === null) screen.selectedIndex = index;
@@ -197,66 +221,48 @@ const JigsawScreen = {
                 screen.dragMoved = false;
                 screen.dragTargetIndex = null;
                 piece.style.zIndex = "20";
-                if (piece.setPointerCapture) {
-                    try { piece.setPointerCapture(event.pointerId); } catch (e) {}
-                }
-            });
-            piece.addEventListener("pointermove", function (event) {
-                if (screen.dragElement !== piece || screen.dragIndex === null) return;
-                const dx = event.clientX - screen.dragStartX, dy = event.clientY - screen.dragStartY;
-                if (Math.abs(dx) > 3 || Math.abs(dy) > 3) screen.dragMoved = true;
-                piece.style.transform = `translate3d(${dx}px,${dy}px,0)`;
-
-                // Track the board cell under the pointer while dragging.
-                // Pointer capture keeps pointermove on the source piece, so
-                // drop detection must be calculated explicitly from cell bounds.
-                if (screen.dragMoved) {
-                    screen.dragTargetIndex = null;
-                    const candidates = board.querySelectorAll(".jigsawPiece");
-                    candidates.forEach(function (candidate) {
-                        if (screen.dragTargetIndex !== null || candidate === piece) return;
-                        const rect = candidate.getBoundingClientRect();
-                        if (event.clientX >= rect.left && event.clientX <= rect.right &&
-                            event.clientY >= rect.top && event.clientY <= rect.bottom) {
-                            screen.dragTargetIndex = Number(candidate.dataset.position);
-                        }
-                    });
-                }
-            });
-            piece.addEventListener("pointerup", function (event) {
-                if (screen.dragIndex === null) return;
-                const source = screen.dragIndex;
-                const moved = screen.dragMoved;
-                const target = screen.dragTargetIndex;
-
-                if (piece.releasePointerCapture && event.pointerId !== undefined) {
-                    try { piece.releasePointerCapture(event.pointerId); } catch (e) {}
-                }
-
-                screen.clearDrag();
-                if (!moved) return;
-
-                screen.suppressClick = true;
-                setTimeout(function () { screen.suppressClick = false; }, 0);
-
-                if (target !== null && source !== target) {
-                    screen.swap(source, target);
-                }
-            });
-            piece.addEventListener("pointercancel", function () {
-                screen.clearDrag();
-                screen.suppressClick = true;
-                setTimeout(function () { screen.suppressClick = false; }, 0);
+                console.log("[Jigsaw][DOWN]", { source: screen.dragIndex, x: event.clientX, y: event.clientY });
             });
         });
+
+        document.addEventListener("pointermove", function (event) {
+            if (screen.dragElement === null || screen.dragIndex === null) return;
+            const piece = screen.dragElement;
+            const dx = event.clientX - screen.dragStartX;
+            const dy = event.clientY - screen.dragStartY;
+            if (Math.abs(dx) > 3 || Math.abs(dy) > 3) screen.dragMoved = true;
+            piece.style.transform = `translate3d(${dx}px,${dy}px,0)`;
+            if (screen.dragMoved) screen.dragTargetIndex = getTargetIndex(event.clientX, event.clientY);
+        });
+        document.addEventListener("pointerup", finishPointer);
+        document.addEventListener("pointercancel", function () {
+            if (screen.dragElement !== null) {
+                console.log("[Jigsaw][CANCEL]", { source: screen.dragIndex });
+                screen.clearDrag();
+                screen.suppressClick = true;
+                setTimeout(function () { screen.suppressClick = false; }, 0);
+            }
+        });
+
         const reset = document.getElementById("jigsawResetBtn");
-        if (reset) reset.onclick = function () { if (!screen.isFinished() && JigsawPuzzleHandler.reset(PuzzleEngine)) screen.render(PuzzleEngine.getState()); };
+        if (reset) reset.onclick = function () {
+            if (!screen.isFinished() && JigsawPuzzleHandler.reset(PuzzleEngine)) screen.render(PuzzleEngine.getState());
+        };
     },
 
     swap: function (source, target) {
-        if (JigsawPuzzleHandler.move(PuzzleEngine, source, target)) {
-            this.showStatus(JigsawPuzzle.isSolved() ? "آفرین! جمله کامل شد 🎉" : "ادامه بده؛ جای واژه‌ها را پیدا کن.");
+        console.log("[Jigsaw][SWAP]", { source, target });
+        const moved = JigsawPuzzleHandler.move(PuzzleEngine, source, target);
+        console.log("[Jigsaw][SWAP_RESULT]", {
+            moved: moved,
+            items: PuzzleEngine && Array.isArray(PuzzleEngine.items) ? PuzzleEngine.items.slice() : [],
+            moves: PuzzleEngine ? PuzzleEngine.moves : null
+        });
+        if (moved) {
+            const solved = JigsawPuzzle.isSolved();
+            this.showStatus(solved ? "آفرین! تصویر کامل شد 🎉" : "ادامه بده؛ قطعه‌ها را جابه‌جا کن.");
         }
+        return moved;
     },
 
     showStatus: function (text) {
