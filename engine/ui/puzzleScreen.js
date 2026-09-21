@@ -165,6 +165,17 @@ const PuzzleScreen = {
         }
 
 
+        // Jigsaw has its own dedicated screen and must not fall through
+        // to the generic PuzzleScreen type switch.
+        if (
+            state.type === "jigsaw" &&
+            typeof JigsawScreen !== "undefined" &&
+            typeof JigsawScreen.show === "function"
+        ) {
+            JigsawScreen.show(state);
+            return;
+        }
+
         switch (
             state.type
         ) {
