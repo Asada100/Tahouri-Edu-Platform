@@ -28,9 +28,9 @@ const DifficultyModal = {
                 <h2>انتخاب سطح سؤال</h2>
                 <p>${activityData.title || ""}</p>
                 <div class="difficultyOptions">
-                    <button class="difficultyOption" data-difficulty="easy" type="button">🟢 آسان</button>
-                    <button class="difficultyOption" data-difficulty="medium" type="button">🟡 معمولی</button>
-                    <button class="difficultyOption" data-difficulty="hard" type="button">🔴 سخت</button>
+                    <button class="difficultyOption" data-difficulty="easy" type="button">🟢 ساده <small>۳×۳</small></button>
+                    <button class="difficultyOption" data-difficulty="medium" type="button">🟡 متوسط <small>۳×۴ / ۴×۳ / ۴×۴</small></button>
+                    <button class="difficultyOption" data-difficulty="hard" type="button">🔴 سخت <small>۴×۵ / ۵×۴ / ۵×۵</small></button>
                 </div>
                 <button id="difficultyCancelBtn" type="button">انصراف</button>
             </div>
