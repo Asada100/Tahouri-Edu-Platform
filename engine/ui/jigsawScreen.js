@@ -182,7 +182,7 @@ const JigsawScreen = {
             const row = Math.floor(piece.correctIndex / cols), col = piece.correctIndex % cols;
             pieces.push(`<button class="jigsawPiece" data-position="${position}" aria-label="قطعه ${piece.correctIndex + 1}" style="background-image:url('${this.escapeAttribute(image)}');background-position:${(col * 100) / (cols - 1 || 1)}% ${(row * 100) / (rows - 1 || 1)}%;--jigsaw-image-size:${cols * 100}% ${rows * 100}%"></button>`);
         }
-        app.innerHTML = `<div class="screen puzzleScreen jigsawScreen imageJigsawScreen" dir="rtl"><div class="jigsawHeader"><h1>${this.escapeHTML(puzzle.title || "پازل تصویری")}</h1><p class="jigsawObjective">${this.escapeHTML(puzzle.objective || "تصویر را کامل کن")}</p><p class="jigsawInstruction">${this.escapeHTML(puzzle.instruction || "قطعه‌ها را جابه‌جا کن تا تصویر کامل شود.")}</p></div><div class="jigsawBoardWrap"><div id="jigsawBoard" class="jigsawBoard" style="grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr);aspect-ratio:\${cols}/\${rows};box-sizing:border-box;">${pieces.join("")}</div><div id="jigsawStatus" class="jigsawStatus jigsawInactivityHint" aria-live="polite"></div></div><div class="jigsawControls"><button id="jigsawResetBtn" type="button">شروع دوباره</button></div><div class="jigsawMoves">حرکت‌ها: <span id="puzzleMoveCount">${state.moves || core.moves || 0}</span></div></div>`;
+        app.innerHTML = `<div class="screen puzzleScreen jigsawScreen imageJigsawScreen" dir="rtl"><div class="jigsawHeader"><h1>${this.escapeHTML(puzzle.title || "پازل تصویری")}</h1><p class="jigsawObjective">${this.escapeHTML(puzzle.objective || "تصویر را کامل کن")}</p><p class="jigsawInstruction">${this.escapeHTML(puzzle.instruction || "قطعه‌ها را جابه‌جا کن تا تصویر کامل شود.")}</p></div><div class="jigsawBoardWrap"><div id="jigsawBoard" class="jigsawBoard" style="grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr);aspect-ratio:\${cols}/\${rows};box-sizing:border-box;">${pieces.join("")}</div><div id="jigsawStatus" class="jigsawStatus jigsawInactivityHint" aria-live="polite"></div></div><div class="jigsawBottomRow"><div class="jigsawControls"><button id="jigsawResetBtn" type="button">شروع دوباره</button></div><div class="jigsawMoves">حرکت‌ها: <span id="puzzleMoveCount">${state.moves || core.moves || 0}</span></div></div></div>`;
         this.bindImageBoard();
     },
 
@@ -270,12 +270,15 @@ const JigsawScreen = {
         const controls = document.createElement("div");
         controls.className = "jigsawControls";
         controls.innerHTML = '<button id="jigsawResetBtn" type="button">شروع دوباره</button>';
-        boardWrap.insertAdjacentElement("afterend", controls);
+        const bottomRow = document.createElement("div");
+        bottomRow.className = "jigsawBottomRow";
+        bottomRow.appendChild(controls);
 
         const moves = document.createElement("div");
         moves.className = "jigsawMoves";
         moves.innerHTML = 'حرکت‌ها: <span id="puzzleMoveCount">' + (core.moves || 0) + '</span>';
-        controls.insertAdjacentElement("afterend", moves);
+        bottomRow.appendChild(moves);
+        boardWrap.insertAdjacentElement("afterend", bottomRow);
 
         this.bindImageBoard();
     },
