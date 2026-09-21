@@ -126,6 +126,15 @@ const ResultModal = {
                         ? (activity.chapter || activity.chapterId)
                         : null;
 
+                // Returning to the activity list is an explicit navigation action.
+                // Clear the post-finish load guard so the user can start an activity again.
+                if(
+                    typeof ActivityManager !== "undefined" &&
+                    typeof ActivityManager.allowNewActivityStart === "function"
+                ){
+                    ActivityManager.allowNewActivityStart();
+                }
+
                 ResultModal.close();
 
                 if(
