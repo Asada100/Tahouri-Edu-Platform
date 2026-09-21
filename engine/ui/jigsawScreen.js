@@ -182,7 +182,7 @@ const JigsawScreen = {
             const row = Math.floor(piece.correctIndex / cols), col = piece.correctIndex % cols;
             pieces.push(`<button class="jigsawPiece" data-position="${position}" aria-label="قطعه ${piece.correctIndex + 1}" style="background-image:url('${this.escapeAttribute(image)}');background-position:${(col * 100) / (cols - 1 || 1)}% ${(row * 100) / (rows - 1 || 1)}%;--jigsaw-image-size:${cols * 100}% ${rows * 100}%"></button>`);
         }
-        app.innerHTML = `<div class="screen puzzleScreen jigsawScreen imageJigsawScreen" dir="rtl"><div class="jigsawHeader"><h1>${this.escapeHTML(puzzle.title || "پازل تصویری")}</h1><p class="jigsawObjective">${this.escapeHTML(puzzle.objective || "تصویر را کامل کن")}</p><p class="jigsawInstruction">${this.escapeHTML(puzzle.instruction || "قطعه‌ها را جابه‌جا کن تا تصویر کامل شود.")}</p></div><div id="jigsawBoard" class="jigsawBoard" style="grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr);aspect-ratio:\${cols}/\${rows};box-sizing:border-box;">${pieces.join("")}</div><div id="jigsawStatus" class="jigsawStatus"></div><div class="jigsawControls"><button id="jigsawResetBtn" type="button">شروع دوباره</button></div><div class="jigsawMoves">حرکت‌ها: <span id="puzzleMoveCount">${state.moves || core.moves || 0}</span></div></div>`;
+        app.innerHTML = `<div class="screen puzzleScreen jigsawScreen imageJigsawScreen" dir="rtl"><div class="jigsawHeader"><h1>${this.escapeHTML(puzzle.title || "پازل تصویری")}</h1><p class="jigsawObjective">${this.escapeHTML(puzzle.objective || "تصویر را کامل کن")}</p><p class="jigsawInstruction">${this.escapeHTML(puzzle.instruction || "قطعه‌ها را جابه‌جا کن تا تصویر کامل شود.")}</p></div><div class="jigsawBoardWrap"><div id="jigsawBoard" class="jigsawBoard" style="grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr);aspect-ratio:\${cols}/\${rows};box-sizing:border-box;">${pieces.join("")}</div><div id="jigsawStatus" class="jigsawStatus jigsawInactivityHint" aria-live="polite"></div></div><div class="jigsawControls"><button id="jigsawResetBtn" type="button">شروع دوباره</button></div><div class="jigsawMoves">حرکت‌ها: <span id="puzzleMoveCount">${state.moves || core.moves || 0}</span></div></div>`;
         this.bindImageBoard();
     },
 
@@ -248,25 +248,29 @@ const JigsawScreen = {
             pieces.push(`<button class="jigsawPiece" data-position="${position}" aria-label="قطعه ${piece.correctIndex + 1}" style="background-image:url('${this.escapeAttribute(image)}');background-position:${(col * 100) / (cols - 1 || 1)}% ${(row * 100) / (rows - 1 || 1)}%;--jigsaw-image-size:${cols * 100}% ${rows * 100}%"></button>`);
         }
 
+        const boardWrap = document.createElement("div");
+        boardWrap.className = "jigsawBoardWrap";
         const board = document.createElement("div");
         board.id = "jigsawBoard";
         board.className = "jigsawBoard";
         board.setAttribute("style", `grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr);aspect-ratio:${cols}/${rows};box-sizing:border-box;`);
         board.innerHTML = pieces.join("");
-        preview.replaceWith(board);
+        boardWrap.appendChild(board);
+        preview.replaceWith(boardWrap);
 
         const countdown = document.getElementById("jigsawPreviewCountdown");
         if (countdown) countdown.remove();
 
         const status = document.createElement("div");
         status.id = "jigsawStatus";
-        status.className = "jigsawStatus";
-        board.insertAdjacentElement("afterend", status);
+        status.className = "jigsawStatus jigsawInactivityHint";
+        status.setAttribute("aria-live", "polite");
+        boardWrap.appendChild(status);
 
         const controls = document.createElement("div");
         controls.className = "jigsawControls";
         controls.innerHTML = '<button id="jigsawResetBtn" type="button">شروع دوباره</button>';
-        status.insertAdjacentElement("afterend", controls);
+        boardWrap.insertAdjacentElement("afterend", controls);
 
         const moves = document.createElement("div");
         moves.className = "jigsawMoves";
