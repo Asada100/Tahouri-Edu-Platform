@@ -57,15 +57,14 @@
     }
 
     .imageJigsawScreen .jigsawHeader h1 {
-        display:inline;
-        margin:0 10px 0 0;
+        margin:0 0 3px;
     }
 
     .imageJigsawScreen .jigsawObjective,
     .imageJigsawScreen .jigsawInstruction {
         display:inline;
         margin:0;
-        line-height:1.5;
+        line-height:1.4;
     }
 
     .imageJigsawScreen .jigsawObjective::after {
@@ -75,7 +74,20 @@
 
     .imageJigsawScreen .jigsawBoard {
         width:min(100%,560px);
-        margin:4px auto 8px;
+        margin:4px auto 5px;
+    }
+
+    .imageJigsawScreen .jigsawStatus {
+        min-height:22px;
+        margin:2px 0;
+    }
+
+    .imageJigsawScreen .jigsawControls {
+        gap:6px;
+    }
+
+    .imageJigsawScreen .jigsawMoves {
+        margin-top:3px;
     }
 }
 
