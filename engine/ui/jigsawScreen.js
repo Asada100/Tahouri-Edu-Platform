@@ -256,6 +256,21 @@ const JigsawScreen = {
         const countdown = document.getElementById("jigsawPreviewCountdown");
         if (countdown) countdown.remove();
 
+        const status = document.createElement("div");
+        status.id = "jigsawStatus";
+        status.className = "jigsawStatus";
+        board.insertAdjacentElement("afterend", status);
+
+        const controls = document.createElement("div");
+        controls.className = "jigsawControls";
+        controls.innerHTML = '<button id="jigsawResetBtn" type="button">شروع دوباره</button>';
+        status.insertAdjacentElement("afterend", controls);
+
+        const moves = document.createElement("div");
+        moves.className = "jigsawMoves";
+        moves.innerHTML = 'حرکت‌ها: <span id="puzzleMoveCount">' + (core.moves || 0) + '</span>';
+        controls.insertAdjacentElement("afterend", moves);
+
         this.bindImageBoard();
     },
 
