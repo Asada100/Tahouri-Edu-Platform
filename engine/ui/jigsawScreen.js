@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Jigsaw Puzzle Screen
-// Version 2.0
+// Version 2.1
 // Image jigsaw + attractive word/sentence jigsaw
 // =====================================
 
@@ -29,7 +29,7 @@ const JigsawScreen = {
         });
         EventManager.on("activityFinished", function () { JigsawScreen.clearDrag(); });
         this.connected = true;
-        console.log("Jigsaw Screen v2.0 Ready");
+        console.log("Jigsaw Screen v2.1 Ready");
     },
 
     handleReady: function (payload) {
@@ -155,8 +155,6 @@ const JigsawScreen = {
         const rows = Number(puzzle.rows), cols = Number(puzzle.cols), image = puzzle.image;
         if (!Number.isInteger(rows) || !Number.isInteger(cols) || !image) return;
 
-        // Level 1 image Jigsaw: show the complete image for 5 seconds before play.
-        // The preview is a learning aid only; it never causes failure or affects stars.
         const previewKey = [
             (typeof PuzzleEngine !== "undefined" && PuzzleEngine.activity && PuzzleEngine.activity.id) || "",
             image, rows, cols
@@ -420,4 +418,4 @@ const JigsawScreen = {
 
 window.JigsawScreen = JigsawScreen;
 JigsawScreen.init();
-console.log("Jigsaw Screen v2.0 Ready");
+console.log("Jigsaw Screen v2.1 Ready");
