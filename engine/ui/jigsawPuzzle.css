@@ -91,6 +91,14 @@
         margin:2px 0;
     }
 
+    .imageJigsawScreen .jigsawBottomRow {
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        gap:10px;
+        margin:0;
+    }
+
     .imageJigsawScreen .jigsawControls {
         gap:6px;
     }
@@ -107,22 +115,12 @@
         margin:0;
     }
 
-    .imageJigsawScreen .jigsawBoardWrap + .jigsawControls,
-    .imageJigsawScreen .jigsawBoardWrap + .jigsawControls + .jigsawMoves {
-        position:relative;
-    }
-
-    .imageJigsawScreen .jigsawControls + .jigsawMoves {
-        margin-right:8px;
-    }
-
-    .imageJigsawScreen .jigsawControls,
-    .imageJigsawScreen .jigsawControls + .jigsawMoves {
+    .imageJigsawScreen .jigsawBottomRow {
         transform:translateY(-3px);
     }
 
-    .imageJigsawScreen .jigsawStatus:empty + .jigsawControls {
-        margin-top:0;
+    .imageJigsawScreen .jigsawMoves {
+        margin:0;
     }
 }
 
