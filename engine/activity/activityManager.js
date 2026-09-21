@@ -69,6 +69,24 @@ const ActivityManager = {
             const savedPuzzleType = existing && existing.engineState && existing.engineState.puzzle ? existing.engineState.puzzle.type : null;
             const incompatiblePuzzleSession = existing && fullActivity.engine === "puzzle" && currentPuzzleType && savedPuzzleType && currentPuzzleType !== savedPuzzleType;
             if (incompatiblePuzzleSession) { ActivitySessionManager.clear(); existing = null; }
+
+            const currentJigsawGrid = fullActivity.engine === "puzzle" && currentPuzzleType === "jigsaw" && fullActivity.puzzle
+                ? { rows: Number(fullActivity.puzzle.rows), cols: Number(fullActivity.puzzle.cols) }
+                : null;
+            const savedJigsawGrid = existing && existing.engineState && existing.engineState.puzzle && savedPuzzleType === "jigsaw"
+                ? { rows: Number(existing.engineState.puzzle.rows), cols: Number(existing.engineState.puzzle.cols) }
+                : null;
+            const incompatibleJigsawGrid = existing && currentJigsawGrid && savedJigsawGrid &&
+                currentJigsawGrid.rows !== savedJigsawGrid.rows || currentJigsawGrid && savedJigsawGrid &&
+                currentJigsawGrid.cols !== savedJigsawGrid.cols;
+            if (incompatibleJigsawGrid) {
+                ActivitySessionManager.clear();
+                existing = null;
+                console.log("ActivityManager: Jigsaw session grid changed; starting a fresh session.", {
+                    current: currentJigsawGrid,
+                    saved: savedJigsawGrid
+                });
+            }
             const solvedJigsawSession = existing && fullActivity.engine === "puzzle" && existing.engineState && savedPuzzleType === "jigsaw" && Array.isArray(existing.engineState.items) && existing.engineState.items.length > 1 && existing.engineState.items.every(function (id, index) { const value = String(id || ""); return value === `word-${index}` || value === `piece-${index}`; });
             if (solvedJigsawSession) { ActivitySessionManager.clear(); existing = null; }
             const unfinished = existing && (existing.status === "resumable" || existing.status === "active") && existing.engineState;
