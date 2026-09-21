@@ -72,6 +72,11 @@
         opacity:.55;
     }
 
+    .imageJigsawScreen .jigsawPreview {
+        width:min(100%,560px) !important;
+        margin:4px auto 5px !important;
+    }
+
     .imageJigsawScreen .jigsawBoard {
         width:min(100%,560px);
         margin:4px auto 5px;
