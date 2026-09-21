@@ -27,7 +27,10 @@ const JigsawScreen = {
         EventManager.on("puzzleChanged", function (state) {
             if (state && state.type === "jigsaw" && !(PuzzleEngine.state && PuzzleEngine.state.isFinished)) JigsawScreen.render(state);
         });
-        EventManager.on("activityFinished", function () { JigsawScreen.clearDrag(); });
+        EventManager.on("activityFinished", function () {
+            JigsawScreen.clearDrag();
+            document.body.classList.remove("activity-playing");
+        });
         this.connected = true;
         console.log("Jigsaw Screen v2.1 Ready");
     },
@@ -48,6 +51,7 @@ const JigsawScreen = {
 
     render: function (state) {
         const app = document.getElementById("app");
+        document.body.classList.add("activity-playing");
         const puzzle = typeof PuzzleEngine !== "undefined" ? PuzzleEngine.puzzle : null;
         if (!app || !puzzle || puzzle.type !== "jigsaw") return;
         const core = typeof JigsawPuzzle !== "undefined" ? JigsawPuzzle.getState() : null;
