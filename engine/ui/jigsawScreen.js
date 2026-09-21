@@ -209,8 +209,54 @@ const JigsawScreen = {
         this.imagePreviewTimer = setTimeout(function () {
             screen.clearImagePreviewTimer();
             screen.imagePreviewCompleted = true;
-            screen.render(PuzzleEngine.getState());
+            screen.showImageBoardAfterPreview(puzzle);
         }, 5000);
+    },
+
+    showImageBoardAfterPreview: function (puzzle) {
+        const preview = document.querySelector(".imageJigsawScreen .jigsawPreview");
+        const header = document.querySelector(".imageJigsawScreen .jigsawHeader");
+        if (!preview || !header) {
+            this.render(PuzzleEngine.getState());
+            return;
+        }
+
+        const rows = Number(puzzle.rows);
+        const cols = Number(puzzle.cols);
+        const image = puzzle.image;
+        const core = typeof JigsawPuzzle !== "undefined" ? JigsawPuzzle.getState() : null;
+        if (!Number.isInteger(rows) || !Number.isInteger(cols) || !image || !core) {
+            this.render(PuzzleEngine.getState());
+            return;
+        }
+
+        const title = header.querySelector("h1");
+        const objective = header.querySelector(".jigsawObjective");
+        const instruction = header.querySelector(".jigsawInstruction");
+        if (title) title.textContent = puzzle.title || "پازل تصویری";
+        if (objective) objective.textContent = puzzle.objective || "تصویر را کامل کن";
+        if (instruction) instruction.textContent = puzzle.instruction || "قطعه‌ها را جابه‌جا کن تا تصویر کامل شود.";
+
+        const pieces = [];
+        for (let position = 0; position < core.pieceCount; position += 1) {
+            const piece = core.pieces.find(function (item) { return item.currentIndex === position; });
+            if (!piece) continue;
+            const row = Math.floor(piece.correctIndex / cols);
+            const col = piece.correctIndex % cols;
+            pieces.push(`<button class="jigsawPiece" data-position="${position}" aria-label="قطعه ${piece.correctIndex + 1}" style="background-image:url('${this.escapeAttribute(image)}');background-position:${(col * 100) / (cols - 1 || 1)}% ${(row * 100) / (rows - 1 || 1)}%;--jigsaw-image-size:${cols * 100}% ${rows * 100}%"></button>`);
+        }
+
+        const board = document.createElement("div");
+        board.id = "jigsawBoard";
+        board.className = "jigsawBoard";
+        board.setAttribute("style", `grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr);aspect-ratio:${cols}/${rows};box-sizing:border-box;`);
+        board.innerHTML = pieces.join("");
+        preview.replaceWith(board);
+
+        const countdown = document.getElementById("jigsawPreviewCountdown");
+        if (countdown) countdown.remove();
+
+        this.bindImageBoard();
     },
 
     clearImagePreviewTimer: function () {
