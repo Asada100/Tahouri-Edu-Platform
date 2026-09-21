@@ -97,7 +97,7 @@ const JigsawPuzzleHandler = {
         // path explicit here so the Word Jigsaw Stage-2 wrapper cannot
         // interfere with image-piece movement.
         if (isImage && typeof JigsawImagePuzzle !== "undefined") {
-            if (typeof JigsawImagePuzzle.restoreFromEngine === "function") {
+            if (!JigsawImagePuzzle.state && typeof JigsawImagePuzzle.restoreFromEngine === "function") {
                 JigsawImagePuzzle.restoreFromEngine();
             }
             if (typeof JigsawPuzzle !== "undefined") {
