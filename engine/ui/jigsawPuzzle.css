@@ -50,6 +50,35 @@
 .wordBuilderPunctuation { margin-inline-start:3px; font-weight:900; }
 .wordBuilderWord { white-space:nowrap; }
 
+/* Desktop image-jigsaw compact layout */
+@media (min-width:601px) {
+    .imageJigsawScreen .jigsawHeader {
+        margin-bottom:2px;
+    }
+
+    .imageJigsawScreen .jigsawHeader h1 {
+        display:inline;
+        margin:0 10px 0 0;
+    }
+
+    .imageJigsawScreen .jigsawObjective,
+    .imageJigsawScreen .jigsawInstruction {
+        display:inline;
+        margin:0;
+        line-height:1.5;
+    }
+
+    .imageJigsawScreen .jigsawObjective::after {
+        content:" • ";
+        opacity:.55;
+    }
+
+    .imageJigsawScreen .jigsawBoard {
+        width:min(100%,560px);
+        margin:4px auto 8px;
+    }
+}
+
 @media (max-width:600px) {
     .jigsawScreen { padding:10px 10px 16px; }
     .jigsawHeader { margin-bottom:9px; }
