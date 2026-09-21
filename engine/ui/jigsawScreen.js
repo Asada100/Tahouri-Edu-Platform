@@ -176,7 +176,7 @@ const JigsawScreen = {
             const row = Math.floor(piece.correctIndex / cols), col = piece.correctIndex % cols;
             pieces.push(`<button class="jigsawPiece" data-position="${position}" aria-label="قطعه ${piece.correctIndex + 1}" style="background-image:url('${this.escapeAttribute(image)}');background-position:${(col * 100) / (cols - 1 || 1)}% ${(row * 100) / (rows - 1 || 1)}%;--jigsaw-image-size:${cols * 100}% ${rows * 100}%"></button>`);
         }
-        app.innerHTML = `<div class="screen puzzleScreen jigsawScreen" dir="rtl"><div class="jigsawHeader"><h1>${this.escapeHTML(puzzle.title || "پازل تصویری")}</h1><p class="jigsawObjective">${this.escapeHTML(puzzle.objective || "تصویر را کامل کن")}</p><p class="jigsawInstruction">${this.escapeHTML(puzzle.instruction || "قطعه‌ها را جابه‌جا کن تا تصویر کامل شود.")}</p></div><div id="jigsawBoard" class="jigsawBoard" style="grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr)">${pieces.join("")}</div><div id="jigsawStatus" class="jigsawStatus"></div><div class="jigsawControls"><button id="jigsawResetBtn" type="button">شروع دوباره</button></div><div class="jigsawMoves">حرکت‌ها: <span id="puzzleMoveCount">${state.moves || core.moves || 0}</span></div></div>`;
+        app.innerHTML = `<div class="screen puzzleScreen jigsawScreen" dir="rtl"><div class="jigsawHeader"><h1>${this.escapeHTML(puzzle.title || "پازل تصویری")}</h1><p class="jigsawObjective">${this.escapeHTML(puzzle.objective || "تصویر را کامل کن")}</p><p class="jigsawInstruction">${this.escapeHTML(puzzle.instruction || "قطعه‌ها را جابه‌جا کن تا تصویر کامل شود.")}</p></div><div id="jigsawBoard" class="jigsawBoard" style="grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr);aspect-ratio:\${cols}/\${rows};box-sizing:border-box;">${pieces.join("")}</div><div id="jigsawStatus" class="jigsawStatus"></div><div class="jigsawControls"><button id="jigsawResetBtn" type="button">شروع دوباره</button></div><div class="jigsawMoves">حرکت‌ها: <span id="puzzleMoveCount">${state.moves || core.moves || 0}</span></div></div>`;
         this.bindImageBoard();
     },
 
@@ -190,8 +190,8 @@ const JigsawScreen = {
                     <p class="jigsawObjective">تصویر را با دقت نگاه کن.</p>
                     <p class="jigsawInstruction">۵ ثانیه برای مشاهده تصویر فرصت داری.</p>
                 </div>
-                <div class="jigsawPreview" aria-live="polite">
-                    <img src="${this.escapeAttribute(puzzle.image)}" alt="تصویر کامل پازل">
+                <div class="jigsawPreview" aria-live="polite" style="width:min(100%,620px);aspect-ratio:\${cols}/\${rows};margin:10px auto;overflow:hidden;border-radius:14px;background:#20252b;padding:3px;box-sizing:border-box;display:flex;align-items:stretch;justify-content:stretch;">
+                    <img src="${this.escapeAttribute(puzzle.image)}" alt="تصویر کامل پازل" style="display:block;width:100%;height:100%;object-fit:fill;border-radius:11px;">
                 </div>
                 <div class="jigsawPreviewCountdown" id="jigsawPreviewCountdown">۵</div>
             </div>`;
