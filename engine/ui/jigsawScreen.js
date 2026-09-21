@@ -194,7 +194,7 @@ const JigsawScreen = {
                     <p class="jigsawObjective">تصویر را با دقت نگاه کن.</p>
                     <p class="jigsawInstruction">۵ ثانیه برای مشاهده تصویر فرصت داری.</p>
                 </div>
-                <div class="jigsawPreview" aria-live="polite" style="width:min(100%,620px);aspect-ratio:${cols}/${rows};margin:10px auto;overflow:hidden;border-radius:14px;background:#20252b;padding:3px;box-sizing:border-box;display:flex;align-items:stretch;justify-content:stretch;">
+                <div class="jigsawPreview" aria-live="polite" style="width:min(100%,620px);aspect-ratio:\${cols}/\${rows};margin:10px auto;overflow:hidden;border-radius:14px;background:#20252b;padding:3px;box-sizing:border-box;display:flex;align-items:stretch;justify-content:stretch;">
                     <img src="${this.escapeAttribute(puzzle.image)}" alt="تصویر کامل پازل" style="display:block;width:100%;height:100%;object-fit:fill;border-radius:11px;">
                 </div>
                 <div class="jigsawPreviewCountdown" id="jigsawPreviewCountdown">۵</div>
