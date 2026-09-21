@@ -20,6 +20,8 @@ const JigsawScreen = {
     imagePreviewInterval: null,
     imagePreviewCompleted: false,
     imagePreviewKey: null,
+    inactivityTimer: null,
+    inactivityMessageVisible: false,
 
     init: function () {
         if (typeof EventManager === "undefined" || this.connected) return;
@@ -274,6 +276,29 @@ const JigsawScreen = {
         this.bindImageBoard();
     },
 
+    clearInactivityTimer: function () {
+        if (this.inactivityTimer) clearTimeout(this.inactivityTimer);
+        this.inactivityTimer = null;
+    },
+
+    scheduleInactivityHint: function () {
+        this.clearInactivityTimer();
+        this.inactivityMessageVisible = false;
+        const screen = this;
+        this.inactivityTimer = setTimeout(function () {
+            if (screen.isFinished()) return;
+            screen.inactivityMessageVisible = true;
+            screen.showStatus("ادامه بده؛ قطعه‌ها را جابه‌جا کن.");
+        }, 10000);
+    },
+
+    clearInactivityHint: function () {
+        this.clearInactivityTimer();
+        this.inactivityMessageVisible = false;
+        const status = document.getElementById("jigsawStatus");
+        if (status && !this.isFinished()) status.textContent = "";
+    },
+
     clearImagePreviewTimer: function () {
         if (this.imagePreviewTimer) clearTimeout(this.imagePreviewTimer);
         if (this.imagePreviewInterval) clearInterval(this.imagePreviewInterval);
@@ -302,12 +327,15 @@ const JigsawScreen = {
             return row * cols + col;
         }
 
+        this.scheduleInactivityHint();
+
         board.querySelectorAll(".jigsawPiece").forEach(function (piece) {
             piece.addEventListener("dragstart", function (event) { event.preventDefault(); });
 
             piece.addEventListener("click", function () {
                 if (screen.suppressClick) { screen.suppressClick = false; return; }
                 if (screen.isFinished()) return;
+                screen.clearInactivityHint();
                 const index = Number(piece.dataset.position);
                 if (screen.selectedIndex === null) {
                     screen.selectedIndex = index;
@@ -322,6 +350,7 @@ const JigsawScreen = {
 
             piece.addEventListener("pointerdown", function (event) {
                 if (screen.isFinished() || (event.button !== undefined && event.button !== 0)) return;
+                screen.clearInactivityHint();
                 screen.selectedIndex = null;
                 screen.suppressClick = false;
                 screen.dragIndex = Number(piece.dataset.position);
@@ -434,7 +463,10 @@ const JigsawScreen = {
         });
         if (moved) {
             const solved = JigsawPuzzle.isSolved();
-            this.showStatus(solved ? "آفرین! تصویر کامل شد 🎉" : "ادامه بده؛ قطعه‌ها را جابه‌جا کن.");
+            this.clearInactivityTimer();
+            this.inactivityMessageVisible = false;
+            this.showStatus(solved ? "آفرین! تصویر کامل شد 🎉" : "");
+            if (!solved) this.scheduleInactivityHint();
         }
         return moved;
     },
