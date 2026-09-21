@@ -163,12 +163,12 @@ const JigsawScreen = {
             (typeof PuzzleEngine !== "undefined" && PuzzleEngine.activity && PuzzleEngine.activity.id) || "",
             image, rows, cols
         ].join("|");
-        if (Number(puzzle.difficulty || 1) === 1 && this.imagePreviewKey !== previewKey) {
+        if (this.imagePreviewKey !== previewKey) {
             this.clearImagePreviewTimer();
             this.imagePreviewKey = previewKey;
             this.imagePreviewCompleted = false;
         }
-        if (Number(puzzle.difficulty || 1) === 1 && !this.imagePreviewCompleted) {
+        if (!this.imagePreviewCompleted) {
             this.startImagePreview(app, puzzle, state);
             return;
         }
