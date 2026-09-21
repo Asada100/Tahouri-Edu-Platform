@@ -88,8 +88,8 @@
             "فصل";
     }
 
-    function makeStars(score) {
-        const value = Math.max(0, Math.min(5, Math.round(number(score) / 20)));
+    function makeStarsFromPercentage(percentage) {
+        const value = Math.max(0, Math.min(5, Math.round(number(percentage) / 20)));
         let result = "";
         for (let i = 1; i <= 5; i++) {
             result += i <= value ? "⭐" : "☆";
@@ -329,7 +329,7 @@
             <div style="text-align:center;">
                 <div style="font-size:34px;margin-bottom:5px;">🎮</div>
                 <h3 style="margin:0;font-size:20px;">${escapeHTML(title)}</h3>
-                <div style="font-size:25px;margin:10px 0 3px;">${makeStars(bestScore)}</div>
+                <div style="font-size:25px;margin:10px 0 3px;">${makeStarsFromPercentage(bestPercentage)}</div>
                 <strong style="font-size:31px;">${bestScore}</strong>
                 <div style="font-size:12px;color:#64748b;margin-top:2px;">بهترین امتیاز</div>
             </div>
@@ -478,7 +478,7 @@
             overallBox.style.cssText = cardStyle() + ";margin-top:11px;text-align:center;padding:13px;";
             const answers = totalCorrect + totalWrong;
             const accuracy = answers > 0 ? Math.round(totalCorrect / answers * 100) : 0;
-            overallBox.innerHTML = `<div style="font-size:24px;line-height:1;">${makeStars(bestScore)}</div><h3 style="margin:6px 0 2px;font-size:17px;">عملکرد کلی</h3><div style="font-size:12px;color:#64748b;">بهترین امتیاز: ${bestScore}</div><div style="display:flex;justify-content:center;gap:16px;flex-wrap:wrap;margin-top:9px;font-size:12px;"><span>✅ صحیح: <strong>${totalCorrect}</strong></span><span>❌ اشتباه: <strong>${totalWrong}</strong></span><span>🎯 دقت: <strong>${accuracy}%</strong></span></div>`;
+            overallBox.innerHTML = `<div style="font-size:24px;line-height:1;">${makeStarsFromPercentage(bestScore)}</div><h3 style="margin:6px 0 2px;font-size:17px;">عملکرد کلی</h3><div style="font-size:12px;color:#64748b;">بهترین امتیاز: ${bestScore}</div><div style="display:flex;justify-content:center;gap:16px;flex-wrap:wrap;margin-top:9px;font-size:12px;"><span>✅ صحیح: <strong>${totalCorrect}</strong></span><span>❌ اشتباه: <strong>${totalWrong}</strong></span><span>🎯 دقت: <strong>${accuracy}%</strong></span></div>`;
             content.appendChild(overallBox);
 
             const navBox = document.createElement("div");
@@ -623,7 +623,7 @@
                 const button = document.createElement("button");
                 button.type = "button";
                 button.style.cssText = [cardStyle(),"width:100%","margin-bottom:9px","text-align:right","cursor:pointer","font-family:inherit","display:block","background:#fff"].join(";");
-                button.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;"><div style="min-width:0;"><strong style="font-size:15px;">🎮 ${escapeHTML(title)}</strong><div style="margin-top:4px;color:#64748b;font-size:11px;">بهترین: ${bestScore} · دفعات: ${attempts}</div></div><div style="font-size:18px;white-space:nowrap;">${makeStars(bestScore)}</div></div><div style="margin-top:8px;padding:7px;border-radius:10px;background:#eff6ff;color:#1d4ed8;text-align:center;font-size:12px;font-weight:700;">📊 مشاهده جزئیات</div>`;
+                button.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;"><div style="min-width:0;"><strong style="font-size:15px;">🎮 ${escapeHTML(title)}</strong><div style="margin-top:4px;color:#64748b;font-size:11px;">بهترین: ${bestScore} · دفعات: ${attempts}</div></div><div style="font-size:18px;white-space:nowrap;">${makeStarsFromPercentage(number(activity.bestPercentage))}</div></div><div style="margin-top:8px;padding:7px;border-radius:10px;background:#eff6ff;color:#1d4ed8;text-align:center;font-size:12px;font-weight:700;">📊 مشاهده جزئیات</div>`;
 
                 button.addEventListener("click", function () {
                     renderActivity(activityId);
