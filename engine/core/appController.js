@@ -108,6 +108,24 @@ const App = {
             return false;
         }
 
+        // Jigsaw activities require an explicit level selection before the
+        // engine starts. The selected activity is marked so the callback can
+        // enter normally without opening the modal a second time.
+        const isJigsaw =
+            String(activity.type || "").toLowerCase() === "puzzle" &&
+            String(activity.engine || "").toLowerCase() === "puzzle" &&
+            !(activity.settings && activity.settings.jigsawLevelSelected === true);
+
+        if (isJigsaw && typeof DifficultyModal !== "undefined" && typeof DifficultyModal.open === "function") {
+            DifficultyModal.open(activity, function (selectedActivity) {
+                if (selectedActivity && selectedActivity.settings) {
+                    selectedActivity.settings.jigsawLevelSelected = true;
+                }
+                App.startActivity(selectedActivity);
+            });
+            return true;
+        }
+
         try {
             return await ActivityManager.load(activity);
         }
