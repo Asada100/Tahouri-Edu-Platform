@@ -385,19 +385,6 @@ const JigsawScreen = {
         const to = Number(target);
         if (!Number.isInteger(from) || !Number.isInteger(to) || from === to) return false;
 
-        if (typeof JigsawImagePuzzle !== "undefined" &&
-            typeof JigsawImagePuzzle.restoreFromEngine === "function" &&
-            typeof JigsawPuzzle !== "undefined") {
-            const restored = JigsawImagePuzzle.restoreFromEngine();
-            if (restored) JigsawPuzzle.state = JigsawImagePuzzle.state;
-            if (restored && JigsawImagePuzzle.state && JigsawImagePuzzle.state.solved &&
-                PuzzleEngine && typeof PuzzleEngine.check === "function") {
-                console.log("[Jigsaw][RESTORED_SOLVED] Completing restored image puzzle.");
-                PuzzleEngine.check();
-                return false;
-            }
-        }
-
         console.log("[Jigsaw][SWAP]", { source: from, target: to, mode: JigsawPuzzle && JigsawPuzzle.state ? JigsawPuzzle.state.mode : null });
         let moved = false;
         const isImageJigsaw = PuzzleEngine &&
