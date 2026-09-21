@@ -76,9 +76,8 @@ const ActivityManager = {
             const savedJigsawGrid = existing && existing.engineState && existing.engineState.puzzle && savedPuzzleType === "jigsaw"
                 ? { rows: Number(existing.engineState.puzzle.rows), cols: Number(existing.engineState.puzzle.cols) }
                 : null;
-            const incompatibleJigsawGrid = existing && currentJigsawGrid && savedJigsawGrid &&
-                currentJigsawGrid.rows !== savedJigsawGrid.rows || currentJigsawGrid && savedJigsawGrid &&
-                currentJigsawGrid.cols !== savedJigsawGrid.cols;
+            const incompatibleJigsawGrid = !!(existing && currentJigsawGrid && savedJigsawGrid &&
+                (currentJigsawGrid.rows !== savedJigsawGrid.rows || currentJigsawGrid.cols !== savedJigsawGrid.cols));
             if (incompatibleJigsawGrid) {
                 ActivitySessionManager.clear();
                 existing = null;
