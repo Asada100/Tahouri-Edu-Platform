@@ -16,6 +16,10 @@ const JigsawScreen = {
     suppressClick: false,
     dragTargetIndex: null,
     imagePointerBound: false,
+    imagePreviewTimer: null,
+    imagePreviewInterval: null,
+    imagePreviewCompleted: false,
+    imagePreviewKey: null,
 
     init: function () {
         if (typeof EventManager === "undefined" || this.connected) return;
@@ -150,6 +154,23 @@ const JigsawScreen = {
     renderImage: function (app, puzzle, core, state) {
         const rows = Number(puzzle.rows), cols = Number(puzzle.cols), image = puzzle.image;
         if (!Number.isInteger(rows) || !Number.isInteger(cols) || !image) return;
+
+        // Level 1 image Jigsaw: show the complete image for 5 seconds before play.
+        // The preview is a learning aid only; it never causes failure or affects stars.
+        const previewKey = [
+            (typeof PuzzleEngine !== "undefined" && PuzzleEngine.activity && PuzzleEngine.activity.id) || "",
+            image, rows, cols
+        ].join("|");
+        if (Number(puzzle.difficulty || 1) === 1 && this.imagePreviewKey !== previewKey) {
+            this.clearImagePreviewTimer();
+            this.imagePreviewKey = previewKey;
+            this.imagePreviewCompleted = false;
+        }
+        if (Number(puzzle.difficulty || 1) === 1 && !this.imagePreviewCompleted) {
+            this.startImagePreview(app, puzzle, state);
+            return;
+        }
+
         const pieces = [];
         for (let position = 0; position < core.pieceCount; position += 1) {
             const piece = core.pieces.find(function (item) { return item.currentIndex === position; });
@@ -159,6 +180,43 @@ const JigsawScreen = {
         }
         app.innerHTML = `<div class="screen puzzleScreen jigsawScreen" dir="rtl"><div class="jigsawHeader"><h1>${this.escapeHTML(puzzle.title || "پازل تصویری")}</h1><p class="jigsawObjective">${this.escapeHTML(puzzle.objective || "تصویر را کامل کن")}</p><p class="jigsawInstruction">${this.escapeHTML(puzzle.instruction || "قطعه‌ها را جابه‌جا کن تا تصویر کامل شود.")}</p></div><div id="jigsawBoard" class="jigsawBoard" style="grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr)">${pieces.join("")}</div><div id="jigsawStatus" class="jigsawStatus"></div><div class="jigsawControls"><button id="jigsawResetBtn" type="button">شروع دوباره</button></div><div class="jigsawMoves">حرکت‌ها: <span id="puzzleMoveCount">${state.moves || core.moves || 0}</span></div></div>`;
         this.bindImageBoard();
+    },
+
+    startImagePreview: function (app, puzzle, state) {
+        this.clearImagePreviewTimer();
+        const screen = this;
+        let remaining = 5;
+        app.innerHTML = 
+            \`<div class="screen puzzleScreen jigsawScreen" dir="rtl">
+                <div class="jigsawHeader">
+                    <h1>آماده‌ای؟</h1>
+                    <p class="jigsawObjective">تصویر را با دقت نگاه کن.</p>
+                    <p class="jigsawInstruction">۵ ثانیه برای مشاهده تصویر فرصت داری.</p>
+                </div>
+                <div class="jigsawPreview" aria-live="polite">
+                    <img src="\${this.escapeAttribute(puzzle.image)}" alt="تصویر کامل پازل">
+                </div>
+                <div class="jigsawPreviewCountdown" id="jigsawPreviewCountdown">۵</div>
+            </div>\`;
+
+        this.imagePreviewInterval = setInterval(function () {
+            remaining -= 1;
+            const countdown = document.getElementById("jigsawPreviewCountdown");
+            if (countdown) countdown.textContent = remaining > 0 ? String(remaining) : "شروع!";
+        }, 1000);
+
+        this.imagePreviewTimer = setTimeout(function () {
+            screen.clearImagePreviewTimer();
+            screen.imagePreviewCompleted = true;
+            screen.render(PuzzleEngine.getState());
+        }, 5000);
+    },
+
+    clearImagePreviewTimer: function () {
+        if (this.imagePreviewTimer) clearTimeout(this.imagePreviewTimer);
+        if (this.imagePreviewInterval) clearInterval(this.imagePreviewInterval);
+        this.imagePreviewTimer = null;
+        this.imagePreviewInterval = null;
     },
 
     bindImageBoard: function () {
@@ -253,7 +311,10 @@ const JigsawScreen = {
 
         const reset = document.getElementById("jigsawResetBtn");
         if (reset) reset.onclick = function () {
-            if (!screen.isFinished() && JigsawPuzzleHandler.reset(PuzzleEngine)) screen.render(PuzzleEngine.getState());
+            if (screen.isFinished()) return;
+            screen.clearImagePreviewTimer();
+            screen.imagePreviewCompleted = false;
+            if (JigsawPuzzleHandler.reset(PuzzleEngine)) screen.render(PuzzleEngine.getState());
         };
     },
 
