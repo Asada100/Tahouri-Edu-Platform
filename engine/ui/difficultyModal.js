@@ -41,11 +41,22 @@ const DifficultyModal = {
         overlay.querySelectorAll(".difficultyOption").forEach(function (button) {
             button.onclick = async function () {
                 const difficulty = this.dataset.difficulty;
+
+                // Set the level grid immediately so a slow/failed image
+                // dimension check can never silently fall back to 3×3.
+                const baseGrid = difficulty === "hard"
+                    ? { rows: 5, cols: 5 }
+                    : difficulty === "medium"
+                        ? { rows: 4, cols: 4 }
+                        : { rows: 3, cols: 3 };
+
                 const selectedActivity = {
                     ...activityData,
                     settings: {
                         ...(activityData.settings || {}),
                         difficulty: difficulty,
+                        jigsawRows: baseGrid.rows,
+                        jigsawCols: baseGrid.cols,
                         jigsawLevelSelected: true
                     }
                 };
