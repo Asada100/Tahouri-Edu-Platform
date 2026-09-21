@@ -1650,6 +1650,19 @@ const Screen = {
 
 
         // =====================================
+        // ALLOW NEW ACTIVITY FROM LEARNING PATH
+        // =====================================
+        // Entering the activity list is an explicit navigation boundary.
+        // Clear the post-finish guard left by a previously completed activity.
+        if (
+            typeof ActivityManager !== "undefined" &&
+            typeof ActivityManager.allowNewActivityStart === "function"
+        ) {
+            ActivityManager.allowNewActivityStart();
+        }
+
+
+        // =====================================
         // IMPORTANT
         // =====================================
         // بازی‌های فصل توسط ActivityScreen
