@@ -186,18 +186,17 @@ const JigsawScreen = {
         this.clearImagePreviewTimer();
         const screen = this;
         let remaining = 5;
-        app.innerHTML = 
-            \`<div class="screen puzzleScreen jigsawScreen" dir="rtl">
+        app.innerHTML = `<div class="screen puzzleScreen jigsawScreen" dir="rtl">
                 <div class="jigsawHeader">
                     <h1>آماده‌ای؟</h1>
                     <p class="jigsawObjective">تصویر را با دقت نگاه کن.</p>
                     <p class="jigsawInstruction">۵ ثانیه برای مشاهده تصویر فرصت داری.</p>
                 </div>
                 <div class="jigsawPreview" aria-live="polite">
-                    <img src="\${this.escapeAttribute(puzzle.image)}" alt="تصویر کامل پازل">
+                    <img src="${this.escapeAttribute(puzzle.image)}" alt="تصویر کامل پازل">
                 </div>
                 <div class="jigsawPreviewCountdown" id="jigsawPreviewCountdown">۵</div>
-            </div>\`;
+            </div>`;
 
         this.imagePreviewInterval = setInterval(function () {
             remaining -= 1;
