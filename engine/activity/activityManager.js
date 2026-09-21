@@ -20,6 +20,34 @@ const ActivityManager = {
         this.allowActivityStartFromResult = false;
         console.log("Loading Activity:", activityData);
         if (!activityData) { console.error("Activity Data Missing"); return null; }
+
+        // Jigsaw must ask for its level before the engine starts.
+        // Keep this guard here at the ActivityManager boundary so it cannot
+        // be skipped by cached/alternate navigation entry points.
+        const isJigsawActivity =
+            String(activityData.type || "").toLowerCase() === "puzzle" &&
+            String(activityData.engine || "").toLowerCase() === "puzzle" &&
+            !(activityData.settings && activityData.settings.jigsawLevelSelected === true);
+
+        if (
+            isJigsawActivity &&
+            typeof DifficultyModal !== "undefined" &&
+            typeof DifficultyModal.open === "function"
+        ) {
+            DifficultyModal.open(activityData, function (selectedActivity) {
+                if (!selectedActivity) return;
+
+                selectedActivity.settings = {
+                    ...(selectedActivity.settings || {}),
+                    jigsawLevelSelected: true
+                };
+
+                ActivityManager.load(selectedActivity);
+            });
+
+            return null;
+        }
+
         const selectedDifficulty = activityData.settings && activityData.settings.difficulty ? activityData.settings.difficulty : null;
         EventManager.emit("activityLoaded", activityData);
         return await this.start(activityData, selectedDifficulty);
