@@ -93,6 +93,22 @@ const ActivityManager = {
             const mergedSettings = { ...baseSettings, ...activitySettings };
             if (selectedDifficulty) mergedSettings.difficulty = selectedDifficulty;
             fullActivity = { ...activityConfig, ...activityData, settings: mergedSettings };
+
+            // Jigsaw level selection supplies the orientation-aware grid.
+            // Keep this override scoped to Jigsaw so other puzzle types remain untouched.
+            if (
+                fullActivity.puzzle &&
+                String(fullActivity.puzzle.type || "").toLowerCase() === "jigsaw" &&
+                Number.isInteger(Number(mergedSettings.jigsawRows)) &&
+                Number.isInteger(Number(mergedSettings.jigsawCols))
+            ) {
+                fullActivity.puzzle = {
+                    ...fullActivity.puzzle,
+                    rows: Number(mergedSettings.jigsawRows),
+                    cols: Number(mergedSettings.jigsawCols),
+                    difficulty: selectedDifficulty || mergedSettings.difficulty || 1
+                };
+            }
         } catch (error) { console.warn("activity.json Not Found:", activityData.id); if (selectedDifficulty) fullActivity.settings = { ...(fullActivity.settings || {}), difficulty: selectedDifficulty }; }
         return fullActivity;
     },
