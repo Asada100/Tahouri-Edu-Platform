@@ -39,15 +39,58 @@ const DifficultyModal = {
         document.body.appendChild(overlay);
 
         overlay.querySelectorAll(".difficultyOption").forEach(function (button) {
-            button.onclick = function () {
+            button.onclick = async function () {
                 const difficulty = this.dataset.difficulty;
                 const selectedActivity = {
                     ...activityData,
                     settings: {
                         ...(activityData.settings || {}),
-                        difficulty: difficulty
+                        difficulty: difficulty,
+                        jigsawLevelSelected: true
                     }
                 };
+
+                // Jigsaw grid size follows the actual image orientation.
+                // The image is inspected before the engine starts so the
+                // player chooses only the level, not technical row/column data.
+                if (String(activityData.type || "").toLowerCase() === "puzzle" &&
+                    String(activityData.engine || "").toLowerCase() === "puzzle" &&
+                    activityData.path && typeof DataManager !== "undefined" &&
+                    typeof DataManager.loadJSON === "function") {
+                    try {
+                        const config = await DataManager.loadJSON(activityData.path + "/activity.json");
+                        const puzzle = config && config.puzzle ? config.puzzle : null;
+                        if (puzzle && String(puzzle.type || "").toLowerCase() === "jigsaw" && puzzle.image) {
+                            const image = new Image();
+                            image.onload = function () {
+                                const ratio = image.naturalWidth / Math.max(1, image.naturalHeight);
+                                const orientation = ratio > 1.08 ? "landscape" : (ratio < 0.92 ? "portrait" : "square");
+                                let rows = 3, cols = 3;
+                                if (difficulty === "medium") {
+                                    if (orientation === "landscape") { rows = 3; cols = 4; }
+                                    else if (orientation === "portrait") { rows = 4; cols = 3; }
+                                    else { rows = 4; cols = 4; }
+                                } else if (difficulty === "hard") {
+                                    if (orientation === "landscape") { rows = 4; cols = 5; }
+                                    else if (orientation === "portrait") { rows = 5; cols = 4; }
+                                    else { rows = 5; cols = 5; }
+                                }
+                                selectedActivity.settings.jigsawRows = rows;
+                                selectedActivity.settings.jigsawCols = cols;
+                                DifficultyModal.close();
+                                if (typeof onSelect === "function") onSelect(selectedActivity);
+                            };
+                            image.onerror = function () {
+                                DifficultyModal.close();
+                                if (typeof onSelect === "function") onSelect(selectedActivity);
+                            };
+                            image.src = puzzle.image;
+                            return;
+                        }
+                    } catch (error) {
+                        console.warn("Difficulty Modal: Could not inspect Jigsaw image orientation.", error);
+                    }
+                }
 
                 DifficultyModal.close();
                 if (typeof onSelect === "function") onSelect(selectedActivity);
