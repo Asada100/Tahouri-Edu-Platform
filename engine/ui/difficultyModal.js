@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
-// Difficulty Modal v1.2
-// CSS is owned by difficultyModal.css
+// Difficulty Modal v1.3
+// Image and Word Jigsaw use isolated difficulty models.
 // =====================================
 
 const DifficultyModal = {
@@ -13,65 +13,62 @@ const DifficultyModal = {
     },
 
     open: function (activityData, onSelect) {
-        if (!activityData) {
-            console.error("Difficulty Modal: Activity Missing");
+        if (!activityData) return;
+
+        const puzzle = activityData.puzzle || {};
+        const mode = activityData.jigsawMode ||
+            (puzzle.image ? "image" :
+                ((puzzle.content && Array.isArray(puzzle.content.words)) || Array.isArray(puzzle.words) ? "words" : null));
+
+        if (String(puzzle.type || "").toLowerCase() !== "jigsaw" || !mode) {
+            if (typeof onSelect === "function") onSelect(activityData);
             return;
         }
 
         if (this.isOpen) return;
         this.isOpen = true;
 
+        const isWord = mode === "words";
+        const options = isWord
+            ? '<button class="difficultyOption" data-difficulty="easy" type="button">🟢 ساده <small>۴ کلمه تصادفی</small></button>' +
+              '<button class="difficultyOption" data-difficulty="medium" type="button">🟡 متوسط <small>۸ کلمه تصادفی</small></button>' +
+              '<button class="difficultyOption" data-difficulty="hard" type="button">🔴 سخت <small>همه کلمات تصادفی</small></button>'
+            : '<button class="difficultyOption" data-difficulty="easy" type="button">🟢 ساده <small>۳×۳</small></button>' +
+              '<button class="difficultyOption" data-difficulty="medium" type="button">🟡 متوسط <small>۳×۴ / ۴×۳ / ۴×۴</small></button>' +
+              '<button class="difficultyOption" data-difficulty="hard" type="button">🔴 سخت <small>۴×۵ / ۵×۴ / ۵×۵</small></button>';
+
         const overlay = document.createElement("div");
         overlay.id = "difficultyModalOverlay";
-        overlay.innerHTML = `
-            <div class="difficultyModal" role="dialog" aria-modal="true">
-                <h2>انتخاب سطح سؤال</h2>
-                <p>${activityData.title || ""}</p>
-                <div class="difficultyOptions">
-                    <button class="difficultyOption" data-difficulty="easy" type="button">🟢 ساده <small>۳×۳</small></button>
-                    <button class="difficultyOption" data-difficulty="medium" type="button">🟡 متوسط <small>۳×۴ / ۴×۳ / ۴×۴</small></button>
-                    <button class="difficultyOption" data-difficulty="hard" type="button">🔴 سخت <small>۴×۵ / ۵×۴ / ۵×۵</small></button>
-                </div>
-                <button id="difficultyCancelBtn" type="button">انصراف</button>
-            </div>
-        `;
-
+        overlay.innerHTML = '<div class="difficultyModal" role="dialog" aria-modal="true">' +
+            '<h2>انتخاب سطح سؤال</h2><p>' + (activityData.title || "") + '</p>' +
+            '<div class="difficultyOptions">' + options + '</div>' +
+            '<button id="difficultyCancelBtn" type="button">انصراف</button></div>';
         document.body.appendChild(overlay);
 
         overlay.querySelectorAll(".difficultyOption").forEach(function (button) {
             button.onclick = async function () {
                 const difficulty = this.dataset.difficulty;
-
-                // Set the level grid immediately so a slow/failed image
-                // dimension check can never silently fall back to 3×3.
-                const baseGrid = difficulty === "hard"
-                    ? { rows: 5, cols: 5 }
-                    : difficulty === "medium"
-                        ? { rows: 4, cols: 4 }
-                        : { rows: 3, cols: 3 };
-
                 const selectedActivity = {
                     ...activityData,
-                    settings: {
-                        ...(activityData.settings || {}),
-                        difficulty: difficulty,
-                        jigsawRows: baseGrid.rows,
-                        jigsawCols: baseGrid.cols,
-                        jigsawLevelSelected: true
-                    }
+                    settings: { ...(activityData.settings || {}), difficulty: difficulty, jigsawLevelSelected: true }
                 };
 
-                // Jigsaw grid size follows the actual image orientation.
-                // The image is inspected before the engine starts so the
-                // player chooses only the level, not technical row/column data.
-                if (String(activityData.type || "").toLowerCase() === "puzzle" &&
-                    String(activityData.engine || "").toLowerCase() === "puzzle" &&
-                    activityData.path && typeof DataManager !== "undefined" &&
-                    typeof DataManager.loadJSON === "function") {
+                if (isWord) {
+                    selectedActivity.settings.wordJigsawDifficulty =
+                        difficulty === "hard" ? 3 : difficulty === "medium" ? 2 : 1;
+                    DifficultyModal.close();
+                    if (typeof onSelect === "function") onSelect(selectedActivity);
+                    return;
+                }
+
+                selectedActivity.settings.jigsawRows = difficulty === "hard" ? 5 : difficulty === "medium" ? 4 : 3;
+                selectedActivity.settings.jigsawCols = difficulty === "hard" ? 5 : difficulty === "medium" ? 4 : 3;
+
+                if (activityData.path && typeof DataManager !== "undefined" && typeof DataManager.loadJSON === "function") {
                     try {
                         const config = await DataManager.loadJSON(activityData.path + "/activity.json");
-                        const puzzle = config && config.puzzle ? config.puzzle : null;
-                        if (puzzle && String(puzzle.type || "").toLowerCase() === "jigsaw" && puzzle.image) {
+                        const configPuzzle = config && config.puzzle ? config.puzzle : null;
+                        if (configPuzzle && configPuzzle.image) {
                             const image = new Image();
                             image.onload = function () {
                                 const ratio = image.naturalWidth / Math.max(1, image.naturalHeight);
@@ -95,7 +92,7 @@ const DifficultyModal = {
                                 DifficultyModal.close();
                                 if (typeof onSelect === "function") onSelect(selectedActivity);
                             };
-                            image.src = puzzle.image;
+                            image.src = configPuzzle.image;
                             return;
                         }
                     } catch (error) {
@@ -110,26 +107,18 @@ const DifficultyModal = {
 
         const cancelBtn = overlay.querySelector("#difficultyCancelBtn");
         if (cancelBtn) cancelBtn.onclick = function () { DifficultyModal.close(); };
-
-        overlay.onclick = function (event) {
-            if (event.target === overlay) DifficultyModal.close();
-        };
-
-        this.escapeHandler = function (event) {
-            if (event.key === "Escape") DifficultyModal.close();
-        };
+        overlay.onclick = function (event) { if (event.target === overlay) DifficultyModal.close(); };
+        this.escapeHandler = function (event) { if (event.key === "Escape") DifficultyModal.close(); };
         document.addEventListener("keydown", this.escapeHandler);
     },
 
     close: function () {
         const overlay = document.getElementById("difficultyModalOverlay");
         if (overlay) overlay.remove();
-
         if (this.escapeHandler) {
             document.removeEventListener("keydown", this.escapeHandler);
             this.escapeHandler = null;
         }
-
         this.isOpen = false;
     }
 };
