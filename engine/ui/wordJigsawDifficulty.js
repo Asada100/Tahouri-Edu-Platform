@@ -125,13 +125,13 @@
                 const mark = punctuation(state, index);
                 if (!movable.has(index)) {
                     return '<span class="wordBuilderPiece wordBuilderFixedPiece">' +
-                        '<span class="wordBuilderWord">' + esc(displayWord(word)) + '</span>' +
+                        '<bdi dir="rtl" class="wordBuilderWord">' + esc(displayWord(word)) + '</bdi>' +
                         '</span>';
                 }
 
                 if (target[index] != null) {
                     return '<button class="wordBuilderPiece wordBuilderTargetPiece" draggable="true" data-target-index="' + index + '" type="button">' +
-                        '<span class="wordBuilderWord">' + esc(displayWord(target[index])) + '</span>' +
+                        '<bdi dir="rtl" class="wordBuilderWord">' + esc(displayWord(target[index])) + '</span>' +
                         '</button>';
                 }
 
