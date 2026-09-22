@@ -74,6 +74,8 @@
         engine.puzzle.targetWords = words.map(function (word, i) { return movableSet.has(i) ? null : word; });
         engine.puzzle.history = [];
         engine.puzzle.hintUsed = false;
+        engine.puzzle.feedbackIndexes = [];
+        engine.puzzle.checking = false;
         engine.items = [...engine.puzzle.targetWords];
         engine.moves = 0;
     }
@@ -110,6 +112,7 @@
         const target = Array.isArray(state.targetWords) ? state.targetWords : [];
         const source = Array.isArray(state.availableWords) ? state.availableWords : [];
         const movable = new Set(Array.isArray(state.movableIndexes) ? state.movableIndexes : []);
+        const feedback = state && state.feedbackIndexes ? new Set(state.feedbackIndexes.map(Number)) : new Set();
         const esc = JigsawScreen.escapeHTML.bind(JigsawScreen);
         const firstLineLength = Number(engine.puzzle.firstLineLength || 0);
         const groups = Array.isArray(engine.puzzle.groupLengths) && engine.puzzle.groupLengths.length
@@ -130,7 +133,12 @@
                 }
 
                 if (target[index] != null) {
-                    return '<button class="wordBuilderPiece wordBuilderTargetPiece" draggable="true" data-target-index="' + index + '" type="button">' +
+                    const feedbackClass = feedback.has(index)
+                        ? (String(target[index]).replace(/‌/g, " ").trim() === String(correct[index]).replace(/‌/g, " ").trim()
+                            ? " wordBuilderCorrect"
+                            : " wordBuilderWrong")
+                        : "";
+                    return '<button class="wordBuilderPiece wordBuilderTargetPiece' + feedbackClass + '" draggable="true" data-target-index="' + index + '" type="button">' +
                         '<bdi dir="rtl" class="wordBuilderWord">' + esc(displayWord(target[index])) + '</bdi>' +
                         '</button>';
                 }
@@ -286,6 +294,7 @@
         if (!Number.isInteger(slot) || !engine.puzzle.movableIndexes.includes(slot) || target[slot] != null) return false;
 
         engine.puzzle.history.push(snapshot(engine));
+        engine.puzzle.feedbackIndexes = [];
         target[slot] = source.splice(sourcePos, 1)[0];
         engine.items = [...target];
         engine.moves = Number(engine.moves || 0) + 1;
@@ -302,6 +311,7 @@
         if (!Number.isInteger(slot) || !engine.puzzle.movableIndexes.includes(slot) || target[slot] == null) return false;
 
         engine.puzzle.history.push(snapshot(engine));
+        engine.puzzle.feedbackIndexes = [];
         engine.puzzle.availableWords.push(target[slot]);
         target[slot] = null;
         engine.items = [...target];
@@ -337,17 +347,36 @@
 
     JigsawPuzzleHandler.check = function (engine) {
         if (!partial(engine)) return originalCheck(engine);
+        if (engine.puzzle.checking) return false;
+
         const target = engine.puzzle.targetWords || [];
         const correct = engine.puzzle.correctOrder || engine.puzzle.words || [];
-        const solved = target.length === correct.length && target.every(function (word, index) {
-            return word != null && String(word).replace(/‌/g, " ").trim() === String(correct[index]).replace(/‌/g, " ").trim();
+        const movable = Array.isArray(engine.puzzle.movableIndexes) ? engine.puzzle.movableIndexes : [];
+        const normalize = function (word) {
+            return String(word == null ? "" : word).replace(/‌/g, " ").trim();
+        };
+        const wrongIndexes = movable.filter(function (index) {
+            return target[index] == null || normalize(target[index]) !== normalize(correct[index]);
         });
+        const solved = wrongIndexes.length === 0;
+
+        engine.puzzle.feedbackIndexes = solved ? movable.slice() : wrongIndexes;
+        engine.puzzle.checking = true;
+        EventManager.emit("puzzleChanged", engine.getState());
+        JigsawScreen.render(engine.getState());
+
         if (solved) {
             engine.puzzle.stage = 3;
             engine.puzzle.hintUsed = !!engine.puzzle.hintUsed;
-            engine.finish();
+            setTimeout(function () {
+                engine.puzzle.checking = false;
+                engine.puzzle.feedbackIndexes = [];
+                engine.finish();
+            }, 650);
             return true;
         }
+
+        engine.puzzle.checking = false;
         engine.emitWrong();
         return false;
     };
@@ -360,6 +389,7 @@
             state.movableIndexes = Array.isArray(this.puzzle.movableIndexes) ? [...this.puzzle.movableIndexes] : [];
             state.availableWords = [...(this.puzzle.availableWords || [])];
             state.targetWords = [...(this.puzzle.targetWords || [])];
+            state.feedbackIndexes = Array.isArray(this.puzzle.feedbackIndexes) ? [...this.puzzle.feedbackIndexes] : [];
         }
         return state;
     };
