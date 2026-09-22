@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Word Jigsaw Stage 2
-// Version 1.6
+// Version 1.7
 // =====================================
 
 (function () {
@@ -186,6 +186,15 @@
         return originalRender(state);
     };
 
+    // Word text must never display Arabic tatweel/kashida (U+0640).
+    // This is a display-only normalization; the puzzle data/order remains unchanged.
+    function displayWord(word) {
+        return String(word == null ? "" : word)
+            .replace(/\u0640/g, "")
+            .replace(/\u064A/g, "\u06CC")
+            .replace(/\u0649/g, "\u06CC");
+    }
+
     function punctuationForTarget(state, word, targetIndex) {
         const marks = state && state.punctuation ? state.punctuation : {};
         const correct = Array.isArray(state && state.correctWords) ? state.correctWords.map(String) : [];
@@ -214,8 +223,8 @@
                     <h1>ساختن شعر</h1>
                     <p class="jigsawObjective">کلمات را با کشیدن و رها کردن به «پاسخ شما» منتقل کن و ترتیب درست را بساز.</p>
                 </div>
-                <section class="wordBuilderSection"><h2>کلمات</h2><div id="wordBuilderSource" class="wordBuilderBox" data-drop-zone="source">${source.map((w,i)=>`<button class="wordBuilderPiece" draggable="true" data-source-index="${i}" type="button">${esc(w)}</button>`).join("") || '<span class="wordBuilderEmpty">همه کلمات در پاسخ شما هستند.</span>'}</div></section>
-                <section class="wordBuilderSection wordBuilderAnswerSection"><h2>پاسخ شما</h2><div id="wordBuilderTarget" class="wordBuilderBox wordBuilderTarget" data-drop-zone="target">${target.map((w,i)=>`<button class="wordBuilderPiece wordBuilderTargetPiece" draggable="true" data-target-index="${i}" type="button"><span class="wordBuilderWord">${esc(w)}</span>${esc(punctuationForTarget(state, w, i)) ? `<span class="wordBuilderPunctuation">${esc(punctuationForTarget(state, w, i))}</span>` : ""}</button>`).join("") || '<span class="wordBuilderEmpty">کلمات را اینجا رها کن.</span>'}</div></section>
+                <section class="wordBuilderSection"><h2>کلمات</h2><div id="wordBuilderSource" class="wordBuilderBox" data-drop-zone="source">${source.map((w,i)=>`<button class="wordBuilderPiece" draggable="true" data-source-index="${i}" type="button">${esc(displayWord(w))}</button>`).join("") || '<span class="wordBuilderEmpty">همه کلمات در پاسخ شما هستند.</span>'}</div></section>
+                <section class="wordBuilderSection wordBuilderAnswerSection"><h2>پاسخ شما</h2><div id="wordBuilderTarget" class="wordBuilderBox wordBuilderTarget" data-drop-zone="target">${target.map((w,i)=>`<button class="wordBuilderPiece wordBuilderTargetPiece" draggable="true" data-target-index="${i}" type="button"><span class="wordBuilderWord">${esc(displayWord(w))}</span>${esc(punctuationForTarget(state, w, i)) ? `<span class="wordBuilderPunctuation">${esc(displayWord(punctuationForTarget(state, w, i)))}</span>` : ""}</button>`).join("") || '<span class="wordBuilderEmpty">کلمات را اینجا رها کن.</span>'}</div></section>
                 <div class="wordBuilderControls"><button id="wordBuilderCheck" type="button">بررسی پاسخ</button><button id="wordBuilderUndo" type="button">↩ برگشت</button><button id="wordBuilderAlphabet" type="button">مرتب‌سازی الفبایی</button><button id="wordBuilderReset" type="button">شروع دوباره</button></div>
                 <div id="wordBuilderMessage" class="wordBuilderMessage" aria-live="polite"></div>
                 <div class="jigsawMoves">حرکت‌ها: <span>${state.moves || 0}</span></div>
