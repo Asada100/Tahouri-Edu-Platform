@@ -368,11 +368,11 @@
         if (solved) {
             engine.puzzle.stage = 3;
             engine.puzzle.hintUsed = !!engine.puzzle.hintUsed;
-            setTimeout(function () {
-                engine.puzzle.checking = false;
-                engine.puzzle.feedbackIndexes = [];
-                engine.finish();
-            }, 650);
+            // Keep completion inside the explicit check() call.
+            // PuzzleEngine rejects delayed finish() calls outside check().
+            engine.puzzle.checking = false;
+            engine.puzzle.feedbackIndexes = [];
+            engine.finish();
             return true;
         }
 
