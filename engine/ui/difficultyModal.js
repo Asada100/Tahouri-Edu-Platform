@@ -18,8 +18,27 @@ const DifficultyModal = {
             return;
         }
 
+        const puzzle = activityData.puzzle || {};
+        const mode = activityData.jigsawMode ||
+            (puzzle.image ? "image" :
+                ((puzzle.content && Array.isArray(puzzle.content.words)) || Array.isArray(puzzle.words) ? "words" : null));
+
+        if (String(puzzle.type || "").toLowerCase() !== "jigsaw" || !mode) {
+            if (typeof onSelect === "function") onSelect(activityData);
+            return;
+        }
+
         if (this.isOpen) return;
         this.isOpen = true;
+
+        const isWord = mode === "words";
+        const options = isWord
+            ? '<button class="difficultyOption" data-difficulty="easy" type="button">🟢 ساده <small>۴ کلمه تصادفی</small></button>' +
+              '<button class="difficultyOption" data-difficulty="medium" type="button">🟡 متوسط <small>۸ کلمه تصادفی</small></button>' +
+              '<button class="difficultyOption" data-difficulty="hard" type="button">🔴 سخت <small>همه کلمات تصادفی</small></button>'
+            : '<button class="difficultyOption" data-difficulty="easy" type="button">🟢 ساده <small>۳×۳</small></button>' +
+              '<button class="difficultyOption" data-difficulty="medium" type="button">🟡 متوسط <small>۳×۴ / ۴×۳ / ۴×۴</small></button>' +
+              '<button class="difficultyOption" data-difficulty="hard" type="button">🔴 سخت <small>۴×۵ / ۵×۴ / ۵×۵</small></button>';
 
         const overlay = document.createElement("div");
         overlay.id = "difficultyModalOverlay";
@@ -27,11 +46,7 @@ const DifficultyModal = {
             <div class="difficultyModal" role="dialog" aria-modal="true">
                 <h2>انتخاب سطح سؤال</h2>
                 <p>${activityData.title || ""}</p>
-                <div class="difficultyOptions">
-                    <button class="difficultyOption" data-difficulty="easy" type="button">🟢 ساده <small>۳×۳</small></button>
-                    <button class="difficultyOption" data-difficulty="medium" type="button">🟡 متوسط <small>۳×۴ / ۴×۳ / ۴×۴</small></button>
-                    <button class="difficultyOption" data-difficulty="hard" type="button">🔴 سخت <small>۴×۵ / ۵×۴ / ۵×۵</small></button>
-                </div>
+                <div class="difficultyOptions">${options}</div>
                 <button id="difficultyCancelBtn" type="button">انصراف</button>
             </div>
         `;
@@ -60,6 +75,14 @@ const DifficultyModal = {
                         jigsawLevelSelected: true
                     }
                 };
+
+                if (isWord) {
+                    selectedActivity.settings.wordJigsawDifficulty =
+                        difficulty === "hard" ? 3 : difficulty === "medium" ? 2 : 1;
+                    DifficultyModal.close();
+                    if (typeof onSelect === "function") onSelect(selectedActivity);
+                    return;
+                }
 
                 // Jigsaw grid size follows the actual image orientation.
                 // The image is inspected before the engine starts so the

@@ -34,18 +34,32 @@ const ActivityManager = {
             typeof DifficultyModal !== "undefined" &&
             typeof DifficultyModal.open === "function"
         ) {
-            DifficultyModal.open(activityData, function (selectedActivity) {
-                if (!selectedActivity) return;
+            let puzzleConfig = activityData.puzzle || null;
+            if (!puzzleConfig && activityData.path && typeof DataManager !== "undefined" && typeof DataManager.loadJSON === "function") {
+                try {
+                    const config = await DataManager.loadJSON(activityData.path + "/activity.json");
+                    puzzleConfig = config && config.puzzle ? config.puzzle : null;
+                } catch (error) {
+                    console.warn("ActivityManager: Could not inspect puzzle type before difficulty selection.", activityData.id);
+                }
+            }
 
-                selectedActivity.settings = {
-                    ...(selectedActivity.settings || {}),
-                    jigsawLevelSelected: true
-                };
+            const isJigsaw = puzzleConfig && String(puzzleConfig.type || "").toLowerCase() === "jigsaw";
+            const jigsawMode =
+                isJigsaw && puzzleConfig.image ? "image" :
+                isJigsaw && puzzleConfig.content && Array.isArray(puzzleConfig.content.words) ? "words" :
+                isJigsaw && Array.isArray(puzzleConfig.words) ? "words" : null;
 
-                ActivityManager.load(selectedActivity);
-            });
+            if (jigsawMode) {
+                DifficultyModal.open({ ...activityData, puzzle: puzzleConfig, jigsawMode: jigsawMode }, function (selectedActivity) {
+                    if (!selectedActivity) return;
+                    selectedActivity.settings = { ...(selectedActivity.settings || {}), jigsawLevelSelected: true };
+                    ActivityManager.load(selectedActivity);
+                });
+                return null;
+            }
 
-            return null;
+            return await this.start(activityData, activityData.settings && activityData.settings.difficulty ? activityData.settings.difficulty : null);
         }
 
         const selectedDifficulty = activityData.settings && activityData.settings.difficulty ? activityData.settings.difficulty : null;
