@@ -24,28 +24,40 @@ const ActivityManager = {
         // Jigsaw must ask for its level before the engine starts.
         // Keep this guard here at the ActivityManager boundary so it cannot
         // be skipped by cached/alternate navigation entry points.
-        const isJigsawActivity =
+        const isPuzzleActivity =
             String(activityData.type || "").toLowerCase() === "puzzle" &&
             String(activityData.engine || "").toLowerCase() === "puzzle" &&
             !(activityData.settings && activityData.settings.jigsawLevelSelected === true);
 
         if (
-            isJigsawActivity &&
+            isPuzzleActivity &&
             typeof DifficultyModal !== "undefined" &&
             typeof DifficultyModal.open === "function"
         ) {
-            DifficultyModal.open(activityData, function (selectedActivity) {
-                if (!selectedActivity) return;
+            let puzzleConfig = activityData.puzzle || null;
+            if (!puzzleConfig && activityData.path && typeof DataManager !== "undefined" && typeof DataManager.loadJSON === "function") {
+                try {
+                    const config = await DataManager.loadJSON(activityData.path + "/activity.json");
+                    puzzleConfig = config && config.puzzle ? config.puzzle : null;
+                } catch (error) {
+                    console.warn("ActivityManager: Could not inspect puzzle type before difficulty selection.", activityData.id);
+                }
+            }
 
-                selectedActivity.settings = {
-                    ...(selectedActivity.settings || {}),
-                    jigsawLevelSelected: true
-                };
+            const isJigsaw = puzzleConfig && String(puzzleConfig.type || "").toLowerCase() === "jigsaw";
+            const jigsawMode =
+                isJigsaw && puzzleConfig.image ? "image" :
+                isJigsaw && puzzleConfig.content && Array.isArray(puzzleConfig.content.words) ? "words" :
+                isJigsaw && Array.isArray(puzzleConfig.words) ? "words" : null;
 
-                ActivityManager.load(selectedActivity);
-            });
-
-            return null;
+            if (jigsawMode) {
+                DifficultyModal.open({ ...activityData, puzzle: puzzleConfig, jigsawMode: jigsawMode }, function (selectedActivity) {
+                    if (!selectedActivity) return;
+                    selectedActivity.settings = { ...(selectedActivity.settings || {}), jigsawLevelSelected: true };
+                    ActivityManager.load(selectedActivity);
+                });
+                return null;
+            }
         }
 
         const selectedDifficulty = activityData.settings && activityData.settings.difficulty ? activityData.settings.difficulty : null;
@@ -152,6 +164,17 @@ const ActivityManager = {
                     rows: Number(mergedSettings.jigsawRows),
                     cols: Number(mergedSettings.jigsawCols),
                     difficulty: selectedDifficulty || mergedSettings.difficulty || 1
+                };
+            }
+            if (
+                fullActivity.puzzle &&
+                String(fullActivity.puzzle.type || "").toLowerCase() === "jigsaw" &&
+                !fullActivity.puzzle.image &&
+                Number.isInteger(Number(mergedSettings.wordJigsawDifficulty))
+            ) {
+                fullActivity.puzzle = {
+                    ...fullActivity.puzzle,
+                    difficulty: Number(mergedSettings.wordJigsawDifficulty)
                 };
             }
         } catch (error) { console.warn("activity.json Not Found:", activityData.id); if (selectedDifficulty) fullActivity.settings = { ...(fullActivity.settings || {}), difficulty: selectedDifficulty }; }
