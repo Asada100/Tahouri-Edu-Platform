@@ -91,6 +91,7 @@
     // underlying puzzle data/order remains unchanged.
     function displayWord(word) {
         return String(word == null ? "" : word)
+            .replace(/\u0640/g, "")
             .replace(/\u064A/g, "\u06CC")
             .replace(/\u0649/g, "\u06CC");
     }
