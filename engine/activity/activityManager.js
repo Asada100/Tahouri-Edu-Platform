@@ -168,6 +168,17 @@ const ActivityManager = {
                     difficulty: selectedDifficulty || mergedSettings.difficulty || 1
                 };
             }
+            if (
+                fullActivity.puzzle &&
+                String(fullActivity.puzzle.type || "").toLowerCase() === "jigsaw" &&
+                !fullActivity.puzzle.image &&
+                Number.isInteger(Number(mergedSettings.wordJigsawDifficulty))
+            ) {
+                fullActivity.puzzle = {
+                    ...fullActivity.puzzle,
+                    difficulty: Number(mergedSettings.wordJigsawDifficulty)
+                };
+            }
         } catch (error) { console.warn("activity.json Not Found:", activityData.id); if (selectedDifficulty) fullActivity.settings = { ...(fullActivity.settings || {}), difficulty: selectedDifficulty }; }
         return fullActivity;
     },

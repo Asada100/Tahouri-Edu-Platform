@@ -70,8 +70,6 @@ const DifficultyModal = {
                     settings: {
                         ...(activityData.settings || {}),
                         difficulty: difficulty,
-                        jigsawRows: baseGrid.rows,
-                        jigsawCols: baseGrid.cols,
                         jigsawLevelSelected: true
                     }
                 };
@@ -83,6 +81,9 @@ const DifficultyModal = {
                     if (typeof onSelect === "function") onSelect(selectedActivity);
                     return;
                 }
+
+                selectedActivity.settings.jigsawRows = baseGrid.rows;
+                selectedActivity.settings.jigsawCols = baseGrid.cols;
 
                 // Jigsaw grid size follows the actual image orientation.
                 // The image is inspected before the engine starts so the
