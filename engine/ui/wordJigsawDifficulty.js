@@ -131,7 +131,7 @@
 
                 if (target[index] != null) {
                     return '<button class="wordBuilderPiece wordBuilderTargetPiece" draggable="true" data-target-index="' + index + '" type="button">' +
-                        '<bdi dir="rtl" class="wordBuilderWord">' + esc(displayWord(target[index])) + '</span>' +
+                        '<bdi dir="rtl" class="wordBuilderWord">' + esc(displayWord(target[index])) + '</bdi>' +
                         '</button>';
                 }
 
@@ -152,7 +152,7 @@
             '</div>' +
             '<section class="wordBuilderSection"><h2>کلمات</h2><div id="wordBuilderSource" class="wordBuilderBox" data-drop-zone="source">' +
             source.map(function (word, i) {
-                return '<button class="wordBuilderPiece" draggable="true" data-source-index="' + i + '" type="button">' + esc(displayWord(word)) + '</button>';
+                return '<button class="wordBuilderPiece" draggable="true" data-source-index="' + i + '" type="button"><bdi dir="rtl" class="wordBuilderWord">' + esc(displayWord(word)) + '</bdi></button>';
             }).join("") +
             (source.length ? "" : '<span class="wordBuilderEmpty">همه کلمات در پاسخ شما هستند.</span>') +
             '</div></section>' +
