@@ -1,7 +1,7 @@
 /* =====================================
    Tahouri Edu Platform
    Jigsaw Puzzle UI
-   Version 3.3
+   Version 3.4
    Image + Word/Sentence Jigsaw + Word Builder
    ===================================== */
 
@@ -44,8 +44,31 @@
 .wordBuilderPartialTarget { display:flex; flex-wrap:wrap; align-content:flex-start; justify-content:center; align-items:center; gap:10px; }
 .wordBuilderFixedPiece { cursor:default; background:#eef1f5; border-color:#d6dde6; box-shadow:none; opacity:.9; }
 .wordBuilderFixedPiece:hover { transform:none; box-shadow:none; }
-.wordBuilderSlot { min-width:82px; min-height:50px; padding:9px 15px; border:2px dashed #b9cbe2; border-radius:14px; background:#fff; color:#7b8797; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; font:inherit; font-weight:700; font-size:clamp(.95rem,2vw,1.1rem); }
-.wordBuilderSlot.is-drag-over { border-color:#4f83c2; background:#edf5ff; }
+
+/* Empty movable slots: deliberately distinct from both fixed words and movable words. */
+.wordBuilderSlot {
+  min-width:82px;
+  min-height:50px;
+  padding:9px 15px;
+  border:2px dashed #7c9fc4 !important;
+  border-radius:14px;
+  background:#e8f1fb !important;
+  color:transparent !important;
+  box-sizing:border-box;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font:inherit;
+  font-weight:700;
+  font-size:clamp(.95rem,2vw,1.1rem);
+  cursor:default;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.7);
+}
+.wordBuilderSlot.is-drag-over {
+  border-color:#3f6f9f !important;
+  background:#d7e8f8 !important;
+}
+
 .wordBuilderLevelNote { min-height:24px; text-align:center; margin:0 0 8px; font-weight:700; opacity:.75; }
 .wordBuilderPiece { min-width:82px; min-height:50px; padding:9px 15px; border:1px solid #d7e0ea; border-radius:14px; background:#fff; color:#172033; box-shadow:0 4px 10px rgba(31,41,55,.08); font:inherit; font-weight:800; font-size:clamp(.95rem,2vw,1.1rem); cursor:grab; touch-action:none; user-select:none; }
 .wordBuilderPiece:hover { transform:translateY(-2px); box-shadow:0 8px 16px rgba(31,41,55,.12); }
@@ -62,72 +85,18 @@
 
 /* Desktop image-jigsaw compact layout */
 @media (min-width:601px) {
-    .imageJigsawScreen .jigsawHeader {
-        margin-bottom:2px;
-    }
-
-    .imageJigsawScreen .jigsawHeader h1 {
-        margin:0 0 3px;
-    }
-
+    .imageJigsawScreen .jigsawHeader { margin-bottom:2px; }
+    .imageJigsawScreen .jigsawHeader h1 { margin:0 0 3px; }
     .imageJigsawScreen .jigsawObjective,
-    .imageJigsawScreen .jigsawInstruction {
-        display:inline;
-        margin:0;
-        line-height:1.4;
-    }
-
-    .imageJigsawScreen .jigsawObjective::after {
-        content:" • ";
-        opacity:.55;
-    }
-
-    .imageJigsawScreen .jigsawPreview {
-        width:min(100%,560px) !important;
-        margin:4px auto 5px !important;
-    }
-
-    .imageJigsawScreen .jigsawBoardWrap {
-        width:min(100%,560px);
-        margin:4px auto 5px;
-    }
-
-    .imageJigsawScreen .jigsawStatus {
-        min-height:22px;
-        margin:2px 0;
-    }
-
-    .imageJigsawScreen .jigsawBottomRow {
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        gap:10px;
-        margin:0;
-    }
-
-    .imageJigsawScreen .jigsawControls {
-        gap:6px;
-    }
-
-    .imageJigsawScreen .jigsawControls {
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        margin:0;
-    }
-
-    .imageJigsawScreen .jigsawMoves {
-        display:block;
-        margin:0;
-    }
-
-    .imageJigsawScreen .jigsawBottomRow {
-        transform:translateY(-3px);
-    }
-
-    .imageJigsawScreen .jigsawMoves {
-        margin:0;
-    }
+    .imageJigsawScreen .jigsawInstruction { display:inline; margin:0; line-height:1.4; }
+    .imageJigsawScreen .jigsawObjective::after { content:" • "; opacity:.55; }
+    .imageJigsawScreen .jigsawPreview { width:min(100%,560px) !important; margin:4px auto 5px !important; }
+    .imageJigsawScreen .jigsawBoardWrap { width:min(100%,560px); margin:4px auto 5px; }
+    .imageJigsawScreen .jigsawBoardWrap .jigsawBoard { width:100%; margin:0; }
+    .imageJigsawScreen .jigsawStatus { min-height:22px; margin:2px 0; }
+    .imageJigsawScreen .jigsawBottomRow { display:flex; align-items:center; justify-content:center; gap:10px; margin:0; transform:translateY(-3px); }
+    .imageJigsawScreen .jigsawControls { display:flex; align-items:center; justify-content:center; margin:0; gap:6px; }
+    .imageJigsawScreen .jigsawMoves { display:block; margin:0; }
 }
 
 @media (max-width:600px) {
