@@ -135,7 +135,7 @@
                         '</button>';
                 }
 
-                return '<span class="wordBuilderPiece wordBuilderSlot" data-target-slot="' + index + '" role="button" tabindex="0">جای خالی</span>';
+                return '<span class="wordBuilderPiece wordBuilderSlot" data-target-slot="' + index + '" role="button" tabindex="0" aria-label="جای خالی"></span>';
             }).join("");
 
             cursor += length;
