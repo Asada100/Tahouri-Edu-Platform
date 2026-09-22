@@ -64,16 +64,15 @@ const PuzzleEngine = {
         const questions = puzzle.questions.map(function (question) {
             if (!question || typeof question !== "object") return null;
             if (question.type) return { ...question };
+            const difficulty = puzzle && Number.isInteger(Number(puzzle.difficulty)) ? Number(puzzle.difficulty) : null;
             return {
                 type: puzzle.type || "jigsaw",
                 source: "file",
                 title: question.title || puzzle.title || activityData.title || "پازل",
                 instruction: question.instruction || puzzle.instruction || "کلمات را به ترتیب درست بچین.",
                 objective: question.objective || puzzle.objective || "واژه‌ها را به ترتیب درست بچین",
-                content: {
-                    ...question,
-                    twoStageWordOrder: question.twoStageWordOrder !== false
-                },
+                difficulty: difficulty,
+                content: { ...question, difficulty: difficulty, twoStageWordOrder: question.twoStageWordOrder !== false },
                 twoStageWordOrder: question.twoStageWordOrder !== false
             };
         }).filter(Boolean);
