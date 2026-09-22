@@ -215,6 +215,13 @@
         const engine = typeof PuzzleEngine !== "undefined" ? PuzzleEngine : null;
         if (!target || !source || !engine || !engine.puzzle || engine.puzzle.twoStageWordOrder !== true) return;
 
+        // Partial Word Jigsaw difficulty owns its fixed target slots and
+        // placement events. Do not rebuild its rows or attach the generic
+        // grouped-drag layer, otherwise the slots become separate flex items
+        // and a selected word can jump to another line.
+        const difficulty = Number(engine.puzzle.wordJigsawDifficulty || 3);
+        if (difficulty < 3) return;
+
         const lengths = getGroups(engine);
         if (!lengths.length) return;
         applyGroupedRows(target, lengths);
