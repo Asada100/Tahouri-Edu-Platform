@@ -101,7 +101,7 @@ const App = {
         }) || null;
     },
 
-    startActivity: async function (activity) {
+    startActivity: async function (activity, difficultyAlreadySelected) {
 
         if (!activity) {
             console.error("Activity Missing");
@@ -114,6 +114,7 @@ const App = {
         const isJigsaw =
             String(activity.type || "").toLowerCase() === "puzzle" &&
             String(activity.engine || "").toLowerCase() === "puzzle" &&
+            !difficultyAlreadySelected &&
             !(activity.settings && activity.settings.jigsawLevelSelected === true);
 
         if (isJigsaw && typeof DifficultyModal !== "undefined" && typeof DifficultyModal.open === "function") {
@@ -121,7 +122,7 @@ const App = {
                 if (selectedActivity && selectedActivity.settings) {
                     selectedActivity.settings.jigsawLevelSelected = true;
                 }
-                App.startActivity(selectedActivity);
+                App.startActivity(selectedActivity, true);
             });
             return true;
         }
