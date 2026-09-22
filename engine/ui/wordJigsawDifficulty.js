@@ -86,6 +86,15 @@
         };
     }
 
+    // Normalize Arabic Yeh variants only for Word Jigsaw display.
+    // Persian UI must consistently show Persian Yeh (ی), while the
+    // underlying puzzle data/order remains unchanged.
+    function displayWord(word) {
+        return String(word == null ? "" : word)
+            .replace(/\\u064A/g, "\\u06CC")
+            .replace(/\\u0649/g, "\\u06CC");
+    }
+
     function punctuation(state, index) {
         const marks = state && state.punctuation ? state.punctuation : {};
         return marks[String(index)] || "";
@@ -115,14 +124,14 @@
                 const mark = punctuation(state, index);
                 if (!movable.has(index)) {
                     return '<span class="wordBuilderPiece wordBuilderFixedPiece">' +
-                        '<span class="wordBuilderWord">' + esc(word) + '</span>' +
+                        '<span class="wordBuilderWord">' + esc(displayWord(word)) + '</span>' +
                         (mark ? '<span class="wordBuilderPunctuation">' + esc(mark) + '</span>' : '') +
                         '</span>';
                 }
 
                 if (target[index] != null) {
                     return '<button class="wordBuilderPiece wordBuilderTargetPiece" draggable="true" data-target-index="' + index + '" type="button">' +
-                        '<span class="wordBuilderWord">' + esc(target[index]) + '</span>' +
+                        '<span class="wordBuilderWord">' + esc(displayWord(target[index])) + '</span>' +
                         (mark ? '<span class="wordBuilderPunctuation">' + esc(mark) + '</span>' : '') +
                         '</button>';
                 }
@@ -144,7 +153,7 @@
             '</div>' +
             '<section class="wordBuilderSection"><h2>کلمات</h2><div id="wordBuilderSource" class="wordBuilderBox" data-drop-zone="source">' +
             source.map(function (word, i) {
-                return '<button class="wordBuilderPiece" draggable="true" data-source-index="' + i + '" type="button">' + esc(word) + '</button>';
+                return '<button class="wordBuilderPiece" draggable="true" data-source-index="' + i + '" type="button">' + esc(displayWord(word)) + '</button>';
             }).join("") +
             (source.length ? "" : '<span class="wordBuilderEmpty">همه کلمات در پاسخ شما هستند.</span>') +
             '</div></section>' +
