@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Word Jigsaw Difficulty
-// Version 1.0
+// Version 1.1
 // Word-only difficulty layer.
 // Image Jigsaw and all other puzzle types are untouched.
 // =====================================
@@ -126,14 +126,12 @@
                 if (!movable.has(index)) {
                     return '<span class="wordBuilderPiece wordBuilderFixedPiece">' +
                         '<span class="wordBuilderWord">' + esc(displayWord(word)) + '</span>' +
-                        (mark ? '<span class="wordBuilderPunctuation">' + esc(mark) + '</span>' : '') +
                         '</span>';
                 }
 
                 if (target[index] != null) {
                     return '<button class="wordBuilderPiece wordBuilderTargetPiece" draggable="true" data-target-index="' + index + '" type="button">' +
                         '<span class="wordBuilderWord">' + esc(displayWord(target[index])) + '</span>' +
-                        (mark ? '<span class="wordBuilderPunctuation">' + esc(mark) + '</span>' : '') +
                         '</button>';
                 }
 
