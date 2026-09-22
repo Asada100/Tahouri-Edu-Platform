@@ -12,19 +12,38 @@ const DifficultyModal = {
         console.log("Difficulty Modal Ready");
     },
 
-    open: function (activityData, onSelect) {
+    open: async function (activityData, onSelect) {
         if (!activityData) {
             console.error("Difficulty Modal: Activity Missing");
             return;
         }
 
-        const puzzle = activityData.puzzle || {};
-        const mode = activityData.jigsawMode ||
+        let puzzle = activityData.puzzle || {};
+        let mode = activityData.jigsawMode ||
             (puzzle.image ? "image" :
-                ((puzzle.content && Array.isArray(puzzle.content.words)) || Array.isArray(puzzle.words) ? "words" : null));
+                ((puzzle.content && Array.isArray(puzzle.content.words)) || Array.isArray(puzzle.words) || Array.isArray(puzzle.questions) ? "words" : null));
+
+        // Activity index entries intentionally contain only routing metadata.
+        // Load the activity definition before deciding which Jigsaw UI to show.
+        if ((!mode || String(puzzle.type || "").toLowerCase() !== "jigsaw") &&
+            activityData.path &&
+            typeof DataManager !== "undefined" &&
+            typeof DataManager.loadJSON === "function") {
+            try {
+                const config = await DataManager.loadJSON(activityData.path + "/activity.json");
+                if (config && config.puzzle) {
+                    puzzle = config.puzzle;
+                    mode = puzzle.image ? "image" :
+                        ((puzzle.content && Array.isArray(puzzle.content.words)) || Array.isArray(puzzle.words) || Array.isArray(puzzle.questions) ? "words" : null);
+                }
+            } catch (error) {
+                console.warn("Difficulty Modal: Could not load Jigsaw activity definition.", error);
+            }
+        }
 
         if (String(puzzle.type || "").toLowerCase() !== "jigsaw" || !mode) {
-            if (typeof onSelect === "function") onSelect(activityData);
+            console.error("Difficulty Modal: Jigsaw definition missing.", activityData.id);
+            this.isOpen = false;
             return;
         }
 
