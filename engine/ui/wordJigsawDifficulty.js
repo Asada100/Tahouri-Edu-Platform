@@ -91,8 +91,8 @@
     // underlying puzzle data/order remains unchanged.
     function displayWord(word) {
         return String(word == null ? "" : word)
-            .replace(/\\u064A/g, "\\u06CC")
-            .replace(/\\u0649/g, "\\u06CC");
+            .replace(/\u064A/g, "\u06CC")
+            .replace(/\u0649/g, "\u06CC");
     }
 
     function punctuation(state, index) {
