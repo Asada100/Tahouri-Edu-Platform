@@ -74,6 +74,24 @@
 .wordBuilderPiece:hover { transform:translateY(-2px); box-shadow:0 8px 16px rgba(31,41,55,.12); }
 .wordBuilderPiece.is-dragging { opacity:.45; transform:scale(.98); cursor:grabbing; }
 .wordBuilderTargetPiece { border-color:#b9cbe2; background:#eef5ff; }
+.wordBuilderTargetPiece.wordBuilderCorrect {
+  border-color:#34a853;
+  background:#dcfce7;
+  color:#166534;
+  box-shadow:0 0 0 3px rgba(52,168,83,.14),0 5px 12px rgba(34,197,94,.14);
+  animation:wordBuilderCorrectFlash .65s ease;
+}
+.wordBuilderTargetPiece.wordBuilderWrong {
+  border-color:#e05252;
+  background:#fee2e2;
+  color:#b42318;
+  box-shadow:0 0 0 3px rgba(224,82,82,.12),0 5px 12px rgba(239,68,68,.12);
+}
+@keyframes wordBuilderCorrectFlash {
+  0% { transform:scale(1); }
+  45% { transform:scale(1.05); }
+  100% { transform:scale(1); }
+}
 .wordBuilderEmpty { opacity:.55; font-weight:700; pointer-events:none; }
 .wordBuilderControls { display:flex; justify-content:center; flex-wrap:wrap; gap:8px; margin:10px auto; }
 .wordBuilderControls button { min-width:130px; }
