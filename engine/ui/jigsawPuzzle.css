@@ -41,6 +41,12 @@
 .wordBuilderBox { min-height:110px; padding:16px; display:flex; flex-wrap:wrap; align-content:flex-start; justify-content:center; align-items:center; gap:10px; border:2px dashed #d7e0ea; border-radius:20px; background:#f8fafc; direction:rtl; transition:border-color .15s ease,background .15s ease,box-shadow .15s ease; }
 .wordBuilderBox.is-drag-over { border-color:#7aa2d8; background:#f0f6ff; box-shadow:0 0 0 3px rgba(37,99,235,.08); }
 .wordBuilderTarget { min-height:145px; background:linear-gradient(145deg,#ffffff,#f7fbff); border-style:solid; }
+.wordBuilderPartialTarget { display:flex; flex-wrap:wrap; align-content:flex-start; justify-content:center; align-items:center; gap:10px; }
+.wordBuilderFixedPiece { cursor:default; background:#eef1f5; border-color:#d6dde6; box-shadow:none; opacity:.9; }
+.wordBuilderFixedPiece:hover { transform:none; box-shadow:none; }
+.wordBuilderSlot { min-width:82px; min-height:50px; padding:9px 15px; border:2px dashed #b9cbe2; border-radius:14px; background:#fff; color:#7b8797; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; font:inherit; font-weight:700; font-size:clamp(.95rem,2vw,1.1rem); }
+.wordBuilderSlot.is-drag-over { border-color:#4f83c2; background:#edf5ff; }
+.wordBuilderLevelNote { min-height:24px; text-align:center; margin:0 0 8px; font-weight:700; opacity:.75; }
 .wordBuilderPiece { min-width:82px; min-height:50px; padding:9px 15px; border:1px solid #d7e0ea; border-radius:14px; background:#fff; color:#172033; box-shadow:0 4px 10px rgba(31,41,55,.08); font:inherit; font-weight:800; font-size:clamp(.95rem,2vw,1.1rem); cursor:grab; touch-action:none; user-select:none; }
 .wordBuilderPiece:hover { transform:translateY(-2px); box-shadow:0 8px 16px rgba(31,41,55,.12); }
 .wordBuilderPiece.is-dragging { opacity:.45; transform:scale(.98); cursor:grabbing; }
