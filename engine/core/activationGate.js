@@ -15,6 +15,7 @@
 
     let gateElement = null;
     let selectedGradeId = null;
+    let licenseStatusReason = null;
 
 
     // =====================================
@@ -767,6 +768,17 @@
         const activeLicenseCount =
             profileLicenses.length;
 
+        let licenseNotice = "";
+        if (licenseStatusReason === "expired") {
+            licenseNotice = "مجوز آموزشی این پروفایل به پایان رسیده است. برای ادامه، مجوز را تمدید یا کد جدید را فعال کنید.";
+        } else if (licenseStatusReason === "revoked") {
+            licenseNotice = "مجوز آموزشی این پروفایل لغو شده است. برای ادامه، یک مجوز معتبر دریافت و فعال کنید.";
+        } else if (licenseStatusReason === "not_found") {
+            licenseNotice = "مجوز ثبت‌شده برای این پروفایل در سرور پیدا نشد. لطفاً مجوز را دوباره فعال کنید.";
+        } else if (licenseStatusReason === "network_error") {
+            licenseNotice = "ارتباط با سرور برقرار نشد؛ در حال حاضر اعتبار امضاشده محلی استفاده می‌شود.";
+        }
+
 
         // =====================================
         // Profile Dropdown
@@ -859,6 +871,20 @@
                         ">
                             سال تحصیلی ${getAcademicYear()}
                         </div>
+
+                        ${licenseNotice ? `
+                            <div style="
+                                margin-top:12px;
+                                padding:11px 14px;
+                                border-radius:11px;
+                                background:#fff7ed;
+                                color:#9a3412;
+                                line-height:1.9;
+                                font-size:13px;
+                            ">
+                                ${licenseNotice}
+                            </div>
+                        ` : ""}
 
                     </div>
 
@@ -1689,9 +1715,8 @@
                 result &&
                 result.valid === true
             ) {
-
+                licenseStatusReason = null;
                 return true;
-
             }
 
             // A network failure must not destroy the signed offline
@@ -1700,13 +1725,15 @@
                 result &&
                 result.reason === "network_error"
             ) {
-
+                licenseStatusReason = "network_error";
                 return isCurrentProfileActivated(
                     getProfileGrade()
                 );
-
             }
 
+            licenseStatusReason = result && result.reason
+                ? result.reason
+                : "invalid";
             return false;
 
         }
