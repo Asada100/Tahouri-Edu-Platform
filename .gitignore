@@ -20,3 +20,6 @@ node_modules/
 
 # OS files
 .DS_Store
+# Tahouri License API development secrets
+dev-private-key.pem
+*.pem
