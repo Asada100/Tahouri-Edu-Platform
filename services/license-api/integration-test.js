@@ -89,7 +89,16 @@ async function main() {
         assert(activation.data.entitlement?.claims?.gradeScope === "grade6", "Grade binding missing.");
         assert(Number.isFinite(Date.parse(activation.data.entitlement.claims.validUntil)), "Expiry is invalid.");
 
+        const metricsUnauthenticated = await request("GET", "/api/metrics");
+        assert(metricsUnauthenticated.status === 401, "Metrics endpoint must require admin authentication.");
+
         const login = await request("POST", "/api/admin/login", { password: "TAHOURI-ADMIN-TEST" });
+        const adminCookie = Array.isArray(login.headers["set-cookie"]) ? login.headers["set-cookie"][0].split(";")[0] : "";
+        assert(adminCookie, "Admin login did not return a session cookie.");
+
+        const metricsAuthenticated = await request("GET", "/api/metrics", undefined, { Cookie: adminCookie });
+        assert(metricsAuthenticated.status === 200 && metricsAuthenticated.data.ok, "Authenticated metrics failed.");
+
         assert(login.status === 200 && login.data.ok, "Admin login failed.");
         const cookie = login.headers["set-cookie"]?.[0]?.split(";")[0];
         assert(cookie, "Admin session cookie missing.");
