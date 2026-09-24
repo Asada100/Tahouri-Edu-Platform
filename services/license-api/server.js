@@ -454,6 +454,7 @@ function adminLogin(req, res, body) {
             next.lockedUntil = now + ADMIN_LOCK_MS;
         }
         ADMIN_LOGIN_FAILURES.set(clientIp, next);
+        recordMetric("adminLoginFailures");
         return send(res, 401, { ok: false, message: "رمز مدیریت نادرست است." });
     }
 
@@ -592,6 +593,7 @@ async function activate(req, res) {
     const studentId = validateIdentifier(body.studentId, "studentId");
 
     if (!code || !gradeId || !studentId || !installationId) {
+        recordMetric("activationFailures");
         return send(res, 400, { valid: false, message: "اطلاعات فعال‌سازی کامل نیست." });
     }
 
@@ -603,14 +605,17 @@ async function activate(req, res) {
     `).get(codeHash);
 
     if (!codeRecord) {
+        recordMetric("activationFailures");
         return send(res, 400, { valid: false, message: "کد فعال‌سازی معتبر نیست." });
     }
 
     if (codeRecord.gradeId !== gradeId) {
+        recordMetric("activationFailures");
         return send(res, 400, { valid: false, message: "این کد مربوط به پایه انتخاب‌شده نیست." });
     }
 
     if (codeRecord.status !== "active" || codeRecord.usedAt) {
+        recordMetric("activationFailures");
         return send(res, 409, { valid: false, message: "این کد قبلاً استفاده شده یا غیرفعال است." });
     }
 
@@ -677,6 +682,7 @@ async function activate(req, res) {
         throw error;
     }
 
+    recordMetric("activations");
     return send(res, 200, { valid: true, entitlement });
 }
 
@@ -925,6 +931,7 @@ async function paymentCreate(req, res) {
     const amount = Number(body.amount || 0);
 
     if (!gradeId || !Number.isFinite(amount) || amount <= 0) {
+        recordMetric("paymentFailures");
         return send(res, 400, { ok: false, message: "gradeId و مبلغ معتبر الزامی است." });
     }
 
@@ -985,12 +992,14 @@ async function paymentCallback(req, res) {
     const status = String(body.status || "").trim().toLowerCase();
 
     if (!paymentId || !authority) {
+        recordMetric("paymentVerificationFailures");
         return send(res, 400, { ok: false, message: "paymentId و authority الزامی است." });
     }
 
     const payment = db.prepare("SELECT * FROM payments WHERE payment_id = ?").get(paymentId);
-    if (!payment) return send(res, 404, { ok: false, message: "پرداخت پیدا نشد." });
+    if (!payment) { recordMetric("paymentVerificationFailures"); return send(res, 404, { ok: false, message: "پرداخت پیدا نشد." });
     if (payment.status !== "pending") {
+        recordMetric("paymentVerificationFailures");
         return send(res, 409, { ok: false, message: "این پرداخت قبلاً تعیین تکلیف شده است." });
     }
 
@@ -1007,6 +1016,7 @@ async function paymentCallback(req, res) {
         audit("payment.callback.rejected", "gateway", {
             metadata: { paymentId, authority, reason: error.message }
         });
+        recordMetric("paymentVerificationFailures");
         return send(res, 503, { ok: false, message: "درگاه پرداخت هنوز برای تأیید سمت سرور پیکربندی نشده است." });
     }
     db.prepare("UPDATE payments SET authority = ?, status = ?, verified_at = ? WHERE payment_id = ? AND status = 'pending'")
@@ -1016,6 +1026,8 @@ async function paymentCallback(req, res) {
         metadata: { paymentId, authority }
     });
 
+    recordMetric("paymentVerifications");
+    if (!verified) recordMetric("paymentVerificationFailures");
     return send(res, 200, { ok: true, paymentId, status: verified ? "verified" : "failed" });
 }
 
