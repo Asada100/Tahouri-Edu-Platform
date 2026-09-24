@@ -28,3 +28,11 @@ Set:
 
 Production must use environment/secret storage, HTTPS, a real database,
 rate limiting, authentication, audit logging and payment verification.
+
+
+Database backup:
+  npm run backup
+
+The backup uses SQLite VACUUM INTO and writes to services/license-api/backups
+(or TAHOURI_LICENSE_BACKUP_DIR). Keep backups outside the application host
+for production disaster recovery.
