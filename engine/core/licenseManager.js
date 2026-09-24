@@ -1559,12 +1559,14 @@
         if (!window.TahouriLicenseClient || !window.TahouriEntitlementVerifier || !window.TahouriEntitlementStore) return null;
         const installationId = getOrCreateInstallationId();
         try {
-            const response = await window.TahouriLicenseClient.activate({code, gradeId, installationId});
+            const normalizedStudentId = String(studentId || getActiveStudentId() || "").trim();
+            const response = await window.TahouriLicenseClient.activate({code, gradeId, studentId: normalizedStudentId, installationId});
             if (!response || !response.valid || !response.entitlement) return response || {valid:false,message:"فعال‌سازی آنلاین انجام نشد."};
             const verified = await window.TahouriEntitlementVerifier.verifyEnvelope(response.entitlement);
             if (!verified.valid) return {valid:false,message:verified.reason || "مجوز آنلاین معتبر نیست."};
             const claims = verified.claims;
             if (claims.gradeScope && claims.gradeScope !== gradeId) return {valid:false,message:"مجوز مربوط به این پایه نیست."};
+            if (claims.studentId && claims.studentId !== String(studentId || getActiveStudentId()).trim()) return {valid:false,message:"این مجوز متعلق به پروفایل دیگری است."};
             if (!window.TahouriEntitlementStore.write(response.entitlement)) return {valid:false,message:"ذخیره مجوز امن انجام نشد."};
             verifiedRemoteEntitlement = claims;
             return {valid:true,remote:true,entitlement:response.entitlement,license:claims,studentId};
@@ -1603,6 +1605,8 @@
         const c=verifiedRemoteEntitlement;
         if(!c || c.productId!=="tahouri-edu") return false;
         if(c.gradeScope && c.gradeScope!==gradeId) return false;
+        const activeStudentId = getActiveStudentId();
+        if(c.studentId && c.studentId!==activeStudentId) return false;
         const until=new Date(c.validUntil);
         return !Number.isNaN(until.getTime()) && Date.now()<until.getTime();
     }
