@@ -25,6 +25,9 @@ Backup:
 Verify an existing backup:
   npm run verify-backup -- <backup.sqlite>
 
+Run an isolated restore rehearsal (never touches the live database):
+  npm run restore-rehearsal -- <backup.sqlite>
+
 Development test codes are enabled only when the server is not running in
 production. Never use test codes for real customers.
 
