@@ -17,7 +17,8 @@ Smoke test:
   npm run smoke-test
 
 Operational diagnostics:
-  /api/health                 public health/readiness status
+  /api/health                 public health/status diagnostics
+  /api/ready                  public readiness check for load balancers
   /api/metrics                admin-session protected metrics
   /api/metrics/alerts         admin-session protected alerts
 
