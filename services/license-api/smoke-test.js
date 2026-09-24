@@ -17,9 +17,22 @@ async function main() {
     if (!publicKey.publicKeyPem) throw new Error("Public key endpoint failed.");
 
     const adminSession = await request("/api/admin/session");
+
+    const metricsResponse = await fetch(base + "/api/metrics");
+    if (metricsResponse.status !== 401) throw new Error("Metrics endpoint must reject unauthenticated access.");
+
+    const ready = await request("/api/ready");
+    if (ready.ready !== true) throw new Error("Readiness check failed.");
     if (typeof adminSession.ok !== "boolean") throw new Error("Admin session endpoint failed.");
 
-    const callback = await request("/api/payments/callback", {\n        method: "POST",\n        headers: { "Content-Type": "application/json" },\n        body: JSON.stringify({ paymentId: "nonexistent-smoke-test", authority: "smoke", status: "verified" })\n    }).catch(error => ({ error }));\n    if (!callback.error || !String(callback.error.message).includes("HTTP 404")) {\n        throw new Error("Payment callback negative-path test failed.");\n    }
+    const callback = await request("/api/payments/callback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paymentId: "nonexistent-smoke-test", authority: "smoke", status: "verified" })
+    }).catch(error => ({ error }));
+    if (!callback.error || !String(callback.error.message).includes("HTTP 404")) {
+        throw new Error("Payment callback negative-path test failed.");
+    }
 
     console.log("Tahouri License API smoke test: PASS");
 }
