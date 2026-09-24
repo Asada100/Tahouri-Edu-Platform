@@ -382,7 +382,7 @@ function seedTestCodes() {
     }
 }
 
-seedTestCodes();
+if (!IS_PRODUCTION && process.env.TAHOURI_TEST_CODES !== "false") {\n    seedTestCodes();\n}
 
 async function activate(req, res) {
     const body = await readBody(req);
