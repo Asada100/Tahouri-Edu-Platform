@@ -198,3 +198,27 @@ Do not log:
   - private signing keys
   - payment gateway secrets
   - raw admin session tokens
+
+13. RELEASE GATE
+
+Before customer release, all of the following must be verified on the real deployment:
+  [ ] HTTPS certificate is valid and auto-renewal is working
+  [ ] API is reachable only through the intended public origin
+  [ ] APP_ORIGIN and ADMIN_ORIGIN are exact production origins
+  [ ] production signing key is outside Git and backed up securely
+  [ ] production database is on persistent storage
+  [ ] backup job runs on schedule and copies backups off-host
+  [ ] a backup has been restored successfully on an isolated environment
+  [ ] admin login works over HTTPS and session survives an API restart
+  [ ] activation creates a profile-bound signed entitlement
+  [ ] status detects active, expired and revoked licenses
+  [ ] renewal/extension creates a new valid signed entitlement
+  [ ] selected payment provider performs official server-side verification
+  [ ] successful payment cannot be forged by editing the callback payload
+  [ ] failed/cancelled payment does not create a license
+  [ ] audit trail records activation, payment and license lifecycle events
+  [ ] rate limits and production security headers are present
+  [ ] monitoring and alerting are active
+  [ ] no secrets or test codes are present in the deployment
+
+If any gate is unchecked, do not open customer activation.
