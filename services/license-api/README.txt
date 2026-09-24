@@ -255,3 +255,15 @@ Production deployment variables:
 DNS:
   Create an A/AAAA record for TAHOURI_API_DOMAIN pointing to the production server.
   Caddy will terminate HTTPS and proxy the API to the internal License API container.
+
+
+Final production verification:
+  1. npm run release-check
+  2. TAHOURI_RELEASE_API=https://api.your-domain.example npm run release-smoke-test
+  3. npm run backup
+  4. npm run verify-backup -- <backup.sqlite>
+  5. npm run restore-rehearsal -- <backup.sqlite>
+
+The release smoke test verifies the public HTTPS path, liveness, readiness,
+health, public signing key, and required security headers. It does not create
+or activate a customer license and must not be treated as payment verification.
