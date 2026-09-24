@@ -182,6 +182,11 @@ function audit(eventType, actor, values = {}) {
     );
 }
 
+function isValidAdminOrigin(origin) {
+    if (!origin) return false;
+    return origin === ADMIN_ORIGIN;
+}
+
 function send(res, status, payload) {
     res.writeHead(status, {
         "Content-Type": "application/json; charset=utf-8",
@@ -850,6 +855,10 @@ async function adminVerifyPayment(req, res) {
 
 const server = http.createServer(async (req, res) => {
     if (req.method === "OPTIONS") {
+        const origin = String(req.headers.origin || "");
+        if (origin && !isValidAdminOrigin(origin)) {
+            return send(res, 403, { ok: false, message: "Origin مجاز نیست." });
+        }
         res.writeHead(204, {
             "Access-Control-Allow-Origin": ADMIN_ORIGIN,
             "Access-Control-Allow-Headers": "Content-Type, X-Admin-Key",
