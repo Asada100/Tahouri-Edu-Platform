@@ -25,5 +25,21 @@ try {
     db.close();
 }
 
-console.log("Tahouri License API backup created:");
+const verify = new DatabaseSync(backupFile);
+try {
+    const tables = verify.prepare(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('activation_codes','licenses','audit_log','payments') ORDER BY name"
+    ).all().map(row => row.name);
+
+    const expected = ["activation_codes", "audit_log", "licenses", "payments"];
+    if (JSON.stringify(tables) !== JSON.stringify(expected)) {
+        throw new Error("Backup verification failed: required tables are missing.");
+    }
+
+    verify.prepare("PRAGMA integrity_check").get();
+} finally {
+    verify.close();
+}
+
+console.log("Tahouri License API backup created and verified:");
 console.log(backupFile);
