@@ -157,6 +157,26 @@ async function main() {
         const paymentStatus = await request("GET", "/api/payments/status?paymentId=" + encodeURIComponent(payment.data.paymentId));
         assert(paymentStatus.status === 200 && paymentStatus.data.payment.status === "verified", "Verified payment status failed.");
 
+        const audit = await request(
+            "GET",
+            "/api/admin/audit?limit=100",
+            undefined,
+            { Cookie: cookie }
+        );
+        assert(audit.status === 200 && Array.isArray(audit.data.audit), "Audit endpoint failed.");
+
+        const auditEvents = audit.data.audit.map(item => item.event_type || item.eventType);
+        for (const requiredEvent of [
+            "license.activate",
+            "license.extend",
+            "license.revoke"
+        ]) {
+            assert(
+                auditEvents.includes(requiredEvent),
+                "Missing audit event: " + requiredEvent
+            );
+        }
+
         const badCode = await request("POST", "/api/licenses/activate", {
             code: "bad code with spaces",
             gradeId: "grade6",
