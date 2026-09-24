@@ -548,6 +548,34 @@ async function adminListLicenses(req, res) {
     return send(res, 200, { ok: true, licenses: rows });
 }
 
+async function adminSearch(req, res) {
+    if (!requireAdmin(req, res)) return;
+    const url = new URL(req.url, "http://localhost");
+    const q = String(url.searchParams.get("q") || "").trim();
+    if (!q) return send(res, 400, { ok: false, message: "عبارت جستجو الزامی است." });
+
+    const like = "%" + q.replace(/[%_]/g, "") + "%";
+    const licenses = db.prepare(`
+        SELECT license_id AS licenseId, student_id AS studentId, grade_id AS gradeId,
+               academic_year AS academicYear, valid_from AS validFrom,
+               valid_until AS validUntil, status, created_at AS createdAt
+        FROM licenses
+        WHERE license_id LIKE ? OR student_id LIKE ? OR grade_id LIKE ?
+        ORDER BY created_at DESC LIMIT 100
+    `).all(like, like, like);
+
+    const codes = db.prepare(`
+        SELECT code_preview AS codePreview, grade_id AS gradeId,
+               academic_year AS academicYear, status, created_at AS createdAt,
+               used_at AS usedAt, license_id AS licenseId
+        FROM activation_codes
+        WHERE code_preview LIKE ? OR grade_id LIKE ?
+        ORDER BY created_at DESC LIMIT 100
+    `).all(like, like);
+
+    return send(res, 200, { ok: true, licenses, codes });
+}
+
 async function adminRevokeLicense(req, res) {
     if (!requireAdmin(req, res)) return;
     const body = await readBody(req);
@@ -782,6 +810,10 @@ const server = http.createServer(async (req, res) => {
 
         if (req.method === "POST" && req.url === "/api/admin/codes/revoke") {
             return await adminRevokeCode(req, res);
+        }
+
+        if (req.method === "GET" && req.url.startsWith("/api/admin/search")) {
+            return await adminSearch(req, res);
         }
 
         if (req.method === "GET" && req.url === "/api/admin/licenses") {
