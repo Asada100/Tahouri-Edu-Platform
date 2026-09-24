@@ -1,4 +1,4 @@
-const API="http://localhost:8787";
+const API=window.location.origin;
 async function api(p,o={}){const r=await fetch(API+p,{...o,credentials:"include",headers:{"Content-Type":"application/json",...(o.headers||{})}});const d=await r.json().catch(()=>({message:"پاسخ نامعتبر"}));if(!r.ok)throw Error(d.message||"خطا");return d}
 function e(v){return String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
 async function login(){try{await api("/api/admin/login",{method:"POST",body:JSON.stringify({password:document.getElementById("adminKey").value})});document.getElementById("loginCard").hidden=true;document.getElementById("panel").hidden=false;await loadAll()}catch(x){alert(x.message)}}
