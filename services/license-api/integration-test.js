@@ -6,6 +6,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const crypto = require("crypto");
+const { DatabaseSync } = require("node:sqlite");
 
 const port = 8897;
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "tahouri-license-test-"));
@@ -127,6 +128,15 @@ async function main() {
 
         const health = await request("GET", "/api/health");
         assert(health.status === 200 && health.data.ok, "Health failed after activation.");
+
+        const db = new DatabaseSync(dbFile);
+        try {
+            const license = db.prepare("SELECT license_id, student_id, grade_id, status FROM licenses LIMIT 1").get();
+            assert(license && license.student_id === "integration-student", "License was not persisted.");
+            assert(license.status === "active", "Persisted license is not active.");
+        } finally {
+            db.close();
+        }
 
         console.log("Tahouri License API integration test: PASS");
     } finally {
