@@ -34,6 +34,10 @@ const RATE_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT = 30;
 const rateBuckets = new Map();
 
+function createRequestId() {
+    return crypto.randomBytes(12).toString("hex");
+}
+
 function safeLog(level, message, meta = {}) {
     const blocked = /password|token|secret|authority|private.?key|api.?key|merchant|cookie|authorization|code_hash/i;
     const sanitized = {};
@@ -357,6 +361,8 @@ function validateIdentifier(value, field) {
 }
 
 function send(res, status, payload) {
+    const requestId = res.__requestId || createRequestId();
+    res.setHeader("X-Request-Id", requestId);
     recordMetric("requests");
     if (status >= 400 && status < 500) recordMetric("responses4xx");
     if (status >= 500) recordMetric("responses5xx");
@@ -1185,6 +1191,8 @@ async function adminVerifyPayment(req, res) {
 }
 
 const server = http.createServer(async (req, res) => {
+    const requestId = createRequestId();
+    res.__requestId = requestId;
     if (req.method === "OPTIONS") {
         const origin = String(req.headers.origin || "");
         if (origin && !isAllowedOrigin(origin)) {
@@ -1364,7 +1372,7 @@ if (req.method === "GET" && req.url === "/api/metrics") {
 
         return send(res, 404, { message: "مسیر موردنظر پیدا نشد." });
     } catch (error) {
-        safeLog("error", "Tahouri License API request failed.", { error: error.message });
+        safeLog("error", "Tahouri License API request failed.", { requestId: res.__requestId, error: error.message });
         return send(res, 500, {
             ok: false,
             valid: false,
