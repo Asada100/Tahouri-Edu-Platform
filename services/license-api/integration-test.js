@@ -99,105 +99,64 @@ async function main() {
 
         const licenseId = activation.data.entitlement.claims.licenseId;
         const extension = new Date(Date.now() + 370 * 24 * 60 * 60 * 1000).toISOString();
-        const extended = await request("POST", "/api/admin/licenses/extend", {
-            licenseId,
-            validUntil: extension
-        }, { Cookie: cookie });
+        const extended = await request("POST", "/api/admin/licenses/extend", { licenseId, validUntil: extension }, { Cookie: cookie });
         assert(extended.status === 200 && extended.data.ok, "License extension failed.");
         assert(extended.data.entitlement.claims.validUntil === extension, "Extended expiry was not signed.");
 
-        const revoked = await request("POST", "/api/admin/licenses/revoke", {
-            licenseId
-        }, { Cookie: cookie });
+        const revoked = await request("POST", "/api/admin/licenses/revoke", { licenseId }, { Cookie: cookie });
         assert(revoked.status === 200 && revoked.data.ok, "License revoke failed.");
 
         const afterRevoke = await request("GET", "/api/admin/licenses", undefined, { Cookie: cookie });
         assert(afterRevoke.status === 200 && afterRevoke.data.licenses[0].status === "revoked", "Revoked license status was not persisted.");
 
         const reuse = await request("POST", "/api/licenses/activate", {
-            code: "GRADE6-1405-TEST-A",
-            gradeId: "grade6",
-            studentId: "second-student",
-            installationId: "second-installation"
+            code: "GRADE6-1405-TEST-A", gradeId: "grade6", studentId: "second-student", installationId: "second-installation"
         });
         assert(reuse.status === 409, "Used activation code was reusable.");
 
         const wrongGrade = await request("POST", "/api/licenses/activate", {
-            code: "GRADE6-1405-TEST-B",
-            gradeId: "grade5",
-            studentId: "wrong-grade-student",
-            installationId: "wrong-grade-installation"
+            code: "GRADE6-1405-TEST-B", gradeId: "grade5", studentId: "wrong-grade-student", installationId: "wrong-grade-installation"
         });
         assert(wrongGrade.status === 400, "Grade mismatch was accepted.");
 
         const expiryDb = new DatabaseSync(dbFile);
         try {
-            expiryDb.prepare("UPDATE licenses SET valid_until = ? WHERE license_id = ?")
-                .run(new Date(Date.now() - 1000).toISOString(), licenseId);
+            expiryDb.prepare("UPDATE licenses SET valid_until = ? WHERE license_id = ?").run(new Date(Date.now() - 1000).toISOString(), licenseId);
             const expired = expiryDb.prepare("SELECT valid_until AS validUntil, status FROM licenses WHERE license_id = ?").get(licenseId);
             assert(Date.parse(expired.validUntil) < Date.now(), "Expiry test data was not set.");
             assert(expired.status === "revoked", "Lifecycle state should remain revoked after expiry.");
-        } finally {
-            expiryDb.close();
-        }
+        } finally { expiryDb.close(); }
 
         const payment = await request("POST", "/api/payments", {
-            gradeId: "grade6",
-            academicYear: "1405",
-            amount: 100000,
-            currency: "IRR"
+            gradeId: "grade6", academicYear: "1405", amount: 100000, currency: "IRR"
         });
         assert(payment.status === 201 && payment.data.status === "pending", "Payment creation failed.");
 
-        const verifyPayment = await request("POST", "/api/admin/payments/verify", {
-            paymentId: payment.data.paymentId
-        }, { Cookie: cookie });
+        const verifyPayment = await request("POST", "/api/admin/payments/verify", { paymentId: payment.data.paymentId }, { Cookie: cookie });
         assert(verifyPayment.status === 200 && verifyPayment.data.status === "verified", "Payment verification failed.");
 
         const paymentStatus = await request("GET", "/api/payments/status?paymentId=" + encodeURIComponent(payment.data.paymentId));
         assert(paymentStatus.status === 200 && paymentStatus.data.payment.status === "verified", "Verified payment status failed.");
 
-        const audit = await request(
-            "GET",
-            "/api/admin/audit?limit=100",
-            undefined,
-            { Cookie: cookie }
-        );
+        const audit = await request("GET", "/api/admin/audit?limit=100", undefined, { Cookie: cookie });
         assert(audit.status === 200 && Array.isArray(audit.data.audit), "Audit endpoint failed.");
 
         const auditEvents = audit.data.audit.map(item => item.event_type || item.eventType);
-        for (const requiredEvent of [
-            "license.activate",
-            "license.extend",
-            "license.revoke"
-        ]) {
-            assert(
-                auditEvents.includes(requiredEvent),
-                "Missing audit event: " + requiredEvent
-            );
+        for (const requiredEvent of ["license.activate", "license.extend", "license.revoke"]) {
+            assert(auditEvents.includes(requiredEvent), "Missing audit event: " + requiredEvent);
         }
 
         const badCode = await request("POST", "/api/licenses/activate", {
-            code: "bad code with spaces",
-            gradeId: "grade6",
-            studentId: "integration-student",
-            installationId: "integration-installation"
+            code: "bad code with spaces", gradeId: "grade6", studentId: "integration-student", installationId: "integration-installation"
         });
         assert(badCode.status === 400, "Invalid activation code input was accepted.");
 
         const badStudent = await request("POST", "/api/licenses/activate", {
-            code: "GRADE6-1405-TEST-B",
-            gradeId: "grade6",
-            studentId: "student with spaces",
-            installationId: "integration-installation"
+            code: "GRADE6-1405-TEST-B", gradeId: "grade6", studentId: "student with spaces", installationId: "integration-installation"
         });
         assert(badStudent.status === 400, "Invalid student identifier was accepted.");
 
-        const badStatus = await request(
-            "GET",
-            "/api/licenses/status?licenseId=" +
-                encodeURIComponent("license id with spaces")
-        );
+        const badStatus = await request("GET", "/api/licenses/status?licenseId=" + encodeURIComponent("license id with spaces"));
         assert(badStatus.status === 400, "Invalid license identifier was accepted.");
 
         const health = await request("GET", "/api/health");
@@ -205,27 +164,18 @@ async function main() {
 
         const sessionDb = new DatabaseSync(dbFile);
         try {
-            const sessionTable = sessionDb.prepare(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='admin_sessions'"
-            ).get();
+            const sessionTable = sessionDb.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='admin_sessions'").get();
             assert(sessionTable, "Persistent admin_sessions table is missing.");
-
-            const sessionCount = sessionDb.prepare(
-                "SELECT COUNT(*) AS count FROM admin_sessions"
-            ).get().count;
+            const sessionCount = sessionDb.prepare("SELECT COUNT(*) AS count FROM admin_sessions").get().count;
             assert(Number(sessionCount) >= 1, "Admin session was not persisted.");
-        } finally {
-            sessionDb.close();
-        }
+        } finally { sessionDb.close(); }
 
         const db = new DatabaseSync(dbFile);
         try {
             const license = db.prepare("SELECT license_id, student_id, grade_id, status FROM licenses LIMIT 1").get();
             assert(license && license.student_id === "integration-student", "License was not persisted.");
             assert(license.status === "revoked", "Persisted license is not revoked.");
-        } finally {
-            db.close();
-        }
+        } finally { db.close(); }
 
         console.log("Tahouri License API integration test: PASS");
     } finally {
