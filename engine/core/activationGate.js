@@ -1671,10 +1671,58 @@
 
 
     // =====================================
+    // Remote License Revalidation
+    // =====================================
+
+    async function revalidateCurrentLicense() {
+
+        if (
+            window.LicenseManager &&
+            typeof LicenseManager.refreshRemoteLicenseStatus ===
+                "function"
+        ) {
+
+            const result =
+                await LicenseManager.refreshRemoteLicenseStatus();
+
+            if (
+                result &&
+                result.valid === true
+            ) {
+
+                return true;
+
+            }
+
+            // A network failure must not destroy the signed offline
+            // entitlement; the local verifier remains the fallback.
+            if (
+                result &&
+                result.reason === "network_error"
+            ) {
+
+                return isCurrentProfileActivated(
+                    getProfileGrade()
+                );
+
+            }
+
+            return false;
+
+        }
+
+        return isCurrentProfileActivated(
+            getProfileGrade()
+        );
+
+    }
+
+
+    // =====================================
     // Enter Grade
     // =====================================
 
-    function enterGrade(
+    async function enterGrade(
         gradeId
     ) {
 
@@ -1724,9 +1772,7 @@
 
 
         if (
-            !isCurrentProfileActivated(
-                profileGrade
-            )
+            !await revalidateCurrentLicense()
         ) {
 
             renderGate();
@@ -2050,7 +2096,7 @@
         }
 
 
-        enterGrade(
+        await enterGrade(
             profileGrade
         );
 
