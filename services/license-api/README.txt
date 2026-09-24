@@ -28,3 +28,10 @@ Set:
 
 Production must use environment/secret storage, HTTPS, a real database,
 rate limiting, authentication, audit logging and payment verification.
+
+
+Persistent development storage:
+  SQLite database: services/license-api/data/license.sqlite
+  Override with TAHOURI_LICENSE_DB_FILE when needed.
+
+The database persists activation-code usage across API restarts.
