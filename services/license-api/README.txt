@@ -147,3 +147,54 @@ DO NOT RELEASE
   - if manual payment verification is enabled in production
   - if test activation codes are enabled in production
   - if the signing private key is present in Git
+
+
+10. DEPLOYMENT CONFIGURATION TEMPLATE
+
+Example production environment variables (values must be supplied by deployment):
+
+  NODE_ENV=production
+  TAHOURI_LICENSE_PRIVATE_KEY_FILE=/secure/path/tahouri-license-private.pem
+  TAHOURI_ADMIN_PASSWORD=<secret>
+  TAHOURI_PAYMENT_PROVIDER=<selected-provider>
+  TAHOURI_ADMIN_ORIGIN=https://admin.example
+  TAHOURI_APP_ORIGIN=https://app.example
+  TAHOURI_LICENSE_DB_FILE=/persistent/data/license.sqlite
+  TAHOURI_LICENSE_BACKUP_DIR=/persistent/backups
+
+Secrets must be injected by the hosting environment or secret manager.
+Do not place real values in .env files committed to Git.
+
+11. DEPLOYMENT VERIFICATION ORDER
+
+  1. Start service with production configuration.
+  2. Confirm the process starts without configuration errors.
+  3. Confirm /api/health.
+  4. Confirm /api/public-key.
+  5. Confirm admin login over HTTPS.
+  6. Confirm a controlled payment flow using the selected provider.
+  7. Confirm activation creates a signed, profile-bound entitlement.
+  8. Confirm status detects active, expired and revoked licenses.
+  9. Create and verify an external backup.
+  10. Perform an isolated restore rehearsal.
+  11. Review audit events and server logs.
+  12. Enable customer access only after all checks pass.
+
+12. OPERATIONAL MONITORING
+
+At minimum monitor:
+  - API availability and health failures
+  - activation failures and unusual spikes
+  - admin login failures / lockouts
+  - payment verification failures
+  - license revocations
+  - backup failures
+  - disk/storage capacity
+  - unexpected process restarts
+
+Do not log:
+  - activation codes
+  - admin passwords
+  - private signing keys
+  - payment gateway secrets
+  - raw admin session tokens
