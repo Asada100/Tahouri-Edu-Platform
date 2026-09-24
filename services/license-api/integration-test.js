@@ -157,6 +157,29 @@ async function main() {
         const paymentStatus = await request("GET", "/api/payments/status?paymentId=" + encodeURIComponent(payment.data.paymentId));
         assert(paymentStatus.status === 200 && paymentStatus.data.payment.status === "verified", "Verified payment status failed.");
 
+        const badCode = await request("POST", "/api/licenses/activate", {
+            code: "bad code with spaces",
+            gradeId: "grade6",
+            studentId: "integration-student",
+            installationId: "integration-installation"
+        });
+        assert(badCode.status === 400, "Invalid activation code input was accepted.");
+
+        const badStudent = await request("POST", "/api/licenses/activate", {
+            code: "GRADE6-1405-TEST-B",
+            gradeId: "grade6",
+            studentId: "student with spaces",
+            installationId: "integration-installation"
+        });
+        assert(badStudent.status === 400, "Invalid student identifier was accepted.");
+
+        const badStatus = await request(
+            "GET",
+            "/api/licenses/status?licenseId=" +
+                encodeURIComponent("license id with spaces")
+        );
+        assert(badStatus.status === 400, "Invalid license identifier was accepted.");
+
         const health = await request("GET", "/api/health");
         assert(health.status === 200 && health.data.ok, "Health failed after activation.");
 
