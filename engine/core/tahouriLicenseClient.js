@@ -61,9 +61,18 @@
         return request("/health", { method: "GET" });
     }
 
+    async function status(licenseId) {
+        const value = String(licenseId || "").trim();
+        if (!value) throw new Error("شناسه مجوز وارد نشده است.");
+        return request("/licenses/status?licenseId=" + encodeURIComponent(value), {
+            method: "GET"
+        });
+    }
+
     window.TahouriLicenseClient = {
         activate,
-        health
+        health,
+        status
     };
 
     console.log("Tahouri License Client v1.0 Ready");
