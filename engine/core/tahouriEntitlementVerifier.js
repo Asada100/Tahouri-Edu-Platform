@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Signed Entitlement Verifier
-// Version 1.0
+// Version 1.1
 // RSA-SHA256 / Web Crypto
 // =====================================
 
@@ -25,24 +25,50 @@
         return bytes.buffer;
     }
 
+    async function getPublicKeyPem() {
+        const config = window.TahouriServiceConfig;
+
+        if (!config) throw new Error("Tahouri service configuration is unavailable.");
+
+        if (config.publicKeyPem) return config.publicKeyPem;
+
+        if (config.mode !== "test") {
+            throw new Error("Production public key is not configured.");
+        }
+
+        const response = await fetch(config.apiBaseUrl + "/public-key", {
+            method: "GET",
+            cache: "no-store"
+        });
+
+        if (!response.ok) {
+            throw new Error("Development public key could not be loaded.");
+        }
+
+        const payload = await response.json();
+
+        if (!payload || !payload.publicKeyPem) {
+            throw new Error("Development public key is missing.");
+        }
+
+        return payload.publicKeyPem;
+    }
+
     function getPublicKey() {
         if (importedKeyPromise) return importedKeyPromise;
 
-        const config = window.TahouriServiceConfig;
-
-        if (!config || !config.publicKeyPem || !window.crypto?.subtle) {
+        if (!window.crypto?.subtle) {
             return Promise.reject(new Error("Web Crypto یا کلید عمومی در دسترس نیست."));
         }
 
-        importedKeyPromise = crypto.subtle.importKey(
-            "spki",
-            pemToArrayBuffer(config.publicKeyPem),
-            {
-                name: "RSASSA-PKCS1-v1_5",
-                hash: "SHA-256"
-            },
-            false,
-            ["verify"]
+        importedKeyPromise = getPublicKeyPem().then(publicKeyPem =>
+            crypto.subtle.importKey(
+                "spki",
+                pemToArrayBuffer(publicKeyPem),
+                { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+                false,
+                ["verify"]
+            )
         );
 
         return importedKeyPromise;
@@ -70,22 +96,16 @@
 
         try {
             const key = await getPublicKey();
-            const data = new TextEncoder().encode(
-                canonicalizeClaims(envelope.claims)
-            );
+            const data = new TextEncoder().encode(canonicalizeClaims(envelope.claims));
 
             const valid = await crypto.subtle.verify(
-                {
-                    name: "RSASSA-PKCS1-v1_5"
-                },
+                { name: "RSASSA-PKCS1-v1_5" },
                 key,
                 base64ToBytes(envelope.signature),
                 data
             );
 
-            if (!valid) {
-                return { valid: false, reason: "امضای مجوز معتبر نیست." };
-            }
+            if (!valid) return { valid: false, reason: "امضای مجوز معتبر نیست." };
 
             const claims = envelope.claims;
             const config = window.TahouriServiceConfig || {};
@@ -112,19 +132,14 @@
                 return { valid: false, reason: "مجوز منقضی شده است." };
             }
 
-            return {
-                valid: true,
-                claims: claims
-            };
+            return { valid: true, claims };
         } catch (error) {
             console.error("EntitlementVerifier: Verification failed.", error);
             return { valid: false, reason: "اعتبارسنجی رمزنگاری مجوز انجام نشد." };
         }
     }
 
-    window.TahouriEntitlementVerifier = {
-        verifyEnvelope
-    };
+    window.TahouriEntitlementVerifier = { verifyEnvelope };
 
-    console.log("Tahouri Entitlement Verifier v1.0 Ready");
+    console.log("Tahouri Entitlement Verifier v1.1 Ready");
 })();
