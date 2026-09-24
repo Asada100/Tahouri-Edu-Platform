@@ -422,6 +422,18 @@ const Screen = {
             dailyMessage
         );
 
+
+        // =====================================
+        // OPTIONAL UPDATE NOTICE
+        // =====================================
+        // Never blocks Home or offline use.
+        if (
+            typeof TahouriUpdateManager !== "undefined" &&
+            typeof TahouriUpdateManager.checkHome === "function"
+        ) {
+            TahouriUpdateManager.checkHome();
+        }
+
     },
 
 
