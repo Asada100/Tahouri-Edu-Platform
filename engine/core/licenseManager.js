@@ -142,6 +142,32 @@
     // Active Profile
     // =====================================
 
+    async function refreshRemoteLicenseStatus() {
+        if (!verifiedRemoteEntitlement || !verifiedRemoteEntitlement.claims) {
+            return { valid: false, reason: "no_remote_entitlement" };
+        }
+
+        const licenseId = verifiedRemoteEntitlement.claims.licenseId;
+        if (!licenseId || !window.TahouriLicenseClient ||
+            typeof window.TahouriLicenseClient.status !== "function") {
+            return { valid: false, reason: "status_client_unavailable" };
+        }
+
+        try {
+            const result = await window.TahouriLicenseClient.status(licenseId);
+
+            if (!result.valid) {
+                verifiedRemoteEntitlement = null;
+            }
+
+            return result;
+        } catch (error) {
+            console.warn("License Manager: Remote status check failed.", error);
+            return { valid: false, reason: "network_error", error: error.message };
+        }
+    }
+
+
     function getActiveProfile() {
 
         try {
@@ -1681,7 +1707,7 @@
         activate:
             activate,
 
-        activateRemote:
+        refreshRemoteLicenseStatus:\n            refreshRemoteLicenseStatus,\n\n                activateRemote:
             activateRemote,
 
         hasValidRemoteEntitlement:
