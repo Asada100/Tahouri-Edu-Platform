@@ -1,0 +1,37 @@
+services:
+  tahouri-license-api:
+    build:
+      context: .
+      dockerfile: services/license-api/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8787:8787"
+    environment:
+      NODE_ENV: production
+      PORT: 8787
+      HOST: 0.0.0.0
+      TAHOURI_LICENSE_PRIVATE_KEY_FILE: /run/secrets/tahouri_private_key
+      TAHOURI_ADMIN_PASSWORD: ${TAHOURI_ADMIN_PASSWORD}
+      TAHOURI_PAYMENT_PROVIDER: ${TAHOURI_PAYMENT_PROVIDER}
+      TAHOURI_ADMIN_ORIGIN: ${TAHOURI_ADMIN_ORIGIN}
+      TAHOURI_APP_ORIGIN: ${TAHOURI_APP_ORIGIN}
+      TAHOURI_LICENSE_DB_FILE: /data/license.sqlite
+      TAHOURI_LICENSE_BACKUP_DIR: /backups
+    volumes:
+      - tahouri_license_data:/data
+      - tahouri_license_backups:/backups
+    secrets:
+      - tahouri_private_key
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+secrets:
+  tahouri_private_key:
+    file: ./secrets/tahouri-license-private.pem
+
+volumes:
+  tahouri_license_data:
+  tahouri_license_backups:
