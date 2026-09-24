@@ -104,6 +104,27 @@ async function main() {
         });
         assert(wrongGrade.status === 400, "Grade mismatch was accepted.");
 
+        const payment = await request("POST", "/api/payments", {
+            gradeId: "grade6",
+            academicYear: "1405",
+            amount: 100000,
+            currency: "IRR"
+        });
+        assert(payment.status === 201 && payment.data.status === "pending", "Payment creation failed.");
+
+        const login = await request("POST", "/api/admin/login", { password: "TAHOURI-ADMIN-TEST" });
+        assert(login.status === 200 && login.data.ok, "Admin login failed.");
+        const cookie = login.headers["set-cookie"]?.[0]?.split(";")[0];
+        assert(cookie, "Admin session cookie missing.");
+
+        const verifyPayment = await request("POST", "/api/admin/payments/verify", {
+            paymentId: payment.data.paymentId
+        }, { Cookie: cookie });
+        assert(verifyPayment.status === 200 && verifyPayment.data.status === "verified", "Payment verification failed.");
+
+        const paymentStatus = await request("GET", "/api/payments/status?paymentId=" + encodeURIComponent(payment.data.paymentId));
+        assert(paymentStatus.status === 200 && paymentStatus.data.payment.status === "verified", "Verified payment status failed.");
+
         const health = await request("GET", "/api/health");
         assert(health.status === 200 && health.data.ok, "Health failed after activation.");
 
