@@ -16,7 +16,7 @@ const PORT = Number(process.env.PORT || 8787);
 const HOST = process.env.HOST || "127.0.0.1";
 const PRODUCT_ID = "tahouri-edu";
 const ENTITLEMENT_VERSION = 1;
-const ADMIN_KEY = String(process.env.TAHOURI_ADMIN_KEY || "TAHOURI-ADMIN-TEST");
+const ADMIN_KEY = String(process.env.TAHOURI_ADMIN_KEY || (IS_PRODUCTION ? "" : "TAHOURI-ADMIN-TEST"));
 const ADMIN_PASSWORD = String(process.env.TAHOURI_ADMIN_PASSWORD || ADMIN_KEY);
 const ADMIN_SESSIONS = new Map();
 const ADMIN_LOGIN_FAILURES = new Map();
@@ -27,6 +27,25 @@ const PAYMENT_PROVIDER = String(process.env.TAHOURI_PAYMENT_PROVIDER || "manual"
 const RATE_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT = 30;
 const rateBuckets = new Map();
+const NODE_ENV = String(process.env.NODE_ENV || "development").toLowerCase();
+const IS_PRODUCTION = NODE_ENV === "production";
+
+if (IS_PRODUCTION) {
+    if (!process.env.TAHOURI_ADMIN_PASSWORD) {
+        throw new Error("TAHOURI_ADMIN_PASSWORD is required in production.");
+    }
+    if (!process.env.TAHOURI_LICENSE_PRIVATE_KEY_FILE) {
+        throw new Error("TAHOURI_LICENSE_PRIVATE_KEY_FILE is required in production.");
+    }
+    if (String(process.env.TAHOURI_PAYMENT_PROVIDER || "manual") === "manual") {
+        throw new Error("A real payment provider must be configured in production.");
+    }
+    if (process.env.TAHOURI_TEST_CODES === "true") {
+        throw new Error("TAHOURI_TEST_CODES must not be enabled in production.");
+    }
+}
+
+
 
 const privateKeyFile =
     process.env.TAHOURI_LICENSE_PRIVATE_KEY_FILE ||
@@ -823,7 +842,7 @@ const server = http.createServer(async (req, res) => {
             return send(res, 200, {
                 ok: true,
                 service: "tahouri-license-api",
-                environment: "test",
+                environment: NODE_ENV,
                 database: "sqlite"
             });
         }
@@ -869,7 +888,7 @@ const server = http.createServer(async (req, res) => {
 
         if (req.method === "GET" && req.url === "/api/public-key") {
             return send(res, 200, {
-                environment: "test",
+                environment: NODE_ENV,
                 publicKeyPem: crypto.createPublicKey(privateKey).export({
                     type: "spki",
                     format: "pem"
