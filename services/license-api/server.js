@@ -1351,6 +1351,40 @@ if (req.method === "GET" && req.url === "/api/metrics") {
     }
 });
 
+let isShuttingDown = false;
+
+function gracefulShutdown(signal) {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
+
+    console.log("Shutdown requested:", signal);
+
+    try {
+        db.pragma("wal_checkpoint(TRUNCATE)");
+    } catch (error) {
+        console.error("Database checkpoint during shutdown failed:", error.message);
+    }
+
+    try {
+        db.close();
+    } catch (error) {
+        console.error("Database close during shutdown failed:", error.message);
+    }
+
+    server.close(() => {
+        console.log("Tahouri License API stopped.");
+        process.exit(0);
+    });
+
+    setTimeout(() => {
+        console.error("Forced shutdown after timeout.");
+        process.exit(1);
+    }, 10000).unref();
+}
+
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+
 server.listen(PORT, HOST, () => {
     console.log("Tahouri License API TEST listening on http://" + HOST + ":" + PORT);
     console.log("SQLite database:", DB_FILE);
