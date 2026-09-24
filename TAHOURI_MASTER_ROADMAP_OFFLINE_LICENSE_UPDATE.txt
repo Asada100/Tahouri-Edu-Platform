@@ -749,3 +749,37 @@ When a new conversation starts about this stage:
 7. Keep the roadmap as a living technical/product record.
 
 END OF MASTER ROADMAP
+
+
+========================================
+PROGRESS UPDATE — 2026-09-24
+========================================
+
+Phase 0 — Architecture audit: COMPLETED
+- Architecture baseline committed separately.
+
+Phase 1 — License domain foundation: COMPLETED
+- Signed entitlement envelope defined.
+- Client-side public-key verification added.
+- Local entitlement store added.
+- Anonymous installation identifier added.
+
+Phase 2 — Development license service: COMPLETED
+- Test License API added under services/license-api.
+- LicenseManager now has an isolated remote activation bridge.
+- ActivationGate uses remote signed activation when the service layer is available.
+- Existing synchronous/local activation path remains as compatibility fallback.
+- Existing educational engines were not modified.
+
+Security note:
+- The included License API is TEST/DEVELOPMENT ONLY.
+- No private signing key is stored in Git.
+- Production backend, payment verification, admin authentication, rate limiting, database, key management and deployment are still required before commercial release.
+- The fixed test codes are development fixtures and must never be used in production.
+
+Next implementation boundary:
+- Test activation end-to-end.
+- Then Admin/Gift backend modules.
+- Then Payment adapter.
+- Then Update client/Home update notice.
+- Then production hardening and distribution.
