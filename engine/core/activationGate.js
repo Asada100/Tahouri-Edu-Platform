@@ -1770,6 +1770,22 @@
                 );
 
 
+                // After a newly created profile is activated,
+                // return to the normal Home screen.
+                // On refresh/startup AppController already does this;
+                // keep the first-run path consistent without changing
+                // Navigation or any existing architecture.
+                if (
+                    window.Screen &&
+                    typeof Screen.showHome ===
+                        "function"
+                ) {
+
+                    Screen.showHome();
+
+                }
+
+
                 return;
 
             }
