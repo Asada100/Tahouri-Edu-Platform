@@ -56,10 +56,31 @@ function recordMetric(name, amount = 1) {
     }
 }
 
+function evaluateOperationalAlerts() {
+    const alerts = [];
+    if (METRICS.responses5xx >= 10) {
+        alerts.push({ code: "high_5xx", severity: "critical", message: "تعداد پاسخ‌های 5xx از آستانه عبور کرده است." });
+    }
+    if (METRICS.activationFailures >= 20) {
+        alerts.push({ code: "activation_failures", severity: "warning", message: "تعداد خطاهای فعال‌سازی غیرعادی افزایش یافته است." });
+    }
+    if (METRICS.paymentFailures >= 10) {
+        alerts.push({ code: "payment_failures", severity: "critical", message: "تعداد خطاهای ایجاد پرداخت از آستانه عبور کرده است." });
+    }
+    if (METRICS.paymentVerificationFailures >= 10) {
+        alerts.push({ code: "payment_verification_failures", severity: "critical", message: "تعداد خطاهای تأیید پرداخت از آستانه عبور کرده است." });
+    }
+    if (METRICS.adminLoginFailures >= 10) {
+        alerts.push({ code: "admin_login_failures", severity: "warning", message: "تعداد تلاش‌های ناموفق ورود مدیر افزایش یافته است." });
+    }
+    return alerts;
+}
+
 function metricsSnapshot() {
     return {
         ...METRICS,
-        uptimeSeconds: Math.floor(process.uptime())
+        uptimeSeconds: Math.floor(process.uptime()),
+        alerts: evaluateOperationalAlerts()
     };
 }
 const ADMIN_ORIGIN = String(process.env.TAHOURI_ADMIN_ORIGIN || (IS_PRODUCTION ? "" : "http://localhost:5500"));
@@ -1136,7 +1157,11 @@ const server = http.createServer(async (req, res) => {
             });
         }
 
-        if (req.method === "GET" && req.url === "/api/metrics") {
+        if (req.method === "GET" && req.url === "/api/metrics/alerts") {
+    return send(res, 200, { ok: true, alerts: evaluateOperationalAlerts() });
+}
+
+if (req.method === "GET" && req.url === "/api/metrics") {
             return send(res, 200, { ok: true, metrics: metricsSnapshot() });
         }
 
