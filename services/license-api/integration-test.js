@@ -43,6 +43,9 @@ async function waitForServer(child) {
         if (child.exitCode !== null) throw new Error("Server exited during startup.");
         try {
             const result = await request("GET", "/api/health");
+            const ready = await request("GET", "/api/ready");
+            assert(ready.status === 200 && ready.data.ready === true, "Readiness check failed.");
+
             if (result.status === 200) return;
         } catch {}
         await new Promise(resolve => setTimeout(resolve, 100));
