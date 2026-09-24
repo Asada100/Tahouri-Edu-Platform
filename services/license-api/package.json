@@ -6,6 +6,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "smoke-test": "node smoke-test.js",
     "generate-key": "node generate-dev-key.js"
   }
 }
