@@ -4,6 +4,8 @@ This server is TEST/DEVELOPMENT ONLY.
 
 Run:
   cd services/license-api
+  npm install
+  npm run generate-key
   npm start
 
 Default:
