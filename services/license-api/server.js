@@ -585,6 +585,21 @@ async function adminCreatePayment(req, res) {
     return send(res, 201, { ok: true, paymentId, status: "pending" });
 }
 
+async function adminListPayments(req, res) {
+    if (!requireAdmin(req, res)) return;
+    const rows = db.prepare(`
+        SELECT payment_id AS paymentId, provider, authority, status,
+               amount, currency, product_id AS productId,
+               grade_id AS gradeId, academic_year AS academicYear,
+               license_id AS licenseId, created_at AS createdAt,
+               verified_at AS verifiedAt
+        FROM payments
+        ORDER BY created_at DESC
+        LIMIT 500
+    `).all();
+    return send(res, 200, { ok: true, payments: rows });
+}
+
 async function adminVerifyPayment(req, res) {
     if (!requireAdmin(req, res)) return;
     const body = await readBody(req);
@@ -697,12 +712,24 @@ const server = http.createServer(async (req, res) => {
             return await adminExtendLicense(req, res);
         }
 
+        if (req.method === "POST" && req.url === "/api/admin/licenses/revoke") {
+            return await adminRevokeLicense(req, res);
+        }
+
+        if (req.method === "POST" && req.url === "/api/admin/licenses/extend") {
+            return await adminExtendLicense(req, res);
+        }
+
         if (req.method === "GET" && req.url === "/api/admin/audit") {
             return await adminAudit(req, res);
         }
 
         if (req.method === "POST" && req.url === "/api/admin/payments") {
             return await adminCreatePayment(req, res);
+        }
+
+        if (req.method === "GET" && req.url === "/api/admin/payments") {
+            return await adminListPayments(req, res);
         }
 
         if (req.method === "POST" && req.url === "/api/admin/payments/verify") {
