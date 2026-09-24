@@ -153,6 +153,27 @@ db.exec(`
         ON audit_log(created_at);
 `);
 
+function assertProductionConfiguration() {
+    if (!IS_PRODUCTION) return;
+
+    const required = [
+        ["TAHOURI_ADMIN_PASSWORD", process.env.TAHOURI_ADMIN_PASSWORD],
+        ["TAHOURI_ADMIN_ORIGIN", process.env.TAHOURI_ADMIN_ORIGIN],
+        ["TAHOURI_LICENSE_PRIVATE_KEY_FILE", process.env.TAHOURI_LICENSE_PRIVATE_KEY_FILE],
+        ["TAHOURI_PAYMENT_PROVIDER", process.env.TAHOURI_PAYMENT_PROVIDER]
+    ];
+
+    for (const [name, value] of required) {
+        if (!value) throw new Error(name + " is required in production.");
+    }
+
+    if (String(process.env.TAHOURI_PAYMENT_PROVIDER).toLowerCase() === "manual") {
+        throw new Error("TAHOURI_PAYMENT_PROVIDER cannot be manual in production.");
+    }
+}
+
+assertProductionConfiguration();
+
 function hashCode(code) {
     return crypto.createHash("sha256")
         .update(String(code).trim().toUpperCase(), "utf8")
@@ -193,6 +214,9 @@ function send(res, status, payload) {
     res.writeHead(status, {
         "Content-Type": "application/json; charset=utf-8",
         "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "DENY",
+        "Referrer-Policy": "no-referrer",
         "Access-Control-Allow-Origin": ADMIN_ORIGIN,
         "Access-Control-Allow-Headers": "Content-Type, X-Admin-Key",
         "Access-Control-Allow-Credentials": "true",
