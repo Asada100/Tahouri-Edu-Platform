@@ -9,6 +9,7 @@
     "smoke-test": "node smoke-test.js",
     "backup": "node backup-db.js",
     "generate-key": "node generate-dev-key.js",
-    "integration-test": "node integration-test.js"
+    "integration-test": "node integration-test.js",
+    "verify-backup": "node verify-backup.js"
   }
 }
