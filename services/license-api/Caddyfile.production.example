@@ -1,0 +1,9 @@
+api.example.com {
+    reverse_proxy tahouri-license-api:8787
+    encode gzip
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "no-referrer"
+    }
+}
