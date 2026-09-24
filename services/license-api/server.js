@@ -907,13 +907,39 @@ async function paymentCreate(req, res) {
         academicYear, JSON.stringify(body.metadata || {}), now
     );
 
-    audit("payment.created", "client", { metadata: { paymentId, provider: PAYMENT_PROVIDER } });
+    let gateway;
+    try {
+        gateway = paymentProvider.createPaymentRequest({
+            payment: {
+                payment_id: paymentId,
+                amount,
+                currency: String(body.currency || "IRR"),
+                product_id: PRODUCT_ID,
+                grade_id: gradeId,
+                academic_year: academicYear
+            }
+        });
+    } catch (error) {
+        db.prepare("DELETE FROM payments WHERE payment_id = ? AND status = 'pending'").run(paymentId);
+        audit("payment.create.rejected", "server", {
+            metadata: { paymentId, provider: PAYMENT_PROVIDER, reason: error.message }
+        });
+        return send(res, 503, {
+            ok: false,
+            message: "درگاه پرداخت برای ایجاد تراکنش آماده نیست."
+        });
+    }
+
+    audit("payment.created", "client", {
+        metadata: { paymentId, provider: PAYMENT_PROVIDER }
+    });
 
     return send(res, 201, {
         ok: true,
         paymentId,
         provider: PAYMENT_PROVIDER,
         status: "pending",
+        gateway,
         message: PAYMENT_PROVIDER === "manual"
             ? "پرداخت درگاه هنوز متصل نشده است."
             : "درخواست پرداخت ایجاد شد."
