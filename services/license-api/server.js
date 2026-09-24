@@ -1232,6 +1232,7 @@ const server = http.createServer(async (req, res) => {
         }
 
         if (req.method === "GET" && req.url === "/api/metrics/alerts") {
+    if (!requireAdmin(req, res)) return;
     const alerts = evaluateOperationalAlerts();
     auditOperationalAlerts(alerts);
     return send(res, 200, { ok: true, alerts });
@@ -1402,6 +1403,20 @@ function getDatabaseSchemaVersion() {
     return Number(row.user_version || 0);
 }
 
+function migrateDatabase() {
+    const current = getDatabaseSchemaVersion();
+    if (current > DB_SCHEMA_VERSION) {
+        throw new Error("Database schema is newer than this service.");
+    }
+
+    if (current < 1) {
+        db.exec("PRAGMA user_version = 1");
+        audit("database.migrated", "system", { fromVersion: current, toVersion: 1 });
+    }
+
+    return DB_SCHEMA_VERSION;
+}
+
 function ensureDatabaseSchemaVersion() {
     const current = getDatabaseSchemaVersion();
     if (current === 0) {
@@ -1419,6 +1434,7 @@ function ensureDatabaseSchemaVersion() {
 
 function startupRecoveryCheck() {
     try {
+        migrateDatabase();
         ensureDatabaseSchemaVersion();
         const integrity = db.prepare("PRAGMA integrity_check").get();
         if (!integrity || integrity.integrity_check !== "ok") {
