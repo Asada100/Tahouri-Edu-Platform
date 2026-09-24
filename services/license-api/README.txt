@@ -245,3 +245,13 @@ Before customer release, all of the following must be verified on the real deplo
   [ ] no secrets or test codes are present in the deployment
 
 If any gate is unchecked, do not open customer activation.
+
+
+Production deployment variables:
+  TAHOURI_API_DOMAIN=api.example.com
+  TAHOURI_APP_ORIGIN=https://app.example
+  TAHOURI_ADMIN_ORIGIN=https://admin.example
+
+DNS:
+  Create an A/AAAA record for TAHOURI_API_DOMAIN pointing to the production server.
+  Caddy will terminate HTTPS and proxy the API to the internal License API container.
