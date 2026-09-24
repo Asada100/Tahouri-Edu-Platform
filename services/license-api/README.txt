@@ -30,6 +30,12 @@ Database schema:
 Integration test:
   npm run integration-test
 
+Release security test:
+  npm run security-test
+
+Release check:
+  npm run release-check
+
 Backup:
   npm run backup
 
