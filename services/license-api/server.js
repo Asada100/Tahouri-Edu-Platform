@@ -579,6 +579,45 @@ async function activate(req, res) {
     return send(res, 200, { valid: true, entitlement });
 }
 
+function getActiveLicense(licenseId) {
+    const license = db.prepare(
+        "SELECT * FROM licenses WHERE license_id = ?"
+    ).get(licenseId);
+
+    if (!license) return { valid: false, reason: "not_found" };
+    if (license.status !== "active") return { valid: false, reason: license.status };
+    if (Date.parse(license.validUntil || license.valid_until) <= Date.now()) {
+        return { valid: false, reason: "expired" };
+    }
+
+    return { valid: true, license };
+}
+
+async function licenseStatus(req, res) {
+    const url = new URL(req.url, "http://localhost");
+    const licenseId = String(url.searchParams.get("licenseId") || "").trim();
+    if (!licenseId) return send(res, 400, { ok: false, valid: false, message: "licenseId الزامی است." });
+
+    const result = getActiveLicense(licenseId);
+    if (!result.valid) {
+        return send(res, 200, { ok: true, valid: false, reason: result.reason });
+    }
+
+    return send(res, 200, {
+        ok: true,
+        valid: true,
+        license: {
+            licenseId: result.license.license_id,
+            studentId: result.license.student_id,
+            gradeId: result.license.grade_id,
+            academicYear: result.license.academic_year,
+            validFrom: result.license.valid_from,
+            validUntil: result.license.valid_until,
+            status: result.license.status
+        }
+    });
+}
+
 async function adminCreateCodes(req, res) {
     if (!requireAdmin(req, res)) return;
     const body = await readBody(req);
@@ -1014,6 +1053,10 @@ const server = http.createServer(async (req, res) => {
                     format: "pem"
                 }).toString()
             });
+        }
+
+        if (req.method === "GET" && req.url.startsWith("/api/licenses/status")) {
+            return await licenseStatus(req, res);
         }
 
         if (req.method === "POST" && req.url === "/api/licenses/activate") {
