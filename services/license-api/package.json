@@ -5,6 +5,7 @@
   "description": "Tahouri development license API. Test environment only.",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "generate-key": "node generate-dev-key.js"
   }
 }
