@@ -339,49 +339,66 @@
         persianDay
     ) {
 
+        /*
+         * Robust conversion for the licensing layer.
+         *
+         * The previous binary-search implementation depended on
+         * millisecond/day arithmetic across local timezone/DST
+         * boundaries and could fail even when Intl Persian calendar
+         * support was available.
+         *
+         * We only need exact academic boundary dates here, so use
+         * Intl as the source of truth and scan a safe Gregorian window.
+         */
+
         try {
-
-            const startGregorian =
-                Date.UTC(
-                    persianYear + 621,
-                    2,
-                    1
-                );
-
-            const endGregorian =
-                Date.UTC(
-                    persianYear + 622,
-                    2,
-                    31
-                );
 
             const target =
                 (
-                    persianYear * 10000 +
-                    persianMonth * 100 +
-                    persianDay
+                    Number(persianYear) * 10000 +
+                    Number(persianMonth) * 100 +
+                    Number(persianDay)
                 );
 
-            let low =
-                startGregorian;
-
-            let high =
-                endGregorian;
-
-            while (
-                low <= high
+            if (
+                !Number.isFinite(target) ||
+                !persianYear ||
+                !persianMonth ||
+                !persianDay
             ) {
 
-                const middle =
-                    Math.floor(
-                        (
-                            low +
-                            high
-                        ) / 2
-                    );
+                return null;
+
+            }
+
+            // Persian year Y is approximately Gregorian Y + 621.
+            // Start at the beginning of March and scan the whole year.
+            const base =
+                new Date(
+                    Date.UTC(
+                        Number(persianYear) + 621,
+                        2,
+                        1,
+                        12,
+                        0,
+                        0,
+                        0
+                    )
+                );
+
+            const maxDays = 400;
+
+            for (
+                let offset = 0;
+                offset < maxDays;
+                offset++
+            ) {
 
                 const date =
-                    new Date(middle);
+                    new Date(
+                        base.getTime() +
+                        offset * 86400000
+                    );
 
                 const parts =
                     getPersianParts(date);
@@ -407,23 +424,6 @@
 
                 }
 
-                if (
-                    current < target
-                ) {
-
-                    low =
-                        middle +
-                        86400000;
-
-                }
-                else {
-
-                    high =
-                        middle -
-                        86400000;
-
-                }
-
             }
 
             return null;
@@ -441,7 +441,6 @@
         }
 
     }
-
 
     // =====================================
     // Academic Period
