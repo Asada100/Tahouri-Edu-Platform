@@ -938,7 +938,7 @@ async function paymentCallback(req, res) {
 
     let verified = false;
     try {
-        verified = paymentProvider.verifyCallback({
+        verified = paymentProvider.verifyServerSide({
             payment,
             authority,
             status,
