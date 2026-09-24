@@ -16,6 +16,8 @@ const PORT = Number(process.env.PORT || 8787);
 const HOST = process.env.HOST || "127.0.0.1";
 const PRODUCT_ID = "tahouri-edu";
 const ENTITLEMENT_VERSION = 1;
+const NODE_ENV = String(process.env.NODE_ENV || "development").toLowerCase();
+const IS_PRODUCTION = NODE_ENV === "production";
 const ADMIN_KEY = String(process.env.TAHOURI_ADMIN_KEY || (IS_PRODUCTION ? "" : "TAHOURI-ADMIN-TEST"));
 const ADMIN_PASSWORD = String(process.env.TAHOURI_ADMIN_PASSWORD || ADMIN_KEY);
 const ADMIN_SESSIONS = new Map();
@@ -30,8 +32,6 @@ const PAYMENT_PROVIDER = String(process.env.TAHOURI_PAYMENT_PROVIDER || "manual"
 const RATE_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT = 30;
 const rateBuckets = new Map();
-const NODE_ENV = String(process.env.NODE_ENV || "development").toLowerCase();
-const IS_PRODUCTION = NODE_ENV === "production";
 const ADMIN_ORIGIN = String(process.env.TAHOURI_ADMIN_ORIGIN || (IS_PRODUCTION ? "" : "http://localhost:5500"));
 const COOKIE_SECURE = IS_PRODUCTION ? "; Secure" : "";
 
@@ -253,14 +253,38 @@ function signClaims(claims) {
     return signer.sign(privateKey).toString("base64");
 }
 
+function getIranianDateParts(date) {
+    const formatter = new Intl.DateTimeFormat("en-US-u-ca-persian", {
+        timeZone: "Asia/Tehran", year: "numeric", month: "numeric", day: "numeric"
+    });
+    const parts = Object.fromEntries(
+        formatter.formatToParts(date)
+            .filter(part => part.type !== "literal")
+            .map(part => [part.type, Number(part.value)])
+    );
+    return { year: parts.year, month: parts.month, day: parts.day };
+}
+
+function findNext31Shahrivar(year) {
+    const start = Date.UTC(year + 621, 8, 20);
+    const end = Date.UTC(year + 621, 8, 25);
+    for (let time = start; time <= end; time += 24 * 60 * 60 * 1000) {
+        const date = new Date(time);
+        const parts = getIranianDateParts(date);
+        if (parts.year === year && parts.month === 6 && parts.day === 31) {
+            return date;
+        }
+    }
+    throw new Error("31 Shahrivar could not be resolved for academic year " + year);
+}
+
 function academicPeriod() {
     const now = new Date();
-    const gy = now.getUTCFullYear();
-    const start = Date.UTC(gy, 8, 22, 20, 30, 0);
-    const academicYear = now.getTime() >= start ? gy - 621 : gy - 622;
-    const validUntil = new Date(
-        Date.UTC(academicYear + 622, 8, 22, 20, 29, 59, 999)
-    );
+    const iran = getIranianDateParts(now);
+    const academicYear = iran.month >= 7 ? iran.year : iran.year - 1;
+    const expiryDay = findNext31Shahrivar(academicYear + 1);
+    // Iran has a fixed UTC+03:30 offset since DST was abolished.
+    const validUntil = new Date(expiryDay.getTime() + (23 * 60 + 59) * 60 * 1000 + 59 * 1000 + 999 - (3 * 60 + 30) * 60 * 1000);
 
     return {
         academicYear: String(academicYear),
