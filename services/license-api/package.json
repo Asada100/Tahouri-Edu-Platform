@@ -12,6 +12,8 @@
     "integration-test": "node integration-test.js",
     "verify-backup": "node verify-backup.js",
     "preflight-production": "node preflight-production.js",
-    "restore-rehearsal": "node restore-rehearsal.js"
+    "restore-rehearsal": "node restore-rehearsal.js",
+    "security-test": "node security-test.js",
+    "release-check": "node security-test.js"
   }
 }
