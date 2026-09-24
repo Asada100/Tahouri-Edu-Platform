@@ -8,6 +8,7 @@
     "start": "node server.js",
     "smoke-test": "node smoke-test.js",
     "backup": "node backup-db.js",
-    "generate-key": "node generate-dev-key.js"
+    "generate-key": "node generate-dev-key.js",
+    "integration-test": "node integration-test.js"
   }
 }
