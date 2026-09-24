@@ -118,7 +118,7 @@
                 return { valid: false, reason: "نسخه مجوز پشتیبانی نمی‌شود." };
             }
 
-            if (!claims.licenseId || !claims.validUntil || !claims.academicYear) {
+            if (!claims.licenseId || !claims.validUntil || !claims.academicYear || !claims.studentId) {
                 return { valid: false, reason: "اطلاعات مجوز کامل نیست." };
             }
 
