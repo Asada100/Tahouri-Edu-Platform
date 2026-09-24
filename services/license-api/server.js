@@ -192,8 +192,8 @@ try {
         fs.readFileSync(privateKeyFile, "utf8")
     );
 } catch (error) {
-    console.error("Tahouri License API: private key unavailable.", error.message);
-    console.error("Set TAHOURI_LICENSE_PRIVATE_KEY_FILE to a development private key.");
+    safeLog("error", "Tahouri License API: private key unavailable.", { error: error.message });
+    safeLog("error", "Set TAHOURI_LICENSE_PRIVATE_KEY_FILE to a development private key.");
     process.exit(1);
 }
 
@@ -1364,7 +1364,7 @@ if (req.method === "GET" && req.url === "/api/metrics") {
 
         return send(res, 404, { message: "مسیر موردنظر پیدا نشد." });
     } catch (error) {
-        console.error("Tahouri License API Error:", error);
+        safeLog("error", "Tahouri License API request failed.", { error: error.message });
         return send(res, 500, {
             ok: false,
             valid: false,
