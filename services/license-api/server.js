@@ -6,6 +6,9 @@
 
 "use strict";
 
+const SERVICE_VERSION = String(process.env.TAHOURI_SERVICE_VERSION || "1.0.0").trim() || "unknown";
+const SERVICE_ENVIRONMENT = String(process.env.NODE_ENV || "development").trim() || "development";
+
 const INSTANCE_ID = String(
     process.env.TAHOURI_INSTANCE_ID ||
     require("node:os").hostname()
@@ -139,6 +142,8 @@ function metricsSnapshot() {
     return {
         ...METRICS,
         instanceId: INSTANCE_ID,
+        serviceVersion: SERVICE_VERSION,
+        environment: SERVICE_ENVIRONMENT,
         uptimeSeconds: Math.floor(process.uptime()),
         alerts: evaluateOperationalAlerts()
     };
@@ -1413,7 +1418,7 @@ function startupRecoveryCheck() {
 const startupHealthy = startupRecoveryCheck();
 
 if (startupHealthy) {
-    audit("service.started", "system", { environment: process.env.NODE_ENV || "development", instanceId: INSTANCE_ID });
+    audit("service.started", "system", { environment: SERVICE_ENVIRONMENT, serviceVersion: SERVICE_VERSION, instanceId: INSTANCE_ID });
 }
 if (!startupHealthy && process.env.NODE_ENV === "production") {
     console.error("Production startup aborted because database recovery check failed.");
@@ -1429,7 +1434,7 @@ function gracefulShutdown(signal) {
     console.log("Shutdown requested:", signal);
 
     try {
-        audit("service.shutdown", "system", { signal, instanceId: INSTANCE_ID });
+        audit("service.shutdown", "system", { signal, environment: SERVICE_ENVIRONMENT, serviceVersion: SERVICE_VERSION, instanceId: INSTANCE_ID });
     } catch (error) {
         console.error("Shutdown audit failed:", error.message);
     }
