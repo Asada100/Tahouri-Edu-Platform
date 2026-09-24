@@ -22,6 +22,8 @@ const ADMIN_SESSIONS = new Map();
 const ADMIN_LOGIN_FAILURES = new Map();
 const ADMIN_LOCK_MS = 15 * 60 * 1000;
 const ADMIN_MAX_FAILURES = 5;
+const ADMIN_LOGIN_RATE_LIMIT = 10;
+const adminLoginRateBuckets = new Map();
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 const SESSION_COOKIE_NAME = "tahouri_admin_session";
 const PAYMENT_PROVIDER = String(process.env.TAHOURI_PAYMENT_PROVIDER || "manual");
@@ -338,6 +340,20 @@ function cleanupAdminSessions() {
 }
 
 setInterval(cleanupAdminSessions, 10 * 60 * 1000).unref();
+
+function requestAllowedWithLimit(req, limit, bucketMap) {
+    const ip = String(req.socket.remoteAddress || "unknown");
+    const now = Date.now();
+    const current = bucketMap.get(ip);
+
+    if (!current || now - current.startedAt >= RATE_WINDOW_MS) {
+        bucketMap.set(ip, { startedAt: now, count: 1 });
+        return true;
+    }
+
+    current.count += 1;
+    return current.count <= limit;
+}
 
 function requestAllowed(req) {
     const ip = String(req.socket.remoteAddress || "unknown");
