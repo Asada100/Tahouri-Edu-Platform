@@ -39,6 +39,19 @@ if (adminPassword && adminPassword.length < 16) {
     errors.push("TAHOURI_ADMIN_PASSWORD must be at least 16 characters.");
 }
 
+for (const [name, value] of [["TAHOURI_APP_ORIGIN", appOrigin], ["TAHOURI_ADMIN_ORIGIN", adminOrigin]]) {
+    if (value) {
+        try {
+            const url = new URL(value);
+            if (url.pathname !== "/" || url.search || url.hash) {
+                errors.push(name + " must be an origin without path, query, or hash.");
+            }
+        } catch {
+            errors.push(name + " is not a valid URL.");
+        }
+    }
+}
+
 if (appOrigin && adminOrigin && appOrigin === adminOrigin) {
     warnings.push("TAHOURI_APP_ORIGIN and TAHOURI_ADMIN_ORIGIN are identical; separate origins are recommended for production isolation.");
 }
