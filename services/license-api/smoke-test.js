@@ -19,6 +19,8 @@ async function main() {
     const adminSession = await request("/api/admin/session");
     if (typeof adminSession.ok !== "boolean") throw new Error("Admin session endpoint failed.");
 
+    const callback = await request("/api/payments/callback", {\n        method: "POST",\n        headers: { "Content-Type": "application/json" },\n        body: JSON.stringify({ paymentId: "nonexistent-smoke-test", authority: "smoke", status: "verified" })\n    }).catch(error => ({ error }));\n    if (!callback.error || !String(callback.error.message).includes("HTTP 404")) {\n        throw new Error("Payment callback negative-path test failed.");\n    }
+
     console.log("Tahouri License API smoke test: PASS");
 }
 
