@@ -1,8 +1,7 @@
-TAHOURI LICENSE API — DEVELOPMENT SERVER
+TAHOURI LICENSE API — DEVELOPMENT / PRODUCTION RUNBOOK
 
-This server is TEST/DEVELOPMENT ONLY.
+1. DEVELOPMENT
 
-Run:
   cd services/license-api
   npm install
   npm run generate-key
@@ -11,28 +10,104 @@ Run:
 Default:
   http://localhost:8787
 
-Test codes:
-  GRADE1-1405-TEST
-  GRADE2-1405-TEST
-  GRADE3-1405-TEST
-  GRADE4-1405-TEST
-  GRADE5-1405-TEST
-  GRADE6-1405-TEST
-  GRADE6-1405-TEST-A
-  GRADE6-1405-TEST-B
-  GRADE6-1405-TEST-C
+For the browser app:
+  npx serve -l 5500
 
-The private signing key is intentionally NOT stored in Git.
-Set:
-  TAHOURI_LICENSE_PRIVATE_KEY_FILE
+Smoke test:
+  npm run smoke-test
 
-Production must use environment/secret storage, HTTPS, a real database,
-rate limiting, authentication, audit logging and payment verification.
+Integration test:
+  npm run integration-test
 
-
-Database backup:
+Backup:
   npm run backup
 
-The backup uses SQLite VACUUM INTO and writes to services/license-api/backups
-(or TAHOURI_LICENSE_BACKUP_DIR). Keep backups outside the application host
-for production disaster recovery.
+Verify an existing backup:
+  npm run verify-backup -- <backup.sqlite>
+
+Development test codes are enabled only when the server is not running in
+production. Never use test codes for real customers.
+
+2. REQUIRED PRODUCTION SECRETS
+
+Production must provide secret storage for:
+
+  NODE_ENV=production
+  TAHOURI_LICENSE_PRIVATE_KEY_FILE=<secret/private-key-path>
+  TAHOURI_ADMIN_PASSWORD=<strong-random-secret>
+  TAHOURI_PAYMENT_PROVIDER=<real-provider-name>
+  TAHOURI_ADMIN_ORIGIN=https://<admin-origin>
+
+Never commit:
+  - private signing keys
+  - admin passwords
+  - gateway secrets
+  - database credentials
+  - production database files
+
+3. PRODUCTION SECURITY
+
+Use HTTPS in front of the API and admin panel.
+Keep the private signing key only on the server.
+The application receives/verifies the public key only.
+Do not put gateway credentials or admin credentials in the browser.
+
+Production blocks:
+  - seeded TEST activation codes
+  - manual payment verification
+  - missing production payment provider
+  - missing admin password
+  - missing private signing key
+  - missing approved admin origin
+
+4. DATABASE
+
+The service uses SQLite for the current single-instance deployment model.
+Keep the database on persistent storage.
+
+For a multi-instance deployment, move sessions/database handling to shared
+infrastructure before scaling horizontally.
+
+5. BACKUP / RECOVERY
+
+Create a backup:
+  npm run backup
+
+The backup is integrity-checked and must be copied to storage outside the
+application host.
+
+Verify a backup:
+  npm run verify-backup -- <backup.sqlite>
+
+A successful verification checks SQLite integrity, required tables and record
+counts. Periodically perform a full restore rehearsal on an isolated copy.
+
+6. PAYMENT
+
+The current development provider is manual.
+
+Production requires a real provider adapter implementing server-side
+verification. A callback parameter claiming "verified" is never sufficient
+for production authorization.
+
+Do not enable production payments until the selected gateway's official API
+verification flow is implemented and tested.
+
+7. DEPLOYMENT ORDER
+
+  1. Provision HTTPS and persistent storage.
+  2. Generate/store production signing key.
+  3. Configure production secrets.
+  4. Configure the real payment provider adapter.
+  5. Start the API.
+  6. Run health/smoke checks.
+  7. Create a controlled test license.
+  8. Verify activation, status, expiry, revoke and renewal.
+  9. Verify backup and restore.
+  10. Only then open customer activation.
+
+8. IMPORTANT ARCHITECTURE RULE
+
+License != Activation Code != Payment != Profile.
+
+Do not move licensing logic into the activity engines.
