@@ -13,6 +13,8 @@
         mode: "test",
         apiBaseUrl: "http://localhost:8787/api",
         requestTimeoutMs: 8000,
+        appVersion: "5.1.0",
+        updateManifestUrl: "",
         productId: "tahouri-edu",
         entitlementVersion: 1,
         publicKeyPem: `-----BEGIN PUBLIC KEY-----
