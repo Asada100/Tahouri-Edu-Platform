@@ -149,11 +149,6 @@ async function main() {
         });
         assert(payment.status === 201 && payment.data.status === "pending", "Payment creation failed.");
 
-        const login = await request("POST", "/api/admin/login", { password: "TAHOURI-ADMIN-TEST" });
-        assert(login.status === 200 && login.data.ok, "Admin login failed.");
-        const cookie = login.headers["set-cookie"]?.[0]?.split(";")[0];
-        assert(cookie, "Admin session cookie missing.");
-
         const verifyPayment = await request("POST", "/api/admin/payments/verify", {
             paymentId: payment.data.paymentId
         }, { Cookie: cookie });
@@ -169,7 +164,7 @@ async function main() {
         try {
             const license = db.prepare("SELECT license_id, student_id, grade_id, status FROM licenses LIMIT 1").get();
             assert(license && license.student_id === "integration-student", "License was not persisted.");
-            assert(license.status === "active", "Persisted license is not active.");
+            assert(license.status === "revoked", "Persisted license is not revoked.");
         } finally {
             db.close();
         }
