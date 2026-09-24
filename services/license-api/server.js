@@ -23,6 +23,7 @@ const ADMIN_LOGIN_FAILURES = new Map();
 const ADMIN_LOCK_MS = 15 * 60 * 1000;
 const ADMIN_MAX_FAILURES = 5;
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
+const SESSION_COOKIE_NAME = "tahouri_admin_session";
 const PAYMENT_PROVIDER = String(process.env.TAHOURI_PAYMENT_PROVIDER || "manual");
 const RATE_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT = 30;
@@ -252,6 +253,19 @@ function adminAuthorized(req) {
         return false;
     }
     return true;
+}
+
+function parseCookies(req) {
+    const header = String(req.headers.cookie || "");
+    const cookies = {};
+    for (const part of header.split(";")) {
+        const index = part.indexOf("=");
+        if (index < 0) continue;
+        const key = part.slice(0, index).trim();
+        const value = part.slice(index + 1).trim();
+        if (key) cookies[key] = decodeURIComponent(value);
+    }
+    return cookies;
 }
 
 function createAdminSession() {
