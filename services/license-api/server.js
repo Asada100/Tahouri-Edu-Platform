@@ -60,6 +60,8 @@ function safeLog(level, message, meta = {}) {
     else console.log(output);
 }
 
+let CURRENT_REQUEST_ID = null;
+
 const METRICS = {
     startedAt: new Date().toISOString(),
     requests: 0,
@@ -1193,6 +1195,7 @@ async function adminVerifyPayment(req, res) {
 const server = http.createServer(async (req, res) => {
     const requestId = createRequestId();
     res.__requestId = requestId;
+    CURRENT_REQUEST_ID = requestId;
     if (req.method === "OPTIONS") {
         const origin = String(req.headers.origin || "");
         if (origin && !isAllowedOrigin(origin)) {
