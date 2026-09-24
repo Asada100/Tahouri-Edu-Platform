@@ -89,6 +89,31 @@ async function main() {
         assert(activation.data.entitlement?.claims?.gradeScope === "grade6", "Grade binding missing.");
         assert(Number.isFinite(Date.parse(activation.data.entitlement.claims.validUntil)), "Expiry is invalid.");
 
+        const login = await request("POST", "/api/admin/login", { password: "TAHOURI-ADMIN-TEST" });
+        assert(login.status === 200 && login.data.ok, "Admin login failed.");
+        const cookie = login.headers["set-cookie"]?.[0]?.split(";")[0];
+        assert(cookie, "Admin session cookie missing.");
+
+        const list = await request("GET", "/api/admin/licenses", undefined, { Cookie: cookie });
+        assert(list.status === 200 && list.data.licenses?.length === 1, "License was not listed.");
+
+        const licenseId = activation.data.entitlement.claims.licenseId;
+        const extension = new Date(Date.now() + 370 * 24 * 60 * 60 * 1000).toISOString();
+        const extended = await request("POST", "/api/admin/licenses/extend", {
+            licenseId,
+            validUntil: extension
+        }, { Cookie: cookie });
+        assert(extended.status === 200 && extended.data.ok, "License extension failed.");
+        assert(extended.data.entitlement.claims.validUntil === extension, "Extended expiry was not signed.");
+
+        const revoked = await request("POST", "/api/admin/licenses/revoke", {
+            licenseId
+        }, { Cookie: cookie });
+        assert(revoked.status === 200 && revoked.data.ok, "License revoke failed.");
+
+        const afterRevoke = await request("GET", "/api/admin/licenses", undefined, { Cookie: cookie });
+        assert(afterRevoke.status === 200 && afterRevoke.data.licenses[0].status === "revoked", "Revoked license status was not persisted.");
+
         const reuse = await request("POST", "/api/licenses/activate", {
             code: "GRADE6-1405-TEST-A",
             gradeId: "grade6",
