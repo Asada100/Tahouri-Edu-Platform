@@ -1375,6 +1375,10 @@ function startupRecoveryCheck() {
 }
 
 const startupHealthy = startupRecoveryCheck();
+
+if (startupHealthy) {
+    audit("service.started", "system", { environment: process.env.NODE_ENV || "development" });
+}
 if (!startupHealthy && process.env.NODE_ENV === "production") {
     console.error("Production startup aborted because database recovery check failed.");
     process.exit(1);
@@ -1387,6 +1391,12 @@ function gracefulShutdown(signal) {
     isShuttingDown = true;
 
     console.log("Shutdown requested:", signal);
+
+    try {
+        audit("service.shutdown", "system", { signal });
+    } catch (error) {
+        console.error("Shutdown audit failed:", error.message);
+    }
 
     try {
         db.pragma("wal_checkpoint(TRUNCATE)");
