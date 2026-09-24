@@ -1808,12 +1808,18 @@
     // Initialize
     // =====================================
 
-    function initialize() {
+    async function initialize() {
 
         console.log(
             "Activation Gate: Initializing..."
         );
 
+        if (
+            window.LicenseManager &&
+            typeof LicenseManager.initializeRemoteEntitlement === "function"
+        ) {
+            await LicenseManager.initializeRemoteEntitlement();
+        }
 
         renderGate();
 
