@@ -17,6 +17,9 @@ const HOST = process.env.HOST || "127.0.0.1";
 const PRODUCT_ID = "tahouri-edu";
 const ENTITLEMENT_VERSION = 1;
 const ADMIN_KEY = String(process.env.TAHOURI_ADMIN_KEY || "TAHOURI-ADMIN-TEST");
+const ADMIN_PASSWORD = String(process.env.TAHOURI_ADMIN_PASSWORD || ADMIN_KEY);
+const ADMIN_SESSIONS = new Map();
+const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 const RATE_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT = 30;
 const rateBuckets = new Map();
@@ -155,6 +158,7 @@ function send(res, status, payload) {
         "Cache-Control": "no-store",
         "Access-Control-Allow-Origin": "http://localhost:5500",
         "Access-Control-Allow-Headers": "Content-Type, X-Admin-Key",
+        "Access-Control-Allow-Credentials": "true",
         "Access-Control-Allow-Methods": "GET,POST,OPTIONS"
     });
     res.end(JSON.stringify(payload));
@@ -204,13 +208,61 @@ function academicPeriod() {
     };
 }
 
+function getSessionId(req) {
+    const cookie = String(req.headers.cookie || "");
+    const match = cookie.match(/(?:^|;)\\s*tahouri_admin_session=([^;]+)/);
+    return match ? decodeURIComponent(match[1]) : "";
+}
+
 function adminAuthorized(req) {
-    const supplied = String(req.headers["x-admin-key"] || "");
-    if (!supplied || supplied.length !== ADMIN_KEY.length) return false;
-    return crypto.timingSafeEqual(
-        Buffer.from(supplied),
-        Buffer.from(ADMIN_KEY)
-    );
+    const sessionId = getSessionId(req);
+    const session = ADMIN_SESSIONS.get(sessionId);
+    if (!session) return false;
+    if (Date.now() > session.expiresAt) {
+        ADMIN_SESSIONS.delete(sessionId);
+        return false;
+    }
+    return true;
+}
+
+function createAdminSession() {
+    const id = crypto.randomBytes(32).toString("base64url");
+    ADMIN_SESSIONS.set(id, { expiresAt: Date.now() + SESSION_TTL_MS });
+    return id;
+}
+
+function clearAdminSession(req) {
+    const id = getSessionId(req);
+    if (id) ADMIN_SESSIONS.delete(id);
+}
+
+function adminLogin(req, res, body) {
+    const supplied = String(body.password || "");
+    if (!supplied || supplied.length !== ADMIN_PASSWORD.length ||
+        !crypto.timingSafeEqual(Buffer.from(supplied), Buffer.from(ADMIN_PASSWORD))) {
+        return send(res, 401, { ok: false, message: "رمز مدیریت نادرست است." });
+    }
+    const sessionId = createAdminSession();
+    res.writeHead(200, {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store",
+        "Set-Cookie": "tahouri_admin_session=" + encodeURIComponent(sessionId) + "; HttpOnly; SameSite=Strict; Path=/; Max-Age=" + Math.floor(SESSION_TTL_MS / 1000),
+        "Access-Control-Allow-Origin": "http://localhost:5500",
+        "Access-Control-Allow-Credentials": "true"
+    });
+    res.end(JSON.stringify({ ok: true }));
+}
+
+function adminLogout(req, res) {
+    clearAdminSession(req);
+    res.writeHead(200, {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store",
+        "Set-Cookie": "tahouri_admin_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0",
+        "Access-Control-Allow-Origin": "http://localhost:5500",
+        "Access-Control-Allow-Credentials": "true"
+    });
+    res.end(JSON.stringify({ ok: true }));
 }
 
 function requestAllowed(req) {
@@ -672,6 +724,18 @@ const server = http.createServer(async (req, res) => {
                 "Cache-Control": "no-store"
             });
             return res.end(fs.readFileSync(adminFile, "utf8"));
+        }
+
+        if (req.method === "POST" && req.url === "/api/admin/login") {
+            return adminLogin(req, res, await readBody(req));
+        }
+
+        if (req.method === "POST" && req.url === "/api/admin/logout") {
+            return adminLogout(req, res);
+        }
+
+        if (req.method === "GET" && req.url === "/api/admin/session") {
+            return send(res, 200, { ok: adminAuthorized(req) });
         }
 
         if (req.method === "GET" && req.url === "/api/public-key") {
