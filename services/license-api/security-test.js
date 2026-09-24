@@ -17,6 +17,10 @@ if (failures.length) {
     throw new Error("Potential secret/logging leak detected in server.js.");
 }
 
+if (!source.includes("X-Content-Type-Options") || !source.includes("X-Frame-Options") || !source.includes("Referrer-Policy")) {
+    throw new Error("Required security headers are missing.");
+}
+
 const required = [
     "function safeLog",
     "function startupRecoveryCheck",
