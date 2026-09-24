@@ -160,6 +160,21 @@ async function main() {
         const health = await request("GET", "/api/health");
         assert(health.status === 200 && health.data.ok, "Health failed after activation.");
 
+        const sessionDb = new DatabaseSync(dbFile);
+        try {
+            const sessionTable = sessionDb.prepare(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='admin_sessions'"
+            ).get();
+            assert(sessionTable, "Persistent admin_sessions table is missing.");
+
+            const sessionCount = sessionDb.prepare(
+                "SELECT COUNT(*) AS count FROM admin_sessions"
+            ).get().count;
+            assert(Number(sessionCount) >= 1, "Admin session was not persisted.");
+        } finally {
+            sessionDb.close();
+        }
+
         const db = new DatabaseSync(dbFile);
         try {
             const license = db.prepare("SELECT license_id, student_id, grade_id, status FROM licenses LIMIT 1").get();
