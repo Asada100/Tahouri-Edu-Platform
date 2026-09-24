@@ -1254,23 +1254,32 @@ if (req.method === "GET" && req.url === "/api/metrics") {
                 dbIntegrity = "failed";
             }
 
-            const paymentProviderReady =
-                PAYMENT_PROVIDER !== "manual" &&
-                PAYMENT_PROVIDER !== "" &&
-                PAYMENT_PROVIDER !== "undefined";
-
-            const healthy = database === "ok";
-
             const operational = operationalHealthStatus();
-        const statusCode = operational.status === "critical" ? 503 : 200;
-        return send(res, healthy ? 200 : 503, {
-                ok: healthy,
+            const databaseHealthy = database === "ok";
+            const critical = operational.status === "critical" || !databaseHealthy;
+
+            return send(res, critical ? 503 : 200, {
+                ok: !critical,
                 service: "tahouri-license-api",
-                environment: NODE_ENV,
+                environment: SERVICE_ENVIRONMENT,
+                serviceVersion: SERVICE_VERSION,
+                buildId: BUILD_ID,
+                instanceId: INSTANCE_ID,
+                dbSchemaVersion: DB_SCHEMA_VERSION,
                 database,
                 dbIntegrity,
-                paymentProvider: PAYMENT_PROVIDER,
-                paymentProviderReady
+                operational
+            });
+        }
+
+        if (req.method === "GET" && req.url === "/api/ready") {
+            const operational = operationalHealthStatus();
+            const ready = operational.status !== "critical";
+            return send(res, ready ? 200 : 503, {
+                ok: ready,
+                ready,
+                service: "tahouri-license-api",
+                instanceId: INSTANCE_ID
             });
         }
 
