@@ -1093,11 +1093,32 @@ const server = http.createServer(async (req, res) => {
         }
 
         if (req.method === "GET" && req.url === "/api/health") {
-            return send(res, 200, {
-                ok: true,
+            let database = "ok";
+            let dbIntegrity = "ok";
+            try {
+                const result = db.prepare("PRAGMA integrity_check").get();
+                dbIntegrity = result && result.integrity_check === "ok" ? "ok" : "failed";
+                if (dbIntegrity !== "ok") database = "degraded";
+            } catch {
+                database = "failed";
+                dbIntegrity = "failed";
+            }
+
+            const paymentProviderReady =
+                PAYMENT_PROVIDER !== "manual" &&
+                PAYMENT_PROVIDER !== "" &&
+                PAYMENT_PROVIDER !== "undefined";
+
+            const healthy = database === "ok";
+
+            return send(res, healthy ? 200 : 503, {
+                ok: healthy,
                 service: "tahouri-license-api",
                 environment: NODE_ENV,
-                database: "sqlite"
+                database,
+                dbIntegrity,
+                paymentProvider: PAYMENT_PROVIDER,
+                paymentProviderReady
             });
         }
 
