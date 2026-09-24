@@ -34,6 +34,28 @@ const RATE_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT = 30;
 const rateBuckets = new Map();
 
+function safeLog(level, message, meta = {}) {
+    const blocked = /password|token|secret|authority|private.?key|api.?key|merchant|cookie|authorization|code_hash/i;
+    const sanitized = {};
+    for (const [key, value] of Object.entries(meta || {})) {
+        if (blocked.test(key)) {
+            sanitized[key] = "[REDACTED]";
+        } else if (typeof value === "string" && blocked.test(value)) {
+            sanitized[key] = "[REDACTED]";
+        } else {
+            sanitized[key] = value;
+        }
+    }
+
+    const output = Object.keys(sanitized).length
+        ? message + " " + JSON.stringify(sanitized)
+        : message;
+
+    if (level === "error") console.error(output);
+    else if (level === "warn") console.warn(output);
+    else console.log(output);
+}
+
 const METRICS = {
     startedAt: new Date().toISOString(),
     requests: 0,
