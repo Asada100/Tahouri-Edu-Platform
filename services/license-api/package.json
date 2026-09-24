@@ -14,7 +14,7 @@
     "preflight-production": "node preflight-production.js",
     "restore-rehearsal": "node restore-rehearsal.js",
     "security-test": "node security-test.js",
-    "release-check": "node security-test.js",
+    "release-check": "node release-check.js && node security-test.js",
     "release-smoke-test": "node release-smoke-test.js"
   }
 }
