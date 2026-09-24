@@ -933,7 +933,7 @@ async function adminRevokeLicense(req, res) {
         return send(res, 404, { ok: false, message: "مجوز فعال پیدا نشد." });
     }
 
-    audit("license.revoked", "admin", { licenseId });
+    audit("license.revoked", "admin", { licenseId, requestId: res.__requestId });
     return send(res, 200, { ok: true });
 }
 
