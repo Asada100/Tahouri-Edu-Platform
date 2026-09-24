@@ -145,6 +145,7 @@ function metricsSnapshot() {
         instanceId: INSTANCE_ID,
         serviceVersion: SERVICE_VERSION,
         buildId: BUILD_ID,
+        dbSchemaVersion: DB_SCHEMA_VERSION,
         environment: SERVICE_ENVIRONMENT,
         uptimeSeconds: Math.floor(process.uptime()),
         alerts: evaluateOperationalAlerts()
@@ -195,6 +196,8 @@ const privateKeyFile =
 const DATA_DIR =
     process.env.TAHOURI_LICENSE_DATA_DIR ||
     path.join(__dirname, "data");
+
+const DB_SCHEMA_VERSION = 1;
 
 const DB_FILE =
     process.env.TAHOURI_LICENSE_DB_FILE ||
@@ -1394,8 +1397,29 @@ if (req.method === "GET" && req.url === "/api/metrics") {
     }
 });
 
+function getDatabaseSchemaVersion() {
+    const row = db.prepare("PRAGMA user_version").get();
+    return Number(row.user_version || 0);
+}
+
+function ensureDatabaseSchemaVersion() {
+    const current = getDatabaseSchemaVersion();
+    if (current === 0) {
+        db.exec("PRAGMA user_version = 1");
+        return DB_SCHEMA_VERSION;
+    }
+    if (current !== DB_SCHEMA_VERSION) {
+        throw new Error(
+            "Unsupported database schema version: " + current +
+            " (expected " + DB_SCHEMA_VERSION + ")"
+        );
+    }
+    return current;
+}
+
 function startupRecoveryCheck() {
     try {
+        ensureDatabaseSchemaVersion();
         const integrity = db.prepare("PRAGMA integrity_check").get();
         if (!integrity || integrity.integrity_check !== "ok") {
             throw new Error("SQLite integrity check failed at startup.");
