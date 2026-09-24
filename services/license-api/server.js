@@ -197,6 +197,16 @@ const server = http.createServer(async (req, res) => {
             });
         }
 
+        if (req.method === "GET" && req.url === "/api/public-key") {
+            return send(res, 200, {
+                environment: "test",
+                publicKeyPem: crypto.createPublicKey(privateKey).export({
+                    type: "spki",
+                    format: "pem"
+                }).toString()
+            });
+        }
+
         if (req.method === "POST" && req.url === "/api/licenses/activate") {
             return await activate(req, res);
         }
