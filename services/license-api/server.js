@@ -17,6 +17,9 @@ const HOST = process.env.HOST || "127.0.0.1";
 const PRODUCT_ID = "tahouri-edu";
 const ENTITLEMENT_VERSION = 1;
 const ADMIN_KEY = String(process.env.TAHOURI_ADMIN_KEY || "TAHOURI-ADMIN-TEST");
+const RATE_WINDOW_MS = 60 * 1000;
+const RATE_LIMIT = 30;
+const rateBuckets = new Map();
 
 const privateKeyFile =
     process.env.TAHOURI_LICENSE_PRIVATE_KEY_FILE ||
@@ -203,12 +206,35 @@ function academicPeriod() {
 
 function adminAuthorized(req) {
     const supplied = String(req.headers["x-admin-key"] || "");
-    return supplied.length > 0 &&
-        crypto.timingSafeEqual(
-            Buffer.from(supplied),
-            Buffer.from(ADMIN_KEY)
-        );
+    if (!supplied || supplied.length !== ADMIN_KEY.length) return false;
+    return crypto.timingSafeEqual(
+        Buffer.from(supplied),
+        Buffer.from(ADMIN_KEY)
+    );
 }
+
+function requestAllowed(req) {
+    const ip = String(req.socket.remoteAddress || "unknown");
+    const now = Date.now();
+    const current = rateBuckets.get(ip);
+
+    if (!current || now - current.startedAt >= RATE_WINDOW_MS) {
+        rateBuckets.set(ip, { startedAt: now, count: 1 });
+        return true;
+    }
+
+    current.count += 1;
+    return current.count <= RATE_LIMIT;
+}
+
+function cleanRateBuckets() {
+    const cutoff = Date.now() - RATE_WINDOW_MS;
+    for (const [ip, bucket] of rateBuckets) {
+        if (bucket.startedAt < cutoff) rateBuckets.delete(ip);
+    }
+}
+
+setInterval(cleanRateBuckets, RATE_WINDOW_MS).unref();
 
 function requireAdmin(req, res) {
     if (!adminAuthorized(req)) {
@@ -589,6 +615,14 @@ const server = http.createServer(async (req, res) => {
     }
 
     try {
+        if (!requestAllowed(req)) {
+            return send(res, 429, {
+                ok: false,
+                valid: false,
+                message: "تعداد درخواست‌ها بیش از حد مجاز است."
+            });
+        }
+
         if (req.method === "GET" && req.url === "/api/health") {
             return send(res, 200, {
                 ok: true,
@@ -596,6 +630,33 @@ const server = http.createServer(async (req, res) => {
                 environment: "test",
                 database: "sqlite"
             });
+        }
+
+        if (req.method === "GET" && (req.url === "/admin" || req.url === "/admin/")) {
+            const adminFile = path.join(__dirname, "admin", "index.html");
+            res.writeHead(200, {
+                "Content-Type": "text/html; charset=utf-8",
+                "Cache-Control": "no-store"
+            });
+            return res.end(fs.readFileSync(adminFile, "utf8"));
+        }
+
+        if (req.method === "GET" && req.url === "/admin/admin.js") {
+            const adminFile = path.join(__dirname, "admin", "admin.js");
+            res.writeHead(200, {
+                "Content-Type": "application/javascript; charset=utf-8",
+                "Cache-Control": "no-store"
+            });
+            return res.end(fs.readFileSync(adminFile, "utf8"));
+        }
+
+        if (req.method === "GET" && req.url === "/admin/admin.css") {
+            const adminFile = path.join(__dirname, "admin", "admin.css");
+            res.writeHead(200, {
+                "Content-Type": "text/css; charset=utf-8",
+                "Cache-Control": "no-store"
+            });
+            return res.end(fs.readFileSync(adminFile, "utf8"));
         }
 
         if (req.method === "GET" && req.url === "/api/public-key") {
