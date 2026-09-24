@@ -240,6 +240,22 @@ function corsOriginForRequest(req) {
     return isAllowedOrigin(origin) ? origin : ADMIN_ORIGIN;
 }
 
+function boundedString(value, max, field) {
+    const text = String(value ?? "").trim();
+    if (!text || text.length > max) {
+        throw new Error(field + " is invalid.");
+    }
+    return text;
+}
+
+function validateIdentifier(value, field) {
+    const text = boundedString(value, 128, field);
+    if (!/^[A-Za-z0-9._:-]+$/.test(text)) {
+        throw new Error(field + " contains invalid characters.");
+    }
+    return text;
+}
+
 function send(res, status, payload) {
     res.writeHead(status, {
         "Content-Type": "application/json; charset=utf-8",
@@ -539,9 +555,9 @@ if (!IS_PRODUCTION && process.env.TAHOURI_TEST_CODES !== "false") {\n    seedTes
 async function activate(req, res) {
     const body = await readBody(req);
     const code = String(body.code || "").trim().toUpperCase();
-    const gradeId = String(body.gradeId || "").trim();
-    const installationId = String(body.installationId || "").trim();
-    const studentId = String(body.studentId || "").trim();
+    const gradeId = validateIdentifier(body.gradeId, "gradeId");
+    const installationId = validateIdentifier(body.installationId, "installationId");
+    const studentId = validateIdentifier(body.studentId, "studentId");
 
     if (!code || !gradeId || !studentId || !installationId) {
         return send(res, 400, { valid: false, message: "اطلاعات فعال‌سازی کامل نیست." });
@@ -674,7 +690,7 @@ async function licenseStatus(req, res) {
 async function adminCreateCodes(req, res) {
     if (!requireAdmin(req, res)) return;
     const body = await readBody(req);
-    const gradeId = String(body.gradeId || "").trim();
+    const gradeId = validateIdentifier(body.gradeId, "gradeId");
     const academicYear = String(body.academicYear || academicPeriod().academicYear).trim();
     const count = Math.min(Math.max(Number(body.count || 1), 1), 100);
 
@@ -790,7 +806,7 @@ async function adminSearch(req, res) {
 async function adminRevokeLicense(req, res) {
     if (!requireAdmin(req, res)) return;
     const body = await readBody(req);
-    const licenseId = String(body.licenseId || "").trim();
+    const licenseId = validateIdentifier(body.licenseId, "licenseId");
 
     const result = db.prepare(`
         UPDATE licenses
@@ -809,7 +825,7 @@ async function adminRevokeLicense(req, res) {
 async function adminExtendLicense(req, res) {
     if (!requireAdmin(req, res)) return;
     const body = await readBody(req);
-    const licenseId = String(body.licenseId || "").trim();
+    const licenseId = validateIdentifier(body.licenseId, "licenseId");
     const validUntil = String(body.validUntil || "").trim();
 
     if (!licenseId || !validUntil || Number.isNaN(Date.parse(validUntil))) {
@@ -872,7 +888,7 @@ async function paymentCreate(req, res) {
     const body = await readBody(req);
     const paymentId = "pay_" + crypto.randomUUID();
     const now = new Date().toISOString();
-    const gradeId = String(body.gradeId || "").trim();
+    const gradeId = validateIdentifier(body.gradeId, "gradeId");
     const academicYear = String(body.academicYear || academicPeriod().academicYear).trim();
     const amount = Number(body.amount || 0);
 
