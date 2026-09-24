@@ -1351,6 +1351,35 @@ if (req.method === "GET" && req.url === "/api/metrics") {
     }
 });
 
+function startupRecoveryCheck() {
+    try {
+        const integrity = db.prepare("PRAGMA integrity_check").get();
+        if (!integrity || integrity.integrity_check !== "ok") {
+            throw new Error("SQLite integrity check failed at startup.");
+        }
+
+        const requiredTables = ["activation_codes", "licenses", "audit_log", "payments", "admin_sessions"];
+        for (const table of requiredTables) {
+            const row = db.prepare(
+                "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?"
+            ).get(table);
+            if (!row) throw new Error("Required table missing: " + table);
+        }
+
+        console.log("Startup recovery check: PASS");
+        return true;
+    } catch (error) {
+        console.error("Startup recovery check: FAIL -", error.message);
+        return false;
+    }
+}
+
+const startupHealthy = startupRecoveryCheck();
+if (!startupHealthy && process.env.NODE_ENV === "production") {
+    console.error("Production startup aborted because database recovery check failed.");
+    process.exit(1);
+}
+
 let isShuttingDown = false;
 
 function gracefulShutdown(signal) {
