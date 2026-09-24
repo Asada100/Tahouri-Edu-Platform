@@ -22,6 +22,10 @@ const IS_PRODUCTION = NODE_ENV === "production";
 const ADMIN_KEY = String(process.env.TAHOURI_ADMIN_KEY || (IS_PRODUCTION ? "" : "TAHOURI-ADMIN-TEST"));
 const ADMIN_PASSWORD = String(process.env.TAHOURI_ADMIN_PASSWORD || ADMIN_KEY);
 const ADMIN_SESSIONS = new Map();
+function adminSessionFile() {
+    return process.env.TAHOURI_ADMIN_SESSION_FILE ||
+        path.join(process.env.TAHOURI_LICENSE_DATA_DIR || __dirname, "admin-sessions.json");
+}
 const ADMIN_LOGIN_FAILURES = new Map();
 const ADMIN_LOCK_MS = 15 * 60 * 1000;
 const ADMIN_MAX_FAILURES = 5;
