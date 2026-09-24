@@ -34,10 +34,15 @@ const RATE_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT = 30;
 const rateBuckets = new Map();
 const ADMIN_ORIGIN = String(process.env.TAHOURI_ADMIN_ORIGIN || (IS_PRODUCTION ? "" : "http://localhost:5500"));
+const APP_ORIGIN = String(process.env.TAHOURI_APP_ORIGIN || (IS_PRODUCTION ? "" : "http://localhost:5500"));
 const COOKIE_SECURE = IS_PRODUCTION ? "; Secure" : "";
 
 if (IS_PRODUCTION && !process.env.TAHOURI_ADMIN_ORIGIN) {
     throw new Error("TAHOURI_ADMIN_ORIGIN is required in production.");
+}
+
+if (IS_PRODUCTION && !process.env.TAHOURI_APP_ORIGIN) {
+    throw new Error("TAHOURI_APP_ORIGIN is required in production.");
 }
 
 if (IS_PRODUCTION) {
@@ -160,6 +165,7 @@ function assertProductionConfiguration() {
     const required = [
         ["TAHOURI_ADMIN_PASSWORD", process.env.TAHOURI_ADMIN_PASSWORD],
         ["TAHOURI_ADMIN_ORIGIN", process.env.TAHOURI_ADMIN_ORIGIN],
+        ["TAHOURI_APP_ORIGIN", process.env.TAHOURI_APP_ORIGIN],
         ["TAHOURI_LICENSE_PRIVATE_KEY_FILE", process.env.TAHOURI_LICENSE_PRIVATE_KEY_FILE],
         ["TAHOURI_PAYMENT_PROVIDER", process.env.TAHOURI_PAYMENT_PROVIDER]
     ];
@@ -206,9 +212,14 @@ function audit(eventType, actor, values = {}) {
     );
 }
 
-function isValidAdminOrigin(origin) {
+function isAllowedOrigin(origin) {
     if (!origin) return false;
-    return origin === ADMIN_ORIGIN;
+    return origin === ADMIN_ORIGIN || origin === APP_ORIGIN;
+}
+
+function corsOriginForRequest(req) {
+    const origin = String(req.headers.origin || "");
+    return isAllowedOrigin(origin) ? origin : ADMIN_ORIGIN;
 }
 
 function send(res, status, payload) {
@@ -218,7 +229,7 @@ function send(res, status, payload) {
         "X-Content-Type-Options": "nosniff",
         "X-Frame-Options": "DENY",
         "Referrer-Policy": "no-referrer",
-        "Access-Control-Allow-Origin": ADMIN_ORIGIN,
+        "Access-Control-Allow-Origin": corsOriginForRequest(res.req || { headers: {} }),
         "Access-Control-Allow-Headers": "Content-Type, X-Admin-Key",
         "Access-Control-Allow-Credentials": "true",
         "Access-Control-Allow-Methods": "GET,POST,OPTIONS"
@@ -977,11 +988,11 @@ async function adminVerifyPayment(req, res) {
 const server = http.createServer(async (req, res) => {
     if (req.method === "OPTIONS") {
         const origin = String(req.headers.origin || "");
-        if (origin && !isValidAdminOrigin(origin)) {
+        if (origin && !isAllowedOrigin(origin)) {
             return send(res, 403, { ok: false, message: "Origin مجاز نیست." });
         }
         res.writeHead(204, {
-            "Access-Control-Allow-Origin": ADMIN_ORIGIN,
+            "Access-Control-Allow-Origin": origin || ADMIN_ORIGIN,
             "Access-Control-Allow-Headers": "Content-Type, X-Admin-Key",
             "Access-Control-Allow-Methods": "GET,POST,OPTIONS"
         });
