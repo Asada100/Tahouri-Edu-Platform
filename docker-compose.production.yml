@@ -1,4 +1,18 @@
 services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./services/license-api/Caddyfile.production.example:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      tahouri-license-api:
+        condition: service_healthy
+
   tahouri-license-api:
     build:
       context: .
@@ -31,6 +45,8 @@ secrets:
     file: ./secrets/tahouri-license-private.pem
 
 volumes:
+  caddy_data:
+  caddy_config:
   tahouri_license_data:
   tahouri_license_backups:
 
