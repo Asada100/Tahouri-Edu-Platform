@@ -11,6 +11,7 @@ const fs = require("fs");
 const crypto = require("crypto");
 const path = require("path");
 const { DatabaseSync } = require("node:sqlite");
+const paymentProvider = require("./payment-provider");
 
 const PORT = Number(process.env.PORT || 8787);
 const HOST = process.env.HOST || "127.0.0.1";
@@ -827,7 +828,21 @@ async function paymentCallback(req, res) {
         return send(res, 409, { ok: false, message: "این پرداخت قبلاً تعیین تکلیف شده است." });
     }
 
-    const verified = status === "verified";
+    let verified = false;
+    try {
+        verified = paymentProvider.verifyCallback({
+            payment,
+            authority,
+            status,
+            amount: payment.amount,
+            currency: payment.currency
+        });
+    } catch (error) {
+        audit("payment.callback.rejected", "gateway", {
+            metadata: { paymentId, authority, reason: error.message }
+        });
+        return send(res, 503, { ok: false, message: "درگاه پرداخت هنوز برای تأیید سمت سرور پیکربندی نشده است." });
+    }
     db.prepare("UPDATE payments SET authority = ?, status = ?, verified_at = ? WHERE payment_id = ? AND status = 'pending'")
         .run(authority, verified ? "verified" : "failed", verified ? new Date().toISOString() : null, paymentId);
 
@@ -900,6 +915,9 @@ async function adminListPayments(req, res) {
 
 async function adminVerifyPayment(req, res) {
     if (!requireAdmin(req, res)) return;
+    if (IS_PRODUCTION) {
+        return send(res, 403, { ok: false, message: "تأیید دستی پرداخت در محیط production مجاز نیست." });
+    }
     const body = await readBody(req);
     const paymentId = String(body.paymentId || "").trim();
 
