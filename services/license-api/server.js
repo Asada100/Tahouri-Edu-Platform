@@ -33,6 +33,35 @@ const PAYMENT_PROVIDER = String(process.env.TAHOURI_PAYMENT_PROVIDER || "manual"
 const RATE_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT = 30;
 const rateBuckets = new Map();
+
+const METRICS = {
+    startedAt: new Date().toISOString(),
+    requests: 0,
+    responses4xx: 0,
+    responses5xx: 0,
+    activations: 0,
+    activationFailures: 0,
+    paymentCreations: 0,
+    paymentFailures: 0,
+    paymentVerifications: 0,
+    paymentVerificationFailures: 0,
+    adminLoginFailures: 0,
+    licenseRevocations: 0,
+    backupNote: "Use scheduled external backup monitoring."
+};
+
+function recordMetric(name, amount = 1) {
+    if (Object.prototype.hasOwnProperty.call(METRICS, name)) {
+        METRICS[name] += amount;
+    }
+}
+
+function metricsSnapshot() {
+    return {
+        ...METRICS,
+        uptimeSeconds: Math.floor(process.uptime())
+    };
+}
 const ADMIN_ORIGIN = String(process.env.TAHOURI_ADMIN_ORIGIN || (IS_PRODUCTION ? "" : "http://localhost:5500"));
 const APP_ORIGIN = String(process.env.TAHOURI_APP_ORIGIN || (IS_PRODUCTION ? "" : "http://localhost:5500"));
 const COOKIE_SECURE = IS_PRODUCTION ? "; Secure" : "";
@@ -257,6 +286,9 @@ function validateIdentifier(value, field) {
 }
 
 function send(res, status, payload) {
+    recordMetric("requests");
+    if (status >= 400 && status < 500) recordMetric("responses4xx");
+    if (status >= 500) recordMetric("responses5xx");
     res.writeHead(status, {
         "Content-Type": "application/json; charset=utf-8",
         "Cache-Control": "no-store",
@@ -1090,6 +1122,10 @@ const server = http.createServer(async (req, res) => {
                 valid: false,
                 message: "تعداد درخواست‌ها بیش از حد مجاز است."
             });
+        }
+
+        if (req.method === "GET" && req.url === "/api/metrics") {
+            return send(res, 200, { ok: true, metrics: metricsSnapshot() });
         }
 
         if (req.method === "GET" && req.url === "/api/health") {
