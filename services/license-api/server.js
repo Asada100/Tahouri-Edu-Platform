@@ -120,8 +120,9 @@ async function activate(req, res) {
     const code = String(body.code || "").trim().toUpperCase();
     const gradeId = String(body.gradeId || "").trim();
     const installationId = String(body.installationId || "").trim();
+    const studentId = String(body.studentId || "").trim();
 
-    if (!code || !gradeId || !installationId) {
+    if (!code || !gradeId || !studentId || !installationId) {
         return send(res, 400, {
             valid: false,
             message: "اطلاعات فعال‌سازی کامل نیست."
@@ -158,6 +159,7 @@ async function activate(req, res) {
         productId: PRODUCT_ID,
         academicYear: String(period.academicYear),
         gradeScope: gradeId,
+        studentId,
         validFrom: period.validFrom,
         validUntil: period.validUntil,
         installationBinding: installationId,
