@@ -111,3 +111,39 @@ verification flow is implemented and tested.
 License != Activation Code != Payment != Profile.
 
 Do not move licensing logic into the activity engines.
+
+
+9. PRODUCTION READINESS CHECKLIST
+
+READY IN CODE
+  [x] Persistent SQLite license database
+  [x] Hashed activation codes
+  [x] Signed entitlements
+  [x] Profile binding
+  [x] Expiry and revocation checks
+  [x] Server-side license status endpoint
+  [x] Persistent hashed admin sessions
+  [x] Admin login rate limiting
+  [x] API rate limiting
+  [x] Production configuration guards
+  [x] Backup and backup verification tools
+  [x] Payment provider boundary
+
+BLOCKED UNTIL REAL DEPLOYMENT CONFIGURATION
+  [ ] HTTPS certificate and reverse proxy
+  [ ] Persistent production storage
+  [ ] Production signing private key stored outside Git
+  [ ] Production admin password stored in a secret manager/environment
+  [ ] APP_ORIGIN and ADMIN_ORIGIN configured
+  [ ] Real payment provider selected
+  [ ] Official provider server-to-server verification adapter implemented
+  [ ] Production payment callback tested with the selected provider
+  [ ] Restore rehearsal on the actual deployment environment
+  [ ] Monitoring and alerting
+  [ ] DNS/domain configuration
+
+DO NOT RELEASE
+  - if any item in the BLOCKED section is missing
+  - if manual payment verification is enabled in production
+  - if test activation codes are enabled in production
+  - if the signing private key is present in Git
