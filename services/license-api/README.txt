@@ -16,6 +16,16 @@ For the browser app:
 Smoke test:
   npm run smoke-test
 
+Operational diagnostics:
+  /api/health                 public health/readiness status
+  /api/metrics                admin-session protected metrics
+  /api/metrics/alerts         admin-session protected alerts
+
+Database schema:
+  The service maintains a versioned SQLite schema via PRAGMA user_version.
+  Startup applies supported migrations automatically and refuses a database
+  schema newer than the running service.
+
 Integration test:
   npm run integration-test
 
