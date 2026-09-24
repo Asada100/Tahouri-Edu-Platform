@@ -325,6 +325,15 @@ function adminLogout(req, res) {
     res.end(JSON.stringify({ ok: true }));
 }
 
+function cleanupAdminSessions() {
+    const now = Date.now();
+    for (const [sessionId, session] of ADMIN_SESSIONS) {
+        if (!session || session.expiresAt <= now) ADMIN_SESSIONS.delete(sessionId);
+    }
+}
+
+setInterval(cleanupAdminSessions, 10 * 60 * 1000).unref();
+
 function requestAllowed(req) {
     const ip = String(req.socket.remoteAddress || "unknown");
     const now = Date.now();
