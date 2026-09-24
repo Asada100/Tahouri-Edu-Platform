@@ -76,6 +76,22 @@ function evaluateOperationalAlerts() {
     return alerts;
 }
 
+function auditOperationalAlerts(alerts) {
+    if (!Array.isArray(alerts) || alerts.length === 0) return;
+    for (const alert of alerts) {
+        const eventKey = "operational.alert." + alert.code;
+        const recent = db.prepare(
+            "SELECT id FROM audit_log WHERE event_type = ? AND created_at >= datetime('now', '-10 minutes') LIMIT 1"
+        ).get(eventKey);
+        if (!recent) {
+            audit(eventKey, "system", {
+                severity: alert.severity,
+                message: alert.message
+            });
+        }
+    }
+}
+
 function metricsSnapshot() {
     return {
         ...METRICS,
@@ -1158,7 +1174,9 @@ const server = http.createServer(async (req, res) => {
         }
 
         if (req.method === "GET" && req.url === "/api/metrics/alerts") {
-    return send(res, 200, { ok: true, alerts: evaluateOperationalAlerts() });
+    const alerts = evaluateOperationalAlerts();
+    auditOperationalAlerts(alerts);
+    return send(res, 200, { ok: true, alerts });
 }
 
 if (req.method === "GET" && req.url === "/api/metrics") {
