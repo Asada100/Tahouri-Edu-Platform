@@ -20,6 +20,7 @@ const adminPassword = required("TAHOURI_ADMIN_PASSWORD");
 const provider = String(required("TAHOURI_PAYMENT_PROVIDER") || "").trim().toLowerCase();
 const appOrigin = required("TAHOURI_APP_ORIGIN");
 const adminOrigin = required("TAHOURI_ADMIN_ORIGIN");
+const apiDomain = required("TAHOURI_API_DOMAIN");
 const dbFile = required("TAHOURI_LICENSE_DB_FILE");
 required("TAHOURI_LICENSE_BACKUP_DIR");
 
@@ -41,6 +42,8 @@ if (adminPassword && adminPassword.length < 16) {
 if (appOrigin && adminOrigin && appOrigin === adminOrigin) {
     warnings.push("TAHOURI_APP_ORIGIN and TAHOURI_ADMIN_ORIGIN are identical; separate origins are recommended for production isolation.");
 }
+
+if (apiDomain && !/^[A-Za-z0-9.-]+$/.test(apiDomain)) errors.push("TAHOURI_API_DOMAIN is invalid.");
 
 for (const [name, value] of [["TAHOURI_APP_ORIGIN", appOrigin], ["TAHOURI_ADMIN_ORIGIN", adminOrigin]]) {
     if (value && !/^https:\/\//i.test(value)) {
