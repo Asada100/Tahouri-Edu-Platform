@@ -1883,6 +1883,17 @@
             await LicenseManager.initializeRemoteEntitlement();
         }
 
+        // Revalidate an already bound remote license at startup.
+        // Network errors keep the signed local entitlement as fallback.
+        if (
+            getActiveStudentId() &&
+            getProfileGrade() &&
+            window.LicenseManager &&
+            typeof LicenseManager.refreshRemoteLicenseStatus === "function"
+        ) {
+            await revalidateCurrentLicense();
+        }
+
         renderGate();
 
     }
@@ -2026,7 +2037,7 @@
     // Open Grade
     // =====================================
 
-    function openGrade(
+    async function openGrade(
         gradeId
     ) {
 
