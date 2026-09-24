@@ -6,6 +6,11 @@
 
 "use strict";
 
+const INSTANCE_ID = String(
+    process.env.TAHOURI_INSTANCE_ID ||
+    require("node:os").hostname()
+).trim() || "unknown";
+
 const http = require("http");
 const fs = require("fs");
 const crypto = require("crypto");
@@ -133,6 +138,7 @@ function auditOperationalAlerts(alerts) {
 function metricsSnapshot() {
     return {
         ...METRICS,
+        instanceId: INSTANCE_ID,
         uptimeSeconds: Math.floor(process.uptime()),
         alerts: evaluateOperationalAlerts()
     };
@@ -1407,7 +1413,7 @@ function startupRecoveryCheck() {
 const startupHealthy = startupRecoveryCheck();
 
 if (startupHealthy) {
-    audit("service.started", "system", { environment: process.env.NODE_ENV || "development" });
+    audit("service.started", "system", { environment: process.env.NODE_ENV || "development", instanceId: INSTANCE_ID });
 }
 if (!startupHealthy && process.env.NODE_ENV === "production") {
     console.error("Production startup aborted because database recovery check failed.");
@@ -1423,7 +1429,7 @@ function gracefulShutdown(signal) {
     console.log("Shutdown requested:", signal);
 
     try {
-        audit("service.shutdown", "system", { signal });
+        audit("service.shutdown", "system", { signal, instanceId: INSTANCE_ID });
     } catch (error) {
         console.error("Shutdown audit failed:", error.message);
     }
