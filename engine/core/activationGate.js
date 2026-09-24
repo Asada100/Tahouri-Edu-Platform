@@ -1544,7 +1544,7 @@
     // Activate Selected Grade
     // =====================================
 
-    function activateSelectedGrade() {
+    async function activateSelectedGrade() {
 
         const profileGrade =
             getProfileGrade();
@@ -1597,53 +1597,29 @@
         }
 
 
-        let result =
-            null;
+        let result = null;
 
-
-        try {
-
-            result =
-                LicenseManager.activate(
-                    code,
-                    profileGrade,
-                    studentId
-                );
-
-        }
-        catch (error) {
-
-            console.error(
-                "Activation Gate: Activation failed.",
-                error
-            );
-
-
-            showError(
-                "خطایی هنگام فعال‌سازی رخ داد."
-            );
-
-
-            return;
-
+        if (typeof LicenseManager.activateRemote === "function") {
+            try {
+                result = await LicenseManager.activateRemote(code, profileGrade, studentId);
+            } catch (error) {
+                console.warn("Activation Gate: Remote activation unavailable.", error);
+            }
         }
 
+        if (!result) {
+            try {
+                result = LicenseManager.activate(code, profileGrade, studentId);
+            } catch (error) {
+                console.error("Activation Gate: Activation failed.", error);
+                showError("خطایی هنگام فعال‌سازی رخ داد.");
+                return;
+            }
+        }
 
-        if (
-            !result ||
-            !result.valid
-        ) {
-
-            showError(
-                result &&
-                result.message
-                    ? result.message
-                    : "فعال‌سازی انجام نشد."
-            );
-
-
+        if (!result || !result.valid) {
+            showError(result && result.message ? result.message : "فعال‌سازی انجام نشد.");
             return;
-
         }
 
 
