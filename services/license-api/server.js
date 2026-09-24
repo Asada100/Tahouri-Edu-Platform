@@ -694,6 +694,33 @@ async function paymentCreate(req, res) {
     });
 }
 
+async function paymentCallback(req, res) {
+    const body = await readBody(req);
+    const paymentId = String(body.paymentId || "").trim();
+    const authority = String(body.authority || "").trim();
+    const status = String(body.status || "").trim().toLowerCase();
+
+    if (!paymentId || !authority) {
+        return send(res, 400, { ok: false, message: "paymentId و authority الزامی است." });
+    }
+
+    const payment = db.prepare("SELECT * FROM payments WHERE payment_id = ?").get(paymentId);
+    if (!payment) return send(res, 404, { ok: false, message: "پرداخت پیدا نشد." });
+    if (payment.status !== "pending") {
+        return send(res, 409, { ok: false, message: "این پرداخت قبلاً تعیین تکلیف شده است." });
+    }
+
+    const verified = status === "verified";
+    db.prepare("UPDATE payments SET authority = ?, status = ?, verified_at = ? WHERE payment_id = ? AND status = 'pending'")
+        .run(authority, verified ? "verified" : "failed", verified ? new Date().toISOString() : null, paymentId);
+
+    audit(verified ? "payment.callback.verified" : "payment.callback.failed", "gateway", {
+        metadata: { paymentId, authority }
+    });
+
+    return send(res, 200, { ok: true, paymentId, status: verified ? "verified" : "failed" });
+}
+
 async function paymentStatus(req, res) {
     const url = new URL(req.url, "http://localhost");
     const paymentId = String(url.searchParams.get("paymentId") || "").trim();
@@ -882,20 +909,16 @@ const server = http.createServer(async (req, res) => {
             return await adminExtendLicense(req, res);
         }
 
-        if (req.method === "POST" && req.url === "/api/admin/licenses/revoke") {
-            return await adminRevokeLicense(req, res);
-        }
-
-        if (req.method === "POST" && req.url === "/api/admin/licenses/extend") {
-            return await adminExtendLicense(req, res);
-        }
-
         if (req.method === "GET" && req.url === "/api/admin/audit") {
             return await adminAudit(req, res);
         }
 
         if (req.method === "POST" && req.url === "/api/payments") {
             return await paymentCreate(req, res);
+        }
+
+        if (req.method === "POST" && req.url === "/api/payments/callback") {
+            return await paymentCallback(req, res);
         }
 
         if (req.method === "GET" && req.url.startsWith("/api/payments/status")) {
