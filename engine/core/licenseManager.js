@@ -936,20 +936,17 @@
 
         }
 
+        if (hasValidRemoteEntitlement(gradeId)) {
+            return true;
+        }
+
         return getActiveLicenses()
             .some(
                 function (license) {
-
                     return (
-                        normalizeStudentId(
-                            license.studentId
-                        ) ===
-                        normalizedStudentId
-                        &&
-                        license.gradeId ===
-                        gradeId
+                        normalizeStudentId(license.studentId) === normalizedStudentId
+                        && license.gradeId === gradeId
                     );
-
                 }
             );
 
@@ -1554,6 +1551,35 @@
 
 
     // =====================================
+    // Remote Activation Bridge
+    // =====================================
+    async function activateRemote(code, gradeId, studentId) {
+        if (!window.TahouriLicenseClient || !window.TahouriEntitlementVerifier || !window.TahouriEntitlementStore) return null;
+        const installationId = getOrCreateInstallationId();
+        try {
+            const response = await window.TahouriLicenseClient.activate({code, gradeId, installationId});
+            if (!response || !response.valid || !response.entitlement) return response || {valid:false,message:"فعال‌سازی آنلاین انجام نشد."};
+            const verified = await window.TahouriEntitlementVerifier.verifyEnvelope(response.entitlement);
+            if (!verified.valid) return {valid:false,message:verified.reason || "مجوز آنلاین معتبر نیست."};
+            const claims = verified.claims;
+            if (claims.gradeScope && claims.gradeScope !== gradeId) return {valid:false,message:"مجوز مربوط به این پایه نیست."};
+            if (!window.TahouriEntitlementStore.write(response.entitlement)) return {valid:false,message:"ذخیره مجوز امن انجام نشد."};
+            return {valid:true,remote:true,entitlement:response.entitlement,license:claims,studentId};
+        } catch (error) { console.warn("License Manager: Remote activation unavailable; local path remains available.", error); return null; }
+    }
+    function getOrCreateInstallationId() {
+        const key="Tahouri_Installation_Id_v1";
+        try { let id=localStorage.getItem(key); if(!id){ id=(window.crypto&&typeof window.crypto.randomUUID==="function")?window.crypto.randomUUID():"install_"+Date.now()+"_"+Math.random().toString(36).slice(2); localStorage.setItem(key,id);} return id; }
+        catch(error){ return "ephemeral_"+Date.now(); }
+    }
+    function getRemoteEntitlement() { try { return window.TahouriEntitlementStore ? window.TahouriEntitlementStore.read() : null; } catch(error){ return null; } }
+    function hasValidRemoteEntitlement(gradeId) {
+        const envelope=getRemoteEntitlement(); if(!envelope||!envelope.claims)return false;
+        const c=envelope.claims; if(c.productId!=="tahouri-edu")return false; if(c.gradeScope&&c.gradeScope!==gradeId)return false;
+        const until=new Date(c.validUntil); return !Number.isNaN(until.getTime())&&Date.now()<until.getTime();
+    }
+
+    // =====================================
     // Public API
     // =====================================
 
@@ -1622,6 +1648,15 @@
         // Activation
         activate:
             activate,
+
+        activateRemote:
+            activateRemote,
+
+        hasValidRemoteEntitlement:
+            hasValidRemoteEntitlement,
+
+        getRemoteEntitlement:
+            getRemoteEntitlement,
 
 
         // Internal / Testing
