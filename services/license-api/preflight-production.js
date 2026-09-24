@@ -38,6 +38,10 @@ if (adminPassword && adminPassword.length < 16) {
     errors.push("TAHOURI_ADMIN_PASSWORD must be at least 16 characters.");
 }
 
+if (appOrigin && adminOrigin && appOrigin === adminOrigin) {
+    warnings.push("TAHOURI_APP_ORIGIN and TAHOURI_ADMIN_ORIGIN are identical; separate origins are recommended for production isolation.");
+}
+
 for (const [name, value] of [["TAHOURI_APP_ORIGIN", appOrigin], ["TAHOURI_ADMIN_ORIGIN", adminOrigin]]) {
     if (value && !/^https:\/\//i.test(value)) {
         errors.push(name + " must use HTTPS in production.");
