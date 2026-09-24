@@ -29,6 +29,12 @@ const RATE_LIMIT = 30;
 const rateBuckets = new Map();
 const NODE_ENV = String(process.env.NODE_ENV || "development").toLowerCase();
 const IS_PRODUCTION = NODE_ENV === "production";
+const ADMIN_ORIGIN = String(process.env.TAHOURI_ADMIN_ORIGIN || (IS_PRODUCTION ? "" : "http://localhost:5500"));
+const COOKIE_SECURE = IS_PRODUCTION ? "; Secure" : "";
+
+if (IS_PRODUCTION && !process.env.TAHOURI_ADMIN_ORIGIN) {
+    throw new Error("TAHOURI_ADMIN_ORIGIN is required in production.");
+}
 
 if (IS_PRODUCTION) {
     if (!process.env.TAHOURI_ADMIN_PASSWORD) {
@@ -179,7 +185,7 @@ function send(res, status, payload) {
     res.writeHead(status, {
         "Content-Type": "application/json; charset=utf-8",
         "Cache-Control": "no-store",
-        "Access-Control-Allow-Origin": "http://localhost:5500",
+        "Access-Control-Allow-Origin": ADMIN_ORIGIN,
         "Access-Control-Allow-Headers": "Content-Type, X-Admin-Key",
         "Access-Control-Allow-Credentials": "true",
         "Access-Control-Allow-Methods": "GET,POST,OPTIONS"
@@ -286,8 +292,8 @@ function adminLogin(req, res, body) {
     res.writeHead(200, {
         "Content-Type": "application/json; charset=utf-8",
         "Cache-Control": "no-store",
-        "Set-Cookie": "tahouri_admin_session=" + encodeURIComponent(sessionId) + "; HttpOnly; SameSite=Strict; Path=/; Max-Age=" + Math.floor(SESSION_TTL_MS / 1000),
-        "Access-Control-Allow-Origin": "http://localhost:5500",
+        "Set-Cookie": "tahouri_admin_session=" + encodeURIComponent(sessionId) + "; HttpOnly; SameSite=Strict; Path=/; Max-Age=" + Math.floor(SESSION_TTL_MS / 1000) + COOKIE_SECURE,
+        "Access-Control-Allow-Origin": ADMIN_ORIGIN,
         "Access-Control-Allow-Credentials": "true"
     });
     res.end(JSON.stringify({ ok: true }));
@@ -298,8 +304,8 @@ function adminLogout(req, res) {
     res.writeHead(200, {
         "Content-Type": "application/json; charset=utf-8",
         "Cache-Control": "no-store",
-        "Set-Cookie": "tahouri_admin_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0",
-        "Access-Control-Allow-Origin": "http://localhost:5500",
+        "Set-Cookie": "tahouri_admin_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0" + COOKIE_SECURE,
+        "Access-Control-Allow-Origin": ADMIN_ORIGIN,
         "Access-Control-Allow-Credentials": "true"
     });
     res.end(JSON.stringify({ ok: true }));
@@ -822,7 +828,7 @@ async function adminVerifyPayment(req, res) {
 const server = http.createServer(async (req, res) => {
     if (req.method === "OPTIONS") {
         res.writeHead(204, {
-            "Access-Control-Allow-Origin": "http://localhost:5500",
+            "Access-Control-Allow-Origin": ADMIN_ORIGIN,
             "Access-Control-Allow-Headers": "Content-Type, X-Admin-Key",
             "Access-Control-Allow-Methods": "GET,POST,OPTIONS"
         });
