@@ -115,3 +115,50 @@
     #app > .screen:has(> .tahouri-app-header) .home-buttons button,
     .daily-message-home button { transition: none; }
 }
+
+
+/* =====================================
+   Tahouri Update Notice
+   ===================================== */
+.tahouri-update-notice {
+    width: min(760px, 100%);
+    margin: 16px auto;
+    padding: 14px 16px;
+    border: 1px solid #dbe4ee;
+    border-radius: 17px;
+    background: #fff;
+    box-shadow: 0 5px 20px rgba(31,41,55,.05);
+    direction: rtl;
+    overflow: hidden;
+}
+.tahouri-update-moving {
+    white-space: nowrap;
+    overflow: hidden;
+    font-weight: 800;
+    color: #25324a;
+}
+.tahouri-update-moving span {
+    display: inline-block;
+    padding-inline-start: 100%;
+    animation: tahouriUpdateMarquee 11s linear infinite;
+}
+.tahouri-update-text {
+    margin: 9px 0 12px;
+    line-height: 1.8;
+    color: #596579;
+}
+.tahouri-update-actions { display:flex; gap:8px; flex-wrap:wrap; }
+.tahouri-update-actions button {
+    border:0; border-radius:11px; padding:9px 15px;
+    font-family:inherit; font-size:14px; font-weight:700; cursor:pointer;
+}
+.tahouri-update-actions button:first-child { background:#2563eb; color:#fff; }
+.tahouri-update-actions button:last-child { background:#eef3f8; color:#344054; }
+.tahouri-update-actions button:disabled { opacity:.65; cursor:default; }
+@keyframes tahouriUpdateMarquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(110%); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .tahouri-update-moving span { animation:none; padding-inline-start:0; }
+}
