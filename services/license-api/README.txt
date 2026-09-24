@@ -267,3 +267,10 @@ Final production verification:
 The release smoke test verifies the public HTTPS path, liveness, readiness,
 health, public signing key, and required security headers. It does not create
 or activate a customer license and must not be treated as payment verification.
+
+
+CI release gate:
+GitHub Actions runs the production release artifact check, security test,
+and integration test for changes under services/license-api.
+The production release smoke test is intentionally separate because it
+requires a deployed HTTPS API and must be run against the real deployment.
