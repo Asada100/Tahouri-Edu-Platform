@@ -1,7 +1,8 @@
-api.example.com {
+{$TAHOURI_API_DOMAIN} {
     reverse_proxy tahouri-license-api:8787
     encode gzip
     header {
+        -Server
         X-Content-Type-Options "nosniff"
         X-Frame-Options "DENY"
         Referrer-Policy "no-referrer"
