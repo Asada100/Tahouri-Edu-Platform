@@ -269,7 +269,7 @@ health, public signing key, and required security headers. It does not create
 or activate a customer license and must not be treated as payment verification.
 
 
-CI release gate:
+CI release gate is active on push/PR:
 GitHub Actions runs the production release artifact check, security test,
 and integration test for changes under services/license-api.
 The production release smoke test is intentionally separate because it
