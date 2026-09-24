@@ -23,6 +23,7 @@ const ADMIN_LOGIN_FAILURES = new Map();
 const ADMIN_LOCK_MS = 15 * 60 * 1000;
 const ADMIN_MAX_FAILURES = 5;
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
+const PAYMENT_PROVIDER = String(process.env.TAHOURI_PAYMENT_PROVIDER || "manual");
 const RATE_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT = 30;
 const rateBuckets = new Map();
@@ -657,6 +658,59 @@ async function adminAudit(req, res) {
     });
 }
 
+async function paymentCreate(req, res) {
+    const body = await readBody(req);
+    const paymentId = "pay_" + crypto.randomUUID();
+    const now = new Date().toISOString();
+    const gradeId = String(body.gradeId || "").trim();
+    const academicYear = String(body.academicYear || academicPeriod().academicYear).trim();
+    const amount = Number(body.amount || 0);
+
+    if (!gradeId || !Number.isFinite(amount) || amount <= 0) {
+        return send(res, 400, { ok: false, message: "gradeId و مبلغ معتبر الزامی است." });
+    }
+
+    db.prepare(`
+        INSERT INTO payments (
+            payment_id, provider, authority, status, amount, currency,
+            product_id, grade_id, academic_year, metadata_json, created_at
+        ) VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+        paymentId, PAYMENT_PROVIDER, "", amount,
+        String(body.currency || "IRR"), PRODUCT_ID, gradeId,
+        academicYear, JSON.stringify(body.metadata || {}), now
+    );
+
+    audit("payment.created", "client", { metadata: { paymentId, provider: PAYMENT_PROVIDER } });
+
+    return send(res, 201, {
+        ok: true,
+        paymentId,
+        provider: PAYMENT_PROVIDER,
+        status: "pending",
+        message: PAYMENT_PROVIDER === "manual"
+            ? "پرداخت درگاه هنوز متصل نشده است."
+            : "درخواست پرداخت ایجاد شد."
+    });
+}
+
+async function paymentStatus(req, res) {
+    const url = new URL(req.url, "http://localhost");
+    const paymentId = String(url.searchParams.get("paymentId") || "").trim();
+    if (!paymentId) return send(res, 400, { ok: false, message: "paymentId الزامی است." });
+
+    const row = db.prepare(`
+        SELECT payment_id AS paymentId, provider, status, amount, currency,
+               product_id AS productId, grade_id AS gradeId,
+               academic_year AS academicYear, license_id AS licenseId,
+               created_at AS createdAt, verified_at AS verifiedAt
+        FROM payments WHERE payment_id = ?
+    `).get(paymentId);
+
+    if (!row) return send(res, 404, { ok: false, message: "پرداخت پیدا نشد." });
+    return send(res, 200, { ok: true, payment: row });
+}
+
 async function adminCreatePayment(req, res) {
     if (!requireAdmin(req, res)) return;
     const body = await readBody(req);
@@ -838,6 +892,14 @@ const server = http.createServer(async (req, res) => {
 
         if (req.method === "GET" && req.url === "/api/admin/audit") {
             return await adminAudit(req, res);
+        }
+
+        if (req.method === "POST" && req.url === "/api/payments") {
+            return await paymentCreate(req, res);
+        }
+
+        if (req.method === "GET" && req.url.startsWith("/api/payments/status")) {
+            return await paymentStatus(req, res);
         }
 
         if (req.method === "POST" && req.url === "/api/admin/payments") {
