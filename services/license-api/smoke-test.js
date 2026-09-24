@@ -10,6 +10,9 @@ async function request(path, options) {
 }
 
 async function main() {
+    const live = await request("/api/live");
+    if (!live.live) throw new Error("Liveness check failed.");
+
     const health = await request("/api/health");
     if (!health.ok) throw new Error("Health check failed.");
 
