@@ -19,6 +19,9 @@ const ENTITLEMENT_VERSION = 1;
 const ADMIN_KEY = String(process.env.TAHOURI_ADMIN_KEY || "TAHOURI-ADMIN-TEST");
 const ADMIN_PASSWORD = String(process.env.TAHOURI_ADMIN_PASSWORD || ADMIN_KEY);
 const ADMIN_SESSIONS = new Map();
+const ADMIN_LOGIN_FAILURES = new Map();
+const ADMIN_LOCK_MS = 15 * 60 * 1000;
+const ADMIN_MAX_FAILURES = 5;
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 const RATE_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT = 30;
@@ -237,11 +240,28 @@ function clearAdminSession(req) {
 }
 
 function adminLogin(req, res, body) {
+    const loginAttempts = Number(body.loginAttempts || 0);
+
+    const clientIp = String(req.socket.remoteAddress || "unknown");
+    const now = Date.now();
+    const failure = ADMIN_LOGIN_FAILURES.get(clientIp);
+    if (failure && failure.lockedUntil > now) {
+        return send(res, 429, { ok: false, message: "ورود موقتاً قفل شده است. بعداً دوباره تلاش کنید." });
+    }
+
     const supplied = String(body.password || "");
     if (!supplied || supplied.length !== ADMIN_PASSWORD.length ||
         !crypto.timingSafeEqual(Buffer.from(supplied), Buffer.from(ADMIN_PASSWORD))) {
+        const next = failure || { count: 0, lockedUntil: 0 };
+        next.count += 1;
+        if (next.count >= ADMIN_MAX_FAILURES) {
+            next.lockedUntil = now + ADMIN_LOCK_MS;
+        }
+        ADMIN_LOGIN_FAILURES.set(clientIp, next);
         return send(res, 401, { ok: false, message: "رمز مدیریت نادرست است." });
     }
+
+    ADMIN_LOGIN_FAILURES.delete(clientIp);
     const sessionId = createAdminSession();
     res.writeHead(200, {
         "Content-Type": "application/json; charset=utf-8",
