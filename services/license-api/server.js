@@ -22,10 +22,6 @@ const IS_PRODUCTION = NODE_ENV === "production";
 const ADMIN_KEY = String(process.env.TAHOURI_ADMIN_KEY || (IS_PRODUCTION ? "" : "TAHOURI-ADMIN-TEST"));
 const ADMIN_PASSWORD = String(process.env.TAHOURI_ADMIN_PASSWORD || ADMIN_KEY);
 const ADMIN_SESSIONS = new Map();
-function adminSessionFile() {
-    return process.env.TAHOURI_ADMIN_SESSION_FILE ||
-        path.join(process.env.TAHOURI_LICENSE_DATA_DIR || __dirname, "admin-sessions.json");
-}
 const ADMIN_LOGIN_FAILURES = new Map();
 const ADMIN_LOCK_MS = 15 * 60 * 1000;
 const ADMIN_MAX_FAILURES = 5;
@@ -133,6 +129,15 @@ db.exec(`
         created_at TEXT NOT NULL,
         metadata_json TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS admin_sessions (
+        session_hash TEXT PRIMARY KEY,
+        expires_at INTEGER NOT NULL,
+        created_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_admin_sessions_expires_at
+        ON admin_sessions(expires_at);
 
     CREATE TABLE IF NOT EXISTS payments (
         payment_id TEXT PRIMARY KEY,
@@ -315,12 +320,29 @@ function getSessionId(req) {
     return match ? decodeURIComponent(match[1]) : "";
 }
 
+function sessionHash(id) {
+    return crypto.createHash("sha256").update(String(id)).digest("hex");
+}
+
 function adminAuthorized(req) {
     const sessionId = getSessionId(req);
-    const session = ADMIN_SESSIONS.get(sessionId);
-    if (!session) return false;
+    if (!sessionId) return false;
+
+    const hash = sessionHash(sessionId);
+    let session = ADMIN_SESSIONS.get(sessionId);
+
+    if (!session) {
+        const row = db.prepare(
+            "SELECT expires_at FROM admin_sessions WHERE session_hash = ?"
+        ).get(hash);
+        if (!row) return false;
+        session = { expiresAt: Number(row.expires_at) };
+        ADMIN_SESSIONS.set(sessionId, session);
+    }
+
     if (Date.now() > session.expiresAt) {
         ADMIN_SESSIONS.delete(sessionId);
+        db.prepare("DELETE FROM admin_sessions WHERE session_hash = ?").run(hash);
         return false;
     }
     return true;
@@ -341,13 +363,19 @@ function parseCookies(req) {
 
 function createAdminSession() {
     const id = crypto.randomBytes(32).toString("base64url");
-    ADMIN_SESSIONS.set(id, { expiresAt: Date.now() + SESSION_TTL_MS });
+    const expiresAt = Date.now() + SESSION_TTL_MS;
+    ADMIN_SESSIONS.set(id, { expiresAt });
+    db.prepare(
+        "INSERT INTO admin_sessions (session_hash, expires_at, created_at) VALUES (?, ?, ?)"
+    ).run(sessionHash(id), expiresAt, new Date().toISOString());
     return id;
 }
 
 function clearAdminSession(req) {
     const id = getSessionId(req);
-    if (id) ADMIN_SESSIONS.delete(id);
+    if (!id) return;
+    ADMIN_SESSIONS.delete(id);
+    db.prepare("DELETE FROM admin_sessions WHERE session_hash = ?").run(sessionHash(id));
 }
 
 function adminLogin(req, res, body) {
@@ -401,6 +429,7 @@ function cleanupAdminSessions() {
     for (const [sessionId, session] of ADMIN_SESSIONS) {
         if (!session || session.expiresAt <= now) ADMIN_SESSIONS.delete(sessionId);
     }
+    db.prepare("DELETE FROM admin_sessions WHERE expires_at <= ?").run(now);
 }
 
 setInterval(cleanupAdminSessions, 10 * 60 * 1000).unref();
