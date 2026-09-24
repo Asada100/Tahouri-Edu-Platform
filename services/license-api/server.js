@@ -9,6 +9,8 @@
 const http = require("http");
 const fs = require("fs");
 const crypto = require("crypto");
+const path = require("path");
+const { DatabaseSync } = require("node:sqlite");
 
 const PORT = Number(process.env.PORT || 8787);
 const HOST = process.env.HOST || "127.0.0.1";
@@ -36,7 +38,48 @@ try {
     process.exit(1);
 }
 
-const codes = new Map([
+const DATA_DIR = process.env.TAHOURI_LICENSE_DATA_DIR || path.join(__dirname, "data");
+const DB_FILE = process.env.TAHOURI_LICENSE_DB_FILE || path.join(DATA_DIR, "license.sqlite");
+
+fs.mkdirSync(path.dirname(DB_FILE), { recursive: true });
+
+const database = new DatabaseSync(DB_FILE);
+
+database.exec(`
+    PRAGMA journal_mode = WAL;
+    PRAGMA foreign_keys = ON;
+
+    CREATE TABLE IF NOT EXISTS activation_codes (
+        code TEXT PRIMARY KEY,
+        grade_id TEXT NOT NULL,
+        academic_year TEXT,
+        status TEXT NOT NULL DEFAULT 'active',
+        created_at TEXT NOT NULL,
+        used_at TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS licenses (
+        license_id TEXT PRIMARY KEY,
+        code TEXT NOT NULL UNIQUE,
+        student_id TEXT NOT NULL,
+        grade_id TEXT NOT NULL,
+        academic_year TEXT NOT NULL,
+        valid_from TEXT NOT NULL,
+        valid_until TEXT NOT NULL,
+        installation_binding TEXT NOT NULL,
+        entitlement_json TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (code) REFERENCES activation_codes(code)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_licenses_student_grade
+        ON licenses(student_id, grade_id);
+
+    CREATE INDEX IF NOT EXISTS idx_licenses_valid_until
+        ON licenses(valid_until);
+`);
+
+const testCodes = [
     ["GRADE1-1405-TEST", "grade1"],
     ["GRADE2-1405-TEST", "grade2"],
     ["GRADE3-1405-TEST", "grade3"],
@@ -46,9 +89,18 @@ const codes = new Map([
     ["GRADE6-1405-TEST-A", "grade6"],
     ["GRADE6-1405-TEST-B", "grade6"],
     ["GRADE6-1405-TEST-C", "grade6"]
-]);
+];
 
-const usedCodes = new Set();
+const seedStatement = database.prepare(`
+    INSERT OR IGNORE INTO activation_codes
+        (code, grade_id, academic_year, status, created_at)
+    VALUES (?, ?, '1405', 'active', ?)
+`);
+
+const seedTime = new Date().toISOString();
+for (const [code, gradeId] of testCodes) {
+    seedStatement.run(code, gradeId, seedTime);
+}
 
 function send(res, status, payload) {
     const body = JSON.stringify(payload);
@@ -129,7 +181,7 @@ async function activate(req, res) {
         });
     }
 
-    const expectedGrade = codes.get(code);
+    const codeRecord = database.prepare(\n        "SELECT code, grade_id AS gradeId, status, used_at AS usedAt FROM activation_codes WHERE code = ?"\n    ).get(code);\n\n    const expectedGrade = codeRecord ? codeRecord.gradeId : null;
 
     if (!expectedGrade) {
         return send(res, 400, {
@@ -145,7 +197,7 @@ async function activate(req, res) {
         });
     }
 
-    if (usedCodes.has(code)) {
+    if (!codeRecord || codeRecord.status !== "active" || codeRecord.usedAt) {
         return send(res, 409, {
             valid: false,
             message: "این کد قبلاً استفاده شده است."
@@ -172,7 +224,51 @@ async function activate(req, res) {
         algorithm: "RSASSA-PKCS1-v1_5-SHA256"
     };
 
-    usedCodes.add(code);
+    database.exec("BEGIN IMMEDIATE");
+
+    try {
+        const current = database.prepare(
+            "SELECT status, used_at AS usedAt FROM activation_codes WHERE code = ?"
+        ).get(code);
+
+        if (!current || current.status !== "active" || current.usedAt) {
+            database.exec("ROLLBACK");
+            return send(res, 409, {
+                valid: false,
+                message: "این کد قبلاً استفاده شده است."
+            });
+        }
+
+        const now = new Date().toISOString();
+
+        database.prepare(`
+            INSERT INTO licenses (
+                license_id, code, student_id, grade_id, academic_year,
+                valid_from, valid_until, installation_binding,
+                entitlement_json, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+            claims.licenseId,
+            code,
+            claims.studentId,
+            claims.gradeScope,
+            claims.academicYear,
+            claims.validFrom,
+            claims.validUntil,
+            claims.installationBinding,
+            JSON.stringify(envelope),
+            now
+        );
+
+        database.prepare(
+            "UPDATE activation_codes SET status = 'used', used_at = ? WHERE code = ? AND status = 'active' AND used_at IS NULL"
+        ).run(now, code);
+
+        database.exec("COMMIT");
+    } catch (error) {
+        try { database.exec("ROLLBACK"); } catch {}
+        throw error;
+    }
 
     return send(res, 200, {
         valid: true,
@@ -195,7 +291,8 @@ const server = http.createServer(async (req, res) => {
             return send(res, 200, {
                 ok: true,
                 service: "tahouri-license-api",
-                environment: "test"
+                environment: "test",
+                database: "sqlite"
             });
         }
 
