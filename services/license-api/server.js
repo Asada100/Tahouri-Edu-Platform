@@ -56,6 +56,18 @@ function recordMetric(name, amount = 1) {
     }
 }
 
+function operationalHealthStatus() {
+    const alerts = evaluateOperationalAlerts();
+    const critical = alerts.filter((item) => item.severity === "critical");
+    if (critical.length > 0) {
+        return { status: "critical", reasons: critical.map((item) => item.code), alerts };
+    }
+    if (alerts.length > 0) {
+        return { status: "degraded", reasons: alerts.map((item) => item.code), alerts };
+    }
+    return { status: "healthy", reasons: [], alerts: [] };
+}
+
 function evaluateOperationalAlerts() {
     const alerts = [];
     if (METRICS.responses5xx >= 10) {
@@ -1202,7 +1214,9 @@ if (req.method === "GET" && req.url === "/api/metrics") {
 
             const healthy = database === "ok";
 
-            return send(res, healthy ? 200 : 503, {
+            const operational = operationalHealthStatus();
+        const statusCode = operational.status === "critical" ? 503 : 200;
+        return send(res, healthy ? 200 : 503, {
                 ok: healthy,
                 service: "tahouri-license-api",
                 environment: NODE_ENV,
