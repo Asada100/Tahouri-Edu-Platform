@@ -26,6 +26,9 @@ jobs:
         with:
           node-version: 24
 
+      - name: Release artifact check
+        run: npm run release-check
+
       - name: Security test
         run: npm run security-test
 
