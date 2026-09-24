@@ -45,6 +45,15 @@ if (IS_PRODUCTION && !process.env.TAHOURI_APP_ORIGIN) {
     throw new Error("TAHOURI_APP_ORIGIN is required in production.");
 }
 
+if (IS_PRODUCTION && process.env.TAHOURI_LICENSE_PRIVATE_KEY_FILE) {
+    const configuredKey = path.resolve(process.env.TAHOURI_LICENSE_PRIVATE_KEY_FILE);
+    const projectRoot = path.resolve(__dirname, "..", "..");
+    if (configuredKey === projectRoot ||
+        configuredKey.startsWith(projectRoot + path.sep)) {
+        throw new Error("Production signing private key must be stored outside the project directory.");
+    }
+}
+
 if (IS_PRODUCTION) {
     if (!process.env.TAHOURI_ADMIN_PASSWORD) {
         throw new Error("TAHOURI_ADMIN_PASSWORD is required in production.");
