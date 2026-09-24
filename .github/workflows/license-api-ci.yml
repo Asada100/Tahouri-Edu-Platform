@@ -1,0 +1,33 @@
+name: License API CI
+
+on:
+  push:
+    paths:
+      - "services/license-api/**"
+      - ".github/workflows/license-api-ci.yml"
+  pull_request:
+    paths:
+      - "services/license-api/**"
+      - ".github/workflows/license-api-ci.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/license-api
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Security test
+        run: npm run security-test
+
+      - name: Integration test
+        run: npm run integration-test
