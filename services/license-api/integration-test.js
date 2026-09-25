@@ -115,12 +115,6 @@ async function main() {
         assert(extended.status === 200 && extended.data.ok, "License extension failed.");
         assert(extended.data.entitlement.claims.validUntil === extension, "Extended expiry was not signed.");
 
-        const revoked = await request("POST", "/api/admin/licenses/revoke", { licenseId }, { Cookie: cookie });
-        assert(revoked.status === 200 && revoked.data.ok, "License revoke failed.");
-
-        const afterRevoke = await request("GET", "/api/admin/licenses", undefined, { Cookie: cookie });
-        assert(afterRevoke.status === 200 && afterRevoke.data.licenses[0].status === "revoked", "Revoked license status was not persisted.");
-
         const reuse = await request("POST", "/api/licenses/activate", {
             code: "GRADE6-1405-TEST-A", gradeId: "grade6", studentId: "second-student", installationId: "second-installation"
         });
@@ -154,7 +148,7 @@ async function main() {
         assert(audit.status === 200 && Array.isArray(audit.data.audit), "Audit endpoint failed.");
 
         const auditEvents = audit.data.audit.map(item => item.event_type || item.eventType);
-        for (const requiredEvent of ["license.activated", "license.extended", "license.revoked"]) {
+        for (const requiredEvent of ["license.activated", "license.extended", "license.renewal_reserved", "license.revoked"]) {
             assert(auditEvents.includes(requiredEvent), "Missing audit event: " + requiredEvent);
         }
 
@@ -194,10 +188,11 @@ async function main() {
         const renewalActivation = await request("POST", "/api/licenses/activate", {
             code: nextCodes.data.codes[0],
             gradeId: "grade6",
-            studentId: "renewal-student",
-            installationId: "renewal-installation"
+            studentId: "integration-student",
+            installationId: "integration-installation"
         });
         assert(renewalActivation.status === 200 && renewalActivation.data.valid, "Next-year renewal activation failed.");
+        assert(renewalActivation.data.renewalStored === true, "Future renewal was not marked as stored.");
         assert(
             renewalActivation.data.entitlement.claims.academicYear === nextAcademicYear,
             "Next-year entitlement academic year is incorrect."
@@ -206,6 +201,31 @@ async function main() {
             Date.parse(renewalActivation.data.entitlement.claims.validFrom) > Date.now(),
             "Early renewal must not become active immediately."
         );
+
+        const renewalStatus = await request(
+            "GET",
+            "/api/licenses/status?licenseId=" +
+            encodeURIComponent(renewalActivation.data.entitlement.claims.licenseId)
+        );
+        assert(renewalStatus.status === 200 && renewalStatus.data.valid === false &&
+            renewalStatus.data.reason === "future", "Future renewal must not be usable before its start date.");
+
+        const wrongProfileRenewal = await request("POST", "/api/licenses/activate", {
+            code: "GRADE6-1405-TEST-B",
+            gradeId: "grade6",
+            studentId: "other-profile",
+            installationId: "other-installation"
+        });
+        assert(wrongProfileRenewal.status === 400, "Control activation code should still enforce its own year.");
+
+        const revoked = await request("POST", "/api/admin/licenses/revoke", { licenseId }, { Cookie: cookie });
+        assert(revoked.status === 200 && revoked.data.ok, "License revoke failed.");
+
+        const afterRevoke = await request("GET", "/api/admin/licenses", undefined, { Cookie: cookie });
+        const revokedRow = afterRevoke.data.licenses.find(item => item.licenseId === licenseId);
+        const futureRow = afterRevoke.data.licenses.find(item => item.licenseId === renewalActivation.data.entitlement.claims.licenseId);
+        assert(afterRevoke.status === 200 && revokedRow?.status === "revoked", "Revoked license status was not persisted.");
+        assert(futureRow?.status === "future", "Future renewal must appear as future in admin.");
 
         const health = await request("GET", "/api/health");
         assert(health.status === 200 && health.data.ok, "Health failed after activation.");
