@@ -2054,8 +2054,6 @@
 
         const code =
             codeInput.value.trim();
-        const code =
-            codeInput.value.trim();
 
 
         if (!grade) {
@@ -2096,6 +2094,15 @@
         const activeProfile =
             getActiveProfile();
 
+        const hasActiveProfileLicense =
+            Boolean(
+                activeProfile &&
+                activeProfile.grade &&
+                isGradeActivated(activeProfile.grade)
+            );
+
+        let result =
+            null;
         let result =
             null;
 
@@ -2103,26 +2110,27 @@
         try {
 
             if (
-                
+                hasActiveProfileLicense &&
                 typeof LicenseManager.activateRemote ===
                     "function"
             ) {
 
-                if (
-                    !activeProfile ||
-                    !activeProfile.studentId
-                        renewalMode
-                ) {
-
+                if (!activeProfile || !activeProfile.studentId) {
                     showManagementError(
                         "پروفایل فعال برای تمدید مجوز پیدا نشد."
                     );
-
                     return;
-
                 }
 
                 result =
+                    await LicenseManager.activateRemote(
+                        code,
+                        grade,
+                        activeProfile.studentId,
+                        renewalMode
+                    );
+
+            }
                     await LicenseManager.activateRemote(
                         code,
                         grade,
