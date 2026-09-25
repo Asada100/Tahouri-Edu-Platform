@@ -36,6 +36,7 @@ services:
       TAHOURI_BACKUP_OFFSITE_USER: ${TAHOURI_BACKUP_OFFSITE_USER}
       TAHOURI_BACKUP_OFFSITE_DIR: ${TAHOURI_BACKUP_OFFSITE_DIR}
       TAHOURI_BACKUP_OFFSITE_SSH_KEY_FILE: /run/secrets/tahouri_backup_offsite_ssh_key
+      TAHOURI_BACKUP_OFFSITE_KNOWN_HOSTS_FILE: /run/secrets/tahouri_backup_offsite_known_hosts
       TAHOURI_ADMIN_PASSWORD: ${TAHOURI_ADMIN_PASSWORD}
       TAHOURI_PAYMENT_PROVIDER: ${TAHOURI_PAYMENT_PROVIDER}
       TAHOURI_ADMIN_ORIGIN: ${TAHOURI_ADMIN_ORIGIN}
@@ -54,6 +55,7 @@ services:
       - tahouri_backup_signing_private_key
       - tahouri_backup_signing_public_key
       - tahouri_backup_offsite_ssh_key
+      - tahouri_backup_offsite_known_hosts
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 30s
@@ -94,6 +96,8 @@ secrets:
     file: ./secrets/tahouri-backup-signing-public.pem
   tahouri_backup_offsite_ssh_key:
     file: ./secrets/tahouri-backup-offsite-ssh
+  tahouri_backup_offsite_known_hosts:
+    file: ./secrets/tahouri-backup-offsite-known-hosts
 
 volumes:
   caddy_data:
