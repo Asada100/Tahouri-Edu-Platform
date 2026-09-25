@@ -181,7 +181,7 @@ async function main() {
         const nextCodes = await request("POST", "/api/admin/codes", {
             gradeId: "grade6",
             academicYear: nextAcademicYear,
-            count: 1
+            count: 2
         }, { Cookie: cookie });
         assert(nextCodes.status === 201 && nextCodes.data.codes?.length === 1, "Next-year renewal code creation failed.");
 
@@ -211,12 +211,12 @@ async function main() {
             renewalStatus.data.reason === "future", "Future renewal must not be usable before its start date.");
 
         const wrongProfileRenewal = await request("POST", "/api/licenses/activate", {
-            code: "GRADE6-1405-TEST-B",
+            code: nextCodes.data.codes[1],
             gradeId: "grade6",
             studentId: "other-profile",
             installationId: "other-installation"
         });
-        assert(wrongProfileRenewal.status === 400, "Control activation code should still enforce its own year.");
+        assert(wrongProfileRenewal.status === 409, "Future renewal must not be activatable by another profile.");
 
         const revoked = await request("POST", "/api/admin/licenses/revoke", { licenseId }, { Cookie: cookie });
         assert(revoked.status === 200 && revoked.data.ok, "License revoke failed.");
