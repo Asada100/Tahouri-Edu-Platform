@@ -52,7 +52,8 @@ const envMarkers = [
     "TAHOURI_APP_ORIGIN=",
     "TAHOURI_LICENSE_DB_FILE=",
     "TAHOURI_LICENSE_BACKUP_DIR=",
-    "TAHOURI_LICENSE_PRIVATE_KEY_FILE="
+    "TAHOURI_LICENSE_PRIVATE_KEY_FILE=",
+    "TAHOURI_PAYMENT_CALLBACK_URL="
 ];
 
 for (const marker of envMarkers) {
