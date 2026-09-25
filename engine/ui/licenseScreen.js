@@ -1851,7 +1851,7 @@
 
             codeInput.addEventListener(
                 "keydown",
-                function (event) {
+                async function (event) {
 
                     if (
                         event.key === "Enter"
