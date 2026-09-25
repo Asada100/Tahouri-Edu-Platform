@@ -1797,7 +1797,10 @@
         activate:
             activate,
 
-        refreshRemoteLicenseStatus:\n            refreshRemoteLicenseStatus,\n\n                activateRemote:
+        refreshRemoteLicenseStatus:
+            refreshRemoteLicenseStatus,
+
+        activateRemote:
             activateRemote,
 
         hasValidRemoteEntitlement:
