@@ -891,7 +891,11 @@ async function activate(req, res) {
     }
 
     recordMetric("activations");
-    return send(res, 200, { valid: true, entitlement });
+    return send(res, 200, {
+        valid: true,
+        renewalStored: isFutureRenewal,
+        entitlement
+    });
 }
 
 function getActiveLicense(licenseId) {
