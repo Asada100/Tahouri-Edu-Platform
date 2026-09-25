@@ -963,7 +963,29 @@ async function adminRevokeCode(req, res) {
     return send(res, 200, { ok: true });
 }
 
-async function adminListLicenses(req, res) {
+async function adminDiagnostics(req, res) {
+    if (!requireAdmin(req, res)) return;
+    const activationCodes = db.prepare("SELECT COUNT(*) AS count FROM activation_codes").get();
+    const licenses = db.prepare("SELECT COUNT(*) AS count FROM licenses").get();
+    const activeLicenses = db.prepare("SELECT COUNT(*) AS count FROM licenses WHERE status = 'active'").get();
+    return send(res, 200, {
+        ok: true,
+        database: {
+            file: DB_FILE,
+            activationCodes: Number(activationCodes.count || 0),
+            licenses: Number(licenses.count || 0),
+            activeLicenses: Number(activeLicenses.count || 0)
+        },
+        instance: {
+            instanceId: INSTANCE_ID,
+            processId: process.pid,
+            serviceVersion: SERVICE_VERSION,
+            buildId: BUILD_ID
+        }
+    });
+}
+
+function adminListLicenses(req, res) {
     if (!requireAdmin(req, res)) return;
     const rows = db.prepare(`
         SELECT license_id AS licenseId, product_id AS productId,
@@ -1427,6 +1449,10 @@ if (req.method === "GET" && req.url === "/api/metrics") {
 
         if (req.method === "GET" && req.url.startsWith("/api/admin/search")) {
             return await adminSearch(req, res);
+        }
+
+        if (req.method === "GET" && req.url === "/api/admin/diagnostics") {
+            return adminDiagnostics(req, res);
         }
 
         if (req.method === "GET" && req.url === "/api/admin/licenses") {
