@@ -1632,6 +1632,23 @@
                 };
             }
 
+            const validFrom = new Date(claims.validFrom);
+            const isFutureRenewal =
+                !Number.isNaN(validFrom.getTime()) &&
+                Date.now() < validFrom.getTime();
+
+            if (isFutureRenewal) {
+                await initializeRemoteEntitlement();
+                return {
+                    valid: true,
+                    remote: true,
+                    renewalStored: true,
+                    entitlement: response.entitlement,
+                    license: claims,
+                    studentId
+                };
+            }
+
             verifiedRemoteEntitlement = claims;
             return {valid:true,remote:true,entitlement:response.entitlement,license:claims,studentId};
         } catch (error) {
