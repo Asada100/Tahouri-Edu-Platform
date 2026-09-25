@@ -1624,6 +1624,8 @@
 
 
         let result = null;
+        const serviceConfig = window.TahouriServiceConfig || {};
+        const productionMode = serviceConfig.mode === "production";
 
         if (typeof LicenseManager.activateRemote === "function") {
             try {
@@ -1633,7 +1635,7 @@
             }
         }
 
-        if (!result) {
+        if (!result && !productionMode) {
             try {
                 result = LicenseManager.activate(code, profileGrade, studentId);
             } catch (error) {
@@ -1641,6 +1643,13 @@
                 showError("خطایی هنگام فعال‌سازی رخ داد.");
                 return;
             }
+        }
+
+        if (!result && productionMode) {
+            result = {
+                valid: false,
+                message: "سرویس فعال‌سازی در دسترس نیست. برای فعال‌سازی دوباره بعداً تلاش کنید."
+            };
         }
 
         if (!result || !result.valid) {
