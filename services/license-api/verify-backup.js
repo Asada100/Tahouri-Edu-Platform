@@ -3,6 +3,7 @@
 const fs = require("fs");
 const path = require("path");
 const { DatabaseSync } = require("node:sqlite");
+const crypto = require("node:crypto");
 
 const backupFile = process.argv[2];
 
@@ -14,6 +15,24 @@ if (!backupFile) {
 if (!fs.existsSync(backupFile)) {
     console.error("Backup file not found: " + backupFile);
     process.exit(2);
+}
+
+
+const publicKeyFile = process.env.TAHOURI_BACKUP_SIGNING_PUBLIC_KEY_FILE;
+const signatureFile = path.resolve(backupFile + ".sig");
+if (process.env.NODE_ENV === "production" && !publicKeyFile) {
+    console.error("Backup signing public key is required in production.");
+    process.exit(2);
+}
+if (publicKeyFile) {
+    if (!fs.existsSync(publicKeyFile) || !fs.existsSync(signatureFile)) {
+        throw new Error("Backup signature or verification key is missing.");
+    }
+    const signature = Buffer.from(fs.readFileSync(signatureFile, "utf8").trim(), "base64");
+    const digest = crypto.createHash("sha256").update(fs.readFileSync(path.resolve(backupFile))).digest();
+    if (!crypto.verify("RSA-SHA256", digest, fs.readFileSync(publicKeyFile), signature)) {
+        throw new Error("Backup signature verification failed.");
+    }
 }
 
 const db = new DatabaseSync(path.resolve(backupFile));
