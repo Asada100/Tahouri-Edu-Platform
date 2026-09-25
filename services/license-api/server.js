@@ -199,6 +199,16 @@ const DATA_DIR =
 
 const DB_SCHEMA_VERSION = 1;
 
+const DATABASE_MIGRATIONS = [
+    {
+        version: 1,
+        apply() {
+            // Version 1 marks the initial persistent schema created by the
+            // CREATE TABLE IF NOT EXISTS block above.
+        }
+    }
+];
+
 const DB_FILE =
     process.env.TAHOURI_LICENSE_DB_FILE ||
     path.join(DATA_DIR, "license.sqlite");
@@ -1413,25 +1423,29 @@ function getDatabaseSchemaVersion() {
 }
 
 function migrateDatabase() {
-    const current = getDatabaseSchemaVersion();
+    let current = getDatabaseSchemaVersion();
+
     if (current > DB_SCHEMA_VERSION) {
         throw new Error("Database schema is newer than this service.");
     }
 
-    if (current < 1) {
-        db.exec("PRAGMA user_version = 1");
-        audit("database.migrated", "system", { fromVersion: current, toVersion: 1 });
+    for (const migration of DATABASE_MIGRATIONS) {
+        if (migration.version <= current) continue;
+
+        migration.apply();
+        db.exec("PRAGMA user_version = " + migration.version);
+        audit("database.migrated", "system", {
+            fromVersion: current,
+            toVersion: migration.version
+        });
+        current = migration.version;
     }
 
-    return DB_SCHEMA_VERSION;
+    return current;
 }
 
 function ensureDatabaseSchemaVersion() {
     const current = getDatabaseSchemaVersion();
-    if (current === 0) {
-        db.exec("PRAGMA user_version = 1");
-        return DB_SCHEMA_VERSION;
-    }
     if (current !== DB_SCHEMA_VERSION) {
         throw new Error(
             "Unsupported database schema version: " + current +
