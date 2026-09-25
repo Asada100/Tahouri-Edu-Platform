@@ -1609,7 +1609,10 @@
             const normalizedStudentId = String(studentId || getActiveStudentId() || "").trim();
             const response = await window.TahouriLicenseClient.activate({code, gradeId, studentId: normalizedStudentId, installationId});
             if (!response || !response.valid || !response.entitlement) return response || {valid:false,message:"فعال‌سازی آنلاین انجام نشد."};
-            const verified = await window.TahouriEntitlementVerifier.verifyEnvelope(response.entitlement);
+            const verified = await window.TahouriEntitlementVerifier.verifyEnvelope(
+                response.entitlement,
+                { allowFuture: true }
+            );
             if (!verified.valid) return {valid:false,message:verified.reason || "مجوز آنلاین معتبر نیست."};
             const claims = verified.claims;
             if (claims.gradeScope && claims.gradeScope !== gradeId) return {valid:false,message:"مجوز مربوط به این پایه نیست."};
@@ -1648,23 +1651,43 @@
         catch(error){ return "ephemeral_"+Date.now(); }
     }
     function getRemoteEntitlement() {
-        try { return window.TahouriEntitlementStore ? window.TahouriEntitlementStore.read() : null; }
-        catch(error){ return null; }
+        try {
+            if (!window.TahouriEntitlementStore) return null;
+            const all = typeof window.TahouriEntitlementStore.readAll === "function"
+                ? window.TahouriEntitlementStore.readAll()
+                : [window.TahouriEntitlementStore.read()].filter(Boolean);
+            return all.length ? all[0] : null;
+        } catch(error) {
+            return null;
+        }
     }
 
     async function initializeRemoteEntitlement() {
         verifiedRemoteEntitlement = null;
-        const envelope = getRemoteEntitlement();
-        if (!envelope || !window.TahouriEntitlementVerifier) return false;
+        if (!window.TahouriEntitlementStore || !window.TahouriEntitlementVerifier) return false;
+
         try {
-            const result = await window.TahouriEntitlementVerifier.verifyEnvelope(envelope);
-            if (!result.valid) return false;
-            const claims = result.claims;
-            const binding = claims.installationBinding;
+            const all = typeof window.TahouriEntitlementStore.readAll === "function"
+                ? window.TahouriEntitlementStore.readAll()
+                : [window.TahouriEntitlementStore.read()].filter(Boolean);
+
             const installationId = getOrCreateInstallationId();
-            if (binding && binding !== installationId) return false;
-            verifiedRemoteEntitlement = claims;
-            return true;
+
+            for (const envelope of all) {
+                const result = await window.TahouriEntitlementVerifier.verifyEnvelope(envelope);
+
+                if (!result.valid) continue;
+
+                const claims = result.claims;
+                const binding = claims.installationBinding;
+
+                if (binding && binding !== installationId) continue;
+
+                verifiedRemoteEntitlement = claims;
+                return true;
+            }
+
+            return false;
         } catch (error) {
             console.warn("License Manager: Stored entitlement verification failed.", error);
             return false;
@@ -1677,8 +1700,14 @@
         if(c.gradeScope && c.gradeScope!==gradeId) return false;
         const activeStudentId = getActiveStudentId();
         if(c.studentId && c.studentId!==activeStudentId) return false;
+        const from=new Date(c.validFrom);
         const until=new Date(c.validUntil);
-        return !Number.isNaN(until.getTime()) && Date.now()<until.getTime();
+        return (
+            !Number.isNaN(from.getTime()) &&
+            !Number.isNaN(until.getTime()) &&
+            Date.now() >= from.getTime() &&
+            Date.now() < until.getTime()
+        );
     }
 
     // =====================================
