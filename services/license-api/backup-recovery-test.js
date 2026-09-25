@@ -28,6 +28,22 @@ try {
   const backup = path.join(backupDir, backups[0]);
   execFileSync(process.execPath, ["verify-backup.js", backup], { cwd: __dirname, env, stdio: "inherit" });
   execFileSync(process.execPath, ["restore-rehearsal.js", backup], { cwd: __dirname, env, stdio: "inherit" });
+  const malformed = path.join(root, "malformed.sqlite");
+  const bad = new DatabaseSync(malformed);
+  try {
+    bad.exec("PRAGMA user_version = 99; CREATE TABLE activation_codes (id INTEGER); CREATE TABLE licenses (id INTEGER); CREATE TABLE audit_log (id INTEGER); CREATE TABLE payments (id INTEGER);");
+  } finally {
+    bad.close();
+  }
+
+  let rejected = false;
+  try {
+    execFileSync(process.execPath, ["verify-backup.js", malformed], { cwd: __dirname, env, stdio: "pipe" });
+  } catch {
+    rejected = true;
+  }
+  if (!rejected) throw new Error("Malformed/unsupported backup was accepted.");
+
 
   const live = new DatabaseSync(dbFile);
   try {
