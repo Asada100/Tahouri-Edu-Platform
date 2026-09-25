@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Signed Entitlement Verifier
-// Version 1.1
+// Version 1.2
 // RSA-SHA256 / Web Crypto
 // =====================================
 
@@ -118,17 +118,24 @@
                 return { valid: false, reason: "نسخه مجوز پشتیبانی نمی‌شود." };
             }
 
-            if (!claims.licenseId || !claims.validUntil || !claims.academicYear || !claims.studentId) {
+            if (!claims.licenseId || !claims.validFrom || !claims.validUntil || !claims.academicYear || !claims.studentId) {
                 return { valid: false, reason: "اطلاعات مجوز کامل نیست." };
             }
 
+            const validFrom = new Date(claims.validFrom);
             const validUntil = new Date(claims.validUntil);
 
-            if (Number.isNaN(validUntil.getTime())) {
-                return { valid: false, reason: "تاریخ انقضای مجوز معتبر نیست." };
+            if (Number.isNaN(validFrom.getTime()) || Number.isNaN(validUntil.getTime())) {
+                return { valid: false, reason: "تاریخ اعتبار مجوز معتبر نیست." };
             }
 
-            if (Date.now() >= validUntil.getTime()) {
+            const now = Date.now();
+
+            if (now < validFrom.getTime()) {
+                return { valid: false, reason: "زمان شروع مجوز هنوز نرسیده است." };
+            }
+
+            if (now >= validUntil.getTime()) {
                 return { valid: false, reason: "مجوز منقضی شده است." };
             }
 
@@ -141,5 +148,5 @@
 
     window.TahouriEntitlementVerifier = { verifyEnvelope };
 
-    console.log("Tahouri Entitlement Verifier v1.1 Ready");
+    console.log("Tahouri Entitlement Verifier v1.2 Ready");
 })();
