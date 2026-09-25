@@ -154,7 +154,7 @@ async function main() {
         assert(audit.status === 200 && Array.isArray(audit.data.audit), "Audit endpoint failed.");
 
         const auditEvents = audit.data.audit.map(item => item.event_type || item.eventType);
-        for (const requiredEvent of ["license.activate", "license.extend", "license.revoke"]) {
+        for (const requiredEvent of ["license.activated", "license.extended", "license.revoked"]) {
             assert(auditEvents.includes(requiredEvent), "Missing audit event: " + requiredEvent);
         }
 
