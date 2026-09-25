@@ -36,7 +36,10 @@ try {
         throw new Error("Backup verification failed: required tables are missing.");
     }
 
-    verify.prepare("PRAGMA integrity_check").get();
+    const integrity = verify.prepare("PRAGMA integrity_check").get();
+    if (!integrity || integrity.integrity_check !== "ok") {
+        throw new Error("Backup verification failed: SQLite integrity check failed.");
+    }
 } finally {
     verify.close();
 }
