@@ -5,10 +5,24 @@ const os = require("node:os");
 const path = require("node:path");
 const { execFileSync } = require("node:child_process");
 const { DatabaseSync } = require("node:sqlite");
+const crypto = require("node:crypto");
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "tahouri-backup-test-"));
 const dbFile = path.join(root, "live", "license.sqlite");
 const backupDir = path.join(root, "backups");
+const keyDir = path.join(root, "keys");
+const fakeBin = path.join(root, "bin");
+fs.mkdirSync(keyDir, { recursive: true });
+fs.mkdirSync(fakeBin, { recursive: true });
+const { privateKey, publicKey } = crypto.generateKeyPairSync("rsa", { modulusLength: 2048, publicExponent: 0x10001 });
+const privateKeyFile = path.join(keyDir, "backup-private.pem");
+const publicKeyFile = path.join(keyDir, "backup-public.pem");
+fs.writeFileSync(privateKeyFile, privateKey.export({ type: "pkcs8", format: "pem" }), { mode: 0o600 });
+fs.writeFileSync(publicKeyFile, publicKey.export({ type: "spki", format: "pem" }));
+const offsiteDir = path.join(root, "offsite");
+fs.mkdirSync(offsiteDir, { recursive: true });
+const fakeScp = path.join(fakeBin, "scp");
+fs.writeFileSync(fakeScp, "#!/bin/sh\nfor last; do :; done\nfor arg in "$@"; do if [ -f "$arg" ]; then cp "$arg" "$TAHOURI_TEST_OFFSITE/"; fi; done\n", { mode: 0o755 });
 
 fs.mkdirSync(path.dirname(dbFile), { recursive: true });
 fs.mkdirSync(backupDir, { recursive: true });
@@ -21,13 +35,23 @@ try {
 }
 
 try {
-  const env = { ...process.env, TAHOURI_LICENSE_DB_FILE: dbFile, TAHOURI_LICENSE_BACKUP_DIR: backupDir };
+  const env = { ...process.env, NODE_ENV: "test", TAHOURI_LICENSE_DB_FILE: dbFile, TAHOURI_LICENSE_BACKUP_DIR: backupDir, TAHOURI_BACKUP_SIGNING_PRIVATE_KEY_FILE: privateKeyFile, TAHOURI_BACKUP_SIGNING_PUBLIC_KEY_FILE: publicKeyFile, TAHOURI_BACKUP_OFFSITE_HOST: "test-host", TAHOURI_BACKUP_OFFSITE_USER: "test-user", TAHOURI_BACKUP_OFFSITE_DIR: "/offsite", TAHOURI_BACKUP_OFFSITE_SSH_KEY_FILE: privateKeyFile, TAHOURI_TEST_OFFSITE: offsiteDir, PATH: fakeBin + path.delimiter + process.env.PATH };
   execFileSync(process.execPath, ["backup-db.js"], { cwd: __dirname, env, stdio: "inherit" });
   const backups = fs.readdirSync(backupDir).filter(name => name.endsWith(".sqlite"));
   if (backups.length !== 1) throw new Error("Expected exactly one backup file.");
   const backup = path.join(backupDir, backups[0]);
   execFileSync(process.execPath, ["verify-backup.js", backup], { cwd: __dirname, env, stdio: "inherit" });
+  const replicated = fs.readdirSync(offsiteDir);
+  if (!replicated.includes(path.basename(backup)) || !replicated.includes(path.basename(backup) + ".sig")) throw new Error("Off-site replication did not copy backup and signature.");
   execFileSync(process.execPath, ["restore-rehearsal.js", backup], { cwd: __dirname, env, stdio: "inherit" });
+  const tampered = path.join(root, "tampered.sqlite");
+  fs.copyFileSync(backup, tampered);
+  fs.appendFileSync(tampered, "tampered");
+  fs.copyFileSync(backup + ".sig", tampered + ".sig");
+  let tamperRejected = false;
+  try { execFileSync(process.execPath, ["verify-backup.js", tampered], { cwd: __dirname, env, stdio: "pipe" }); } catch { tamperRejected = true; }
+  if (!tamperRejected) throw new Error("Tampered signed backup was accepted.");
+
   const malformed = path.join(root, "malformed.sqlite");
   const bad = new DatabaseSync(malformed);
   try {
