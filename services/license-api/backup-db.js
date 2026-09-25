@@ -62,3 +62,16 @@ if (signingKeyFile) {
 console.log("Tahouri License API backup created and verified:");
 console.log(backupFile);
 if (signingKeyFile) console.log(signatureFile);
+
+const offsiteConfigured = process.env.TAHOURI_BACKUP_OFFSITE_HOST &&
+    process.env.TAHOURI_BACKUP_OFFSITE_USER &&
+    process.env.TAHOURI_BACKUP_OFFSITE_DIR &&
+    process.env.TAHOURI_BACKUP_OFFSITE_SSH_KEY_FILE;
+if (process.env.NODE_ENV === "production" || offsiteConfigured) {
+    const { execFileSync } = require("node:child_process");
+    execFileSync(process.execPath, ["offsite-backup.js"], {
+        cwd: __dirname,
+        env: process.env,
+        stdio: "inherit"
+    });
+}
