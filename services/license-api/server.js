@@ -153,6 +153,7 @@ function metricsSnapshot() {
 }
 const ADMIN_ORIGIN = String(process.env.TAHOURI_ADMIN_ORIGIN || (IS_PRODUCTION ? "" : "http://localhost:5500"));
 const APP_ORIGIN = String(process.env.TAHOURI_APP_ORIGIN || (IS_PRODUCTION ? "" : "http://localhost:5500"));
+const DEV_LOOPBACK_ORIGINS = IS_PRODUCTION ? [] : ["http://127.0.0.1:5500"];
 const COOKIE_SECURE = IS_PRODUCTION ? "; Secure" : "";
 
 if (IS_PRODUCTION && !process.env.TAHOURI_ADMIN_ORIGIN) {
@@ -362,7 +363,9 @@ function audit(eventType, actor, values = {}) {
 
 function isAllowedOrigin(origin) {
     if (!origin) return false;
-    return origin === ADMIN_ORIGIN || origin === APP_ORIGIN;
+    return origin === ADMIN_ORIGIN ||
+        origin === APP_ORIGIN ||
+        DEV_LOOPBACK_ORIGINS.includes(origin);
 }
 
 function corsOriginForRequest(req) {
