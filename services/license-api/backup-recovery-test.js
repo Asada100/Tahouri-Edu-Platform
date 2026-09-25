@@ -22,7 +22,7 @@ fs.writeFileSync(publicKeyFile, publicKey.export({ type: "spki", format: "pem" }
 const offsiteDir = path.join(root, "offsite");
 fs.mkdirSync(offsiteDir, { recursive: true });
 const fakeScp = path.join(fakeBin, "scp");
-fs.writeFileSync(fakeScp, "#!/bin/sh\nfor last; do :; done\nfor arg in "$@"; do if [ -f "$arg" ]; then cp "$arg" "$TAHOURI_TEST_OFFSITE/"; fi; done\n", { mode: 0o755 });
+fs.writeFileSync(fakeScp, "#!/bin/sh\nfor last; do :; done\nfor arg in "$@"; do case "$arg" in *.sqlite|*.sqlite.sig) if [ -f "$arg" ]; then cp "$arg" "$TAHOURI_TEST_OFFSITE/"; fi;; esac; done\n", { mode: 0o755 });
 
 fs.mkdirSync(path.dirname(dbFile), { recursive: true });
 fs.mkdirSync(backupDir, { recursive: true });
