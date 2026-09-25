@@ -507,7 +507,7 @@ function academicPeriod() {
 
 function getSessionId(req) {
     const cookie = String(req.headers.cookie || "");
-    const match = cookie.match(/(?:^|;)\\s*tahouri_admin_session=([^;]+)/);
+    const match = cookie.match(/(?:^|;)\s*tahouri_admin_session=([^;]+)/);
     return match ? decodeURIComponent(match[1]) : "";
 }
 
