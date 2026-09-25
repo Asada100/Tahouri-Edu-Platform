@@ -16,6 +16,8 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 const privateKeyFile = required("TAHOURI_LICENSE_PRIVATE_KEY_FILE");
+const backupSigningPrivateKeyFile = required("TAHOURI_BACKUP_SIGNING_PRIVATE_KEY_FILE");
+const backupSigningPublicKeyFile = required("TAHOURI_BACKUP_SIGNING_PUBLIC_KEY_FILE");
 const adminPassword = required("TAHOURI_ADMIN_PASSWORD");
 const provider = String(required("TAHOURI_PAYMENT_PROVIDER") || "").trim().toLowerCase();
 const appOrigin = required("TAHOURI_APP_ORIGIN");
@@ -32,6 +34,19 @@ if (privateKeyFile) {
     }
     if (!fs.existsSync(resolvedKey)) {
         errors.push("Signing private key file does not exist: " + resolvedKey);
+    }
+}
+
+
+for (const [name, value] of [
+    ["TAHOURI_BACKUP_SIGNING_PRIVATE_KEY_FILE", backupSigningPrivateKeyFile],
+    ["TAHOURI_BACKUP_SIGNING_PUBLIC_KEY_FILE", backupSigningPublicKeyFile]
+]) {
+    if (value) {
+        const resolved = path.resolve(value);
+        const projectRoot = path.resolve(__dirname, "../..");
+        if (resolved.startsWith(projectRoot + path.sep)) errors.push(name + " must be outside the project directory.");
+        if (!fs.existsSync(resolved)) errors.push(name + " file does not exist: " + resolved);
     }
 }
 
