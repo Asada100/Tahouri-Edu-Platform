@@ -30,6 +30,8 @@ services:
       PORT: 8787
       HOST: 0.0.0.0
       TAHOURI_LICENSE_PRIVATE_KEY_FILE: /run/secrets/tahouri_private_key
+      TAHOURI_BACKUP_SIGNING_PRIVATE_KEY_FILE: /run/secrets/tahouri_backup_signing_private_key
+      TAHOURI_BACKUP_SIGNING_PUBLIC_KEY_FILE: /run/secrets/tahouri_backup_signing_public_key
       TAHOURI_ADMIN_PASSWORD: ${TAHOURI_ADMIN_PASSWORD}
       TAHOURI_PAYMENT_PROVIDER: ${TAHOURI_PAYMENT_PROVIDER}
       TAHOURI_ADMIN_ORIGIN: ${TAHOURI_ADMIN_ORIGIN}
@@ -45,6 +47,8 @@ services:
       - tahouri_license_backups:/backups
     secrets:
       - tahouri_private_key
+      - tahouri_backup_signing_private_key
+      - tahouri_backup_signing_public_key
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 30s
@@ -54,6 +58,10 @@ services:
 secrets:
   tahouri_private_key:
     file: ./secrets/tahouri-license-private.pem
+  tahouri_backup_signing_private_key:
+    file: ./secrets/tahouri-backup-signing-private.pem
+  tahouri_backup_signing_public_key:
+    file: ./secrets/tahouri-backup-signing-public.pem
 
 volumes:
   caddy_data:
