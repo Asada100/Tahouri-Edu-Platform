@@ -717,7 +717,9 @@ function seedTestCodes() {
     }
 }
 
-if (!IS_PRODUCTION && process.env.TAHOURI_TEST_CODES !== "false") {\n    seedTestCodes();\n}
+if (!IS_PRODUCTION && process.env.TAHOURI_TEST_CODES !== "false") {
+    seedTestCodes();
+}
 
 async function activate(req, res) {
     const body = await readBody(req);
