@@ -171,6 +171,42 @@ async function main() {
         const badStatus = await request("GET", "/api/licenses/status?licenseId=" + encodeURIComponent("license id with spaces"));
         assert(badStatus.status === 400, "Invalid license identifier was accepted.");
 
+        const iranParts = Object.fromEntries(
+            new Intl.DateTimeFormat("en-US-u-ca-persian", {
+                timeZone: "Asia/Tehran",
+                year: "numeric",
+                month: "numeric",
+                day: "numeric"
+            }).formatToParts(new Date())
+              .filter(part => part.type !== "literal")
+              .map(part => [part.type, Number(part.value)])
+        );
+        const activeAcademicYear = iranParts.month >= 7 ? iranParts.year : iranParts.year - 1;
+        const nextAcademicYear = String(activeAcademicYear + 1);
+
+        const nextCodes = await request("POST", "/api/admin/codes", {
+            gradeId: "grade6",
+            academicYear: nextAcademicYear,
+            count: 1
+        }, { Cookie: cookie });
+        assert(nextCodes.status === 201 && nextCodes.data.codes?.length === 1, "Next-year renewal code creation failed.");
+
+        const renewalActivation = await request("POST", "/api/licenses/activate", {
+            code: nextCodes.data.codes[0],
+            gradeId: "grade6",
+            studentId: "renewal-student",
+            installationId: "renewal-installation"
+        });
+        assert(renewalActivation.status === 200 && renewalActivation.data.valid, "Next-year renewal activation failed.");
+        assert(
+            renewalActivation.data.entitlement.claims.academicYear === nextAcademicYear,
+            "Next-year entitlement academic year is incorrect."
+        );
+        assert(
+            Date.parse(renewalActivation.data.entitlement.claims.validFrom) > Date.now(),
+            "Early renewal must not become active immediately."
+        );
+
         const health = await request("GET", "/api/health");
         assert(health.status === 200 && health.data.ok, "Health failed after activation.");
 
