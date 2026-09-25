@@ -883,7 +883,7 @@ async function adminCreateCodes(req, res) {
     const academicYear = String(body.academicYear || academicPeriod().academicYear).trim();
     const targetYear = Number(academicYear);
     const activeYear = currentAcademicYear();
-    if (!/^\\d{4}$/.test(academicYear) ||
+    if (!/^\d{4}$/.test(academicYear) ||
         !Number.isInteger(targetYear) ||
         targetYear < activeYear ||
         targetYear > activeYear + 1) {
