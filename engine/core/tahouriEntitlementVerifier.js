@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Signed Entitlement Verifier
-// Version 1.2
+// Version 1.3
 // RSA-SHA256 / Web Crypto
 // =====================================
 
@@ -89,7 +89,9 @@
         return bytes;
     }
 
-    async function verifyEnvelope(envelope) {
+    async function verifyEnvelope(envelope, options) {
+        options = options || {};
+        const allowFuture = options.allowFuture === true;
         if (!envelope || !envelope.claims || !envelope.signature) {
             return { valid: false, reason: "ساختار مجوز ناقص است." };
         }
@@ -132,7 +134,9 @@
             const now = Date.now();
 
             if (now < validFrom.getTime()) {
-                return { valid: false, reason: "زمان شروع مجوز هنوز نرسیده است." };
+                if (!allowFuture) {
+                    return { valid: false, reason: "زمان شروع مجوز هنوز نرسیده است." };
+                }
             }
 
             if (now >= validUntil.getTime()) {
@@ -148,5 +152,5 @@
 
     window.TahouriEntitlementVerifier = { verifyEnvelope };
 
-    console.log("Tahouri Entitlement Verifier v1.2 Ready");
+    console.log("Tahouri Entitlement Verifier v1.3 Ready");
 })();
