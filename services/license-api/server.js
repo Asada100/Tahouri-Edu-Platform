@@ -1155,7 +1155,7 @@ async function paymentCallback(req, res) {
     }
 
     const payment = db.prepare("SELECT * FROM payments WHERE payment_id = ?").get(paymentId);
-    if (!payment) { recordMetric("paymentVerificationFailures"); return send(res, 404, { ok: false, message: "پرداخت پیدا نشد." });
+    if (!payment) { recordMetric("paymentVerificationFailures"); return send(res, 404, { ok: false, message: "پرداخت پیدا نشد." }); }
     if (payment.status !== "pending") {
         recordMetric("paymentVerificationFailures");
         return send(res, 409, { ok: false, message: "این پرداخت قبلاً تعیین تکلیف شده است." });
