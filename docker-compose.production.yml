@@ -60,6 +60,31 @@ services:
       timeout: 5s
       retries: 3
 
+  tahouri-backup-scheduler:
+    build:
+      context: .
+      dockerfile: services/license-api/Dockerfile
+    restart: unless-stopped
+    command: ["node", "services/license-api/backup-scheduler.js"]
+    environment:
+      NODE_ENV: production
+      TAHOURI_BACKUP_INTERVAL_HOURS: ${TAHOURI_BACKUP_INTERVAL_HOURS:-24}
+      TAHOURI_LICENSE_DB_FILE: /data/license.sqlite
+      TAHOURI_LICENSE_BACKUP_DIR: /backups
+      TAHOURI_BACKUP_SIGNING_PRIVATE_KEY_FILE: /run/secrets/tahouri_backup_signing_private_key
+      TAHOURI_BACKUP_SIGNING_PUBLIC_KEY_FILE: /run/secrets/tahouri_backup_signing_public_key
+      TAHOURI_BACKUP_OFFSITE_HOST: ${TAHOURI_BACKUP_OFFSITE_HOST}
+      TAHOURI_BACKUP_OFFSITE_USER: ${TAHOURI_BACKUP_OFFSITE_USER}
+      TAHOURI_BACKUP_OFFSITE_DIR: ${TAHOURI_BACKUP_OFFSITE_DIR}
+      TAHOURI_BACKUP_OFFSITE_SSH_KEY_FILE: /run/secrets/tahouri_backup_offsite_ssh_key
+    volumes:
+      - tahouri_license_data:/data:ro
+      - tahouri_license_backups:/backups
+    secrets:
+      - tahouri_backup_signing_private_key
+      - tahouri_backup_signing_public_key
+      - tahouri_backup_offsite_ssh_key
+
 secrets:
   tahouri_private_key:
     file: ./secrets/tahouri-license-private.pem
