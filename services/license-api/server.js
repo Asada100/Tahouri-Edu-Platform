@@ -1436,7 +1436,7 @@ if (req.method === "GET" && req.url === "/api/metrics") {
             return await adminExtendLicense(req, res);
         }
 
-        if (req.method === "GET" && req.url === "/api/admin/audit") {
+        if (req.method === "GET" && req.url.startsWith("/api/admin/audit")) {
             return await adminAudit(req, res);
         }
 
