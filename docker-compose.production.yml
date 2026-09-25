@@ -79,6 +79,7 @@ services:
       TAHOURI_BACKUP_OFFSITE_USER: ${TAHOURI_BACKUP_OFFSITE_USER}
       TAHOURI_BACKUP_OFFSITE_DIR: ${TAHOURI_BACKUP_OFFSITE_DIR}
       TAHOURI_BACKUP_OFFSITE_SSH_KEY_FILE: /run/secrets/tahouri_backup_offsite_ssh_key
+      TAHOURI_BACKUP_OFFSITE_KNOWN_HOSTS_FILE: /run/secrets/tahouri_backup_offsite_known_hosts
     volumes:
       - tahouri_license_data:/data:ro
       - tahouri_license_backups:/backups
@@ -86,6 +87,7 @@ services:
       - tahouri_backup_signing_private_key
       - tahouri_backup_signing_public_key
       - tahouri_backup_offsite_ssh_key
+      - tahouri_backup_offsite_known_hosts
 
 secrets:
   tahouri_private_key:
