@@ -1042,6 +1042,13 @@
         studentId
     ) {
 
+        if (isRemoteProductionMode()) {
+            return {
+                valid: false,
+                message: "اعتبارسنجی کد محلی در نسخه production مجاز نیست."
+            };
+        }
+
         const normalized =
             normalizeCode(code);
 
@@ -1284,6 +1291,13 @@
         gradeId,
         studentId
     ) {
+
+        if (isRemoteProductionMode()) {
+            return {
+                valid: false,
+                message: "فعال‌سازی محلی در نسخه production مجاز نیست."
+            };
+        }
 
         const normalizedStudentId =
             normalizeStudentId(
@@ -1578,6 +1592,13 @@
     }
 
 
+    function isRemoteProductionMode() {
+        return Boolean(
+            window.TahouriServiceConfig &&
+            window.TahouriServiceConfig.mode === "production"
+        );
+    }
+
     // =====================================
     // Remote Activation Bridge
     // =====================================
@@ -1594,9 +1615,32 @@
             if (claims.gradeScope && claims.gradeScope !== gradeId) return {valid:false,message:"مجوز مربوط به این پایه نیست."};
             if (claims.studentId && claims.studentId !== String(studentId || getActiveStudentId()).trim()) return {valid:false,message:"این مجوز متعلق به پروفایل دیگری است."};
             if (!window.TahouriEntitlementStore.write(response.entitlement)) return {valid:false,message:"ذخیره مجوز امن انجام نشد."};
+            if (
+                claims.productId !== "tahouri-edu" ||
+                claims.entitlementVersion !== 1 ||
+                claims.licenseId === undefined ||
+                claims.academicYear === undefined ||
+                claims.validFrom === undefined ||
+                claims.validUntil === undefined
+            ) {
+                return {
+                    valid: false,
+                    message: "اطلاعات مجوز دریافتی کامل نیست."
+                };
+            }
+
             verifiedRemoteEntitlement = claims;
             return {valid:true,remote:true,entitlement:response.entitlement,license:claims,studentId};
-        } catch (error) { console.warn("License Manager: Remote activation unavailable; local path remains available.", error); return null; }
+        } catch (error) {
+            console.warn("License Manager: Remote activation unavailable.", error);
+            if (isRemoteProductionMode()) {
+                return {
+                    valid: false,
+                    message: "سرویس فعال‌سازی در دسترس نیست. برای فعال‌سازی دوباره بعداً تلاش کنید."
+                };
+            }
+            return null;
+        }
     }
     function getOrCreateInstallationId() {
         const key="Tahouri_Installation_Id_v1";
