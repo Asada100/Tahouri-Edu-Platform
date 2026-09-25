@@ -34,3 +34,5 @@ jobs:
 
       - name: Integration test
         run: npm run integration-test
+      - name: Migration verification
+        run: npm run migration-test
