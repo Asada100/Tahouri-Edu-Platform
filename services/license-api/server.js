@@ -1012,9 +1012,12 @@ async function adminSearch(req, res) {
                academic_year AS academicYear, valid_from AS validFrom,
                valid_until AS validUntil, status, created_at AS createdAt
         FROM licenses
-        WHERE license_id LIKE ? OR student_id LIKE ? OR grade_id LIKE ?
+        WHERE license_id = ? OR student_id = ? OR grade_id = ?
+           OR LOWER(license_id) LIKE LOWER(?)
+           OR LOWER(student_id) LIKE LOWER(?)
+           OR LOWER(grade_id) LIKE LOWER(?)
         ORDER BY created_at DESC LIMIT 100
-    `).all(like, like, like);
+    `).all(q, q, q, like, like, like);
 
     const codes = db.prepare(`
         SELECT code_preview AS codePreview, grade_id AS gradeId,
