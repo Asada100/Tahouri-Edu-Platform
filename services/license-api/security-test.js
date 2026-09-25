@@ -9,6 +9,10 @@ const composePath = path.join(__dirname, "../../docker-compose.production.yml");
 const compose = fs.readFileSync(composePath, "utf8");
 const gitignorePath = path.join(__dirname, "../../.gitignore");
 const gitignore = fs.readFileSync(gitignorePath, "utf8");
+const licenseManagerPath = path.join(__dirname, "../../engine/core/licenseManager.js");
+const activationGatePath = path.join(__dirname, "../../engine/core/activationGate.js");
+const licenseManager = fs.readFileSync(licenseManagerPath, "utf8");
+const activationGate = fs.readFileSync(activationGatePath, "utf8");
 
 const forbidden = [
     /console\.log\([^\n]*(?:password|secret|token|authority|private.?key|api.?key)/i,
@@ -51,6 +55,22 @@ for (const marker of required) {
     if (!source.includes(marker)) {
         throw new Error("Required production hardening marker missing: " + marker);
     }
+}
+
+const productionLicenseMarkers = [
+    "function isRemoteProductionMode",
+    "if (isRemoteProductionMode())",
+    "فعال‌سازی محلی در نسخه production مجاز نیست."
+];
+
+for (const marker of productionLicenseMarkers) {
+    if (!licenseManager.includes(marker)) {
+        throw new Error("Production license safety marker missing: " + marker);
+    }
+}
+
+if (!activationGate.includes('const productionMode = serviceConfig.mode === "production";')) {
+    throw new Error("Activation gate production mode guard is missing.");
 }
 
 console.log("Tahouri License API security test: PASS");
