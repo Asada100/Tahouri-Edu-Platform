@@ -36,3 +36,5 @@ jobs:
         run: npm run integration-test
       - name: Migration verification
         run: npm run migration-test
+      - name: Backup and recovery verification
+        run: npm run backup-recovery-test
