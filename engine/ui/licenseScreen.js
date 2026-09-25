@@ -2103,8 +2103,6 @@
 
         let result =
             null;
-        let result =
-            null;
 
 
         try {
@@ -2128,13 +2126,6 @@
                         grade,
                         activeProfile.studentId,
                         renewalMode
-                    );
-
-            }
-                    await LicenseManager.activateRemote(
-                        code,
-                        grade,
-                        activeProfile.studentId
                     );
 
             }
