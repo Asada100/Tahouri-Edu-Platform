@@ -1000,6 +1000,14 @@
             activeProfile.grade;
 
 
+        const currentGradeNumber =
+            Number(String(currentGrade || "").replace(/^grade/i, ""));
+
+        const nextGradeId =
+            Number.isInteger(currentGradeNumber) && currentGradeNumber > 0
+                ? "grade" + (currentGradeNumber + 1)
+                : "";
+
         const gradeTitle =
             getGradeTitle(
                 currentGrade
@@ -1633,43 +1641,48 @@
             );
 
 
-        let gradeOptions =
-            "";
+        let gradeOptions = "";
 
+        const renewalTargetGrade =
+            availableGrades.find(function (grade) {
+                return grade.id === nextGradeId;
+            });
 
-        availableGrades.forEach(
-            function (grade) {
+        const renewalCurrentGrade =
+            availableGrades.find(function (grade) {
+                return grade.id === currentGrade;
+            });
 
+        if (activated) {
+            if (renewalTargetGrade) {
+                gradeOptions += `
+                    <option value="${renewalTargetGrade.id}" selected>
+                        ${renewalTargetGrade.title || renewalTargetGrade.name || renewalTargetGrade.id} — پایه سال بعد
+                    </option>
+                `;
+            }
+
+            if (renewalCurrentGrade) {
+                gradeOptions += `
+                    <option value="${renewalCurrentGrade.id}" disabled>
+                        ${renewalCurrentGrade.title || renewalCurrentGrade.name || renewalCurrentGrade.id} — تکرار پایه
+                    </option>
+                `;
+            }
+        } else {
+            availableGrades.forEach(function (grade) {
                 const selected =
-                    preselectedGrade &&
-                    grade.id ===
-                    preselectedGrade
+                    preselectedGrade && grade.id === preselectedGrade
                         ? "selected"
                         : "";
 
-
                 gradeOptions += `
-
-                    <option
-                        value="${grade.id}"
-                        ${selected}
-                    >
-                        ${
-                            grade.title ||
-                            grade.name ||
-                            grade.id
-                        }${
-                            isGradeActivated(grade.id)
-                                ? " — تمدید سال بعد"
-                                : ""
-                        }
+                    <option value="${grade.id}" ${selected}>
+                        ${grade.title || grade.name || grade.id}
                     </option>
-
                 `;
-
-            }
-        );
-
+            });
+        }
 
         const hasAvailableGrades =
             availableGrades.length > 0;
@@ -1717,10 +1730,28 @@
                                     class="tahouri-license-management-text"
                                     id="tahouriLicenseManagementText"
                                 >
-                                    پایه موردنظر را انتخاب کرده و
-                                    کد مجوز آن را وارد کنید.
-                                    پایه‌ای که مجوز فعال دارد با عنوان
-                                    «تمدید سال بعد» مشخص شده است.
+                                    ${
+                                        activated
+                                            ? "برای سال تحصیلی بعد، پایه بعدی به‌صورت خودکار انتخاب شده است."
+                                ${
+                                    activated && renewalCurrentGrade
+                                        ? `
+                                            <label
+                                                class="tahouri-license-repeat"
+                                                style="display:flex;align-items:center;gap:8px;margin:10px 0 14px;line-height:1.8;"
+                                            >
+                                                <input
+                                                    id="tahouriLicenseRepeatGrade"
+                                                    type="checkbox"
+                                                />
+                                                <span>تکرار همین پایه (فقط در صورت مردودی)</span>
+                                            </label>
+                                        `
+                                        : ""
+                                }
+
+                                            : "پایه موردنظر را انتخاب کرده و کد مجوز آن را وارد کنید."
+                                    }
                                 </div>
 
 
@@ -2002,10 +2033,27 @@
         }
 
 
-        const grade =
+        const repeatCheckbox =
+            document.getElementById("tahouriLicenseRepeatGrade");
+
+        const selectedGrade =
             gradeSelect.value;
 
+        const activeProfileForRenewal =
+            getActiveProfile();
 
+        const grade =
+            repeatCheckbox && repeatCheckbox.checked && activeProfileForRenewal
+                ? activeProfileForRenewal.grade
+                : selectedGrade;
+
+        const renewalMode =
+            repeatCheckbox && repeatCheckbox.checked
+                ? "repeat"
+                : "promotion";
+
+        const code =
+            codeInput.value.trim();
         const code =
             codeInput.value.trim();
 
@@ -2048,9 +2096,6 @@
         const activeProfile =
             getActiveProfile();
 
-        const renewingActiveGrade =
-            isGradeActivated(grade);
-
         let result =
             null;
 
@@ -2058,7 +2103,7 @@
         try {
 
             if (
-                renewingActiveGrade &&
+                
                 typeof LicenseManager.activateRemote ===
                     "function"
             ) {
@@ -2066,6 +2111,7 @@
                 if (
                     !activeProfile ||
                     !activeProfile.studentId
+                        renewalMode
                 ) {
 
                     showManagementError(
@@ -2164,13 +2210,13 @@
 
 
         console.log(
-            renewingActiveGrade
+            result.renewalStored === true
                 ? "License Screen: Renewal stored successfully."
                 : "License Screen: License activated successfully.",
             result.license || result
         );
 
-        if (renewingActiveGrade && result.renewalStored === true) {
+        if (result.renewalStored === true) {
 
             showManagementSuccess(
                 "تمدید مجوز برای سال تحصیلی بعد با موفقیت ثبت شد."
