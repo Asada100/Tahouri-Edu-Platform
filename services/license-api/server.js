@@ -381,7 +381,9 @@ function boundedString(value, max, field) {
 function validateIdentifier(value, field) {
     const text = boundedString(value, 128, field);
     if (!/^[A-Za-z0-9._:-]+$/.test(text)) {
-        throw new Error(field + " contains invalid characters.");
+        const error = new Error(field + " contains invalid characters.");
+        error.statusCode = 400;
+        throw error;
     }
     return text;
 }
@@ -1467,10 +1469,13 @@ if (req.method === "GET" && req.url === "/api/metrics") {
         return send(res, 404, { message: "مسیر موردنظر پیدا نشد." });
     } catch (error) {
         safeLog("error", "Tahouri License API request failed.", { requestId: res.__requestId, error: error.message });
-        return send(res, 500, {
+        const statusCode = Number.isInteger(error.statusCode) && error.statusCode >= 400 && error.statusCode < 500
+            ? error.statusCode
+            : 500;
+        return send(res, statusCode, {
             ok: false,
             valid: false,
-            message: "خطای داخلی سرویس."
+            message: statusCode === 400 ? error.message : "خطای داخلی سرویس."
         });
     }
 });
