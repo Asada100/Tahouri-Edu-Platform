@@ -4,6 +4,10 @@ on:
   push:
     paths:
       - "services/license-api/**"
+      - "engine/core/licenseManager.js"
+      - "engine/core/activationGate.js"
+      - "engine/core/tahouriEntitlementStore.js"
+      - "engine/core/tahouriEntitlementVerifier.js"
       - ".github/workflows/license-api-ci.yml"
   pull_request:
     paths:
@@ -31,6 +35,9 @@ jobs:
 
       - name: Security test
         run: npm run security-test
+
+      - name: Client license safety test
+        run: node client-license-safety-test.js
 
       - name: Integration test
         run: npm run integration-test
