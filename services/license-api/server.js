@@ -1306,6 +1306,7 @@ const server = http.createServer(async (req, res) => {
 }
 
 if (req.method === "GET" && req.url === "/api/metrics") {
+            if (!requireAdmin(req, res)) return;
             return send(res, 200, { ok: true, metrics: metricsSnapshot() });
         }
 
@@ -1562,7 +1563,7 @@ function gracefulShutdown(signal) {
     }
 
     try {
-        db.pragma("wal_checkpoint(TRUNCATE)");
+        db.exec("PRAGMA wal_checkpoint(TRUNCATE)");
     } catch (error) {
         console.error("Database checkpoint during shutdown failed:", error.message);
     }
