@@ -459,19 +459,50 @@ function findNext31Shahrivar(year) {
     throw new Error("31 Shahrivar could not be resolved for academic year " + year);
 }
 
-function academicPeriod() {
-    const now = new Date();
-    const iran = getIranianDateParts(now);
-    const academicYear = iran.month >= 7 ? iran.year : iran.year - 1;
-    const expiryDay = findNext31Shahrivar(academicYear + 1);
-    // Iran has a fixed UTC+03:30 offset since DST was abolished.
-    const validUntil = new Date(expiryDay.getTime() + (23 * 60 + 59) * 60 * 1000 + 59 * 1000 + 999 - (3 * 60 + 30) * 60 * 1000);
+function findPersianDateUtc(year, month, day) {
+    const start = Date.UTC(Number(year) + 621, 2, 1);
+    const end = Date.UTC(Number(year) + 621, 8, 30);
+    const target = Number(year) * 10000 + Number(month) * 100 + Number(day);
+
+    for (let time = start; time <= end; time += 24 * 60 * 60 * 1000) {
+        const date = new Date(time);
+        const parts = getIranianDateParts(date);
+        const current = parts.year * 10000 + parts.month * 100 + parts.day;
+        if (current === target) return date;
+    }
+
+    throw new Error("Persian date could not be resolved.");
+}
+
+function tehranMidnightFromPersianDate(year, month, day) {
+    const utcDate = findPersianDateUtc(year, month, day);
+    return new Date(utcDate.getTime() - (3 * 60 + 30) * 60 * 1000);
+}
+
+function academicPeriodForYear(academicYear) {
+    const year = Number(academicYear);
+    if (!Number.isInteger(year) || year < 1300 || year > 1600) {
+        throw new Error("Invalid academic year.");
+    }
+
+    const validFrom = tehranMidnightFromPersianDate(year, 7, 1);
+    const nextYearStart = tehranMidnightFromPersianDate(year + 1, 7, 1);
+    const validUntil = new Date(nextYearStart.getTime() - 1);
 
     return {
-        academicYear: String(academicYear),
-        validFrom: now.toISOString(),
+        academicYear: String(year),
+        validFrom: validFrom.toISOString(),
         validUntil: validUntil.toISOString()
     };
+}
+
+function currentAcademicYear() {
+    const iran = getIranianDateParts(new Date());
+    return iran.month >= 7 ? iran.year : iran.year - 1;
+}
+
+function academicPeriod() {
+    return academicPeriodForYear(currentAcademicYear());
 }
 
 function getSessionId(req) {
@@ -702,7 +733,8 @@ async function activate(req, res) {
 
     const codeHash = hashCode(code);
     const codeRecord = db.prepare(`
-        SELECT code_hash AS codeHash, grade_id AS gradeId, status, used_at AS usedAt
+        SELECT code_hash AS codeHash, grade_id AS gradeId,
+               academic_year AS academicYear, status, used_at AS usedAt
         FROM activation_codes
         WHERE code_hash = ?
     `).get(codeHash);
@@ -717,12 +749,24 @@ async function activate(req, res) {
         return send(res, 400, { valid: false, message: "این کد مربوط به پایه انتخاب‌شده نیست." });
     }
 
+    const requestedAcademicYear = Number(codeRecord.academicYear);
+    const activeAcademicYear = currentAcademicYear();
+    if (!Number.isInteger(requestedAcademicYear) ||
+        requestedAcademicYear < activeAcademicYear ||
+        requestedAcademicYear > activeAcademicYear + 1) {
+        recordMetric("activationFailures");
+        return send(res, 400, {
+            valid: false,
+            message: "این کد مربوط به سال تحصیلی مجاز فعلی یا سال تحصیلی بعد است."
+        });
+    }
+
     if (codeRecord.status !== "active" || codeRecord.usedAt) {
         recordMetric("activationFailures");
         return send(res, 409, { valid: false, message: "این کد قبلاً استفاده شده یا غیرفعال است." });
     }
 
-    const period = academicPeriod();
+    const period = academicPeriodForYear(requestedAcademicYear);
     const licenseId = "lic_" + crypto.randomUUID();
     const entitlement = createEntitlement({
         licenseId,
@@ -833,6 +877,17 @@ async function adminCreateCodes(req, res) {
     const body = await readBody(req);
     const gradeId = validateIdentifier(body.gradeId, "gradeId");
     const academicYear = String(body.academicYear || academicPeriod().academicYear).trim();
+    const targetYear = Number(academicYear);
+    const activeYear = currentAcademicYear();
+    if (!/^\\d{4}$/.test(academicYear) ||
+        !Number.isInteger(targetYear) ||
+        targetYear < activeYear ||
+        targetYear > activeYear + 1) {
+        return send(res, 400, {
+            ok: false,
+            message: "سال تحصیلی باید سال جاری یا سال تحصیلی بعد باشد."
+        });
+    }
     const count = Math.min(Math.max(Number(body.count || 1), 1), 100);
 
     if (!gradeId) {
