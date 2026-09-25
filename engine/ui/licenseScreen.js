@@ -1624,14 +1624,8 @@
             grades.filter(
                 function (grade) {
 
-                    if (!grade || !grade.id) {
-
-                        return false;
-
-                    }
-
-
-                    return !isGradeActivated(
+                    return Boolean(
+                        grade &&
                         grade.id
                     );
 
@@ -1664,6 +1658,10 @@
                             grade.title ||
                             grade.name ||
                             grade.id
+                        }${
+                            isGradeActivated(grade.id)
+                                ? " — تمدید سال بعد"
+                                : ""
                         }
                     </option>
 
@@ -1709,16 +1707,20 @@
 
                                 <div
                                     class="tahouri-license-management-title"
+                                    id="tahouriLicenseManagementTitle"
                                 >
-                                    فعال‌سازی مجوز
+                                    فعال‌سازی یا تمدید مجوز
                                 </div>
 
 
                                 <div
                                     class="tahouri-license-management-text"
+                                    id="tahouriLicenseManagementText"
                                 >
                                     پایه موردنظر را انتخاب کرده و
                                     کد مجوز آن را وارد کنید.
+                                    پایه‌ای که مجوز فعال دارد با عنوان
+                                    «تمدید سال بعد» مشخص شده است.
                                 </div>
 
 
@@ -1777,7 +1779,7 @@
                                     type="button"
                                     class="tahouri-license-button"
                                 >
-                                    ✅ فعال‌سازی مجوز
+                                    ✅ فعال‌سازی / تمدید مجوز
                                 </button>
 
                             `
@@ -1829,9 +1831,9 @@
 
             activationButton.addEventListener(
                 "click",
-                function () {
+                async function () {
 
-                    activateLicense();
+                    await activateLicense();
 
                 }
             );
@@ -1857,7 +1859,7 @@
 
                         event.preventDefault();
 
-                        activateLicense();
+                        await activateLicense();
 
                     }
 
@@ -1937,10 +1939,46 @@
 
 
     // =========================================================
+    // Show Management Success
+    // =========================================================
+
+    function showManagementSuccess(
+        message
+    ) {
+
+        const element =
+            document.getElementById(
+                "tahouriLicenseActivationError"
+            );
+
+        if (!element) {
+            return;
+        }
+
+        element.textContent =
+            message ||
+            "عملیات با موفقیت انجام شد.";
+
+        element.style.display =
+            "block";
+
+        element.style.background =
+            "#e9f7ef";
+
+        element.style.borderColor =
+            "#bfe5ce";
+
+        element.style.color =
+            "#187744";
+
+    }
+
+
+    // =========================================================
     // Activate License
     // =========================================================
 
-    function activateLicense() {
+    async function activateLicense() {
 
         const gradeSelect =
             document.getElementById(
@@ -1995,9 +2033,7 @@
 
 
         if (
-            !window.LicenseManager ||
-            typeof LicenseManager.activate !==
-                "function"
+            !window.LicenseManager
         ) {
 
             showManagementError(
@@ -2009,17 +2045,66 @@
         }
 
 
+        const activeProfile =
+            getActiveProfile();
+
+        const renewingActiveGrade =
+            isGradeActivated(grade);
+
         let result =
             null;
 
 
         try {
 
-            result =
-                LicenseManager.activate(
-                    code,
-                    grade
+            if (
+                renewingActiveGrade &&
+                typeof LicenseManager.activateRemote ===
+                    "function"
+            ) {
+
+                if (
+                    !activeProfile ||
+                    !activeProfile.studentId
+                ) {
+
+                    showManagementError(
+                        "پروفایل فعال برای تمدید مجوز پیدا نشد."
+                    );
+
+                    return;
+
+                }
+
+                result =
+                    await LicenseManager.activateRemote(
+                        code,
+                        grade,
+                        activeProfile.studentId
+                    );
+
+            }
+            else if (
+                typeof LicenseManager.activate ===
+                    "function"
+            ) {
+
+                result =
+                    LicenseManager.activate(
+                        code,
+                        grade
+                    );
+
+            }
+            else {
+
+                showManagementError(
+                    "مدیریت مجوز در دسترس نیست."
                 );
+
+                return;
+
+            }
 
         }
         catch (error) {
@@ -2079,9 +2164,28 @@
 
 
         console.log(
-            "License Screen: License activated successfully.",
+            renewingActiveGrade
+                ? "License Screen: Renewal stored successfully."
+                : "License Screen: License activated successfully.",
             result.license || result
         );
+
+        if (renewingActiveGrade && result.renewalStored === true) {
+
+            showManagementSuccess(
+                "تمدید مجوز برای سال تحصیلی بعد با موفقیت ثبت شد."
+            );
+
+            setTimeout(
+                function () {
+                    renderList();
+                },
+                900
+            );
+
+            return;
+
+        }
 
 
         /*
