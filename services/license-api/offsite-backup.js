@@ -10,13 +10,14 @@ const host = process.env.TAHOURI_BACKUP_OFFSITE_HOST;
 const user = process.env.TAHOURI_BACKUP_OFFSITE_USER;
 const remoteDir = process.env.TAHOURI_BACKUP_OFFSITE_DIR;
 const identityFile = process.env.TAHOURI_BACKUP_OFFSITE_SSH_KEY_FILE;
+const knownHostsFile = process.env.TAHOURI_BACKUP_OFFSITE_KNOWN_HOSTS_FILE;
 
 if (process.env.NODE_ENV === "production" &&
-    (!host || !user || !remoteDir || !identityFile)) {
+    (!host || !user || !remoteDir || !identityFile || !knownHostsFile)) {
     throw new Error(
         "Off-site backup configuration is required in production: " +
         "TAHOURI_BACKUP_OFFSITE_HOST, TAHOURI_BACKUP_OFFSITE_USER, " +
-        "TAHOURI_BACKUP_OFFSITE_DIR, TAHOURI_BACKUP_OFFSITE_SSH_KEY_FILE."
+        "TAHOURI_BACKUP_OFFSITE_DIR, TAHOURI_BACKUP_OFFSITE_SSH_KEY_FILE, TAHOURI_BACKUP_OFFSITE_KNOWN_HOSTS_FILE."
     );
 }
 
@@ -31,6 +32,9 @@ if (!fs.existsSync(backupDir)) {
 if (!fs.existsSync(identityFile)) {
     throw new Error("Off-site SSH key not found: " + identityFile);
 }
+if (!fs.existsSync(knownHostsFile)) {
+    throw new Error("Off-site known_hosts file not found: " + knownHostsFile);
+}
 
 const files = fs.readdirSync(backupDir)
     .filter(name => name.endsWith(".sqlite") || name.endsWith(".sqlite.sig"))
@@ -41,7 +45,7 @@ if (!files.length) {
 }
 
 const remote = user + "@" + host + ":" + remoteDir + "/";
-const args = ["-i", identityFile, "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes"];
+const args = ["-i", identityFile, "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes", "-o", "UserKnownHostsFile=" + knownHostsFile];
 
 for (const file of files) {
     execFileSync("scp", [...args, file, remote], { stdio: "inherit" });
