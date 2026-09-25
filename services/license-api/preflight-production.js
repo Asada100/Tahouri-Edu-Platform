@@ -29,6 +29,7 @@ const offsiteHost = required("TAHOURI_BACKUP_OFFSITE_HOST");
 const offsiteUser = required("TAHOURI_BACKUP_OFFSITE_USER");
 const offsiteDir = required("TAHOURI_BACKUP_OFFSITE_DIR");
 const offsiteSshKey = required("TAHOURI_BACKUP_OFFSITE_SSH_KEY_FILE");
+const offsiteKnownHosts = required("TAHOURI_BACKUP_OFFSITE_KNOWN_HOSTS_FILE");
 
 if (privateKeyFile) {
     const resolvedKey = path.resolve(privateKeyFile);
@@ -44,6 +45,7 @@ if (privateKeyFile) {
 
 for (const [name, value] of [
     ["TAHOURI_BACKUP_OFFSITE_SSH_KEY_FILE", offsiteSshKey],
+    ["TAHOURI_BACKUP_OFFSITE_KNOWN_HOSTS_FILE", offsiteKnownHosts],
     ["TAHOURI_BACKUP_SIGNING_PRIVATE_KEY_FILE", backupSigningPrivateKeyFile],
     ["TAHOURI_BACKUP_SIGNING_PUBLIC_KEY_FILE", backupSigningPublicKeyFile]
 ]) {
