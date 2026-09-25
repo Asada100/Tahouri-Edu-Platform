@@ -774,6 +774,50 @@ async function activate(req, res) {
     }
 
     const period = academicPeriodForYear(requestedAcademicYear);
+    const isFutureRenewal = requestedAcademicYear > activeAcademicYear;
+
+    if (isFutureRenewal) {
+        const nowIso = new Date().toISOString();
+        const currentLicense = db.prepare(`
+            SELECT license_id AS licenseId
+            FROM licenses
+            WHERE product_id = ?
+              AND student_id = ?
+              AND grade_id = ?
+              AND status = 'active'
+              AND valid_from <= ?
+              AND valid_until > ?
+            LIMIT 1
+        `).get(PRODUCT_ID, studentId, gradeId, nowIso, nowIso);
+
+        if (!currentLicense) {
+            recordMetric("activationFailures");
+            return send(res, 409, {
+                valid: false,
+                message: "تمدید سال بعد فقط برای همان پروفایلی که مجوز فعال فعلی دارد مجاز است."
+            });
+        }
+
+        const existingFuture = db.prepare(`
+            SELECT license_id AS licenseId
+            FROM licenses
+            WHERE product_id = ?
+              AND student_id = ?
+              AND grade_id = ?
+              AND academic_year = ?
+              AND status = 'future'
+            LIMIT 1
+        `).get(PRODUCT_ID, studentId, gradeId, String(requestedAcademicYear));
+
+        if (existingFuture) {
+            recordMetric("activationFailures");
+            return send(res, 409, {
+                valid: false,
+                message: "برای این پروفایل و سال تحصیلی، تمدید قبلاً ثبت شده است."
+            });
+        }
+    }
+
     const licenseId = "lic_" + crypto.randomUUID();
     const entitlement = createEntitlement({
         licenseId,
@@ -803,7 +847,7 @@ async function activate(req, res) {
                 license_id, code_hash, product_id, student_id, grade_id,
                 academic_year, valid_from, valid_until, installation_binding,
                 status, entitlement_json, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
             licenseId,
             codeHash,
@@ -814,6 +858,7 @@ async function activate(req, res) {
             period.validFrom,
             period.validUntil,
             installationId,
+            isFutureRenewal ? "future" : "active",
             JSON.stringify(entitlement),
             now
         );
@@ -824,11 +869,20 @@ async function activate(req, res) {
             WHERE code_hash = ? AND status = 'active' AND used_at IS NULL
         `).run(now, licenseId, codeHash);
 
-        audit("license.activated", "client", {
-            licenseId,
-            codeHash,
-            metadata: { gradeId, studentId }
-        });
+        audit(
+            isFutureRenewal ? "license.renewal_reserved" : "license.activated",
+            "client",
+            {
+                licenseId,
+                codeHash,
+                metadata: {
+                    gradeId,
+                    studentId,
+                    academicYear: period.academicYear,
+                    validFrom: period.validFrom
+                }
+            }
+        );
 
         db.exec("COMMIT");
     } catch (error) {
@@ -846,8 +900,28 @@ function getActiveLicense(licenseId) {
     ).get(licenseId);
 
     if (!license) return { valid: false, reason: "not_found" };
+    if (license.status === "revoked") return { valid: false, reason: "revoked" };
+
+    const validFrom = Date.parse(license.validFrom || license.valid_from);
+    const validUntil = Date.parse(license.validUntil || license.valid_until);
+
+    if (!Number.isFinite(validFrom) || !Number.isFinite(validUntil)) {
+        return { valid: false, reason: "invalid_dates" };
+    }
+
+    if (validFrom > Date.now()) {
+        return { valid: false, reason: "future" };
+    }
+
+    if (license.status === "future") {
+        db.prepare("UPDATE licenses SET status = 'active' WHERE license_id = ? AND status = 'future'")
+            .run(licenseId);
+        license.status = "active";
+    }
+
     if (license.status !== "active") return { valid: false, reason: license.status };
-    if (Date.parse(license.validUntil || license.valid_until) <= Date.now()) {
+
+    if (validUntil <= Date.now()) {
         return { valid: false, reason: "expired" };
     }
 
@@ -997,6 +1071,16 @@ function adminListLicenses(req, res) {
         ORDER BY created_at DESC
         LIMIT 500
     `).all();
+    const now = Date.now();
+    for (const row of rows) {
+        if (row.status === "revoked") continue;
+        const from = Date.parse(row.validFrom);
+        const until = Date.parse(row.validUntil);
+        if (Number.isFinite(from) && from > now) row.status = "future";
+        else if (Number.isFinite(until) && until <= now) row.status = "expired";
+        else row.status = "active";
+    }
+
     return send(res, 200, { ok: true, licenses: rows });
 }
 
