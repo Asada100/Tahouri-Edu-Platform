@@ -1602,12 +1602,12 @@
     // =====================================
     // Remote Activation Bridge
     // =====================================
-    async function activateRemote(code, gradeId, studentId) {
+    async function activateRemote(code, gradeId, studentId, renewalMode = "promotion") {
         if (!window.TahouriLicenseClient || !window.TahouriEntitlementVerifier || !window.TahouriEntitlementStore) return null;
         const installationId = getOrCreateInstallationId();
         try {
             const normalizedStudentId = String(studentId || getActiveStudentId() || "").trim();
-            const response = await window.TahouriLicenseClient.activate({code, gradeId, studentId: normalizedStudentId, installationId});
+            const response = await window.TahouriLicenseClient.activate({code, gradeId, studentId: normalizedStudentId, installationId, renewalMode});
             if (!response || !response.valid || !response.entitlement) return response || {valid:false,message:"فعال‌سازی آنلاین انجام نشد."};
             const verified = await window.TahouriEntitlementVerifier.verifyEnvelope(
                 response.entitlement,
