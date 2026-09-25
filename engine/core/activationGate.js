@@ -1730,6 +1730,19 @@
 
             // A network failure must not destroy the signed offline
             // entitlement; the local verifier remains the fallback.
+            const serviceConfig = window.TahouriServiceConfig || {};
+
+            if (
+                serviceConfig.mode === "test" &&
+                result &&
+                result.reason === "no_remote_entitlement"
+            ) {
+                licenseStatusReason = null;
+                return isCurrentProfileActivated(
+                    getProfileGrade()
+                );
+            }
+
             if (
                 result &&
                 result.reason === "network_error"
