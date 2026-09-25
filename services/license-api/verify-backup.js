@@ -24,7 +24,12 @@ try {
         throw new Error("SQLite integrity check failed.");
     }
 
-    const tables = db.prepare(
+        const schemaVersion = db.prepare("PRAGMA user_version").get().user_version;
+    if (schemaVersion !== 1) {
+        throw new Error("Unsupported database schema version: " + schemaVersion);
+    }
+
+const tables = db.prepare(
         "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
     ).all().map(row => row.name);
 
