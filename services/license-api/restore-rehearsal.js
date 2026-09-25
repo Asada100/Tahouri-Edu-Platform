@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { DatabaseSync } = require("node:sqlite");
+const crypto = require("node:crypto");
 
 const backupFile = process.argv[2];
 
@@ -16,6 +17,22 @@ const source = path.resolve(backupFile);
 if (!fs.existsSync(source)) {
     console.error("Backup file not found: " + source);
     process.exit(2);
+}
+
+const publicKeyFile = process.env.TAHOURI_BACKUP_SIGNING_PUBLIC_KEY_FILE;
+const signatureFile = source + ".sig";
+if (process.env.NODE_ENV === "production" && !publicKeyFile) {
+    throw new Error("Backup signing public key is required in production.");
+}
+if (publicKeyFile) {
+    if (!fs.existsSync(publicKeyFile) || !fs.existsSync(signatureFile)) {
+        throw new Error("Backup signature or verification key is missing.");
+    }
+    const signature = Buffer.from(fs.readFileSync(signatureFile, "utf8").trim(), "base64");
+    const digest = crypto.createHash("sha256").update(fs.readFileSync(source)).digest();
+    if (!crypto.verify("RSA-SHA256", digest, fs.readFileSync(publicKeyFile), signature)) {
+        throw new Error("Backup signature verification failed.");
+    }
 }
 
 const rehearsalDir = fs.mkdtempSync(path.join(os.tmpdir(), "tahouri-restore-"));
