@@ -16,6 +16,7 @@
     "security-test": "node security-test.js",
     "release-check": "node release-check.js && node security-test.js",
     "release-smoke-test": "node release-smoke-test.js",
-    "migration-test": "node migration-test.js"
+    "migration-test": "node migration-test.js",
+    "backup-recovery-test": "node backup-recovery-test.js"
   }
 }
