@@ -17,7 +17,6 @@ if (!fs.existsSync(dbFile)) {
 fs.mkdirSync(backupDir, { recursive: true });
 
 const signingKeyFile = process.env.TAHOURI_BACKUP_SIGNING_PRIVATE_KEY_FILE;
-const signatureFile = backupFile + ".sig";
 
 if (process.env.NODE_ENV === "production" && !signingKeyFile) {
     throw new Error("TAHOURI_BACKUP_SIGNING_PRIVATE_KEY_FILE is required in production.");
@@ -25,6 +24,7 @@ if (process.env.NODE_ENV === "production" && !signingKeyFile) {
 
 const stamp = new Date().toISOString().replace(/[:.]/g, "-");
 const backupFile = path.join(backupDir, "license-" + stamp + ".sqlite");
+const signatureFile = backupFile + ".sig";
 
 const db = new DatabaseSync(dbFile);
 try {
@@ -53,7 +53,9 @@ try {
 }
 
 if (signingKeyFile) {
-    if (!fs.existsSync(signingKeyFile)) throw new Error("Backup signing private key not found: " + signingKeyFile);
+    if (!fs.existsSync(signingKeyFile)) {
+        throw new Error("Backup signing private key not found: " + signingKeyFile);
+    }
     const digest = crypto.createHash("sha256").update(fs.readFileSync(backupFile)).digest();
     const signature = crypto.sign("RSA-SHA256", digest, fs.readFileSync(signingKeyFile));
     fs.writeFileSync(signatureFile, signature.toString("base64") + "\n", { mode: 0o600 });
@@ -66,7 +68,9 @@ if (signingKeyFile) console.log(signatureFile);
 const offsiteConfigured = process.env.TAHOURI_BACKUP_OFFSITE_HOST &&
     process.env.TAHOURI_BACKUP_OFFSITE_USER &&
     process.env.TAHOURI_BACKUP_OFFSITE_DIR &&
-    process.env.TAHOURI_BACKUP_OFFSITE_SSH_KEY_FILE;
+    process.env.TAHOURI_BACKUP_OFFSITE_SSH_KEY_FILE &&
+    process.env.TAHOURI_BACKUP_OFFSITE_KNOWN_HOSTS_FILE;
+
 if (process.env.NODE_ENV === "production" || offsiteConfigured) {
     const { execFileSync } = require("node:child_process");
     execFileSync(process.execPath, ["offsite-backup.js"], {
