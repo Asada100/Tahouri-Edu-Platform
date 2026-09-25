@@ -342,6 +342,11 @@ function makeCode(gradeId, academicYear) {
     return `THR-${grade}-${academicYear}-${random}`;
 }
 
+function gradeLevel(gradeId) {
+    const match = String(gradeId || "").match(/^(?:grade)?(\d+)$/i);
+    return match ? Number(match[1]) : null;
+}
+
 function codePreview(code) {
     return code.slice(0, 7) + "…" + code.slice(-6);
 }
@@ -732,6 +737,7 @@ async function activate(req, res) {
     const gradeId = validateIdentifier(body.gradeId, "gradeId");
     const installationId = validateIdentifier(body.installationId, "installationId");
     const studentId = validateIdentifier(body.studentId, "studentId");
+    const renewalMode = String(body.renewalMode || "promotion").trim().toLowerCase();
 
     if (!code || !gradeId || !studentId || !installationId) {
         recordMetric("activationFailures");
@@ -779,22 +785,57 @@ async function activate(req, res) {
     if (isFutureRenewal) {
         const nowIso = new Date().toISOString();
         const currentLicense = db.prepare(`
-            SELECT license_id AS licenseId
+            SELECT license_id AS licenseId, grade_id AS gradeId
             FROM licenses
             WHERE product_id = ?
               AND student_id = ?
-              AND grade_id = ?
               AND status = 'active'
               AND valid_from <= ?
               AND valid_until > ?
+            ORDER BY valid_until DESC
             LIMIT 1
-        `).get(PRODUCT_ID, studentId, gradeId, nowIso, nowIso);
+        `).get(PRODUCT_ID, studentId, nowIso, nowIso);
 
         if (!currentLicense) {
             recordMetric("activationFailures");
             return send(res, 409, {
                 valid: false,
-                message: "تمدید سال بعد فقط برای همان پروفایلی که مجوز فعال فعلی دارد مجاز است."
+                message: "رزرو سال بعد فقط برای پروفایلی که مجوز فعال فعلی دارد مجاز است."
+            });
+        }
+
+        const currentLevel = gradeLevel(currentLicense.gradeId);
+        const targetLevel = gradeLevel(gradeId);
+
+        if (currentLevel === null || targetLevel === null) {
+            recordMetric("activationFailures");
+            return send(res, 409, {
+                valid: false,
+                message: "پایه فعلی یا پایه مقصد برای رزرو سال بعد قابل تشخیص نیست."
+            });
+        }
+
+        if (renewalMode === "promotion") {
+            if (targetLevel !== currentLevel + 1) {
+                recordMetric("activationFailures");
+                return send(res, 409, {
+                    valid: false,
+                    message: "رزرو سال بعد باید برای پایه تحصیلی بعدی انجام شود."
+                });
+            }
+        } else if (renewalMode === "repeat") {
+            if (targetLevel !== currentLevel) {
+                recordMetric("activationFailures");
+                return send(res, 409, {
+                    valid: false,
+                    message: "تکرار پایه فقط برای همان پایه فعلی مجاز است."
+                });
+            }
+        } else {
+            recordMetric("activationFailures");
+            return send(res, 400, {
+                valid: false,
+                message: "نوع رزرو سال بعد معتبر نیست."
             });
         }
 
@@ -813,7 +854,7 @@ async function activate(req, res) {
             recordMetric("activationFailures");
             return send(res, 409, {
                 valid: false,
-                message: "برای این پروفایل و سال تحصیلی، تمدید قبلاً ثبت شده است."
+                message: "برای این پروفایل و سال تحصیلی، رزرو قبلاً ثبت شده است."
             });
         }
     }
