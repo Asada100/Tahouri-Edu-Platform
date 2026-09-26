@@ -1,7 +1,7 @@
 /* =====================================
    Tahouri Edu Platform
    Dictation UI
-   Version 1.0
+   Version 2.0
    ===================================== */
 
 .dictationScreen {
@@ -14,99 +14,129 @@
 }
 
 .dictationCard {
-    width: min(720px, 100%);
-    padding: 24px;
+    width: min(820px, 100%);
+    padding: 26px;
     border-radius: 22px;
     background: var(--card-bg, #fff);
     box-sizing: border-box;
     text-align: center;
 }
 
-.dictationHeader {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-}
+.dictationHeader { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.dictationHeader h1 { margin: 0; }
+.dictationIcon { font-size: 28px; }
+.dictationInstruction { margin: 16px 0; font-size: 18px; line-height: 1.9; }
 
-.dictationHeader h1 {
-    margin: 0;
-}
-
-.dictationIcon {
-    font-size: 28px;
-}
-
-.dictationInstruction {
-    margin: 18px 0;
-    font-size: 18px;
+.dictationContext {
+    max-width: 720px;
+    margin: 0 auto 18px;
+    padding: 14px 18px;
+    border-radius: 14px;
+    background: #f8fafc;
+    font-size: 20px;
+    line-height: 2;
 }
 
 .dictationAnswer {
-    min-height: 58px;
-    margin: 0 auto 18px;
+    min-height: 72px;
+    margin: 0 auto 8px;
     padding: 12px 16px;
-    border: 2px solid #d8d8d8;
-    border-radius: 14px;
-    font-size: 28px;
-    letter-spacing: 2px;
-    box-sizing: border-box;
+    border-bottom: 2px solid #d9dee7;
+    font-size: 34px;
+    line-height: 1.8;
+    direction: rtl;
+    text-align: center;
+    unicode-bidi: plaintext;
+    font-variant-ligatures: contextual;
+    transition: border-color .15s ease, transform .15s ease;
 }
 
-.dictationKeyboard {
-    display: grid;
-    grid-template-columns: repeat(8, minmax(38px, 1fr));
-    gap: 8px;
-    max-width: 620px;
-    margin: 0 auto;
+.dictationAnswer.is-wrong { animation: dictationWrong .18s ease; }
+.dictationTyped { color: inherit; }
+.dictationGhost { opacity: .24; margin-inline-start: 2px; }
+.dictationMissing { color: #7c8ea6; letter-spacing: 3px; }
+.dictationGuide { min-height: 24px; opacity: .18; font-size: 22px; }
+
+.dictationKeyboard { width: min(760px, 100%); margin: 12px auto 0; }
+
+.dictationKeyboardRow {
+    display: flex;
+    justify-content: center;
+    gap: 7px;
+    margin: 7px 0;
 }
 
 .dictationKey,
-.dictationAction {
-    min-height: 48px;
-    border: 1px solid #d2d2d2;
-    border-radius: 12px;
-    background: #f7f7f7;
-    font-size: 21px;
+.dictationUtility {
+    min-width: 50px;
+    min-height: 52px;
+    padding: 7px 10px;
+    border: 1px solid #d5dbe5;
+    border-radius: 10px;
+    background: #f3f5f8;
+    color: #a5acb8;
+    font: inherit;
+    font-size: 22px;
+    cursor: not-allowed;
+    box-sizing: border-box;
+    transition: transform .12s ease, background .12s ease, border-color .12s ease, opacity .12s ease;
+}
+
+.dictationKey.is-active {
+    background: #ffffff;
+    color: #172033;
+    border-color: #b9c6d8;
     cursor: pointer;
+    box-shadow: 0 2px 7px rgba(15,23,42,.07);
 }
 
-.dictationSpecialKey {\n    min-width: 96px;\n}\n\n.dictationKey:active,
-.dictationAction:active {
-    transform: scale(.97);
+.dictationKey.is-expected {
+    box-shadow: 0 0 0 2px rgba(37,99,235,.16);
 }
 
-.dictationActions {
+.dictationKey:active,
+.dictationUtility:active { transform: scale(.96); }
+.dictationKey:disabled { opacity: .48; }
+
+.dictationUtilityRow {
     display: flex;
     justify-content: center;
-    gap: 10px;
-    margin-top: 14px;
+    gap: 8px;
+    margin-top: 9px;
 }
 
-.dictationBackspace {
-    width: 70px;
+.dictationUtility {
+    min-width: 70px;
+    cursor: pointer;
+    color: #344054;
+    background: #eef2f7;
 }
 
-.dictationSubmit {
-    padding: 0 24px;
+.dictationSpace { width: min(380px, 55%); }
+.dictationProgress { margin-top: 14px; opacity: .68; }
+
+@keyframes dictationWrong {
+    0%, 100% { transform: translateX(0); }
+    35% { transform: translateX(-5px); }
+    70% { transform: translateX(5px); }
 }
 
-.dictationProgress {
-    margin-top: 14px;
-    opacity: .75;
+@media (max-width: 720px) {
+    .dictationCard { padding: 18px 10px; }
+    .dictationKeyboardRow { gap: 4px; }
+    .dictationKey { min-width: 0; flex: 1 1 0; min-height: 48px; padding: 5px 3px; }
+    .dictationAnswer { font-size: 30px; }
 }
 
-@media (max-width: 520px) {
-    .dictationCard {
-        padding: 16px 10px;
-    }
+@media (max-width: 480px) {
+    .dictationScreen { padding: 14px 6px; }
+    .dictationKeyboardRow { gap: 3px; }
+    .dictationKey { font-size: 18px; min-height: 44px; }
+    .dictationUtility { min-height: 46px; }
+    .dictationAnswer { font-size: 27px; }
+}
 
-    .dictationKeyboard {
-        grid-template-columns: repeat(6, minmax(40px, 1fr));
-        gap: 6px;
-    }
-
-    .dictationKey {
-        min-height: 46px;
-    }
+@media (prefers-reduced-motion: reduce) {
+    .dictationAnswer { transition: none; }
+    .dictationAnswer.is-wrong { animation: none; }
 }

@@ -1,18 +1,15 @@
 // =====================================
 // Tahouri Edu Platform
 // Dictation Screen
-// Version 1.1
+// Version 2.0
 // =====================================
 
 (function (window) {
     "use strict";
 
     const DictationScreen = {
-        currentAnswer: "",
-
         init: function () {
             if (typeof EventManager === "undefined") return;
-
             EventManager.on("activityReady", function (payload) {
                 if (!payload || payload.engineName !== "dictation") return;
                 DictationScreen.render(payload.result);
@@ -22,34 +19,34 @@
         render: function (state) {
             const app = document.getElementById("app");
             if (!app || !state) return;
-
-            this.currentAnswer = "";
-            const keyboard = Array.isArray(state.keyboard) ? state.keyboard : [];
+            const q = state.currentQuestion || {};
+            const mode = state.mode || q.mode || "guided-word";
+            const rows = Array.isArray(state.keyboardRows) ? state.keyboardRows : [];
+            const isGuided = mode === "guided-word";
 
             app.innerHTML = `
                 <div class="screen dictationScreen" dir="rtl">
                     <div class="dictationCard">
                         <div class="dictationHeader">
-                            <span class="dictationIcon">✍️</span>
-                            <h1>املای کلمه</h1>
+                            <span class="dictationIcon" aria-hidden="true">✍️</span>
+                            <h1>املا</h1>
                         </div>
-                        <p class="dictationInstruction">${this.escape(state.currentWord && state.currentWord.prompt || "کلمه را درست بنویس.")}</p>
+                        <p class="dictationInstruction">${this.escape(q.prompt || "کلمه را کامل کن.")}</p>
+                        ${q.context ? `<div class="dictationContext">${this.escape(q.context)}</div>` : ""}
 
-                        <div class="dictationAnswer" id="dictationAnswer" aria-live="polite"></div>
+                        <div class="dictationAnswer" id="dictationAnswer" aria-live="polite">
+                            ${this.renderAnswer(state, isGuided)}
+                        </div>
 
                         <div class="dictationKeyboard" id="dictationKeyboard">
-                            ${keyboard.map(function (key) {
-                                const isSpace = key === " ";
-                                const isZwnj = key === "\u200c";
-                                const label = isSpace ? "فاصله" : (isZwnj ? "نیم‌فاصله" : key);
-                                const className = isSpace || isZwnj ? "dictationKey dictationSpecialKey" : "dictationKey";
-                                return `<button type="button" class="${className}" data-key="${DictationScreen.escape(key)}">${DictationScreen.escape(label)}</button>`;
-                            }).join("")}
-                        </div>
-
-                        <div class="dictationActions">
-                            <button type="button" class="dictationAction dictationBackspace" id="dictationBackspace">⌫</button>
-                            <button type="button" class="dictationAction dictationSubmit" id="dictationSubmit">ثبت پاسخ</button>
+                            ${rows.map(row => `<div class="dictationKeyboardRow">${row.map(key => {
+                                const cls = ["dictationKey", key.active ? "is-active" : "is-disabled", key.expected ? "is-expected" : ""].filter(Boolean).join(" ");
+                                return `<button type="button" class="${cls}" data-key="${this.escape(key.key)}" ${key.active ? "" : "disabled"}>${this.escape(key.key)}</button>`;
+                            }).join("")}</div>`).join("")}
+                            <div class="dictationUtilityRow">
+                                <button type="button" class="dictationUtility dictationSpace" id="dictationSpace" aria-label="فاصله">فاصله</button>
+                                <button type="button" class="dictationUtility" id="dictationBackspace" aria-label="حذف">⌫</button>
+                            </div>
                         </div>
 
                         <div class="dictationProgress">
@@ -58,62 +55,86 @@
                     </div>
                 </div>
             `;
-
             this.bind();
+        },
+
+        renderAnswer: function (state, isGuided) {
+            if (isGuided) {
+                const actual = state.displayText || "";
+                const guide = state.guideChar || "";
+                return `<span class="dictationTyped">${this.escape(actual)}</span><span class="dictationGhost">${this.escape(guide)}</span>`;
+            }
+
+            const q = state.currentQuestion || {};
+            const chars = Array.from(q.answer || "");
+            const missingSlots = Array.isArray(state.missingSlots) ? state.missingSlots : [];
+            const currentSlot = Number(state.currentSlotIndex) || 0;
+            const pending = new Set(missingSlots.slice(currentSlot));
+
+            return chars.map(function (char, index) {
+                return pending.has(index)
+                    ? '<span class="dictationMissing">....</span>'
+                    : DictationScreen.escape(char);
+            }).join("");
         },
 
         bind: function () {
             const self = this;
 
-            document.querySelectorAll(".dictationKey").forEach(function (button) {
+            document.querySelectorAll(".dictationKey.is-active").forEach(function (button) {
                 button.onclick = function () {
-                    self.currentAnswer += this.dataset.key || "";
-                    self.updateAnswer();
+                    self.handleInput(this.dataset.key || "");
                 };
             });
 
+            const space = document.getElementById("dictationSpace");
+            if (space) space.onclick = function () { self.handleInput(" "); };
+
             const backspace = document.getElementById("dictationBackspace");
-            if (backspace) {
-                backspace.onclick = function () {
-                    self.currentAnswer = Array.from(self.currentAnswer).slice(0, -1).join("");
-                    self.updateAnswer();
-                };
-            }
+            if (backspace) backspace.onclick = function () {
+                const changed = window.DictationEngine.backspace();
+                if (changed) self.render(window.DictationEngine.getState());
+            };
 
-            const submit = document.getElementById("dictationSubmit");
-            if (submit) {
-                submit.onclick = function () {
-                    if (!self.currentAnswer) return;
-                    const result = window.DictationEngine.submitAnswer(self.currentAnswer);
-                    if (!result) return;
+            document.onkeydown = function (event) {
+                if (!window.DictationEngine || !window.DictationEngine.state || window.DictationEngine.state.isFinished) return;
 
-                    if (!result.correct && result.retryAllowed) {
-                        self.showFeedback("دوباره تلاش کن.");
-                        return;
-                    }
+                if (event.key === "Backspace") {
+                    event.preventDefault();
+                    const changed = window.DictationEngine.backspace();
+                    if (changed) self.render(window.DictationEngine.getState());
+                    return;
+                }
 
-                    if (result.correct) {
-                        self.showFeedback("درست است ✓");
-                    } else {
-                        self.showFeedback("پاسخ درست: " + result.target);
-                    }
+                if (event.key === " ") {
+                    event.preventDefault();
+                    self.handleInput(" ");
+                    return;
+                }
 
-                    setTimeout(function () {
-                        const next = window.DictationEngine.getState();
-                        if (next && !next.isFinished) self.render(next);
-                    }, 350);
-                };
-            }
+                if (event.key && event.key.length === 1) self.handleInput(event.key);
+            };
         },
 
-        updateAnswer: function () {
-            const box = document.getElementById("dictationAnswer");
-            if (box) box.textContent = this.currentAnswer || " ";
+        handleInput: function (char) {
+            const result = window.DictationEngine.inputChar(char);
+            if (!result) return;
+
+            if (!result.correct) {
+                this.flash("wrong");
+                return;
+            }
+
+            if (result.completed || (window.DictationEngine.getState() || {}).isFinished) return;
+            this.render(window.DictationEngine.getState());
         },
 
-        showFeedback: function (message) {
-            const box = document.getElementById("dictationAnswer");
-            if (box) box.textContent = message;
+        flash: function (type) {
+            const answer = document.getElementById("dictationAnswer");
+            if (!answer) return;
+            answer.classList.remove("is-wrong");
+            void answer.offsetWidth;
+            if (type === "wrong") answer.classList.add("is-wrong");
         },
 
         escape: function (value) {
@@ -129,4 +150,4 @@
     DictationScreen.init();
 })(window);
 
-console.log("Dictation Screen v1.1 Ready");
+console.log("Dictation Screen v2.0 Ready");
