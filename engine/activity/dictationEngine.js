@@ -35,7 +35,8 @@
                 currentIndex: 0, totalQuestions: this.content.questions.length,
                 correctAnswers: 0, wrongAnswers: 0, score: 0, attempts: 0,
                 characterErrors: 0, answers: [], currentInput: "",
-                missingSlots: [], currentSlotIndex: 0, currentCharIndex: 0,\n                questionCompleted: false, transitioning: false
+                missingSlots: [], currentSlotIndex: 0, currentCharIndex: 0,
+                questionCompleted: false, transitioning: false
             };
             this.prepareCurrentQuestion();
             EventManager.emit("activityStarted", this.activity);
