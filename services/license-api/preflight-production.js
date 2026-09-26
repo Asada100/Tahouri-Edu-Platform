@@ -18,6 +18,7 @@ if (process.env.NODE_ENV !== "production") {
 const privateKeyFile = required("TAHOURI_LICENSE_PRIVATE_KEY_FILE");
 const backupSigningPrivateKeyFile = required("TAHOURI_BACKUP_SIGNING_PRIVATE_KEY_FILE");
 const backupSigningPublicKeyFile = required("TAHOURI_BACKUP_SIGNING_PUBLIC_KEY_FILE");
+const backupEncryptionKeyFile = required("TAHOURI_BACKUP_ENCRYPTION_KEY_FILE");
 const adminPassword = required("TAHOURI_ADMIN_PASSWORD");
 const provider = String(required("TAHOURI_PAYMENT_PROVIDER") || "").trim().toLowerCase();
 const appOrigin = required("TAHOURI_APP_ORIGIN");
@@ -47,7 +48,8 @@ for (const [name, value] of [
     ["TAHOURI_BACKUP_OFFSITE_SSH_KEY_FILE", offsiteSshKey],
     ["TAHOURI_BACKUP_OFFSITE_KNOWN_HOSTS_FILE", offsiteKnownHosts],
     ["TAHOURI_BACKUP_SIGNING_PRIVATE_KEY_FILE", backupSigningPrivateKeyFile],
-    ["TAHOURI_BACKUP_SIGNING_PUBLIC_KEY_FILE", backupSigningPublicKeyFile]
+    ["TAHOURI_BACKUP_SIGNING_PUBLIC_KEY_FILE", backupSigningPublicKeyFile],
+    ["TAHOURI_BACKUP_ENCRYPTION_KEY_FILE", backupEncryptionKeyFile]
 ]) {
     if (value) {
         const resolved = path.resolve(value);
