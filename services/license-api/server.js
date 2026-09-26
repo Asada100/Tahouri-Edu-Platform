@@ -84,6 +84,10 @@ const METRICS = {
     paymentVerificationFailures: 0,
     adminLoginFailures: 0,
     licenseRevocations: 0,
+    suspiciousAttempts: 0,
+    securityRateLimitBlocks: 0,
+    unauthorizedAdminAttempts: 0,
+    invalidActivationAttempts: 0,
     backupNote: "Use scheduled external backup monitoring."
 };
 
@@ -121,6 +125,9 @@ function evaluateOperationalAlerts() {
     }
     if (METRICS.adminLoginFailures >= 10) {
         alerts.push({ code: "admin_login_failures", severity: "warning", message: "تعداد تلاش‌های ناموفق ورود مدیر افزایش یافته است." });
+    }
+    if (METRICS.suspiciousAttempts >= 20) {
+        alerts.push({ code: "suspicious_attempts", severity: "warning", message: "تعداد تلاش‌های مشکوک از آستانه پایش عبور کرده است." });
     }
     return alerts;
 }
@@ -585,6 +592,8 @@ function adminLogin(req, res, body) {
     const loginAttempts = Number(body.loginAttempts || 0);
 
     if (!requestAllowedWithLimit(req, ADMIN_LOGIN_RATE_LIMIT, adminLoginRateBuckets)) {
+        recordMetric("securityRateLimitBlocks");
+        recordSuspiciousAttempt(req, "admin_login_rate_limited");
         return send(res, 429, { ok: false, message: "تعداد تلاش‌های ورود بیش از حد مجاز است." });
     }
 
@@ -592,6 +601,8 @@ function adminLogin(req, res, body) {
     const now = Date.now();
     const failure = ADMIN_LOGIN_FAILURES.get(clientIp);
     if (failure && failure.lockedUntil > now) {
+        recordMetric("securityRateLimitBlocks");
+        recordSuspiciousAttempt(req, "admin_login_locked");
         return send(res, 429, { ok: false, message: "ورود موقتاً قفل شده است. بعداً دوباره تلاش کنید." });
     }
 
@@ -605,6 +616,10 @@ function adminLogin(req, res, body) {
         }
         ADMIN_LOGIN_FAILURES.set(clientIp, next);
         recordMetric("adminLoginFailures");
+        recordSuspiciousAttempt(req, "admin_login_failed", {
+            failureCount: next.count,
+            locked: next.lockedUntil > now
+        });
         return send(res, 401, { ok: false, message: "رمز مدیریت نادرست است." });
     }
 
@@ -650,6 +665,24 @@ function getClientIp(req) {
     return String(req.socket.remoteAddress || "unknown");
 }
 
+function recordSuspiciousAttempt(req, category, metadata = {}) {
+    recordMetric("suspiciousAttempts");
+    const safeMetadata = {
+        category,
+        requestId: req.__requestId || null,
+        method: req.method || null,
+        path: String(req.url || "").split("?")[0],
+        ipHash: crypto.createHash("sha256")
+            .update(getClientIp(req), "utf8")
+            .digest("hex")
+            .slice(0, 16),
+        ...metadata
+    };
+    audit("security.suspicious_attempt", "security", {
+        metadata: safeMetadata
+    });
+}
+
 function requestAllowedWithLimit(req, limit, bucketMap) {
     const ip = getClientIp(req);
     const now = Date.now();
@@ -691,6 +724,8 @@ setInterval(cleanRateBuckets, RATE_WINDOW_MS).unref();
 
 function requireAdmin(req, res) {
     if (!adminAuthorized(req)) {
+        recordMetric("unauthorizedAdminAttempts");
+        recordSuspiciousAttempt(req, "admin_unauthorized");
         send(res, 401, { ok: false, message: "دسترسی مدیریت مجاز نیست." });
         return false;
     }
@@ -770,11 +805,17 @@ async function activate(req, res) {
 
     if (!codeRecord) {
         recordMetric("activationFailures");
+        recordMetric("invalidActivationAttempts");
+        recordSuspiciousAttempt(req, "activation_invalid_code", { gradeId });
         return send(res, 400, { valid: false, message: "کد فعال‌سازی معتبر نیست." });
     }
 
     if (codeRecord.gradeId !== gradeId) {
         recordMetric("activationFailures");
+        recordMetric("invalidActivationAttempts");
+        recordSuspiciousAttempt(req, "activation_grade_mismatch", {
+            requestedGradeId: gradeId
+        });
         return send(res, 400, { valid: false, message: "این کد مربوط به پایه انتخاب‌شده نیست." });
     }
 
@@ -792,6 +833,10 @@ async function activate(req, res) {
 
     if (codeRecord.status !== "active" || codeRecord.usedAt) {
         recordMetric("activationFailures");
+        recordMetric("invalidActivationAttempts");
+        recordSuspiciousAttempt(req, "activation_reused_or_disabled_code", {
+            gradeId: codeRecord.gradeId
+        });
         return send(res, 409, { valid: false, message: "این کد قبلاً استفاده شده یا غیرفعال است." });
     }
 
@@ -1591,6 +1636,8 @@ if (req.method === "GET" && req.url === "/api/metrics") {
 
         if (req.method === "POST" && req.url === "/api/licenses/activate") {
             if (!requestAllowedWithLimit(req, ACTIVATION_RATE_LIMIT, activationRateBuckets)) {
+                recordMetric("securityRateLimitBlocks");
+                recordSuspiciousAttempt(req, "activation_rate_limited");
                 return send(res, 429, { ok: false, valid: false, message: "تعداد تلاش‌های فعال‌سازی بیش از حد مجاز است." });
             }
             return await activate(req, res);
