@@ -69,6 +69,7 @@ async function main() {
             HOST: "127.0.0.1",
             NODE_ENV: "development",
             TAHOURI_TEST_CODES: "true",
+            TAHOURI_TEST_MODE: "true",
             TAHOURI_LICENSE_DB_FILE: dbFile,
             TAHOURI_LICENSE_PRIVATE_KEY_FILE: keyFile
         },
