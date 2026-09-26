@@ -34,7 +34,7 @@
                         <p class="dictationInstruction">${this.escape(q.prompt || "کلمه را کامل کن.")}</p>
                         ${q.context ? `<div class="dictationContext">${this.escape(q.context)}</div>` : ""}
 
-                        <div class="dictationAnswer" id="dictationAnswer" aria-live="polite">
+                        <div class="dictationAnswer${state.questionCompleted ? " is-complete" : ""}" id="dictationAnswer" aria-live="polite">
                             ${this.renderAnswer(state, isGuided)}
                         </div>
 
@@ -44,7 +44,7 @@
                                 return `<button type="button" class="${cls}" data-key="${this.escape(key.key)}" ${key.active ? "" : "disabled"}>${this.escape(key.key)}</button>`;
                             }).join("")}</div>`).join("")}
                             <div class="dictationUtilityRow">
-                                <button type="button" class="dictationUtility dictationSpace" id="dictationSpace" aria-label="فاصله">فاصله</button>
+                                <button type="button" class="dictationUtility dictationSpace" id="dictationSpace" aria-label="کلید فاصله"></button>
                                 <button type="button" class="dictationUtility" id="dictationBackspace" aria-label="حذف">⌫</button>
                             </div>
                         </div>
@@ -66,12 +66,31 @@
             }
 
             const q = state.currentQuestion || {};
-            const chars = Array.from(q.answer || "");
             const missingSlots = Array.isArray(state.missingSlots) ? state.missingSlots : [];
             const currentSlot = Number(state.currentSlotIndex) || 0;
-            const pending = new Set(missingSlots.slice(currentSlot));
+            const answerChars = Array.from(q.answer || "");
+            const completedChars = missingSlots
+                .slice(0, currentSlot)
+                .map(function (index) { return answerChars[index] || ""; })
+                .join("");
+            const remainingCount = Math.max(0, missingSlots.length - currentSlot);
+            const masked = typeof q.masked === "string" && q.masked.indexOf("....") !== -1
+                ? q.masked
+                : null;
 
-            return chars.map(function (char, index) {
+            if (remainingCount === 0) {
+                return DictationScreen.escape(q.answer || "");
+            }
+
+            if (masked) {
+                const replacement =
+                    DictationScreen.escape(completedChars) +
+                    '<span class="dictationMissing">....</span>';
+                return DictationScreen.escape(masked).replace("....", replacement);
+            }
+
+            const pending = new Set(missingSlots.slice(currentSlot));
+            return answerChars.map(function (char, index) {
                 return pending.has(index)
                     ? '<span class="dictationMissing">....</span>'
                     : DictationScreen.escape(char);
