@@ -13,6 +13,8 @@ const caddyPath = path.join(__dirname, "Caddyfile.production.example");
 const caddy = fs.readFileSync(caddyPath, "utf8");
 const backupCryptoPath = path.join(__dirname, "backup-crypto.js");
 const backupCrypto = fs.readFileSync(backupCryptoPath, "utf8");
+const backupDbPath = path.join(__dirname, "backup-db.js");
+const backupDb = fs.readFileSync(backupDbPath, "utf8");
 
 const licenseManagerPath = path.join(__dirname, "../../engine/core/licenseManager.js");
 const activationGatePath = path.join(__dirname, "../../engine/core/activationGate.js");
@@ -81,7 +83,6 @@ if (!gitignore.includes("*.pem") || !gitignore.includes("secrets/")) {
 }
 
 const required = [
-    "const { encryptFile, readEncryptionKey } = require(\"./backup-crypto\")",
     "function safeLog",
     "function startupRecoveryCheck",
     "function migrateDatabase",
@@ -96,7 +97,8 @@ for (const marker of required) {
     }
 }
 
-if (!backupCrypto.includes('aes-256-gcm') ||
+if (!backupDb.includes('const { encryptFile, readEncryptionKey } = require("./backup-crypto")') ||
+    !backupCrypto.includes('aes-256-gcm') ||
     !backupCrypto.includes('crypto.createCipheriv') ||
     !backupCrypto.includes('crypto.createDecipheriv')) {
     throw new Error("Backup encryption implementation is missing.");
