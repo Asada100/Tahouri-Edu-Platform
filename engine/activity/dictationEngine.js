@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Dictation Engine
-// Version 1.0
+// Version 1.1
 // Word Spelling / Custom Keyboard
 // =====================================
 
@@ -13,6 +13,9 @@
         "س","ش","ص","ض","ط","ظ","ع","غ","ف","ق","ک","گ","ل","م",
         "ن","و","ه","ی"
     ];
+
+    const SPACE = " ";
+    const ZWNJ = "\u200c";
 
     const DictationEngine = {
         activity: null,
@@ -59,15 +62,18 @@
 
         getKeyboard: function () {
             const word = this.getCurrentWord();
+            const answer = word && word.answer ? String(word.answer) : "";
             const mode = this.getKeyboardMode();
 
             if (mode === "full") {
-                return PERSIAN_ALPHABET.slice();
+                return PERSIAN_ALPHABET.concat(this.getRequiredSeparators(answer));
             }
 
-            const targetLetters = this.uniqueLetters(word && word.answer ? word.answer : "");
+            const targetLetters = this.uniqueLetters(answer);
+            const keys = targetLetters.concat(this.getRequiredSeparators(answer));
+
             if (mode === "target-only") {
-                return targetLetters;
+                return keys;
             }
 
             const distractors = PERSIAN_ALPHABET.filter(function (letter) {
@@ -75,7 +81,22 @@
             });
 
             const count = Math.max(0, Number(this.content.settings.distractorCount) || 4);
-            return targetLetters.concat(this.shuffle(distractors).slice(0, count));
+            return keys.concat(this.shuffle(distractors).slice(0, count));
+        },
+
+        getRequiredSeparators: function (text) {
+            const result = [];
+            const value = String(text || "");
+
+            if (/\s/.test(value)) {
+                result.push(SPACE);
+            }
+
+            if (value.includes(ZWNJ)) {
+                result.push(ZWNJ);
+            }
+
+            return result;
         },
 
         getKeyboardMode: function () {
@@ -191,15 +212,16 @@
                 .replace(/ۀ/g, "ه")
                 .replace(/ة/g, "ه")
                 .replace(/[\u064B-\u065F\u0670]/g, "")
-                .replace(/[\u200c\u200d]/g, "")
+                .replace(/[\u200d]/g, "")
                 .replace(/[\u200e\u200f]/g, "")
-                .replace(/\s+/g, "")
+                .replace(/\u200c/g, " ")
+                .replace(/\s+/g, " ")
                 .trim();
         },
 
         uniqueLetters: function (text) {
             const result = [];
-            Array.from(this.normalize(text)).forEach(function (letter) {
+            Array.from(this.normalize(text).replace(/ /g, "")).forEach(function (letter) {
                 if (PERSIAN_ALPHABET.includes(letter) && !result.includes(letter)) {
                     result.push(letter);
                 }
@@ -257,4 +279,4 @@
     window.DictationEngine = DictationEngine;
 })(window);
 
-console.log("Dictation Engine v1.0 Ready");
+console.log("Dictation Engine v1.1 Ready");
