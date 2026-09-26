@@ -298,7 +298,7 @@ async function main() {
         assert(futureRow?.status === "future", "Future renewal must appear as future in admin.");
 
         const health = await request("GET", "/api/health");
-        assert(health.status === 200 && health.data.ok, "Health failed after activation.");
+        assert(health.status === 200 && health.data.ok, "Health failed after activation: " + JSON.stringify({ status: health.status, data: health.data }));
 
         const sessionDb = new DatabaseSync(dbFile);
         try {
