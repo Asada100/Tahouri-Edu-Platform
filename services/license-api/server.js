@@ -36,6 +36,8 @@ const ADMIN_LOCK_MS = 15 * 60 * 1000;
 const ADMIN_MAX_FAILURES = 5;
 const ADMIN_LOGIN_RATE_LIMIT = 10;
 const adminLoginRateBuckets = new Map();
+const ACTIVATION_RATE_LIMIT = 10;
+const activationRateBuckets = new Map();
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 const SESSION_COOKIE_NAME = "tahouri_admin_session";
 const PAYMENT_PROVIDER = String(process.env.TAHOURI_PAYMENT_PROVIDER || "manual");
@@ -582,7 +584,11 @@ function clearAdminSession(req) {
 function adminLogin(req, res, body) {
     const loginAttempts = Number(body.loginAttempts || 0);
 
-    const clientIp = String(req.socket.remoteAddress || "unknown");
+    if (!requestAllowedWithLimit(req, ADMIN_LOGIN_RATE_LIMIT, adminLoginRateBuckets)) {
+        return send(res, 429, { ok: false, message: "تعداد تلاش‌های ورود بیش از حد مجاز است." });
+    }
+
+    const clientIp = getClientIp(req);
     const now = Date.now();
     const failure = ADMIN_LOGIN_FAILURES.get(clientIp);
     if (failure && failure.lockedUntil > now) {
@@ -636,8 +642,16 @@ function cleanupAdminSessions() {
 
 setInterval(cleanupAdminSessions, 10 * 60 * 1000).unref();
 
+function getClientIp(req) {
+    if (IS_PRODUCTION) {
+        const forwarded = String(req.headers["x-forwarded-for"] || "").trim();
+        if (forwarded) return forwarded.split(",")[0].trim();
+    }
+    return String(req.socket.remoteAddress || "unknown");
+}
+
 function requestAllowedWithLimit(req, limit, bucketMap) {
-    const ip = String(req.socket.remoteAddress || "unknown");
+    const ip = getClientIp(req);
     const now = Date.now();
     const current = bucketMap.get(ip);
 
@@ -651,7 +665,7 @@ function requestAllowedWithLimit(req, limit, bucketMap) {
 }
 
 function requestAllowed(req) {
-    const ip = String(req.socket.remoteAddress || "unknown");
+    const ip = getClientIp(req);
     const now = Date.now();
     const current = rateBuckets.get(ip);
 
@@ -666,8 +680,10 @@ function requestAllowed(req) {
 
 function cleanRateBuckets() {
     const cutoff = Date.now() - RATE_WINDOW_MS;
-    for (const [ip, bucket] of rateBuckets) {
-        if (bucket.startedAt < cutoff) rateBuckets.delete(ip);
+    for (const buckets of [rateBuckets, adminLoginRateBuckets, activationRateBuckets]) {
+        for (const [ip, bucket] of buckets) {
+            if (bucket.startedAt < cutoff) buckets.delete(ip);
+        }
     }
 }
 
@@ -1574,6 +1590,9 @@ if (req.method === "GET" && req.url === "/api/metrics") {
         }
 
         if (req.method === "POST" && req.url === "/api/licenses/activate") {
+            if (!requestAllowedWithLimit(req, ACTIVATION_RATE_LIMIT, activationRateBuckets)) {
+                return send(res, 429, { ok: false, valid: false, message: "تعداد تلاش‌های فعال‌سازی بیش از حد مجاز است." });
+            }
             return await activate(req, res);
         }
 
