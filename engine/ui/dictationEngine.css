@@ -1,0 +1,112 @@
+/* =====================================
+   Tahouri Edu Platform
+   Dictation UI
+   Version 1.0
+   ===================================== */
+
+.dictationScreen {
+    min-height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 14px;
+    box-sizing: border-box;
+}
+
+.dictationCard {
+    width: min(720px, 100%);
+    padding: 24px;
+    border-radius: 22px;
+    background: var(--card-bg, #fff);
+    box-sizing: border-box;
+    text-align: center;
+}
+
+.dictationHeader {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.dictationHeader h1 {
+    margin: 0;
+}
+
+.dictationIcon {
+    font-size: 28px;
+}
+
+.dictationInstruction {
+    margin: 18px 0;
+    font-size: 18px;
+}
+
+.dictationAnswer {
+    min-height: 58px;
+    margin: 0 auto 18px;
+    padding: 12px 16px;
+    border: 2px solid #d8d8d8;
+    border-radius: 14px;
+    font-size: 28px;
+    letter-spacing: 2px;
+    box-sizing: border-box;
+}
+
+.dictationKeyboard {
+    display: grid;
+    grid-template-columns: repeat(8, minmax(38px, 1fr));
+    gap: 8px;
+    max-width: 620px;
+    margin: 0 auto;
+}
+
+.dictationKey,
+.dictationAction {
+    min-height: 48px;
+    border: 1px solid #d2d2d2;
+    border-radius: 12px;
+    background: #f7f7f7;
+    font-size: 21px;
+    cursor: pointer;
+}
+
+.dictationKey:active,
+.dictationAction:active {
+    transform: scale(.97);
+}
+
+.dictationActions {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.dictationBackspace {
+    width: 70px;
+}
+
+.dictationSubmit {
+    padding: 0 24px;
+}
+
+.dictationProgress {
+    margin-top: 14px;
+    opacity: .75;
+}
+
+@media (max-width: 520px) {
+    .dictationCard {
+        padding: 16px 10px;
+    }
+
+    .dictationKeyboard {
+        grid-template-columns: repeat(6, minmax(40px, 1fr));
+        gap: 6px;
+    }
+
+    .dictationKey {
+        min-height: 46px;
+    }
+}
