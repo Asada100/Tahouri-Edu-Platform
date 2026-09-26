@@ -78,10 +78,14 @@
                 ? q.masked
                 : null;
 
+            if (remainingCount === 0) {
+                return DictationScreen.escape(q.answer || "");
+            }
+
             if (masked) {
                 const replacement =
                     DictationScreen.escape(completedChars) +
-                    (remainingCount > 0 ? '<span class="dictationMissing">....</span>' : "");
+                    '<span class="dictationMissing">....</span>';
                 return DictationScreen.escape(masked).replace("....", replacement);
             }
 
