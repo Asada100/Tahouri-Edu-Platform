@@ -28,6 +28,20 @@ if (failures.length) {
     throw new Error("Potential secret/logging leak detected in server.js.");
 }
 
+const rateLimitMarkers = [
+    "function getClientIp",
+    "const ACTIVATION_RATE_LIMIT = 10",
+    "requestAllowedWithLimit(req, ACTIVATION_RATE_LIMIT, activationRateBuckets)",
+    "requestAllowedWithLimit(req, ADMIN_LOGIN_RATE_LIMIT, adminLoginRateBuckets)",
+    "x-forwarded-for"
+];
+
+for (const marker of rateLimitMarkers) {
+    if (!source.includes(marker)) {
+        throw new Error("Rate limiting hardening marker missing: " + marker);
+    }
+}
+
 if (!source.includes("X-Content-Type-Options") || !source.includes("X-Frame-Options") || !source.includes("Referrer-Policy")) {
     throw new Error("Required API security headers are missing.");
 }
