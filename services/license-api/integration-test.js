@@ -130,7 +130,7 @@ async function main() {
             expiryDb.prepare("UPDATE licenses SET valid_until = ? WHERE license_id = ?").run(new Date(Date.now() - 1000).toISOString(), licenseId);
             const expired = expiryDb.prepare("SELECT valid_until AS validUntil, status FROM licenses WHERE license_id = ?").get(licenseId);
             assert(Date.parse(expired.validUntil) < Date.now(), "Expiry test data was not set.");
-            assert(expired.status === "revoked", "Lifecycle state should remain revoked after expiry.");
+            assert(expired.status === "active", "Expiry should not change the persisted lifecycle state before explicit revocation.");
         } finally { expiryDb.close(); }
 
         const payment = await request("POST", "/api/payments", {
@@ -267,7 +267,7 @@ async function main() {
 
         const afterRevoke = await request("GET", "/api/admin/licenses", undefined, { Cookie: cookie });
         const revokedRow = afterRevoke.data.licenses.find(item => item.licenseId === licenseId);
-        const futureRow = afterRevoke.data.licenses.find(item => item.licenseId === renewalActivation.data.entitlement.claims.licenseId);
+        const futureRow = afterRevoke.data.licenses.find(item => item.licenseId === promotionActivation.data.entitlement.claims.licenseId);
         assert(afterRevoke.status === 200 && revokedRow?.status === "revoked", "Revoked license status was not persisted.");
         assert(futureRow?.status === "future", "Future renewal must appear as future in admin.");
 
