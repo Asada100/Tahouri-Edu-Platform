@@ -71,7 +71,7 @@
     cursor: pointer;
 }
 
-.dictationKey:active,
+.dictationSpecialKey {\n    min-width: 96px;\n}\n\n.dictationKey:active,
 .dictationAction:active {
     transform: scale(.97);
 }
