@@ -158,6 +158,21 @@ async function main() {
             assert(auditEvents.includes(requiredEvent), "Missing audit event: " + requiredEvent);
         }
 
+        const badAdminLogin = await request("POST", "/api/admin/login", { password: "definitely-wrong-password" });
+        assert(badAdminLogin.status === 401, "Invalid admin login was not rejected.");
+
+        const securityAudit = await request("GET", "/api/admin/audit?limit=100", undefined, { Cookie: cookie });
+        assert(securityAudit.status === 200 && Array.isArray(securityAudit.data.audit), "Security audit endpoint failed.");
+        const securityEvents = securityAudit.data.audit.filter(item =>
+            (item.event_type || item.eventType) === "security.suspicious_attempt"
+        );
+        assert(securityEvents.length >= 1, "Suspicious admin login attempt was not recorded.");
+
+        const suspiciousMetric = securityAudit.data.audit.find(item =>
+            (item.event_type || item.eventType) === "security.suspicious_attempt"
+        );
+        assert(suspiciousMetric?.metadata?.category === "admin_login_failed", "Suspicious login category was not recorded.");
+
         const badCode = await request("POST", "/api/licenses/activate", {
             code: "bad code with spaces", gradeId: "grade6", studentId: "integration-student", installationId: "integration-installation"
         });
