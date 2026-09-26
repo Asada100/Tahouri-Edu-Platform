@@ -34,7 +34,7 @@
                         <p class="dictationInstruction">${this.escape(q.prompt || "کلمه را کامل کن.")}</p>
                         ${q.context ? `<div class="dictationContext">${this.escape(q.context)}</div>` : ""}
 
-                        <div class="dictationAnswer" id="dictationAnswer" aria-live="polite">
+                        <div class="dictationAnswer${state.questionCompleted ? " is-complete" : ""}" id="dictationAnswer" aria-live="polite">
                             ${this.renderAnswer(state, isGuided)}
                         </div>
 
