@@ -51,7 +51,8 @@
     transition: border-color .15s ease, transform .15s ease;
 }
 
-.dictationAnswer.is-wrong { animation: dictationWrong .18s ease; }\n.dictationAnswer.is-complete { color: #2f8f57; border-bottom-color: #8bc9a5; }
+.dictationAnswer.is-wrong { animation: dictationWrong .18s ease; }
+.dictationAnswer.is-complete { color: #2f8f57; border-bottom-color: #8bc9a5; }
 .dictationTyped { color: inherit; }
 .dictationGhost { opacity: .24; margin-inline-start: 2px; }
 .dictationMissing { color: #6f86a8; letter-spacing: 3px; opacity: .9; }
