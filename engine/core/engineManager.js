@@ -166,6 +166,19 @@ const EngineManager = {
         }
 
 
+        // =================================
+        // Dictation Engine
+        // =================================
+        if(
+            window.DictationEngine
+        ){
+            this.register(
+                "dictation",
+                window.DictationEngine
+            );
+        }
+
+
         console.log(
             "Engine Manager Initialized"
         );
