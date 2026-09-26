@@ -1,21 +1,19 @@
 // =====================================
 // Tahouri Edu Platform
 // Dictation Engine
-// Version 1.1
-// Word Spelling / Custom Keyboard
+// Version 2.0
+// Guided Word + Missing Letter + Context
 // =====================================
 
 (function (window) {
     "use strict";
 
-    const PERSIAN_ALPHABET = [
-        "ا","ب","پ","ت","ث","ج","چ","ح","خ","د","ذ","ر","ز","ژ",
-        "س","ش","ص","ض","ط","ظ","ع","غ","ف","ق","ک","گ","ل","م",
-        "ن","و","ه","ی"
+    const PERSIAN_ROWS = [
+        ["ض","ص","ث","ق","ف","غ","ع","ه","خ","ح","ج","چ"],
+        ["ش","س","ی","ب","ل","ا","ت","ن","م","ک","گ"],
+        ["ظ","ط","ز","ر","ذ","د","ئ","و","پ","ژ"]
     ];
-
     const SPACE = " ";
-    const ZWNJ = "\u200c";
 
     const DictationEngine = {
         activity: null,
@@ -25,258 +23,239 @@
         start: async function (activityData) {
             this.reset();
             this.activity = activityData || {};
-
             if (!window.DictationProvider || typeof window.DictationProvider.getContent !== "function") {
                 throw new Error("DictationProvider is not available");
             }
-
             this.content = window.DictationProvider.getContent(this.activity);
-
-            if (!this.content || !Array.isArray(this.content.words) || this.content.words.length === 0) {
-                throw new Error("DictationEngine: No spelling words available");
+            if (!this.content || !Array.isArray(this.content.questions) || this.content.questions.length === 0) {
+                throw new Error("DictationEngine: No spelling questions available");
             }
-
             this.state = {
-                started: true,
-                isFinished: false,
-                locked: false,
-                currentIndex: 0,
-                totalQuestions: this.content.words.length,
-                correctAnswers: 0,
-                wrongAnswers: 0,
-                score: 0,
-                attempts: 0,
-                answers: []
+                started: true, isFinished: false, locked: false,
+                currentIndex: 0, totalQuestions: this.content.questions.length,
+                correctAnswers: 0, wrongAnswers: 0, score: 0, attempts: 0,
+                characterErrors: 0, answers: [], currentInput: "",
+                missingSlots: [], currentSlotIndex: 0, currentCharIndex: 0
             };
-
+            this.prepareCurrentQuestion();
             EventManager.emit("activityStarted", this.activity);
             EventManager.emit("activityPlaying");
-
             return this.getState();
         },
 
-        getCurrentWord: function () {
-            if (!this.state || this.state.currentIndex >= this.content.words.length) return null;
-            return this.content.words[this.state.currentIndex];
+        getCurrentQuestion: function () {
+            if (!this.state || !this.content || this.state.currentIndex >= this.content.questions.length) return null;
+            return this.content.questions[this.state.currentIndex];
+        },
+
+        getMode: function () {
+            const q = this.getCurrentQuestion();
+            return q && q.mode ? q.mode : "guided-word";
+        },
+
+        prepareCurrentQuestion: function () {
+            const q = this.getCurrentQuestion();
+            if (!q || !this.state) return;
+            this.state.currentInput = "";
+            this.state.currentSlotIndex = 0;
+            this.state.currentCharIndex = 0;
+            this.state.missingSlots = this.buildMissingSlots(q);
+        },
+
+        buildMissingSlots: function (question) {
+            const slots = [];
+            if (!question || !Array.isArray(question.missing)) return slots;
+            question.missing.forEach(function (item) {
+                const start = Math.max(0, Number(item.start) || 0);
+                const length = Math.max(1, Number(item.length) || 1);
+                for (let i = 0; i < length; i += 1) slots.push(start + i);
+            });
+            return slots;
+        },
+
+        getKeyboardRows: function () {
+            const question = this.getCurrentQuestion();
+            const active = new Set();
+            if (question) {
+                if (this.getMode() === "missing-letter" || this.getMode() === "context") {
+                    const candidates = Array.isArray(question.allowedLetters) && question.allowedLetters.length
+                        ? question.allowedLetters
+                        : this.state.missingSlots.map(i => Array.from(question.answer || "")[i]).filter(Boolean);
+                    candidates.forEach(c => active.add(c));
+                } else {
+                    Array.from(question.answer || "").forEach(c => { if (c !== SPACE) active.add(c); });
+                }
+            }
+            const expected = this.getExpectedChar();
+            return PERSIAN_ROWS.map(row => row.map(key => ({
+                key: key, active: active.has(key), expected: key === expected
+            })));
         },
 
         getKeyboard: function () {
-            const word = this.getCurrentWord();
-            const answer = word && word.answer ? String(word.answer) : "";
-            const mode = this.getKeyboardMode();
-
-            if (mode === "full") {
-                return PERSIAN_ALPHABET.concat(this.getRequiredSeparators(answer));
-            }
-
-            const targetLetters = this.uniqueLetters(answer);
-            const keys = targetLetters.concat(this.getRequiredSeparators(answer));
-
-            if (mode === "target-only") {
-                return keys;
-            }
-
-            const distractors = PERSIAN_ALPHABET.filter(function (letter) {
-                return !targetLetters.includes(letter);
-            });
-
-            const count = Math.max(0, Number(this.content.settings.distractorCount) || 4);
-            return keys.concat(this.shuffle(distractors).slice(0, count));
+            return this.getKeyboardRows().flat();
         },
 
-        getRequiredSeparators: function (text) {
-            const result = [];
-            const value = String(text || "");
+        getExpectedChar: function () {
+            const q = this.getCurrentQuestion();
+            if (!q || !this.state) return "";
+            const chars = Array.from(q.answer || "");
+            if (this.getMode() === "missing-letter" || this.getMode() === "context") {
+                return chars[this.state.missingSlots[this.state.currentSlotIndex]] || "";
+            }
+            return chars[this.state.currentCharIndex] || "";
+        },
 
-            if (/\s/.test(value)) {
-                result.push(SPACE);
+        getDisplayText: function () {
+            const q = this.getCurrentQuestion();
+            if (!q || !this.state) return "";
+            const chars = Array.from(q.answer || "");
+            if (this.getMode() === "missing-letter" || this.getMode() === "context") {
+                const pending = new Set(this.state.missingSlots.slice(this.state.currentSlotIndex));
+                return chars.map((char, index) => pending.has(index) ? "...." : char).join("");
+            }
+            return chars.slice(0, this.state.currentCharIndex).join("");
+        },
+
+        getGuideChar: function () {
+            return this.getExpectedChar() || "";
+        },
+
+        inputChar: function (char) {
+            if (!this.state || this.state.isFinished || !char) return null;
+            const q = this.getCurrentQuestion();
+            if (!q) return null;
+            const expected = this.getExpectedChar();
+            const normalizedChar = this.normalizeChar(char);
+            const normalizedExpected = this.normalizeChar(expected);
+            this.state.attempts += 1;
+
+            if (normalizedChar !== normalizedExpected) {
+                this.state.characterErrors += 1;
+                const result = { correct: false, character: char, expected: expected, questionIndex: this.state.currentIndex };
+                EventManager.emit("answer:wrong", result);
+                return result;
             }
 
-            if (value.includes(ZWNJ)) {
-                result.push(ZWNJ);
+            if (this.getMode() === "missing-letter" || this.getMode() === "context") {
+                this.state.currentSlotIndex += 1;
+            } else {
+                this.state.currentCharIndex += 1;
             }
 
+            const complete = this.isCurrentQuestionComplete();
+            const result = { correct: true, character: char, expected: expected, questionIndex: this.state.currentIndex, complete: complete };
+            EventManager.emit("answer:correct", result);
+            if (complete) return this.completeCurrentQuestion();
             return result;
         },
 
-        getKeyboardMode: function () {
-            const settings = this.content.settings || {};
-            const mode = settings.keyboardMode || "target-only";
-            return ["target-only", "target-plus-distractors", "full"].includes(mode)
-                ? mode
-                : "target-only";
+        inputSpace: function () {
+            return this.inputChar(SPACE);
         },
 
-        submitAnswer: function (answer) {
-            if (!this.state || this.state.isFinished) return null;
-
-            const word = this.getCurrentWord();
-            if (!word) return null;
-
-            const normalizedAnswer = this.normalize(answer);
-            const normalizedTarget = this.normalize(word.answer);
-            const correct = normalizedAnswer === normalizedTarget;
-
-            this.state.attempts += 1;
-            if (correct) {
-                this.state.correctAnswers += 1;
-                this.state.score += Number(this.content.settings.scorePerCorrect) || 10;
-            } else {
-                this.state.wrongAnswers += 1;
+        backspace: function () {
+            if (!this.state || this.state.isFinished) return false;
+            const mode = this.getMode();
+            if (mode === "missing-letter" || mode === "context") {
+                if (this.state.currentSlotIndex <= 0) return false;
+                this.state.currentSlotIndex -= 1;
+                return true;
             }
+            if (this.state.currentCharIndex <= 0) return false;
+            this.state.currentCharIndex -= 1;
+            return true;
+        },
 
+        isCurrentQuestionComplete: function () {
+            const mode = this.getMode();
+            if (mode === "missing-letter" || mode === "context") {
+                return this.state.currentSlotIndex >= this.state.missingSlots.length;
+            }
+            const q = this.getCurrentQuestion();
+            return this.state.currentCharIndex >= Array.from(q.answer || "").length;
+        },
+
+        completeCurrentQuestion: function () {
+            const q = this.getCurrentQuestion();
+            this.state.correctAnswers += 1;
+            this.state.score += Number(this.content.settings.scorePerCorrect) || 10;
             this.state.answers.push({
                 questionIndex: this.state.currentIndex,
-                target: word.answer,
-                answer: answer || "",
-                correct: correct
+                target: q.answer,
+                correct: true,
+                characterErrors: this.state.characterErrors
             });
-
-            const result = {
-                correct: correct,
-                answer: answer || "",
-                target: word.answer,
-                questionIndex: this.state.currentIndex,
-                retryAllowed: !correct && this.isRetryAllowed()
-            };
-
-            if (correct || !result.retryAllowed) {
-                this.advance();
-            }
-
-            EventManager.emit(correct ? "answer:correct" : "answer:wrong", result);
-            return result;
-        },
-
-        isRetryAllowed: function () {
-            return (this.content.settings || {}).allowRetry !== false;
-        },
-
-        advance: function () {
-            if (!this.state) return null;
-
             this.state.currentIndex += 1;
-
-            if (this.state.currentIndex >= this.content.words.length) {
-                return this.finish();
-            }
-
+            if (this.state.currentIndex >= this.content.questions.length) return this.finish();
+            this.prepareCurrentQuestion();
             return this.getState();
         },
 
         finish: function () {
             if (!this.state || this.state.isFinished) return this.getResult();
-
             this.state.isFinished = true;
             this.state.locked = true;
-
             const total = this.state.totalQuestions;
-            const percentage = total > 0
-                ? Math.round((this.state.correctAnswers / total) * 100)
-                : 0;
-
+            const percentage = total > 0 ? Math.round((this.state.correctAnswers / total) * 100) : 0;
             let result = {
                 activityId: this.activity ? this.activity.id : null,
-                score: this.state.score,
-                percentage: percentage,
-                correctAnswers: this.state.correctAnswers,
-                wrongAnswers: this.state.wrongAnswers,
-                totalQuestions: total,
-                completed: true
+                score: this.state.score, percentage: percentage,
+                correctAnswers: this.state.correctAnswers, wrongAnswers: this.state.wrongAnswers,
+                totalQuestions: total, characterErrors: this.state.characterErrors, completed: true
             };
-
             if (window.ActivityResult && typeof window.ActivityResult.create === "function") {
                 result = window.ActivityResult.create({
                     activityId: this.activity ? this.activity.id : null,
-                    score: this.state.score,
-                    percentage: percentage,
-                    correctAnswers: this.state.correctAnswers,
-                    wrongAnswers: this.state.wrongAnswers,
-                    totalQuestions: total,
-                    correct: this.state.correctAnswers,
-                    wrong: this.state.wrongAnswers,
-                    message: "🎉 املا تمام شد"
+                    score: this.state.score, percentage: percentage,
+                    correctAnswers: this.state.correctAnswers, wrongAnswers: this.state.wrongAnswers,
+                    totalQuestions: total, correct: this.state.correctAnswers,
+                    wrong: this.state.wrongAnswers, message: "🎉 املا تمام شد"
                 });
             }
-
             this.state.result = result;
             EventManager.emit("activityFinished", result);
             return result;
         },
 
-        normalize: function (value) {
+        normalizeChar: function (value) {
             return String(value == null ? "" : value)
-                .replace(/ي/g, "ی")
-                .replace(/ى/g, "ی")
-                .replace(/ك/g, "ک")
-                .replace(/ۀ/g, "ه")
-                .replace(/ة/g, "ه")
-                .replace(/[\u064B-\u065F\u0670]/g, "")
-                .replace(/[\u200d]/g, "")
-                .replace(/[\u200e\u200f]/g, "")
-                .replace(/\u200c/g, " ")
-                .replace(/\s+/g, " ")
-                .trim();
+                .replace(/ي/g, "ی").replace(/ى/g, "ی").replace(/ك/g, "ک")
+                .replace(/ۀ/g, "ه").replace(/ة/g, "ه").trim();
         },
 
-        uniqueLetters: function (text) {
-            const result = [];
-            Array.from(this.normalize(text).replace(/ /g, "")).forEach(function (letter) {
-                if (PERSIAN_ALPHABET.includes(letter) && !result.includes(letter)) {
-                    result.push(letter);
-                }
-            });
-            return result;
+        normalize: function (value) {
+            return String(value == null ? "" : value)
+                .replace(/ي/g, "ی").replace(/ى/g, "ی").replace(/ك/g, "ک")
+                .replace(/ۀ/g, "ه").replace(/ة/g, "ه")
+                .replace(/[\u064B-\u065F\u0670]/g, "")
+                .replace(/[\u200d\u200e\u200f]/g, "").replace(/\s+/g, " ").trim();
         },
 
         getState: function () {
             if (!this.state) return null;
             return JSON.parse(JSON.stringify({
                 ...this.state,
-                currentWord: this.getCurrentWord(),
-                keyboard: this.getKeyboard(),
-                keyboardMode: this.getKeyboardMode()
+                currentQuestion: this.getCurrentQuestion(),
+                mode: this.getMode(),
+                keyboardRows: this.getKeyboardRows(),
+                expectedChar: this.getExpectedChar(),
+                displayText: this.getDisplayText(),
+                guideChar: this.getGuideChar()
             }));
         },
 
-        getSessionState: function () {
-            return this.getState();
-        },
-
+        getSessionState: function () { return this.getState(); },
         restoreSession: function (state) {
             if (!state || !this.activity || !this.content) return false;
-            try {
-                this.state = JSON.parse(JSON.stringify(state));
-                return !!this.state && Array.isArray(this.state.answers);
-            } catch (error) {
-                this.reset();
-                return false;
-            }
+            try { this.state = JSON.parse(JSON.stringify(state)); return true; }
+            catch (error) { this.reset(); return false; }
         },
-
-        getResult: function () {
-            return this.state && this.state.result ? this.state.result : null;
-        },
-
-        reset: function () {
-            this.activity = null;
-            this.content = null;
-            this.state = null;
-        },
-
-        shuffle: function (array) {
-            const list = array.slice();
-            for (let i = list.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                const temp = list[i];
-                list[i] = list[j];
-                list[j] = temp;
-            }
-            return list;
-        }
+        getResult: function () { return this.state && this.state.result ? this.state.result : null; },
+        reset: function () { this.activity = null; this.content = null; this.state = null; }
     };
 
     window.DictationEngine = DictationEngine;
 })(window);
 
-console.log("Dictation Engine v1.1 Ready");
+console.log("Dictation Engine v2.0 Ready");
