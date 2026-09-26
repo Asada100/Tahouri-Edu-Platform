@@ -131,6 +131,12 @@ async function main() {
             const expired = expiryDb.prepare("SELECT valid_until AS validUntil, status FROM licenses WHERE license_id = ?").get(licenseId);
             assert(Date.parse(expired.validUntil) < Date.now(), "Expiry test data was not set.");
             assert(expired.status === "active", "Expiry should not change the persisted lifecycle state before explicit revocation.");
+
+            const restoredExpiry = new Date(Date.now() + 370 * 24 * 60 * 60 * 1000).toISOString();
+            expiryDb.prepare("UPDATE licenses SET valid_until = ? WHERE license_id = ?").run(restoredExpiry, licenseId);
+            const restored = expiryDb.prepare("SELECT valid_until AS validUntil, status FROM licenses WHERE license_id = ?").get(licenseId);
+            assert(Date.parse(restored.validUntil) > Date.now(), "License expiry was not restored after the expiry lifecycle check.");
+            assert(restored.status === "active", "License lifecycle state changed during the expiry test.");
         } finally { expiryDb.close(); }
 
         const payment = await request("POST", "/api/payments", {
