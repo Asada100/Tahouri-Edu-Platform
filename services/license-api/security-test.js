@@ -63,6 +63,11 @@ for (const marker of caddySecurityMarkers) {
 if (compose.includes('8787:8787')) {
     throw new Error("License API port 8787 must not be publicly published.");
 }
+if (!compose.includes("tahouri_backup_encryption_key:") ||
+    !compose.includes("TAHOURI_BACKUP_ENCRYPTION_KEY_FILE: /run/secrets/tahouri_backup_encryption_key")) {
+    throw new Error("Production backup encryption key must use a Docker secret.");
+}
+
 if (!compose.includes("tahouri_private_key:")) {
     throw new Error("Production signing key must use a Docker secret.");
 }
@@ -74,10 +79,12 @@ if (!gitignore.includes("*.pem") || !gitignore.includes("secrets/")) {
 }
 
 const required = [
+    "const { encryptFile, readEncryptionKey } = require(\"./backup-crypto\")",
     "function safeLog",
     "function startupRecoveryCheck",
     "function migrateDatabase",
     "function gracefulShutdown",
+    "aes-256-gcm",
     "/api/ready",
     "/api/metrics/alerts"
 ];
