@@ -5,11 +5,12 @@ const os = require("node:os");
 const path = require("node:path");
 const { DatabaseSync } = require("node:sqlite");
 const crypto = require("node:crypto");
+const { decryptFile } = require("./backup-crypto");
 
 const backupFile = process.argv[2];
 
 if (!backupFile) {
-    console.error("Usage: node restore-rehearsal.js <backup.sqlite>");
+    console.error("Usage: node restore-rehearsal.js <backup.sqlite.enc>");
     process.exit(2);
 }
 
@@ -18,12 +19,21 @@ if (!fs.existsSync(source)) {
     console.error("Backup file not found: " + source);
     process.exit(2);
 }
+if (!source.endsWith(".sqlite.enc")) {
+    throw new Error("Only encrypted .sqlite.enc backups are accepted.");
+}
 
 const publicKeyFile = process.env.TAHOURI_BACKUP_SIGNING_PUBLIC_KEY_FILE;
+const encryptionKeyFile = process.env.TAHOURI_BACKUP_ENCRYPTION_KEY_FILE;
 const signatureFile = source + ".sig";
+
 if (process.env.NODE_ENV === "production" && !publicKeyFile) {
     throw new Error("Backup signing public key is required in production.");
 }
+if (process.env.NODE_ENV === "production" && !encryptionKeyFile) {
+    throw new Error("Backup encryption key is required in production.");
+}
+
 if (publicKeyFile) {
     if (!fs.existsSync(publicKeyFile) || !fs.existsSync(signatureFile)) {
         throw new Error("Backup signature or verification key is missing.");
@@ -39,7 +49,7 @@ const rehearsalDir = fs.mkdtempSync(path.join(os.tmpdir(), "tahouri-restore-"));
 const restoredFile = path.join(rehearsalDir, "license.sqlite");
 
 try {
-    fs.copyFileSync(source, restoredFile);
+    decryptFile(source, restoredFile, encryptionKeyFile);
 
     const db = new DatabaseSync(restoredFile);
     try {
@@ -55,12 +65,12 @@ try {
             "payments"
         ];
 
-                const schemaVersion = db.prepare("PRAGMA user_version").get().user_version;
+        const schemaVersion = db.prepare("PRAGMA user_version").get().user_version;
         if (schemaVersion !== 1) {
             throw new Error("Unsupported database schema version: " + schemaVersion);
         }
 
-const tables = db.prepare(
+        const tables = db.prepare(
             "SELECT name FROM sqlite_master WHERE type='table'"
         ).all().map(row => row.name);
 
