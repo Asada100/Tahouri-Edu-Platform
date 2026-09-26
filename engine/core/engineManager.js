@@ -3,7 +3,7 @@
 // Engine Manager
 // Version 1.6
 // Engine Name Resolver
-// Quiz + Memory + Puzzle + Matching + Classification
+// Quiz + Memory + Puzzle + Matching + Classification + Dictation
 // =====================================
 
 
