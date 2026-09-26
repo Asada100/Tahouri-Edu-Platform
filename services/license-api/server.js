@@ -42,7 +42,7 @@ const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 const SESSION_COOKIE_NAME = "tahouri_admin_session";
 const PAYMENT_PROVIDER = String(process.env.TAHOURI_PAYMENT_PROVIDER || "manual");
 const RATE_WINDOW_MS = 60 * 1000;
-const RATE_LIMIT = 30;
+const RATE_LIMIT = process.env.TAHOURI_TEST_MODE === "true" ? 1000 : 30;
 const rateBuckets = new Map();
 
 function createRequestId() {
