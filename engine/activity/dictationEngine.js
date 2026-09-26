@@ -60,6 +60,8 @@
             this.state.currentInput = "";
             this.state.currentSlotIndex = 0;
             this.state.currentCharIndex = 0;
+            this.state.questionCompleted = false;
+            this.state.transitioning = false;
             this.state.missingSlots = this.buildMissingSlots(q);
         },
 
