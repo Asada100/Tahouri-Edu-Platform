@@ -9,6 +9,9 @@ const composePath = path.join(__dirname, "../../docker-compose.production.yml");
 const compose = fs.readFileSync(composePath, "utf8");
 const gitignorePath = path.join(__dirname, "../../.gitignore");
 const gitignore = fs.readFileSync(gitignorePath, "utf8");
+const caddyPath = path.join(__dirname, "Caddyfile.production.example");
+const caddy = fs.readFileSync(caddyPath, "utf8");
+
 const licenseManagerPath = path.join(__dirname, "../../engine/core/licenseManager.js");
 const activationGatePath = path.join(__dirname, "../../engine/core/activationGate.js");
 const licenseManager = fs.readFileSync(licenseManagerPath, "utf8");
@@ -26,7 +29,21 @@ if (failures.length) {
 }
 
 if (!source.includes("X-Content-Type-Options") || !source.includes("X-Frame-Options") || !source.includes("Referrer-Policy")) {
-    throw new Error("Required security headers are missing.");
+    throw new Error("Required API security headers are missing.");
+}
+
+const caddySecurityMarkers = [
+    'Strict-Transport-Security "max-age=31536000; includeSubDomains"',
+    'Content-Security-Policy "default-src \'none\'; frame-ancestors \'none\'; base-uri \'none\'"',
+    'X-Content-Type-Options "nosniff"',
+    'X-Frame-Options "DENY"',
+    'Referrer-Policy "no-referrer"'
+];
+
+for (const marker of caddySecurityMarkers) {
+    if (!caddy.includes(marker)) {
+        throw new Error("Required Caddy security header missing: " + marker);
+    }
 }
 
 if (compose.includes('8787:8787')) {
