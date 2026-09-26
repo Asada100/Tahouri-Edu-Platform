@@ -978,6 +978,16 @@ async function licenseStatus(req, res) {
     const licenseId = String(url.searchParams.get("licenseId") || "").trim();
     if (!licenseId) return send(res, 400, { ok: false, valid: false, message: "licenseId الزامی است." });
 
+    try {
+        validateIdentifier(licenseId, "licenseId");
+    } catch (error) {
+        return send(res, error.statusCode || 400, {
+            ok: false,
+            valid: false,
+            message: error.message
+        });
+    }
+
     const result = getActiveLicense(licenseId);
     if (!result.valid) {
         return send(res, 200, { ok: true, valid: false, reason: result.reason });
