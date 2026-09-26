@@ -15,6 +15,7 @@ const requiredFiles = [
     "services/license-api/verify-backup.js",
     "services/license-api/restore-rehearsal.js",
     "services/license-api/security-test.js",
+    "services/license-api/backup-crypto.js",
     "services/license-api/integration-test.js",
     "services/license-api/release-smoke-test.js",
     ".github/workflows/license-api-ci.yml"
