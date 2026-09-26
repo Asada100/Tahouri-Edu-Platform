@@ -21,11 +21,13 @@ const { privateKey, publicKey } = crypto.generateKeyPairSync("rsa", {
 });
 const privateKeyFile = path.join(keyDir, "backup-private.pem");
 const publicKeyFile = path.join(keyDir, "backup-public.pem");
+const encryptionKeyFile = path.join(keyDir, "backup-encryption.key");
 const offsiteSshKeyFile = path.join(keyDir, "offsite-ssh-key");
 const knownHostsFile = path.join(keyDir, "known_hosts");
 
 fs.writeFileSync(privateKeyFile, privateKey.export({ type: "pkcs8", format: "pem" }), { mode: 0o600 });
 fs.writeFileSync(publicKeyFile, publicKey.export({ type: "spki", format: "pem" }));
+fs.writeFileSync(encryptionKeyFile, crypto.randomBytes(32).toString("base64") + "\n", { mode: 0o600 });
 fs.writeFileSync(offsiteSshKeyFile, "test-offsite-key\n", { mode: 0o600 });
 fs.writeFileSync(knownHostsFile, "# test known_hosts\n");
 
@@ -57,6 +59,7 @@ try {
         TAHOURI_LICENSE_BACKUP_DIR: backupDir,
         TAHOURI_BACKUP_SIGNING_PRIVATE_KEY_FILE: privateKeyFile,
         TAHOURI_BACKUP_SIGNING_PUBLIC_KEY_FILE: publicKeyFile,
+        TAHOURI_BACKUP_ENCRYPTION_KEY_FILE: encryptionKeyFile,
         TAHOURI_BACKUP_OFFSITE_HOST: "test-host",
         TAHOURI_BACKUP_OFFSITE_USER: "test-user",
         TAHOURI_BACKUP_OFFSITE_DIR: "/offsite",
@@ -69,7 +72,7 @@ try {
     execFileSync(process.execPath, ["backup-db.js"], { cwd: __dirname, env, stdio: "inherit" });
 
     const backups = fs.readdirSync(backupDir).filter(name => name.endsWith(".sqlite"));
-    if (backups.length !== 1) throw new Error("Expected exactly one backup file.");
+    if (backups.length !== 1 || backups[0].endsWith(".sqlite")) throw new Error("Expected exactly one encrypted backup file.");
 
     const backup = path.join(backupDir, backups[0]);
 
@@ -82,7 +85,7 @@ try {
 
     execFileSync(process.execPath, ["restore-rehearsal.js", backup], { cwd: __dirname, env, stdio: "inherit" });
 
-    const tampered = path.join(root, "tampered.sqlite");
+    const tampered = path.join(root, "tampered.sqlite.enc");
     fs.copyFileSync(backup, tampered);
     fs.appendFileSync(tampered, "tampered");
     fs.copyFileSync(backup + ".sig", tampered + ".sig");
@@ -95,7 +98,7 @@ try {
     }
     if (!tamperRejected) throw new Error("Tampered signed backup was accepted.");
 
-    const malformed = path.join(root, "malformed.sqlite");
+    const malformed = path.join(root, "malformed.sqlite.enc");
     const bad = new DatabaseSync(malformed);
     try {
         bad.exec("PRAGMA user_version = 99; CREATE TABLE activation_codes (id INTEGER); CREATE TABLE licenses (id INTEGER); CREATE TABLE audit_log (id INTEGER); CREATE TABLE payments (id INTEGER);");
