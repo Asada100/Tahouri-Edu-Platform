@@ -37,7 +37,7 @@ if (!fs.existsSync(knownHostsFile)) {
 }
 
 const files = fs.readdirSync(backupDir)
-    .filter(name => name.endsWith(".sqlite") || name.endsWith(".sqlite.sig"))
+    .filter(name => name.endsWith(".sqlite.enc") || name.endsWith(".sqlite.enc.sig"))
     .map(name => path.join(backupDir, name));
 
 if (!files.length) {
