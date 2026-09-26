@@ -11,6 +11,8 @@ const gitignorePath = path.join(__dirname, "../../.gitignore");
 const gitignore = fs.readFileSync(gitignorePath, "utf8");
 const caddyPath = path.join(__dirname, "Caddyfile.production.example");
 const caddy = fs.readFileSync(caddyPath, "utf8");
+const backupCryptoPath = path.join(__dirname, "backup-crypto.js");
+const backupCrypto = fs.readFileSync(backupCryptoPath, "utf8");
 
 const licenseManagerPath = path.join(__dirname, "../../engine/core/licenseManager.js");
 const activationGatePath = path.join(__dirname, "../../engine/core/activationGate.js");
@@ -84,7 +86,6 @@ const required = [
     "function startupRecoveryCheck",
     "function migrateDatabase",
     "function gracefulShutdown",
-    "aes-256-gcm",
     "/api/ready",
     "/api/metrics/alerts"
 ];
@@ -93,6 +94,12 @@ for (const marker of required) {
     if (!source.includes(marker)) {
         throw new Error("Required production hardening marker missing: " + marker);
     }
+}
+
+if (!backupCrypto.includes('aes-256-gcm') ||
+    !backupCrypto.includes('crypto.createCipheriv') ||
+    !backupCrypto.includes('crypto.createDecipheriv')) {
+    throw new Error("Backup encryption implementation is missing.");
 }
 
 const productionLicenseMarkers = [
