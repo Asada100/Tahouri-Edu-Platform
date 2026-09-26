@@ -13,7 +13,7 @@
                 ? activityData.dictation
                 : activityData && activityData.content
                     ? activityData.content
-                    : {};
+                    : activityData || {};
 
             const settings = {
                 keyboardMode: "target-only",
