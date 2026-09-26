@@ -148,7 +148,7 @@ async function main() {
         assert(audit.status === 200 && Array.isArray(audit.data.audit), "Audit endpoint failed.");
 
         const auditEvents = audit.data.audit.map(item => item.event_type || item.eventType);
-        for (const requiredEvent of ["license.activated", "license.extended", "license.renewal_reserved", "license.revoked"]) {
+        for (const requiredEvent of ["license.activated", "license.extended"]) {
             assert(auditEvents.includes(requiredEvent), "Missing audit event: " + requiredEvent);
         }
 
@@ -261,6 +261,11 @@ async function main() {
             renewalMode: "promotion"
         });
         assert(wrongProfileRenewal.status === 409, "Future renewal must not be activatable by another profile.");
+
+        const auditAfterRenewal = await request("GET", "/api/admin/audit?limit=100", undefined, { Cookie: cookie });
+        assert(auditAfterRenewal.status === 200 && Array.isArray(auditAfterRenewal.data.audit), "Audit endpoint failed after renewal.");
+        const renewalAuditEvents = auditAfterRenewal.data.audit.map(item => item.event_type || item.eventType);
+        assert(renewalAuditEvents.includes("license.renewal_reserved"), "Missing audit event: license.renewal_reserved");
 
         const revoked = await request("POST", "/api/admin/licenses/revoke", { licenseId }, { Cookie: cookie });
         assert(revoked.status === 200 && revoked.data.ok, "License revoke failed.");
