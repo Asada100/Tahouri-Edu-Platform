@@ -35,7 +35,7 @@
                 currentIndex: 0, totalQuestions: this.content.questions.length,
                 correctAnswers: 0, wrongAnswers: 0, score: 0, attempts: 0,
                 characterErrors: 0, answers: [], currentInput: "",
-                missingSlots: [], currentSlotIndex: 0, currentCharIndex: 0
+                missingSlots: [], currentSlotIndex: 0, currentCharIndex: 0,\n                questionCompleted: false, transitioning: false
             };
             this.prepareCurrentQuestion();
             EventManager.emit("activityStarted", this.activity);
@@ -122,7 +122,7 @@
         },
 
         inputChar: function (char) {
-            if (!this.state || this.state.isFinished || !char) return null;
+            if (!this.state || this.state.isFinished || this.state.transitioning || !char) return null;
             const q = this.getCurrentQuestion();
             if (!q) return null;
             const expected = this.getExpectedChar();
@@ -186,9 +186,25 @@
                 correct: true,
                 characterErrors: this.state.characterErrors
             });
-            this.state.currentIndex += 1;
-            if (this.state.currentIndex >= this.content.questions.length) return this.finish();
-            this.prepareCurrentQuestion();
+
+            this.state.questionCompleted = true;
+            this.state.transitioning = true;
+            const engine = this;
+
+            window.setTimeout(function () {
+                if (!engine.state || engine.state.isFinished) return;
+
+                engine.state.currentIndex += 1;
+
+                if (engine.state.currentIndex >= engine.content.questions.length) {
+                    engine.state.transitioning = false;
+                    engine.finish();
+                    return;
+                }
+
+                engine.prepareCurrentQuestion();
+            }, 600);
+
             return this.getState();
         },
 
