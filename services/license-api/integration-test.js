@@ -178,43 +178,87 @@ async function main() {
         const activeAcademicYear = iranParts.month >= 7 ? iranParts.year : iranParts.year - 1;
         const nextAcademicYear = String(activeAcademicYear + 1);
 
-        const nextCodes = await request("POST", "/api/admin/codes", {
+        const promotionCodes = await request("POST", "/api/admin/codes", {
+            gradeId: "grade7",
+            academicYear: nextAcademicYear,
+            count: 3
+        }, { Cookie: cookie });
+        assert(promotionCodes.status === 201 && promotionCodes.data.codes?.length === 3, "Grade 7 next-year promotion codes were not created.");
+
+        const repeatCodes = await request("POST", "/api/admin/codes", {
             gradeId: "grade6",
             academicYear: nextAcademicYear,
-            count: 2
+            count: 1
         }, { Cookie: cookie });
-        assert(nextCodes.status === 201 && nextCodes.data.codes?.length === 1, "Next-year renewal code creation failed.");
+        assert(repeatCodes.status === 201 && repeatCodes.data.codes?.length === 1, "Grade 6 next-year repeat code creation failed.");
 
-        const renewalActivation = await request("POST", "/api/licenses/activate", {
-            code: nextCodes.data.codes[0],
-            gradeId: "grade6",
+        const promotionActivation = await request("POST", "/api/licenses/activate", {
+            code: promotionCodes.data.codes[0],
+            gradeId: "grade7",
             studentId: "integration-student",
-            installationId: "integration-installation"
+            installationId: "integration-installation",
+            renewalMode: "promotion"
         });
-        assert(renewalActivation.status === 200 && renewalActivation.data.valid, "Next-year renewal activation failed.");
-        assert(renewalActivation.data.renewalStored === true, "Future renewal was not marked as stored.");
+        assert(promotionActivation.status === 200 && promotionActivation.data.valid, "Grade 6 → Grade 7 next-year promotion failed.");
+        assert(promotionActivation.data.renewalStored === true, "Future promotion was not marked as stored.");
         assert(
-            renewalActivation.data.entitlement.claims.academicYear === nextAcademicYear,
-            "Next-year entitlement academic year is incorrect."
+            promotionActivation.data.entitlement.claims.gradeScope === "grade7",
+            "Promotion entitlement must be bound to Grade 7."
         );
         assert(
-            Date.parse(renewalActivation.data.entitlement.claims.validFrom) > Date.now(),
-            "Early renewal must not become active immediately."
+            promotionActivation.data.entitlement.claims.academicYear === nextAcademicYear,
+            "Promotion entitlement academic year is incorrect."
+        );
+        assert(
+            Date.parse(promotionActivation.data.entitlement.claims.validFrom) > Date.now(),
+            "Early promotion must not become active immediately."
         );
 
-        const renewalStatus = await request(
+        const promotionStatus = await request(
             "GET",
             "/api/licenses/status?licenseId=" +
-            encodeURIComponent(renewalActivation.data.entitlement.claims.licenseId)
+            encodeURIComponent(promotionActivation.data.entitlement.claims.licenseId)
         );
-        assert(renewalStatus.status === 200 && renewalStatus.data.valid === false &&
-            renewalStatus.data.reason === "future", "Future renewal must not be usable before its start date.");
+        assert(promotionStatus.status === 200 && promotionStatus.data.valid === false &&
+            promotionStatus.data.reason === "future", "Future promotion must not be usable before its start date.");
+
+        const tamperedPromotion = await request("POST", "/api/licenses/activate", {
+            code: promotionCodes.data.codes[1],
+            gradeId: "grade6",
+            studentId: "integration-student",
+            installationId: "integration-installation",
+            renewalMode: "promotion"
+        });
+        assert(tamperedPromotion.status === 400, "A Grade 7 promotion code must reject a tampered Grade 6 request.");
+
+        const invalidSameGradePromotion = await request("POST", "/api/licenses/activate", {
+            code: repeatCodes.data.codes[0],
+            gradeId: "grade6",
+            studentId: "integration-student",
+            installationId: "integration-installation",
+            renewalMode: "promotion"
+        });
+        assert(invalidSameGradePromotion.status === 409, "A Grade 6 next-year code must not be usable as a promotion.");
+        const repeatActivation = await request("POST", "/api/licenses/activate", {
+            code: repeatCodes.data.codes[0],
+            gradeId: "grade6",
+            studentId: "integration-student",
+            installationId: "integration-installation",
+            renewalMode: "repeat"
+        });
+        assert(repeatActivation.status === 200 && repeatActivation.data.valid, "Same-grade repeat renewal failed.");
+        assert(repeatActivation.data.renewalStored === true, "Future repeat renewal was not marked as stored.");
+        assert(
+            repeatActivation.data.entitlement.claims.gradeScope === "grade6",
+            "Repeat entitlement must remain bound to Grade 6."
+        );
 
         const wrongProfileRenewal = await request("POST", "/api/licenses/activate", {
-            code: nextCodes.data.codes[1],
-            gradeId: "grade6",
+            code: promotionCodes.data.codes[2],
+            gradeId: "grade7",
             studentId: "other-profile",
-            installationId: "other-installation"
+            installationId: "other-installation",
+            renewalMode: "promotion"
         });
         assert(wrongProfileRenewal.status === 409, "Future renewal must not be activatable by another profile.");
 
