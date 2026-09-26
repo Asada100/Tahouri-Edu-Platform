@@ -1,0 +1,15 @@
+{
+  "mode": "word",
+  "instruction": "کلمه را با حروف درست بنویس.",
+  "settings": {
+    "keyboardMode": "target-only",
+    "allowRetry": true,
+    "scorePerCorrect": 10
+  },
+  "words": [
+    {"id":"spelling-1","answer":"مدرسه"},
+    {"id":"spelling-2","answer":"دانش‌آموز"},
+    {"id":"spelling-3","answer":"کتاب"},
+    {"id":"spelling-4","answer":"آموزش"}
+  ]
+}

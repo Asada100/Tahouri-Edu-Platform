@@ -3,7 +3,7 @@
 // Engine Manager
 // Version 1.6
 // Engine Name Resolver
-// Quiz + Memory + Puzzle + Matching + Classification
+// Quiz + Memory + Puzzle + Matching + Classification + Dictation
 // =====================================
 
 
@@ -163,6 +163,19 @@ const EngineManager = {
                 window.ClassificationEngine
             );
 
+        }
+
+
+        // =================================
+        // Dictation Engine
+        // =================================
+        if(
+            window.DictationEngine
+        ){
+            this.register(
+                "dictation",
+                window.DictationEngine
+            );
         }
 
 
