@@ -13,10 +13,17 @@
       "answer": "نهراسیم",
       "masked": "نـ....ـراسیم",
       "missing": [
-        { "start": 1, "length": 1 }
+        {
+          "start": 1,
+          "length": 1
+        }
       ],
-      "spellingRule": null,
-      "lesson": "lesson1"
+      "spellingRule": "h",
+      "lesson": "lesson1",
+      "allowedLetters": [
+        "ه",
+        "ح"
+      ]
     },
     {
       "id": "lesson1-02",
@@ -24,10 +31,17 @@
       "answer": "محبت",
       "masked": "مـ....ـبت",
       "missing": [
-        { "start": 1, "length": 1 }
+        {
+          "start": 1,
+          "length": 1
+        }
       ],
-      "spellingRule": null,
-      "lesson": "lesson1"
+      "spellingRule": "h",
+      "lesson": "lesson1",
+      "allowedLetters": [
+        "ه",
+        "ح"
+      ]
     },
     {
       "id": "lesson1-03",
@@ -35,10 +49,18 @@
       "answer": "شخصیت",
       "masked": "شخـ....ـیت",
       "missing": [
-        { "start": 2, "length": 1 }
+        {
+          "start": 2,
+          "length": 1
+        }
       ],
-      "spellingRule": null,
-      "lesson": "lesson1"
+      "spellingRule": "s-sad-se",
+      "lesson": "lesson1",
+      "allowedLetters": [
+        "س",
+        "ص",
+        "ث"
+      ]
     },
     {
       "id": "lesson1-04",
@@ -46,7 +68,10 @@
       "answer": "خواست",
       "masked": "خـ....ـاست",
       "missing": [
-        { "start": 1, "length": 1 }
+        {
+          "start": 1,
+          "length": 1
+        }
       ],
       "spellingRule": null,
       "lesson": "lesson1"
@@ -57,7 +82,10 @@
       "answer": "برخاست",
       "masked": "برخـ....ـست",
       "missing": [
-        { "start": 3, "length": 1 }
+        {
+          "start": 3,
+          "length": 1
+        }
       ],
       "spellingRule": null,
       "lesson": "lesson1"
@@ -68,10 +96,17 @@
       "answer": "خالقی",
       "masked": "خالـ....ـی",
       "missing": [
-        { "start": 3, "length": 1 }
+        {
+          "start": 3,
+          "length": 1
+        }
       ],
-      "spellingRule": null,
-      "lesson": "lesson1"
+      "spellingRule": "gh",
+      "lesson": "lesson1",
+      "allowedLetters": [
+        "ق",
+        "غ"
+      ]
     },
     {
       "id": "lesson1-07",
@@ -79,9 +114,17 @@
       "answer": "موزون",
       "masked": "مو....ون",
       "missing": [
-        { "start": 2, "length": 1 }
+        {
+          "start": 2,
+          "length": 1
+        }
       ],
-      "allowedLetters": ["ز", "ذ", "ض", "ظ"],
+      "allowedLetters": [
+        "ز",
+        "ذ",
+        "ض",
+        "ظ"
+      ],
       "spellingRule": "z",
       "lesson": "lesson1"
     }
