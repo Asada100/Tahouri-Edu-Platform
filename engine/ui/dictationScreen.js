@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Dictation Screen
-// Version 1.0
+// Version 1.1
 // =====================================
 
 (function (window) {
@@ -38,8 +38,12 @@
                         <div class="dictationAnswer" id="dictationAnswer" aria-live="polite"></div>
 
                         <div class="dictationKeyboard" id="dictationKeyboard">
-                            ${keyboard.map(function (letter) {
-                                return `<button type="button" class="dictationKey" data-letter="${DictationScreen.escape(letter)}">${DictationScreen.escape(letter)}</button>`;
+                            ${keyboard.map(function (key) {
+                                const isSpace = key === " ";
+                                const isZwnj = key === "\u200c";
+                                const label = isSpace ? "فاصله" : (isZwnj ? "نیم‌فاصله" : key);
+                                const className = isSpace || isZwnj ? "dictationKey dictationSpecialKey" : "dictationKey";
+                                return `<button type="button" class="${className}" data-key="${DictationScreen.escape(key)}">${DictationScreen.escape(label)}</button>`;
                             }).join("")}
                         </div>
 
@@ -63,7 +67,7 @@
 
             document.querySelectorAll(".dictationKey").forEach(function (button) {
                 button.onclick = function () {
-                    self.currentAnswer += this.dataset.letter || "";
+                    self.currentAnswer += this.dataset.key || "";
                     self.updateAnswer();
                 };
             });
@@ -125,4 +129,4 @@
     DictationScreen.init();
 })(window);
 
-console.log("Dictation Screen v1.0 Ready");
+console.log("Dictation Screen v1.1 Ready");
