@@ -37,7 +37,7 @@ fs.mkdirSync(offsiteDir, { recursive: true });
 const fakeScp = path.join(fakeBin, "scp");
 fs.writeFileSync(
     fakeScp,
-    "#!/bin/sh\nfor arg in \"$@\"; do case \"$arg\" in *.sqlite|*.sqlite.sig) if [ -f \"$arg\" ]; then cp \"$arg\" \"$TAHOURI_TEST_OFFSITE/\"; fi;; esac; done\n",
+    "#!/bin/sh\nfor arg in \"$@\"; do case \"$arg\" in *.sqlite.enc|*.sqlite.enc.sig) if [ -f \"$arg\" ]; then cp \"$arg\" \"$TAHOURI_TEST_OFFSITE/\"; fi;; esac; done\n",
     { mode: 0o755 }
 );
 
