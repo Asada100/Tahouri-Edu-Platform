@@ -23,6 +23,7 @@
             const mode = state.mode || q.mode || "guided-word";
             const rows = Array.isArray(state.keyboardRows) ? state.keyboardRows : [];
             const isGuided = mode === "guided-word";
+            const isContext = mode === "context";
 
             app.innerHTML = `
                 <div class="screen dictationScreen" dir="rtl">
@@ -56,6 +57,39 @@
                 </div>
             `;
             this.bind();
+        },
+
+        renderContext: function (state) {
+            const q = state.currentQuestion || {};
+            const targets = Array.isArray(q.targets) && q.targets.length ? q.targets : [q];
+            const template = q.contextTemplate || q.context || "";
+            if (!template) return "";
+            const currentIndex = Number(state.currentTargetIndex) || 0;
+            const slots = new Set((state.missingSlots || []).slice(Number(state.currentSlotIndex) || 0));
+
+            return this.escape(template).replace(/\\{\\{(\\d+)\\}\\}/g, function (match, rawIndex) {
+                const index = Number(rawIndex);
+                const target = targets[index];
+                if (!target) return match;
+                const answer = String(target.answer || "");
+                const chars = Array.from(answer);
+
+                if (index < currentIndex) {
+                    return '<span class="dictationContextTarget is-complete">' + DictationScreen.escape(answer) + '</span>';
+                }
+
+                if (index > currentIndex) {
+                    const future = target.masked || "....";
+                    return '<span class="dictationContextTarget is-pending">' + DictationScreen.escape(future) + '</span>';
+                }
+
+                const visible = chars.map(function (char, charIndex) {
+                    return slots.has(charIndex)
+                        ? '<span class="dictationMissing">....</span>'
+                        : DictationScreen.escape(char);
+                }).join("");
+                return '<span class="dictationContextTarget is-current">' + visible + '</span>';
+            });
         },
 
         renderAnswer: function (state, isGuided) {
