@@ -147,3 +147,27 @@
 .dictationContextTarget.is-current { border-bottom: 2px solid #9aa9bd; }
 .dictationContextTarget.is-complete { color: #2f8f57; font-weight: 600; }
 .dictationContextTarget.is-pending { color: #6f86a8; opacity: .72; }
+
+.dictationMedia {
+    width: min(360px, 100%);
+    margin: 0 auto 18px;
+    padding: 8px;
+    border-radius: 16px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    box-sizing: border-box;
+}
+
+.dictationMedia img {
+    display: block;
+    width: 100%;
+    max-height: 220px;
+    object-fit: contain;
+    border-radius: 11px;
+}
+
+.dictationMedia figcaption {
+    margin-top: 7px;
+    font-size: 14px;
+    opacity: .7;
+}
