@@ -29,7 +29,10 @@
                     ? window.SpellingQuestionGenerator.generate({
                         ...source.generator,
                         instruction: source.instruction || "املای کلمات را کامل کنید.",
-                        lesson: source.lesson || null
+                        lesson: source.lesson || null,
+                        performance: window.SpellingPerformanceStore && typeof window.SpellingPerformanceStore.getPerformance === "function"
+                            ? window.SpellingPerformanceStore.getPerformance()
+                            : source.generator.performance || null
                     })
                     : [];
 
