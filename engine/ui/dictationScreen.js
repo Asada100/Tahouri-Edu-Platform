@@ -121,7 +121,7 @@
 
                 const visible = chars.map(function (char, charIndex) {
                     return slots.has(charIndex)
-                        ? '<span class="dictationMissing">....</span>'
+                        ? '<span class="dictationMissing">ـ...ـ</span>'
                         : DictationScreen.escape(char);
                 }).join("");
                 return '<span class="dictationContextTarget is-current">' + visible + '</span>';
