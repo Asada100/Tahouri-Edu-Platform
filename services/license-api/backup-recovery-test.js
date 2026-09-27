@@ -71,8 +71,8 @@ try {
 
     execFileSync(process.execPath, ["backup-db.js"], { cwd: __dirname, env, stdio: "inherit" });
 
-    const backups = fs.readdirSync(backupDir).filter(name => name.endsWith(".sqlite"));
-    if (backups.length !== 1 || backups[0].endsWith(".sqlite")) throw new Error("Expected exactly one encrypted backup file.");
+    const backups = fs.readdirSync(backupDir).filter(name => name.endsWith(".sqlite.enc"));
+    if (backups.length !== 1) throw new Error("Expected exactly one encrypted backup file.");
 
     const backup = path.join(backupDir, backups[0]);
 
