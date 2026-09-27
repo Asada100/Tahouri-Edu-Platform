@@ -35,7 +35,8 @@ const signatureFile = backupFile + ".sig";
 
 const db = new DatabaseSync(dbFile);
 try {
-    db.exec("VACUUM INTO " + JSON.stringify(plainBackupFile));
+    const vacuumPath = plainBackupFile.split(q).join(q + q);
+    db.exec("VACUUM INTO " + q + vacuumPath + q);
 } finally {
     db.close();
 }
