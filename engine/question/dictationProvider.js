@@ -63,6 +63,24 @@
                         missing: missing,
                         allowedLetters: Array.isArray(item.allowedLetters) ? item.allowedLetters : [],
                         spellingRule: item.spellingRule || null,
+                        targets: Array.isArray(item.targets) ? item.targets.map(function (target, targetIndex) {
+                            return {
+                                id: target.id || ((item.id || "spelling-question-" + (index + 1)) + "-target-" + (targetIndex + 1)),
+                                answer: typeof target.answer === "string" ? target.answer.trim() : "",
+                                missing: Array.isArray(target.missing) ? target.missing.map(function (slot) {
+                                    return {
+                                        start: Math.max(0, Number(slot.start) || 0),
+                                        length: Math.max(1, Number(slot.length) || 1),
+                                        answer: slot.answer || null
+                                    };
+                                }) : [],
+                                allowedLetters: Array.isArray(target.allowedLetters) ? target.allowedLetters : [],
+                                spellingRule: target.spellingRule || item.spellingRule || null,
+                                masked: target.masked || null
+                            };
+                        }).filter(function (target) {
+                            return target.answer && target.missing.length > 0;
+                        }) : [],
                         lesson: item.lesson || source.lesson || null,
                         media: item.media || null,
                         audio: item.audio || null
