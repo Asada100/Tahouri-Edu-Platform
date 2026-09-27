@@ -217,6 +217,24 @@
             return result;
         },
 
+        nextQuestion: function () {
+            if (!this.state || this.state.isFinished || !this.state.questionCompleted) return false;
+
+            const nextIndex = Number(this.state.currentIndex) + 1;
+            if (nextIndex >= this.content.questions.length) {
+                this.state.currentIndex = nextIndex;
+                this.state.transitioning = false;
+                this.finish();
+                return true;
+            }
+
+            this.state.currentIndex = nextIndex;
+            this.prepareCurrentQuestion();
+            this.state.transitioning = false;
+            EventManager.emit("dictationQuestionChanged", this.getState());
+            return true;
+        },
+
         inputSpace: function () {
             return this.inputChar(SPACE);
         },
@@ -293,25 +311,8 @@
 
             window.setTimeout(function () {
                 if (!engine.state || engine.state.isFinished) return;
-
-                const nextIndex = Number(engine.state.currentIndex) + 1;
-
-                if (nextIndex >= engine.content.questions.length) {
-                    engine.state.currentIndex = nextIndex;
-                    engine.state.transitioning = false;
-                    engine.finish();
-                    return;
-                }
-
-                engine.state.currentIndex = nextIndex;
-                engine.prepareCurrentQuestion();
-
-                const nextState = engine.getState();
-                console.log("DictationEngine: advancing to next question", {
-                    question: nextIndex + 1,
-                    total: engine.state.totalQuestions
-                });
-                EventManager.emit("dictationQuestionChanged", nextState);
+                engine.state.transitioning = false;
+                EventManager.emit("dictationQuestionCompleted", engine.getState());
             }, 600);
 
             return this.getState();
