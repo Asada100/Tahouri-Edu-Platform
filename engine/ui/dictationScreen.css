@@ -6,7 +6,7 @@
 .dictationInstruction{margin:8px 0 4px;font-size:20px;font-weight:800;color:#172033;line-height:1.8}
 .dictationRuleGuide{margin:0 auto 18px;color:#667085;font-size:15px;line-height:1.8}
 .dictationAnswer{min-height:92px;display:block;text-align:center;direction:rtl;unicode-bidi:plaintext;margin:18px auto;padding:18px 12px;border:2px solid #dbe4ef;border-radius:16px;background:#f8fbff;font-size:34px;font-weight:800}
-.dictationMissing{display:inline-block;vertical-align:middle;width:42px;height:50px;margin:0 4px;border:2px dashed #7c8da6;border-radius:9px;background:#fff;color:transparent}
+.dictationMissing{display:inline-block;vertical-align:middle;min-width:42px;margin:0 4px;color:#4f7cff;font-size:.82em;font-weight:900;letter-spacing:2px;line-height:1}
 .dictationAnswer.is-complete{border-style:solid}.dictationTyped,.dictationGhost{display:inline}.dictationFeedback{min-height:28px;margin:6px 0 10px;font-weight:700}.dictationFeedback.wrong{color:#b42318}
 .dictationAnswer.is-wrong{animation:dictationShake .28s ease-in-out}@keyframes dictationShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}50%{transform:translateX(8px)}75%{transform:translateX(-5px)}}
 .dictationKeyboard{margin-top:12px}.dictationKeyboardRow{display:flex;justify-content:center;gap:6px;margin:7px 0;flex-wrap:wrap}
