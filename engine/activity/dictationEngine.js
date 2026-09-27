@@ -258,7 +258,13 @@
             this.state.missingSlots = this.buildMissingSlots(this.getCurrentTarget());
             this.state.questionCompleted = false;
             this.state.transitioning = false;
-            return this.getState();
+            return {
+                correct: true,
+                complete: false,
+                targetComplete: true,
+                questionIndex: this.state.currentIndex,
+                state: this.getState()
+            };
         },
 
         completeCurrentQuestion: function () {
@@ -290,6 +296,7 @@
                 }
 
                 engine.prepareCurrentQuestion();
+                EventManager.emit("dictationQuestionChanged", engine.getState());
             }, 600);
 
             return this.getState();
