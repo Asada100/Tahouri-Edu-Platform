@@ -1662,6 +1662,14 @@
                 `;
             }
 
+            if (!renewalTargetGrade) {
+                gradeOptions += `
+                    <option value="" selected disabled>
+                        پایه بعدی در پلتفرم موجود نیست
+                    </option>
+                `;
+            }
+
             if (renewalCurrentGrade) {
                 gradeOptions += `
                     <option value="${renewalCurrentGrade.id}" disabled>
@@ -1732,7 +1740,9 @@
                                 >
                                     ${
                                         activated
-                                            ? "برای سال تحصیلی بعد، پایه بعدی به‌صورت خودکار انتخاب شده است."
+                                            ? (renewalTargetGrade
+                                                ? "برای سال تحصیلی بعد، پایه بعدی به‌صورت خودکار انتخاب شده است."
+                                                : "پایه بعدی هنوز در پلتفرم موجود نیست؛ فقط در صورت مردودی می‌توانید تکرار پایه را انتخاب کنید.")
                                 ${
                                     activated && renewalCurrentGrade
                                         ? `

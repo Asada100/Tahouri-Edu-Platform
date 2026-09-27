@@ -247,6 +247,7 @@ db.exec(`
         product_id TEXT NOT NULL,
         grade_id TEXT NOT NULL,
         academic_year TEXT NOT NULL,
+        renewal_mode TEXT NOT NULL DEFAULT 'promotion',
         status TEXT NOT NULL DEFAULT 'active',
         created_at TEXT NOT NULL,
         used_at TEXT,
@@ -316,6 +317,11 @@ db.exec(`
     CREATE INDEX IF NOT EXISTS idx_audit_created
         ON audit_log(created_at);
 `);
+
+const activationCodeColumns = db.prepare("PRAGMA table_info(activation_codes)").all();
+if (!activationCodeColumns.some((column) => column.name === "renewal_mode")) {
+    db.exec("ALTER TABLE activation_codes ADD COLUMN renewal_mode TEXT NOT NULL DEFAULT 'promotion'");
+}
 
 function assertProductionConfiguration() {
     if (!IS_PRODUCTION) return;
@@ -798,7 +804,9 @@ async function activate(req, res) {
     const codeHash = hashCode(code);
     const codeRecord = db.prepare(`
         SELECT code_hash AS codeHash, grade_id AS gradeId,
-               academic_year AS academicYear, status, used_at AS usedAt
+               academic_year AS academicYear,
+               renewal_mode AS renewalMode,
+               status, used_at AS usedAt
         FROM activation_codes
         WHERE code_hash = ?
     `).get(codeHash);
@@ -842,6 +850,16 @@ async function activate(req, res) {
 
     const period = academicPeriodForYear(requestedAcademicYear);
     const isFutureRenewal = requestedAcademicYear > activeAcademicYear;
+
+    if (isFutureRenewal && codeRecord.renewalMode !== renewalMode) {
+        recordMetric("activationFailures");
+        return send(res, 409, {
+            valid: false,
+            message: renewalMode === "repeat"
+                ? "این کد برای رزرو پایه تکراری صادر نشده است."
+                : "این کد برای انتقال به پایه بعدی صادر نشده است."
+        });
+    }
 
     if (isFutureRenewal) {
         const nowIso = new Date().toISOString();
@@ -1074,6 +1092,10 @@ async function adminCreateCodes(req, res) {
     const body = await readBody(req);
     const gradeId = validateIdentifier(body.gradeId, "gradeId");
     const academicYear = String(body.academicYear || academicPeriod().academicYear).trim();
+    const renewalMode = String(body.renewalMode || "promotion").trim().toLowerCase();
+    if (!["promotion", "repeat"].includes(renewalMode)) {
+        return send(res, 400, { ok: false, message: "نوع کد رزرو معتبر نیست." });
+    }
     const targetYear = Number(academicYear);
     const activeYear = currentAcademicYear();
     if (!/^\d{4}$/.test(academicYear) ||
@@ -1085,6 +1107,10 @@ async function adminCreateCodes(req, res) {
             message: "سال تحصیلی باید سال جاری یا سال تحصیلی بعد باشد."
         });
     }
+    if (targetYear === activeYear && renewalMode === "repeat") {
+        return send(res, 400, { ok: false, message: "کد تکرار پایه فقط برای سال تحصیلی بعد قابل ساخت است." });
+    }
+
     const count = Math.min(Math.max(Number(body.count || 1), 1), 100);
 
     if (!gradeId) {
@@ -1095,19 +1121,19 @@ async function adminCreateCodes(req, res) {
     const now = new Date().toISOString();
     const insert = db.prepare(`
         INSERT INTO activation_codes
-            (code_hash, code_preview, product_id, grade_id, academic_year, status, created_at)
-        VALUES (?, ?, ?, ?, ?, 'active', ?)
+            (code_hash, code_preview, product_id, grade_id, academic_year, renewal_mode, status, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, 'active', ?)
     `);
 
     db.exec("BEGIN IMMEDIATE");
     try {
         for (let i = 0; i < count; i++) {
             const code = makeCode(gradeId, academicYear);
-            insert.run(hashCode(code), codePreview(code), PRODUCT_ID, gradeId, academicYear, now);
+            insert.run(hashCode(code), codePreview(code), PRODUCT_ID, gradeId, academicYear, renewalMode, now);
             created.push(code);
         }
         audit("codes.created", "admin", {
-            metadata: { gradeId, academicYear, count }
+            metadata: { gradeId, academicYear, renewalMode, count }
         });
         db.exec("COMMIT");
     } catch (error) {
@@ -1123,6 +1149,7 @@ async function adminListCodes(req, res) {
     const rows = db.prepare(`
         SELECT code_preview AS codePreview, product_id AS productId,
                grade_id AS gradeId, academic_year AS academicYear,
+               renewal_mode AS renewalMode,
                status, created_at AS createdAt, used_at AS usedAt,
                license_id AS licenseId
         FROM activation_codes
