@@ -29,6 +29,7 @@
             const rows = Array.isArray(state.keyboardRows) ? state.keyboardRows : [];
             const isGuided = mode === "guided-word";
             const isContext = mode === "context";
+            const rule = this.getRuleGuide(q, mode);
 
             app.innerHTML = `
                 <div class="screen dictationScreen" dir="rtl">
@@ -37,13 +38,17 @@
                             <span class="dictationIcon" aria-hidden="true">✍️</span>
                             <h1>املا</h1>
                         </div>
-                        <p class="dictationInstruction">${this.escape(q.prompt || "کلمه را کامل کن.")}</p>
+                        <div class="dictationQuestionTitle">املای کلمه</div>
+                        <p class="dictationInstruction">\${this.escape(rule.title)}</p>
+                        <div class="dictationRuleGuide">\${this.escape(rule.guide)}</div>
                         ${q.context ? `<div class="dictationContext">${this.escape(q.context)}</div>` : ""}
                         ${this.renderMedia(q)}
 
                         <div class="dictationAnswer${state.questionCompleted ? " is-complete" : ""}" id="dictationAnswer" aria-live="polite">
                             ${this.renderAnswer(state, isGuided)}
                         </div>
+
+                        <div class="dictationFeedback" id="dictationFeedback" aria-live="polite"></div>
 
                         <div class="dictationKeyboard" id="dictationKeyboard">
                             ${rows.map(row => `<div class="dictationKeyboardRow">${row.map(key => {
@@ -179,14 +184,31 @@
             };
         },
 
+        getRuleGuide: function (question, mode) {
+            if (mode === "guided-word") {
+                return { title: "کلمه را کامل و با دقت بنویس.", guide: "حرف‌ها را به ترتیب انتخاب کن." };
+            }
+            const rule = question && question.spellingRule ? question.spellingRule : "";
+            const guides = {
+                h: { title: "کدام حرف درست است؟ «ه» یا «ح»", guide: "حرف درست را برای جای خالی انتخاب کن." },
+                "s-sad-se": { title: "کدام حرف درست است؟ «س»، «ص» یا «ث»", guide: "حرف درست را برای جای خالی انتخاب کن." },
+                gh: { title: "کدام حرف درست است؟ «ق» یا «غ»", guide: "حرف درست را برای جای خالی انتخاب کن." },
+                z: { title: "کدام حرف درست است؟ «ز»، «ذ»، «ض» یا «ظ»", guide: "حرف درست را برای جای خالی انتخاب کن." }
+            };
+            return guides[rule] || { title: "حرف درست را برای جای خالی انتخاب کن.", guide: "به کلمه و متن درس دقت کن." };
+        },
+
         handleInput: function (char) {
             const result = window.DictationEngine.inputChar(char);
             if (!result) return;
 
             if (!result.correct) {
                 this.flash("wrong");
+                this.showFeedback("اشتباه است؛ دوباره تلاش کن.", "wrong");
                 return;
             }
+
+            this.showFeedback("", "");
 
             if (result.complete || result.completed || (window.DictationEngine.getState() || {}).isFinished) return;
             this.render(window.DictationEngine.getState());
@@ -198,6 +220,13 @@
             answer.classList.remove("is-wrong");
             void answer.offsetWidth;
             if (type === "wrong") answer.classList.add("is-wrong");
+        },
+
+        showFeedback: function (message, type) {
+            const box = document.getElementById("dictationFeedback");
+            if (!box) return;
+            box.textContent = message || "";
+            box.className = "dictationFeedback" + (type ? " " + type : "");
         },
 
         escape: function (value) {
