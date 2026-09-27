@@ -258,4 +258,17 @@
     "lesson": "spelling",
     "path": "content/grades/grade6/persian/chapter1/spellingContext"
   }
+,  {
+    "id": "persianSpellingGenerated",
+    "title": "املای هوشمند",
+    "grade": "grade6",
+    "subject": "persian",
+    "chapter": "chapter1",
+    "type": "dictation",
+    "engine": "dictation",
+    "locked": false,
+    "requires": null,
+    "lesson": "spelling",
+    "path": "content/grades/grade6/persian/chapter1/spellingGenerated"
+  }
 ]
