@@ -34,7 +34,7 @@
                 started: true, isFinished: false, locked: false,
                 currentIndex: 0, totalQuestions: this.content.questions.length,
                 correctAnswers: 0, wrongAnswers: 0, score: 0, attempts: 0,
-                characterErrors: 0, currentQuestionCharacterErrors: 0, answers: [], currentInput: "",
+                characterErrors: 0, currentQuestionCharacterErrors: 0, currentTargetCharacterErrors: 0, answers: [], targetAnswers: [], currentInput: "",
                 missingSlots: [], currentSlotIndex: 0, currentCharIndex: 0,
                 currentTargetIndex: 0, contextTargetAnswers: [],
                 questionCompleted: false, transitioning: false
@@ -60,6 +60,7 @@
             if (!q || !this.state) return;
             this.state.currentInput = "";
             this.state.currentQuestionCharacterErrors = 0;
+            this.state.currentTargetCharacterErrors = 0;
             this.state.currentSlotIndex = 0;
             this.state.currentCharIndex = 0;
             this.state.currentTargetIndex = 0;
@@ -185,6 +186,7 @@
             if (normalizedChar !== normalizedExpected) {
                 this.state.characterErrors += 1;
                 this.state.currentQuestionCharacterErrors += 1;
+                this.state.currentTargetCharacterErrors += 1;
                 const result = { correct: false, character: char, expected: expected, questionIndex: this.state.currentIndex };
                 EventManager.emit("answer:wrong", result);
                 return result;
@@ -236,7 +238,21 @@
 
         completeContextTarget: function () {
             const target = this.getCurrentTarget();
-            this.state.contextTargetAnswers.push({ target: target ? target.answer : "", completed: true });
+            this.state.contextTargetAnswers.push({
+                target: target ? target.answer : "",
+                spellingRule: target ? (target.spellingRule || null) : null,
+                completed: true,
+                characterErrors: this.state.currentTargetCharacterErrors
+            });
+            this.state.targetAnswers.push({
+                questionIndex: this.state.currentIndex,
+                target: target ? target.answer : "",
+                spellingRule: target ? (target.spellingRule || null) : null,
+                completed: true,
+                correct: true,
+                characterErrors: this.state.currentTargetCharacterErrors
+            });
+            this.state.currentTargetCharacterErrors = 0;
             this.state.currentTargetIndex += 1;
             this.state.currentSlotIndex = 0;
             this.state.missingSlots = this.buildMissingSlots(this.getCurrentTarget());
