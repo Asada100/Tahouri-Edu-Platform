@@ -36,6 +36,7 @@
                 correctAnswers: 0, wrongAnswers: 0, score: 0, attempts: 0,
                 characterErrors: 0, answers: [], currentInput: "",
                 missingSlots: [], currentSlotIndex: 0, currentCharIndex: 0,
+                currentTargetIndex: 0, contextTargetAnswers: [],
                 questionCompleted: false, transitioning: false
             };
             this.prepareCurrentQuestion();
@@ -60,9 +61,11 @@
             this.state.currentInput = "";
             this.state.currentSlotIndex = 0;
             this.state.currentCharIndex = 0;
+            this.state.currentTargetIndex = 0;
+            this.state.contextTargetAnswers = [];
             this.state.questionCompleted = false;
             this.state.transitioning = false;
-            this.state.missingSlots = this.buildMissingSlots(q);
+            this.state.missingSlots = this.buildMissingSlots(this.getCurrentTarget());
         },
 
         buildMissingSlots: function (question) {
@@ -76,14 +79,36 @@
             return slots;
         },
 
+        getCurrentTarget: function () {
+            const q = this.getCurrentQuestion();
+            if (!q) return null;
+            if (this.getMode() !== "context") return q;
+            if (Array.isArray(q.targets) && q.targets.length) {
+                return q.targets[this.state.currentTargetIndex] || null;
+            }
+            return q;
+        },
+
+        getContextTargets: function () {
+            const q = this.getCurrentQuestion();
+            if (!q) return [];
+            if (this.getMode() === "context" && Array.isArray(q.targets) && q.targets.length) return q.targets;
+            return [q];
+        },
+
         getKeyboardRows: function () {
             const question = this.getCurrentQuestion();
             const active = new Set();
             if (question) {
                 if (this.getMode() === "missing-letter" || this.getMode() === "context") {
-                    const candidates = Array.isArray(question.allowedLetters) && question.allowedLetters.length
-                        ? question.allowedLetters
-                        : this.state.missingSlots.map(i => Array.from(question.answer || "")[i]).filter(Boolean);
+                    const target = this.getCurrentTarget() || question;
+                    const ruleLetters = target.spellingRule && window.SpellingRules && typeof window.SpellingRules.getLetters === "function"
+                        ? window.SpellingRules.getLetters(target.spellingRule) : [];
+                    const candidates = Array.isArray(target.allowedLetters) && target.allowedLetters.length
+                        ? target.allowedLetters
+                        : ruleLetters.length
+                            ? ruleLetters
+                            : this.state.missingSlots.map(i => Array.from(target.answer || "")[i]).filter(Boolean);
                     candidates.forEach(c => active.add(c));
                 } else {
                     Array.from(question.answer || "").forEach(c => { if (c !== SPACE) active.add(c); });
@@ -102,7 +127,8 @@
         getExpectedChar: function () {
             const q = this.getCurrentQuestion();
             if (!q || !this.state) return "";
-            const chars = Array.from(q.answer || "");
+            const target = this.getCurrentTarget() || q;
+            const chars = Array.from(target.answer || "");
             if (this.getMode() === "missing-letter" || this.getMode() === "context") {
                 return chars[this.state.missingSlots[this.state.currentSlotIndex]] || "";
             }
@@ -112,12 +138,34 @@
         getDisplayText: function () {
             const q = this.getCurrentQuestion();
             if (!q || !this.state) return "";
-            const chars = Array.from(q.answer || "");
-            if (this.getMode() === "missing-letter" || this.getMode() === "context") {
+            const target = this.getCurrentTarget() || q;
+            const chars = Array.from(target.answer || "");
+            if (this.getMode() === "context") return this.getContextDisplayText();
+            if (this.getMode() === "missing-letter") {
                 const pending = new Set(this.state.missingSlots.slice(this.state.currentSlotIndex));
                 return chars.map((char, index) => pending.has(index) ? "...." : char).join("");
             }
             return chars.slice(0, this.state.currentCharIndex).join("");
+        },
+
+        getContextDisplayText: function () {
+            const q = this.getCurrentQuestion();
+            if (!q || !this.state) return "";
+            const targets = this.getContextTargets();
+            const template = q.contextTemplate || q.context || "";
+            if (!template) return "";
+            return template.replace(/\{\{(\d+)\}\}/g, function (match, rawIndex) {
+                const index = Number(rawIndex);
+                const target = targets[index];
+                if (!target) return match;
+                if (index < this.state.currentTargetIndex) return target.answer;
+                if (index > this.state.currentTargetIndex) return target.masked || "....";
+                const chars = Array.from(target.answer || "");
+                const slots = new Set(this.state.missingSlots.slice(this.state.currentSlotIndex));
+                return chars.map(function (char, charIndex) {
+                    return slots.has(charIndex) ? "...." : char;
+                }).join("");
+            });
         },
 
         getGuideChar: function () {
@@ -149,7 +197,12 @@
             const complete = this.isCurrentQuestionComplete();
             const result = { correct: true, character: char, expected: expected, questionIndex: this.state.currentIndex, complete: complete };
             EventManager.emit("answer:correct", result);
-            if (complete) return this.completeCurrentQuestion();
+            if (complete) {
+                if (this.getMode() === "context" && this.state.currentTargetIndex < this.getContextTargets().length - 1) {
+                    return this.completeContextTarget();
+                }
+                return this.completeCurrentQuestion();
+            }
             return result;
         },
 
@@ -177,6 +230,17 @@
             }
             const q = this.getCurrentQuestion();
             return this.state.currentCharIndex >= Array.from(q.answer || "").length;
+        },
+
+        completeContextTarget: function () {
+            const target = this.getCurrentTarget();
+            this.state.contextTargetAnswers.push({ target: target ? target.answer : "", completed: true });
+            this.state.currentTargetIndex += 1;
+            this.state.currentSlotIndex = 0;
+            this.state.missingSlots = this.buildMissingSlots(this.getCurrentTarget());
+            this.state.questionCompleted = false;
+            this.state.transitioning = false;
+            return this.getState();
         },
 
         completeCurrentQuestion: function () {
@@ -256,6 +320,7 @@
             return JSON.parse(JSON.stringify({
                 ...this.state,
                 currentQuestion: this.getCurrentQuestion(),
+                currentTarget: this.getCurrentTarget(),
                 mode: this.getMode(),
                 keyboardRows: this.getKeyboardRows(),
                 expectedChar: this.getExpectedChar(),
