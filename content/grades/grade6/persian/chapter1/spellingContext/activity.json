@@ -1,0 +1,94 @@
+{
+  "mode": "context",
+  "instruction": "پسر دلبندم، املای کلمات مشخص‌شده را با توجه به جمله کامل کن.",
+  "settings": {
+    "keyboardMode": "guided",
+    "allowRetry": true,
+    "scorePerCorrect": 10
+  },
+  "questions": [
+    {
+      "id": "lesson1-context-01",
+      "mode": "context",
+      "contextTemplate": "ما باید از راه درست {{0}} و با {{1}} رفتار کنیم.",
+      "targets": [
+        {
+          "id": "lesson1-context-01-1",
+          "answer": "نهراسیم",
+          "masked": "نـ....ـراسیم",
+          "missing": [
+            {
+              "start": 1,
+              "length": 1
+            }
+          ],
+          "spellingRule": "h"
+        },
+        {
+          "id": "lesson1-context-01-2",
+          "answer": "محبت",
+          "masked": "مـ....ـبت",
+          "missing": [
+            {
+              "start": 1,
+              "length": 1
+            }
+          ],
+          "spellingRule": "h"
+        }
+      ],
+      "lesson": "lesson1"
+    },
+    {
+      "id": "lesson1-context-02",
+      "mode": "context",
+      "contextTemplate": "داشتن {{0}} خوب، به رشد و پیشرفت ما کمک می‌کند.",
+      "targets": [
+        {
+          "id": "lesson1-context-02-1",
+          "answer": "شخصیت",
+          "masked": "شخـ....ـیت",
+          "missing": [
+            {
+              "start": 2,
+              "length": 1
+            }
+          ],
+          "spellingRule": "s-sad-se"
+        }
+      ],
+      "lesson": "lesson1"
+    },
+    {
+      "id": "lesson1-context-03",
+      "mode": "context",
+      "contextTemplate": "او با {{0}} و آرامش از خانه {{1}}.",
+      "targets": [
+        {
+          "id": "lesson1-context-03-1",
+          "answer": "موزون",
+          "masked": "مو....ون",
+          "missing": [
+            {
+              "start": 2,
+              "length": 1
+            }
+          ],
+          "spellingRule": "z"
+        },
+        {
+          "id": "lesson1-context-03-2",
+          "answer": "برخاست",
+          "masked": "برخـ....ـست",
+          "missing": [
+            {
+              "start": 3,
+              "length": 1
+            }
+          ]
+        }
+      ],
+      "lesson": "lesson1"
+    }
+  ]
+}
