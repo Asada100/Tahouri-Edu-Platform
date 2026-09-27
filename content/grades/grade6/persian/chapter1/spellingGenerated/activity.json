@@ -6,7 +6,8 @@
     "rules": [
       "s-sad-se",
       "z",
-      "gh"
+      "gh",
+      "h"
     ],
     "limit": 6,
     "wordBank": [
@@ -14,13 +15,17 @@
         "id": "gen-01",
         "answer": "شخصیت",
         "spellingRule": "s-sad-se",
-        "lesson": "lesson1"
+        "lesson": "lesson1",
+        "contextTemplate": "داشتن {{0}} خوب، به رشد و پیشرفت ما کمک می‌کند.",
+        "questionId": "generated-context-01"
       },
       {
         "id": "gen-02",
         "answer": "موزون",
         "spellingRule": "z",
-        "lesson": "lesson1"
+        "lesson": "lesson1",
+        "contextTemplate": "حرکت {{0}} و منظم، زیبا به نظر می‌رسد.",
+        "questionId": "generated-context-02"
       },
       {
         "id": "gen-03",
