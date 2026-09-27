@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Dictation Provider
-// Version 2.0
+// Version 2.1
 // =====================================
 
 (function (window) {
@@ -23,13 +23,25 @@
                 ...((activityData && activityData.settings) || {})
             };
 
-            const rawQuestions = Array.isArray(source.questions)
-                ? source.questions
-                : Array.isArray(source.words)
-                    ? source.words.map(function (item) {
-                        return { ...item, mode: item.mode || "guided-word" };
+            const generatedQuestions =
+                source.generator && window.SpellingQuestionGenerator &&
+                typeof window.SpellingQuestionGenerator.generate === "function"
+                    ? window.SpellingQuestionGenerator.generate({
+                        ...source.generator,
+                        instruction: source.instruction || "املای کلمات را کامل کنید.",
+                        lesson: source.lesson || null
                     })
                     : [];
+
+            const rawQuestions = generatedQuestions.length
+                ? generatedQuestions
+                : Array.isArray(source.questions)
+                    ? source.questions
+                    : Array.isArray(source.words)
+                        ? source.words.map(function (item) {
+                            return { ...item, mode: item.mode || "guided-word" };
+                        })
+                        : [];
 
             const questions = rawQuestions
                 .filter(function (item) {
