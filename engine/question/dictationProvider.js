@@ -59,6 +59,7 @@
                         answer: item.answer.trim(),
                         prompt: item.prompt || source.instruction || "املای کلمه را کامل کن.",
                         context: item.context || null,
+                        contextTemplate: item.contextTemplate || item.context || null,
                         masked: item.masked || null,
                         missing: missing,
                         allowedLetters: Array.isArray(item.allowedLetters) ? item.allowedLetters : [],
