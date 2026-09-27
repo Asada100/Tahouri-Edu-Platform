@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Edu Platform
-// Activity Session Manager v1.8
+// Activity Session Manager v1.9
 // =====================================
 // Single session architecture:
 // - SessionManager owns snapshot/restore.
@@ -12,7 +12,7 @@
 
 const ActivitySessionManager = {
     BASE_KEY: "Tahouri_ActivitySession",
-    VERSION: "1.8",
+    VERSION: "1.9",
     currentSession: null,
     exitControlId: "activitySessionControl",
     overlayId: "activitySessionOverlay",
@@ -167,6 +167,18 @@ const ActivitySessionManager = {
                 type: "matching",
                 activity: engine.activity || activity,
                 state: engine.getState()
+            };
+        }
+
+        if (engineName === "DictationEngine" || engineName === "dictation") {
+            if (typeof engine.getSessionState !== "function") return null;
+            const state = engine.getSessionState();
+            if (!state) return null;
+            return {
+                kind: "dictation",
+                activity: engine.activity || activity,
+                content: engine.content ? JSON.parse(JSON.stringify(engine.content)) : null,
+                state: state
             };
         }
 
@@ -344,6 +356,41 @@ const ActivitySessionManager = {
             ActivityState.set("started");
             ActivityState.set("playing");
             if (typeof MemoryScreen !== "undefined" && typeof MemoryScreen.show === "function") MemoryScreen.show({ title: activity.title || "بازی حافظه", cards: engine.cards });
+            return true;
+        }
+
+        if (data.kind === "dictation" && (engineName === "DictationEngine" || engineName === "dictation")) {
+            if (!data.state || typeof DictationProvider === "undefined" || typeof DictationProvider.getContent !== "function") {
+                return false;
+            }
+
+            engine.activity = data.activity || activity;
+            engine.content = data.content
+                ? JSON.parse(JSON.stringify(data.content))
+                : DictationProvider.getContent(engine.activity);
+
+            if (!engine.content || !Array.isArray(engine.content.questions) || !engine.content.questions.length) {
+                return false;
+            }
+
+            if (typeof engine.restoreSession !== "function" || !engine.restoreSession(data.state)) {
+                return false;
+            }
+
+            ActivityManager.currentActivity = activity;
+            ActivityState.set("started");
+            ActivityState.set("playing");
+            document.body.classList.add("activity-playing");
+
+            if (typeof DictationScreen !== "undefined" && typeof DictationScreen.render === "function") {
+                DictationScreen.render(engine.getState());
+            }
+
+            console.log("ActivitySessionManager: Dictation session restored", {
+                activityId: activity.id,
+                question: Number(engine.state.currentIndex || 0) + 1,
+                totalQuestions: Number(engine.state.totalQuestions || 0)
+            });
             return true;
         }
 
