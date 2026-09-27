@@ -144,7 +144,7 @@
                         rendered += DictationScreen.escape(chunk);
                         chunk = "";
                     }
-                    rendered += '<span class="dictationMissing" aria-label="جای خالی"></span>';
+                    rendered += '<span class="dictationMissing" aria-label="جای خالی">•••</span>';
                 } else {
                     chunk += char;
                 }
