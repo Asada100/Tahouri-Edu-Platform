@@ -6,14 +6,14 @@
 .dictationInstruction{margin:8px 0 4px;font-size:20px;font-weight:800;color:#172033;line-height:1.8}
 .dictationRuleGuide{margin:0 auto 18px;color:#667085;font-size:15px;line-height:1.8}
 .dictationAnswer{min-height:92px;display:block;text-align:center;direction:rtl;unicode-bidi:plaintext;margin:18px auto;padding:18px 12px;border:2px solid #dbe4ef;border-radius:16px;background:#f8fbff;font-size:34px;font-weight:800}
-.dictationMissing{display:inline;color:#4f7cff;font-size:.38em;font-weight:700;letter-spacing:0;white-space:nowrap;vertical-align:middle}
+.dictationMissing{display:inline;color:#4f7cff;font-size:.62em;font-weight:700;letter-spacing:0;white-space:nowrap;vertical-align:middle}
 .dictationAnswer.is-complete{border-style:solid}.dictationTyped,.dictationGhost{display:inline}.dictationFeedback{min-height:28px;margin:6px 0 10px;font-weight:700}.dictationFeedback.wrong{color:#b42318}
 .dictationAnswer.is-wrong{animation:dictationShake .28s ease-in-out}@keyframes dictationShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}50%{transform:translateX(8px)}75%{transform:translateX(-5px)}}
 .dictationKeyboard{margin-top:12px}.dictationKeyboardRow{display:flex;justify-content:center;gap:6px;margin:7px 0;flex-wrap:wrap}
 .dictationKey{min-width:42px;height:42px;border:1px solid #dbe4ef;border-radius:10px;background:#fff;font:inherit;font-weight:700;cursor:pointer}
-.dictationKey.is-expected{outline:2px solid rgba(37,99,235,.2)}.dictationKey.is-disabled{opacity:.35;cursor:not-allowed}
+.dictationKey.is-expected{outline:none}.dictationKey.is-disabled{opacity:.35;cursor:not-allowed}
 .dictationUtilityRow{display:flex;justify-content:center;gap:10px;margin-top:12px}.dictationUtility{min-width:58px;height:40px;border:1px solid #dbe4ef;border-radius:10px;background:#fff;cursor:pointer}
 .dictationProgress{margin-top:18px;color:#667085}
-@media(max-width:600px){.dictationScreen{padding:16px 10px 28px}.dictationCard{padding:18px 12px}.dictationAnswer{font-size:28px}.dictationMissing{font-size:.36em}.dictationKey{min-width:38px}}
+@media(max-width:600px){.dictationScreen{padding:16px 10px 28px}.dictationCard{padding:18px 12px}.dictationAnswer{font-size:28px}.dictationMissing{font-size:.58em}.dictationKey{min-width:38px}}
 
 .dictationNextButton{display:block;margin:16px auto 0;min-width:150px;height:44px;padding:0 22px;border:0;border-radius:12px;background:#2563eb;color:#fff;font:inherit;font-weight:800;cursor:pointer}.dictationNextButton:active{transform:translateY(1px)}
