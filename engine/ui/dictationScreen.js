@@ -67,7 +67,7 @@
             const currentIndex = Number(state.currentTargetIndex) || 0;
             const slots = new Set((state.missingSlots || []).slice(Number(state.currentSlotIndex) || 0));
 
-            return this.escape(template).replace(/\\{\\{(\\d+)\\}\\}/g, function (match, rawIndex) {
+            return this.escape(template).replace(/\{\{(\d+)\}\}/g, function (match, rawIndex) {
                 const index = Number(rawIndex);
                 const target = targets[index];
                 if (!target) return match;
