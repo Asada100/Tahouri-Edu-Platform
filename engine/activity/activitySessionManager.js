@@ -1,9 +1,9 @@
-// Activity Session Manager v1.5
+// Activity Session Manager v1.6
 // Stable session lifecycle and engine-level restore.
 // Completion cleanup is performed by ActivityLifecycle after completion data is processed.
 const ActivitySessionManager = {
     BASE_KEY: "Tahouri_ActivitySession",
-    VERSION: "1.5",
+    VERSION: "1.6",
     currentSession: null,
     exitControlId: "activitySessionControl",
     overlayId: "activitySessionOverlay",
@@ -82,6 +82,20 @@ const ActivitySessionManager = {
         const engineName = this.type(activity);
         const engine = this.getEngine(engineName);
         if (!engine) return null;
+
+        if (engineName === "DictationEngine" || engineName === "dictation") {
+            if (typeof engine.getSessionState === "function") {
+                const state = engine.getSessionState();
+                if (!state) return null;
+                return {
+                    kind: "dictation",
+                    activity: engine.activity || activity,
+                    content: engine.content ? JSON.parse(JSON.stringify(engine.content)) : null,
+                    state: JSON.parse(JSON.stringify(state))
+                };
+            }
+            return null;
+        }
 
         if (typeof engine.getSessionState === "function") {
             return engine.getSessionState();
@@ -274,6 +288,39 @@ const ActivitySessionManager = {
         ActivityManager.currentActivity = activity;
         ActivityState.set("started");
         ActivityState.set("playing");
+
+        if (data.kind === "dictation" && (engineName === "DictationEngine" || engineName === "dictation")) {
+            if (!data.state || typeof engine.restoreSession !== "function") return false;
+
+            engine.activity = data.activity || activity;
+            engine.content = data.content
+                ? JSON.parse(JSON.stringify(data.content))
+                : (typeof DictationProvider !== "undefined" && typeof DictationProvider.getContent === "function"
+                    ? DictationProvider.getContent(engine.activity)
+                    : null);
+
+            if (!engine.content || !Array.isArray(engine.content.questions) || !engine.content.questions.length) {
+                return false;
+            }
+
+            if (!engine.restoreSession(data.state)) return false;
+
+            ActivityManager.currentActivity = activity;
+            ActivityState.set("started");
+            ActivityState.set("playing");
+            document.body.classList.add("activity-playing");
+
+            if (typeof DictationScreen !== "undefined" && typeof DictationScreen.render === "function") {
+                DictationScreen.render(engine.getState());
+            }
+
+            console.log("ActivitySessionManager: Dictation session restored", {
+                activityId: activity.id,
+                question: Number(engine.state.currentIndex || 0) + 1,
+                totalQuestions: Number(engine.state.totalQuestions || 0)
+            });
+            return true;
+        }
 
         if (data.kind === "quiz" && (engineName === "QuizEngine" || engineName === "quiz")) {
             engine.activity = data.activity || activity;
