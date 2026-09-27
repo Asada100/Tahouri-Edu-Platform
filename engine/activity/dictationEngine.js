@@ -249,7 +249,9 @@
             this.state.score += Number(this.content.settings.scorePerCorrect) || 10;
             this.state.answers.push({
                 questionIndex: this.state.currentIndex,
-                target: q.answer,
+                target: (this.getCurrentTarget() && this.getCurrentTarget().answer) || q.answer,
+                spellingRule: (this.getCurrentTarget() && this.getCurrentTarget().spellingRule) || q.spellingRule || null,
+                completed: true,
                 correct: true,
                 characterErrors: this.state.characterErrors
             });

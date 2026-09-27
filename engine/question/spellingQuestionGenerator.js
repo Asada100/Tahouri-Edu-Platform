@@ -70,7 +70,19 @@
     }
 
     const SpellingQuestionGenerator = {
-        version: "1.0",
+        version: "1.1",
+
+        rankByPerformance: function (items, performance) {
+            if (!performance || !window.SpellingPerformanceAnalyzer) return items;
+            const records = Array.isArray(performance) ? performance : (Array.isArray(performance.records) ? performance.records : []);
+            if (!records.length) return items;
+            const analysis = window.SpellingPerformanceAnalyzer.analyze(records);
+            return items.slice().sort(function (a, b) {
+                const ar = analysis.byRule[a.spellingRule] || { errorRate: 0 };
+                const br = analysis.byRule[b.spellingRule] || { errorRate: 0 };
+                return (br.errorRate - ar.errorRate) || (String(a.id || "").localeCompare(String(b.id || "")));
+            });
+        },
 
         generate: function (config) {
             const source = config || {};
@@ -79,14 +91,16 @@
             const selectedRules = Array.isArray(source.rules) && source.rules.length ? source.rules : null;
             const limit = Math.max(0, Number(source.limit) || bank.length);
 
-            const targets = bank
+            const candidates = bank
                 .filter(function (item) {
                     if (!item || typeof item.answer !== "string") return false;
                     if (selectedRules && selectedRules.indexOf(item.spellingRule) === -1) return false;
                     return true;
                 })
                 .map(function (item) { return buildTarget(item, difficulty); })
-                .filter(Boolean)
+                .filter(Boolean);
+
+            const targets = this.rankByPerformance(candidates, source.performance)
                 .slice(0, limit);
 
             if (!targets.length) return [];
