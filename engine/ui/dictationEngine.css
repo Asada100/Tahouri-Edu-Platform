@@ -141,3 +141,9 @@
     .dictationAnswer { transition: none; }
     .dictationAnswer.is-wrong { animation: none; }
 }
+
+
+.dictationContextTarget { display: inline; padding: 0 2px; border-radius: 4px; }
+.dictationContextTarget.is-current { border-bottom: 2px solid #9aa9bd; }
+.dictationContextTarget.is-complete { color: #2f8f57; font-weight: 600; }
+.dictationContextTarget.is-pending { color: #6f86a8; opacity: .72; }
