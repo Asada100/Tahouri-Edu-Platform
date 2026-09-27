@@ -117,34 +117,23 @@
 
             const q = state.currentQuestion || {};
             const missingSlots = Array.isArray(state.missingSlots) ? state.missingSlots : [];
-            const currentSlot = Number(state.currentSlotIndex) || 0;
+            const currentSlot = Math.max(0, Number(state.currentSlotIndex) || 0);
             const answerChars = Array.from(q.answer || "");
-            const completedChars = missingSlots
-                .slice(0, currentSlot)
-                .map(function (index) { return answerChars[index] || ""; })
-                .join("");
-            const remainingCount = Math.max(0, missingSlots.length - currentSlot);
-            const masked = typeof q.masked === "string" && q.masked.indexOf("....") !== -1
-                ? q.masked
-                : null;
+            const completedSlots = new Set(missingSlots.slice(0, currentSlot));
+            const pendingSlots = new Set(missingSlots.slice(currentSlot));
 
-            if (remainingCount === 0) {
+            if (!missingSlots.length || currentSlot >= missingSlots.length) {
                 return DictationScreen.escape(q.answer || "");
             }
 
-            if (masked) {
-                const replacement =
-                    DictationScreen.escape(completedChars) +
-                    '<span class="dictationMissing">....</span>';
-                return DictationScreen.escape(masked).replace("....", replacement);
-            }
-
-            const pending = new Set(missingSlots.slice(currentSlot));
-            return answerChars.map(function (char, index) {
-                return pending.has(index)
-                    ? '<span class="dictationMissing">....</span>'
-                    : DictationScreen.escape(char);
+            const rendered = answerChars.map(function (char, index) {
+                if (pendingSlots.has(index)) {
+                    return '<span class="dictationMissing">....</span>';
+                }
+                return DictationScreen.escape(char);
             }).join("");
+
+            return rendered;
         },
 
         bind: function () {
