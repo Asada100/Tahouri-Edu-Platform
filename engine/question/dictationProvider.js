@@ -60,7 +60,10 @@
                     return {
                         id: item.id || "spelling-question-" + (index + 1),
                         mode: mode,
-                        answer: item.answer.trim(),
+                        answer: typeof item.answer === "string"
+                            ? item.answer.trim()
+                            : (Array.isArray(item.targets) && item.targets[0] && typeof item.targets[0].answer === "string"
+                                ? item.targets[0].answer.trim() : ""),
                         prompt: item.prompt || source.instruction || "املای کلمه را کامل کن.",
                         context: item.context || null,
                         contextTemplate: item.contextTemplate || item.context || null,
