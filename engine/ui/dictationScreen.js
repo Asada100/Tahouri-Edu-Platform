@@ -14,6 +14,11 @@
                 if (!payload || payload.engineName !== "dictation") return;
                 DictationScreen.render(payload.result);
             });
+
+            EventManager.on("dictationQuestionChanged", function (state) {
+                if (!state) return;
+                DictationScreen.render(state);
+            });
         },
 
         render: function (state) {
