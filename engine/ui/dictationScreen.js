@@ -19,6 +19,11 @@
                 if (!state) return;
                 DictationScreen.render(state);
             });
+
+            EventManager.on("dictationQuestionCompleted", function (state) {
+                if (!state) return;
+                DictationScreen.render(state);
+            });
         },
 
         render: function (state) {
@@ -64,6 +69,11 @@
                         <div class="dictationProgress">
                             سؤال ${Number(state.currentIndex) + 1} از ${Number(state.totalQuestions) || 0}
                         </div>
+                        ${state.questionCompleted ? `
+                            <button type="button" class="dictationNextButton" id="dictationNextButton">
+                                ${Number(state.currentIndex) + 1 >= Number(state.totalQuestions) ? "پایان" : "کلمه بعدی"}
+                            </button>
+                        ` : ""}
                     </div>
                 </div>
             `;
@@ -129,7 +139,6 @@
             const missingSlots = Array.isArray(state.missingSlots) ? state.missingSlots : [];
             const currentSlot = Math.max(0, Number(state.currentSlotIndex) || 0);
             const answerChars = Array.from(q.answer || "");
-            const completedSlots = new Set(missingSlots.slice(0, currentSlot));
             const pendingSlots = new Set(missingSlots.slice(currentSlot));
 
             if (!missingSlots.length || currentSlot >= missingSlots.length) {
@@ -164,6 +173,13 @@
 
             const space = document.getElementById("dictationSpace");
             if (space) space.onclick = function () { self.handleInput(" "); };
+
+            const nextButton = document.getElementById("dictationNextButton");
+            if (nextButton) nextButton.onclick = function () {
+                if (window.DictationEngine && typeof window.DictationEngine.nextQuestion === "function") {
+                    window.DictationEngine.nextQuestion();
+                }
+            };
 
             const backspace = document.getElementById("dictationBackspace");
             if (backspace) backspace.onclick = function () {
