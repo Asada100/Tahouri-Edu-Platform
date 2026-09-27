@@ -34,7 +34,7 @@
                 started: true, isFinished: false, locked: false,
                 currentIndex: 0, totalQuestions: this.content.questions.length,
                 correctAnswers: 0, wrongAnswers: 0, score: 0, attempts: 0,
-                characterErrors: 0, answers: [], currentInput: "",
+                characterErrors: 0, currentQuestionCharacterErrors: 0, answers: [], currentInput: "",
                 missingSlots: [], currentSlotIndex: 0, currentCharIndex: 0,
                 currentTargetIndex: 0, contextTargetAnswers: [],
                 questionCompleted: false, transitioning: false
@@ -59,6 +59,7 @@
             const q = this.getCurrentQuestion();
             if (!q || !this.state) return;
             this.state.currentInput = "";
+            this.state.currentQuestionCharacterErrors = 0;
             this.state.currentSlotIndex = 0;
             this.state.currentCharIndex = 0;
             this.state.currentTargetIndex = 0;
@@ -183,6 +184,7 @@
 
             if (normalizedChar !== normalizedExpected) {
                 this.state.characterErrors += 1;
+                this.state.currentQuestionCharacterErrors += 1;
                 const result = { correct: false, character: char, expected: expected, questionIndex: this.state.currentIndex };
                 EventManager.emit("answer:wrong", result);
                 return result;
@@ -253,7 +255,7 @@
                 spellingRule: (this.getCurrentTarget() && this.getCurrentTarget().spellingRule) || q.spellingRule || null,
                 completed: true,
                 correct: true,
-                characterErrors: this.state.characterErrors
+                characterErrors: this.state.currentQuestionCharacterErrors
             });
 
             this.state.questionCompleted = true;
