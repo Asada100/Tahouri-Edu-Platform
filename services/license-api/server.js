@@ -1812,8 +1812,8 @@ const startupHealthy = startupRecoveryCheck();
 if (startupHealthy) {
     audit("service.started", "system", { environment: SERVICE_ENVIRONMENT, serviceVersion: SERVICE_VERSION, buildId: BUILD_ID, instanceId: INSTANCE_ID });
 }
-if (!startupHealthy && process.env.NODE_ENV === "production") {
-    console.error("Production startup aborted because database recovery check failed.");
+if (!startupHealthy) {
+    console.error("Startup aborted because database recovery check failed.");
     process.exit(1);
 }
 
