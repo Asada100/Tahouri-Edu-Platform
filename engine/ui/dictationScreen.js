@@ -34,6 +34,7 @@
                         </div>
                         <p class="dictationInstruction">${this.escape(q.prompt || "کلمه را کامل کن.")}</p>
                         ${q.context ? `<div class="dictationContext">${this.escape(q.context)}</div>` : ""}
+                        ${this.renderMedia(q)}
 
                         <div class="dictationAnswer${state.questionCompleted ? " is-complete" : ""}" id="dictationAnswer" aria-live="polite">
                             ${this.renderAnswer(state, isGuided)}
@@ -57,6 +58,21 @@
                 </div>
             `;
             this.bind();
+        },
+
+        renderMedia: function (question) {
+            const media = window.SpellingMediaProvider && typeof window.SpellingMediaProvider.getForQuestion === "function"
+                ? window.SpellingMediaProvider.getForQuestion(question)
+                : question && question.media;
+
+            if (!media || media.type !== "image" || !media.src) return "";
+
+            return `
+                <figure class="dictationMedia">
+                    <img src="${this.escape(media.src)}" alt="${this.escape(media.alt || "تصویر آموزشی")}" loading="lazy">
+                    ${media.title ? `<figcaption>${this.escape(media.title)}</figcaption>` : ""}
+                </figure>
+            `;
         },
 
         renderContext: function (state) {

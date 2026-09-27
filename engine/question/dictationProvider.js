@@ -102,7 +102,8 @@
                             return target.answer && target.missing.length > 0;
                         }) : [],
                         lesson: item.lesson || source.lesson || null,
-                        media: item.media || null,
+                        media: window.SpellingMediaProvider && typeof window.SpellingMediaProvider.getForQuestion === "function"
+                            ? window.SpellingMediaProvider.getForQuestion(item)\n                            : item.media || null,
                         audio: item.audio || null
                     };
                 });
