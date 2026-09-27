@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Spelling Question Generator
-// Version 1.2
+// Version 1.3
 // =====================================
 (function (window) {
     "use strict";
@@ -12,8 +12,22 @@
     function makeMasked(answer,index,length){const chars=Array.from(answer);return chars.slice(0,index).join("")+"...."+chars.slice(index+length).join("");}
     function buildTarget(item,difficulty){const answer=normalize(item.answer);if(!answer)return null;const rule=item.spellingRule||null,index=findTargetIndex(answer,rule,Number.isInteger(item.targetIndex)?item.targetIndex:null);if(index<0)return null;const length=Math.max(1,Number(item.targetLength)||1),chars=Array.from(answer);if(index+length>chars.length)return null;return{id:item.id||null,answer:answer,masked:item.masked||makeMasked(answer,index,length),missing:[{start:index,length:length,answer:chars.slice(index,index+length).join("")}],allowedLetters:Array.isArray(item.allowedLetters)&&item.allowedLetters.length?item.allowedLetters.slice():ruleLetters(rule),spellingRule:rule,lesson:item.lesson||null,difficulty:item.difficulty||difficulty};}
     function getPerformanceRecords(performance){if(!performance)return[];if(Array.isArray(performance))return performance;if(Array.isArray(performance.targetAnswers)&&performance.targetAnswers.length)return performance.targetAnswers;if(Array.isArray(performance.records))return performance.records;if(Array.isArray(performance.answers))return performance.answers;return[];}
-    const SpellingQuestionGenerator={version:"1.2",
-        rankByPerformance:function(items,performance){if(!performance||!window.SpellingPerformanceAnalyzer)return items;const records=getPerformanceRecords(performance);if(!records.length)return items;const a=window.SpellingPerformanceAnalyzer.analyze(records);return items.slice().sort(function(x,y){const xr=a.byRule[x.spellingRule]||{errorRate:0},yr=a.byRule[y.spellingRule]||{errorRate:0};return(yr.errorRate-xr.errorRate)||(String(x.id||"").localeCompare(String(y.id||"")));});},
+    const SpellingQuestionGenerator={version:"1.3",
+        rankByPerformance:function(items,performance){
+            if(!performance||!window.SpellingPerformanceAnalyzer)return items;
+            const records=getPerformanceRecords(performance);
+            if(!records.length)return items;
+            const a=window.SpellingPerformanceAnalyzer.analyze(records);
+            return items.slice().sort(function(x,y){
+                const xt=a.byTarget[x.answer]||null, yt=a.byTarget[y.answer]||null;
+                const xr=a.byRule[x.spellingRule]||null, yr=a.byRule[y.spellingRule]||null;
+                const xError=xt ? xt.errorRate : (xr ? xr.errorRate : 0);
+                const yError=yt ? yt.errorRate : (yr ? yr.errorRate : 0);
+                const xAccuracy=xt ? xt.accuracy : (xr ? xr.accuracy : 0);
+                const yAccuracy=yt ? yt.accuracy : (yr ? yr.accuracy : 0);
+                return (yError-xError) || (xAccuracy-yAccuracy) || String(x.id||"").localeCompare(String(y.id||""));
+            });
+        },
         generate:function(config){const source=config||{},difficulty=source.difficulty||DEFAULT_DIFFICULTY,bank=Array.isArray(source.wordBank)?source.wordBank:[],rules=Array.isArray(source.rules)&&source.rules.length?source.rules:null,limit=Math.max(0,Number(source.limit)||bank.length);
             const candidates=bank.filter(function(item){return item&&typeof item.answer==="string"&&(!rules||rules.indexOf(item.spellingRule)!==-1);}).map(function(item){return buildTarget(item,difficulty);}).filter(Boolean);
             const targets=this.rankByPerformance(candidates,source.performance).slice(0,limit);if(!targets.length)return[];const grouped=[];
@@ -23,4 +37,4 @@
     };
     window.SpellingQuestionGenerator=SpellingQuestionGenerator;
 })(window);
-console.log("Spelling Question Generator v1.2 Ready");
+console.log("Spelling Question Generator v1.3 Ready");
