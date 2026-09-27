@@ -39,8 +39,8 @@
                             <h1>املا</h1>
                         </div>
                         <div class="dictationQuestionTitle">املای کلمه</div>
-                        <p class="dictationInstruction">\${this.escape(rule.title)}</p>
-                        <div class="dictationRuleGuide">\${this.escape(rule.guide)}</div>
+                        <p class="dictationInstruction">${this.escape(rule.title)}</p>
+                        <div class="dictationRuleGuide">${this.escape(rule.guide)}</div>
                         ${q.context ? `<div class="dictationContext">${this.escape(q.context)}</div>` : ""}
                         ${this.renderMedia(q)}
 
@@ -136,13 +136,20 @@
                 return DictationScreen.escape(q.answer || "");
             }
 
-            const rendered = answerChars.map(function (char, index) {
+            let rendered = "";
+            let chunk = "";
+            answerChars.forEach(function (char, index) {
                 if (pendingSlots.has(index)) {
-                    return '<span class="dictationMissing">....</span>';
+                    if (chunk) {
+                        rendered += DictationScreen.escape(chunk);
+                        chunk = "";
+                    }
+                    rendered += '<span class="dictationMissing" aria-label="جای خالی"></span>';
+                } else {
+                    chunk += char;
                 }
-                return DictationScreen.escape(char);
-            }).join("");
-
+            });
+            if (chunk) rendered += DictationScreen.escape(chunk);
             return rendered;
         },
 
@@ -210,7 +217,11 @@
 
             this.showFeedback("", "");
 
-            if (result.complete || result.completed || (window.DictationEngine.getState() || {}).isFinished) return;
+            if (result.complete || result.completed) {
+                this.render(window.DictationEngine.getState());
+                return;
+            }
+            if ((window.DictationEngine.getState() || {}).isFinished) return;
             this.render(window.DictationEngine.getState());
         },
 
