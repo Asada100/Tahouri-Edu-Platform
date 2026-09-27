@@ -210,6 +210,7 @@ async function main() {
         const repeatCodes = await request("POST", "/api/admin/codes", {
             gradeId: "grade6",
             academicYear: nextAcademicYear,
+            renewalMode: "repeat",
             count: 1
         }, { Cookie: cookie });
         assert(repeatCodes.status === 201 && repeatCodes.data.codes?.length === 1, "Grade 6 next-year repeat code creation failed.");
