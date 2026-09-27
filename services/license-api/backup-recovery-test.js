@@ -46,7 +46,7 @@ fs.mkdirSync(backupDir, { recursive: true });
 
 const db = new DatabaseSync(dbFile);
 try {
-    db.exec("CREATE TABLE activation_codes (id INTEGER PRIMARY KEY, code_hash TEXT); CREATE TABLE licenses (id INTEGER PRIMARY KEY, license_id TEXT); CREATE TABLE audit_log (id INTEGER PRIMARY KEY, event_type TEXT); CREATE TABLE payments (id INTEGER PRIMARY KEY, payment_id TEXT); INSERT INTO activation_codes(code_hash) VALUES ('test-hash'); INSERT INTO licenses(license_id) VALUES ('lic-test'); INSERT INTO audit_log(event_type) VALUES ('test'); INSERT INTO payments(payment_id) VALUES ('pay-test');");
+    db.exec("CREATE TABLE activation_codes (id INTEGER PRIMARY KEY, code_hash TEXT); CREATE TABLE licenses (id INTEGER PRIMARY KEY, license_id TEXT); CREATE TABLE audit_log (id INTEGER PRIMARY KEY, event_type TEXT); CREATE TABLE payments (id INTEGER PRIMARY KEY, payment_id TEXT); INSERT INTO activation_codes(code_hash) VALUES ('test-hash'); INSERT INTO licenses(license_id) VALUES ('lic-test'); INSERT INTO audit_log(event_type) VALUES ('test'); INSERT INTO payments(payment_id) VALUES ('pay-test'); PRAGMA user_version = 1;");
 } finally {
     db.close();
 }
