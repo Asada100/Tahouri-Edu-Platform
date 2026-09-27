@@ -33,7 +33,8 @@
 
             const questions = rawQuestions
                 .filter(function (item) {
-                    return item && typeof item.answer === "string" && item.answer.trim() !== "";
+                    return item && ((typeof item.answer === "string" && item.answer.trim() !== "") ||
+                        (item.mode === "context" && Array.isArray(item.targets) && item.targets.length > 0));
                 })
                 .map(function (item, index) {
                     const missing = Array.isArray(item.missing)
@@ -49,7 +50,10 @@
                     let mode = item.mode || source.mode || "guided-word";
                     if (!["missing-letter", "guided-word", "context"].includes(mode)) mode = "guided-word";
 
-                    if ((mode === "missing-letter" || mode === "context") && missing.length === 0) {
+                    if (mode === "missing-letter" && missing.length === 0) {
+                        mode = "guided-word";
+                    }
+                    if (mode === "context" && missing.length === 0 && (!Array.isArray(item.targets) || item.targets.length === 0)) {
                         mode = "guided-word";
                     }
 
