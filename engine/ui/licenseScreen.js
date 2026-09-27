@@ -1740,26 +1740,26 @@
                                 >
                                     ${
                                         activated
-                                            ? (renewalTargetGrade
-                                                ? "برای سال تحصیلی بعد، پایه بعدی به‌صورت خودکار انتخاب شده است."
-                                                : "پایه بعدی هنوز در پلتفرم موجود نیست؛ فقط در صورت مردودی می‌توانید تکرار پایه را انتخاب کنید.")
-                                ${
-                                    activated && renewalCurrentGrade
-                                        ? `
-                                            <label
-                                                class="tahouri-license-repeat"
-                                                style="display:flex;align-items:center;gap:8px;margin:10px 0 14px;line-height:1.8;"
-                                            >
-                                                <input
-                                                    id="tahouriLicenseRepeatGrade"
-                                                    type="checkbox"
-                                                />
-                                                <span>تکرار همین پایه (فقط در صورت مردودی)</span>
-                                            </label>
-                                        `
-                                        : ""
-                                }
-
+                                            ? (
+                                                (renewalTargetGrade
+                                                    ? "برای سال تحصیلی بعد، پایه بعدی به‌صورت خودکار انتخاب شده است."
+                                                    : "پایه بعدی هنوز در پلتفرم موجود نیست؛ فقط در صورت مردودی می‌توانید تکرار پایه را انتخاب کنید.")
+                                                +
+                                                (activated && renewalCurrentGrade
+                                                    ? `
+                                                        <label
+                                                            class="tahouri-license-repeat"
+                                                            style="display:flex;align-items:center;gap:8px;margin:10px 0 14px;line-height:1.8;"
+                                                        >
+                                                            <input
+                                                                id="tahouriLicenseRepeatGrade"
+                                                                type="checkbox"
+                                                            />
+                                                            <span>تکرار همین پایه (فقط در صورت مردودی)</span>
+                                                        </label>
+                                                    `
+                                                    : "")
+                                            )
                                             : "پایه موردنظر را انتخاب کرده و کد مجوز آن را وارد کنید."
                                     }
                                 </div>
