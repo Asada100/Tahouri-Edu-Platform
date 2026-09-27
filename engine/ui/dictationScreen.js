@@ -183,7 +183,7 @@
                 return;
             }
 
-            if (result.completed || (window.DictationEngine.getState() || {}).isFinished) return;
+            if (result.complete || result.completed || (window.DictationEngine.getState() || {}).isFinished) return;
             this.render(window.DictationEngine.getState());
         },
 
