@@ -51,7 +51,7 @@
         summarizeSession: function(session) {
             const q=resolveRecords(session,"question"), t=resolveRecords(session,"target");
             return {questionCount:q.length,targetCount:t.length,questions:this.analyze(q),targets:this.analyze(t),
-                weakRules:this.rankRules(t).filter(function(x){return x.errorRate>0;}),
+                weakRules:this.rankRules(q).filter(function(x){return x.errorRate>0;}),
                 weakTargets:this.rankTargets(t).filter(function(x){return x.errorRate>0;})};
         }
     };
