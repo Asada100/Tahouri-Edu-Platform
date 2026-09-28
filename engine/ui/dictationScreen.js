@@ -187,7 +187,9 @@
             if (space) space.onclick = function () { self.handleInput(" "); };
 
             const nextButton = document.getElementById("dictationNextButton");
-            if (nextButton) nextButton.onclick = function () {
+            if (nextButton) nextButton.onclick = function (event) {
+                console.trace("DictationScreen: next button clicked", { isTrusted: event && event.isTrusted });
+                if (event && event.isTrusted === false) return;
                 if (window.DictationEngine && typeof window.DictationEngine.nextQuestion === "function") {
                     window.DictationEngine.nextQuestion();
                 }
