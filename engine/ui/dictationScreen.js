@@ -187,13 +187,24 @@
             if (space) space.onclick = function () { self.handleInput(" "); };
 
             const nextButton = document.getElementById("dictationNextButton");
-            if (nextButton) nextButton.onclick = function (event) {
-                console.trace("DictationScreen: next button clicked", { isTrusted: event && event.isTrusted });
-                if (event && event.isTrusted === false) return;
-                if (window.DictationEngine && typeof window.DictationEngine.nextQuestion === "function") {
-                    window.DictationEngine.nextQuestion();
-                }
-            };
+            if (nextButton) {
+                // Prevent the activity-selection click that triggered this render
+                // from being retargeted to the newly-created Next button.
+                nextButton.disabled = true;
+                setTimeout(function () {
+                    if (nextButton && nextButton.isConnected) {
+                        nextButton.disabled = false;
+                    }
+                }, 0);
+
+                nextButton.onclick = function (event) {
+                    if (nextButton.disabled) return;
+                    if (event && event.isTrusted === false) return;
+                    if (window.DictationEngine && typeof window.DictationEngine.nextQuestion === "function") {
+                        window.DictationEngine.nextQuestion();
+                    }
+                };
+            }
 
             const backspace = document.getElementById("dictationBackspace");
             if (backspace) backspace.onclick = function () {
