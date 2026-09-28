@@ -19,9 +19,11 @@
         activity: null,
         content: null,
         state: null,
+        runToken: 0,
 
         start: async function (activityData) {
             this.reset();
+            const currentRunToken = this.runToken;
             this.activity = activityData || {};
             if (!window.DictationProvider || typeof window.DictationProvider.getContent !== "function") {
                 throw new Error("DictationProvider is not available");
@@ -319,8 +321,10 @@
             this.state.questionCompleted = true;
             this.state.transitioning = true;
             const engine = this;
+            const runToken = this.runToken;
 
             window.setTimeout(function () {
+                if (engine.runToken !== runToken) return;
                 if (!engine.state || engine.state.isFinished) return;
                 engine.state.transitioning = false;
                 EventManager.emit("dictationQuestionCompleted", engine.getState());
@@ -390,7 +394,7 @@
             catch (error) { this.reset(); return false; }
         },
         getResult: function () { return this.state && this.state.result ? this.state.result : null; },
-        reset: function () { this.activity = null; this.content = null; this.state = null; }
+        reset: function () { this.runToken += 1; this.activity = null; this.content = null; this.state = null; }
     };
 
     window.DictationEngine = DictationEngine;
