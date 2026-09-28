@@ -115,16 +115,14 @@
                 }
 
                 if (index > currentIndex) {
-                    const future = target.masked || "....";
+                    const future = DictationScreen.buildMaskedWord(target);
                     return '<span class="dictationContextTarget is-pending">' + DictationScreen.escape(future) + '</span>';
                 }
 
                 const visible = chars.map(function (char, charIndex) {
-                    return slots.has(charIndex)
-                        ? '<span class="dictationMissing">ـ...ـ</span>'
-                        : DictationScreen.escape(char);
+                    return slots.has(charIndex) ? "ـ...ـ" : char;
                 }).join("");
-                return '<span class="dictationContextTarget is-current">' + visible + '</span>';
+                return '<span class="dictationContextTarget is-current">' + DictationScreen.escape(visible) + '</span>';
             });
         },
 
@@ -150,16 +148,30 @@
             answerChars.forEach(function (char, index) {
                 if (pendingSlots.has(index)) {
                     if (chunk) {
-                        rendered += DictationScreen.escape(chunk);
+                        rendered += chunk;
                         chunk = "";
                     }
-                    rendered += '<span class="dictationMissing" aria-label="جای خالی">ـ...ـ</span>';
+                    rendered += "ـ...ـ";
                 } else {
                     chunk += char;
                 }
             });
-            if (chunk) rendered += DictationScreen.escape(chunk);
-            return rendered;
+            if (chunk) rendered += chunk;
+            return DictationScreen.escape(rendered);
+        },
+
+        buildMaskedWord: function (question) {
+            const answer = String(question && question.answer || "");
+            const missing = Array.isArray(question && question.missing) ? question.missing : [];
+            const slots = new Set();
+            missing.forEach(function (slot) {
+                const start = Math.max(0, Number(slot.start) || 0);
+                const length = Math.max(1, Number(slot.length) || 1);
+                for (let i = 0; i < length; i += 1) slots.add(start + i);
+            });
+            return Array.from(answer).map(function (char, index) {
+                return slots.has(index) ? "ـ...ـ" : char;
+            }).join("");
         },
 
         bind: function () {
