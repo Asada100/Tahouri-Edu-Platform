@@ -174,3 +174,39 @@ body {
     .jigsawScreen { padding: 18px 10px 30px; }
     .jigsawBoard { width: calc(100vw - 20px); }
 }
+
+
+/* =====================================
+   Persian Web Fonts
+   ===================================== */
+@font-face {
+    font-family: "Tahouri Yekan";
+    src: url("assets/fonts/BYekan.ttf") format("truetype");
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Tahouri Nazanin";
+    src: url("assets/fonts/BNazanin.ttf") format("truetype");
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Tahouri Faraz";
+    src: url("assets/fonts/Mj_Faraz.TTF") format("truetype");
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Tahouri Nastaliq";
+    src: url("assets/fonts/IranNastaliq.ttf") format("truetype");
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+}
