@@ -161,7 +161,18 @@
                 const target = targets[index];
                 if (!target) return match;
                 if (index < this.state.currentTargetIndex) return target.answer;
-                if (index > this.state.currentTargetIndex) return target.masked || "ـ...ـ";
+                if (index > this.state.currentTargetIndex) {
+                    const futureSlots = Array.isArray(target.missing) ? target.missing : [];
+                    const futureSet = new Set();
+                    futureSlots.forEach(function (slot) {
+                        const start = Math.max(0, Number(slot.start) || 0);
+                        const length = Math.max(1, Number(slot.length) || 1);
+                        for (let i = 0; i < length; i += 1) futureSet.add(start + i);
+                    });
+                    return Array.from(target.answer || "").map(function (char, charIndex) {
+                        return futureSet.has(charIndex) ? "ـ...ـ" : char;
+                    }).join("");
+                }
                 const chars = Array.from(target.answer || "");
                 const slots = new Set(this.state.missingSlots.slice(this.state.currentSlotIndex));
                 return chars.map(function (char, charIndex) {
