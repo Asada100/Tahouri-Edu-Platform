@@ -12,7 +12,13 @@
             if (typeof EventManager === "undefined") return;
             EventManager.on("activityReady", function (payload) {
                 if (!payload || payload.engineName !== "dictation") return;
-                DictationScreen.render(payload.result);
+                // Render after the current click event has fully finished.
+                // Starting an activity can replace #app while the activity-selection
+                // click is still being dispatched; rendering synchronously can retarget
+                // that same trusted click to the newly-created Next button.
+                Promise.resolve().then(function () {
+                    DictationScreen.render(payload.result);
+                });
             });
 
             EventManager.on("dictationQuestionChanged", function (state) {
