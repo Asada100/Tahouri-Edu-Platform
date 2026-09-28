@@ -352,7 +352,6 @@
 
             this.state.isFinished = true;
             this.state.locked = true;
-            const total = this.state.totalQuestions;
             const percentage = total > 0 ? Math.round((this.state.correctAnswers / total) * 100) : 0;
             let result = {
                 activityId: this.activity ? this.activity.id : null,
