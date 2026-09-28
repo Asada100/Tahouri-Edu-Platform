@@ -28,6 +28,7 @@
 .dictationInstruction { margin: 16px 0; font-size: 18px; line-height: 1.9; }
 
 .dictationContext {
+    font-family: "Tahouri Yekan", "B Yekan", Tahoma, sans-serif;
     max-width: 720px;
     margin: 0 auto 18px;
     padding: 14px 18px;
@@ -38,6 +39,7 @@
 }
 
 .dictationAnswer {
+    font-family: "Tahouri Faraz", "Tahouri Yekan", "B Yekan", Tahoma, sans-serif;
     min-height: 72px;
     margin: 0 auto 8px;
     padding: 12px 16px;
@@ -69,6 +71,7 @@
 
 .dictationKey,
 .dictationUtility {
+    font-family: "Tahouri Yekan", "B Yekan", Tahoma, sans-serif;
     min-width: 50px;
     min-height: 52px;
     padding: 7px 10px;
@@ -92,7 +95,7 @@
 }
 
 .dictationKey.is-expected {
-    box-shadow: 0 0 0 2px rgba(37,99,235,.16);
+    box-shadow: none;
 }
 
 .dictationKey:active,
