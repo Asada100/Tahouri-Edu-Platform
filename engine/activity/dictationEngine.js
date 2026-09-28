@@ -334,6 +334,22 @@
 
         finish: function () {
             if (!this.state || this.state.isFinished) return this.getResult();
+
+            // A dictation activity may only finish after every question has
+            // actually been completed. This is a terminal safety guard against
+            // stale/duplicate lifecycle calls finishing a fresh run.
+            const total = Number(this.state.totalQuestions) || 0;
+            const completed = Number(this.state.correctAnswers) || 0;
+            if (total <= 0 || completed < total) {
+                console.warn("DictationEngine: Premature finish ignored.", {
+                    completed: completed,
+                    total: total,
+                    currentIndex: Number(this.state.currentIndex) || 0,
+                    questionCompleted: !!this.state.questionCompleted
+                });
+                return null;
+            }
+
             this.state.isFinished = true;
             this.state.locked = true;
             const total = this.state.totalQuestions;
