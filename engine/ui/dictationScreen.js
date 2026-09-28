@@ -8,7 +8,21 @@
     "use strict";
 
     const DictationScreen = {
+        lastPointerDownAt: null,
+
         init: function () {
+            // Keep the timestamp of the most recent real pointerdown globally.
+            // This lets the Next button reject a click whose pointer interaction
+            // actually began before the button existed.
+            if (!this._pointerTrackingInstalled) {
+                const self = this;
+                document.addEventListener("pointerdown", function () {
+                    self.lastPointerDownAt = typeof performance !== "undefined" && typeof performance.now === "function"
+                        ? performance.now()
+                        : Date.now();
+                }, true);
+                this._pointerTrackingInstalled = true;
+            }
             if (typeof EventManager === "undefined") return;
             EventManager.on("activityReady", function (payload) {
                 if (!payload || payload.engineName !== "dictation") return;
@@ -194,20 +208,28 @@
 
             const nextButton = document.getElementById("dictationNextButton");
             if (nextButton) {
-                // This button can be created while the activity-selection click
-                // handler is still unwinding (the handler is async). Do not allow
-                // that same trusted click to activate the newly-created button.
-                const createdAt = Date.now();
-                const interactionDelay = 700;
+                // A pointer interaction that started on the activity-selection
+                // button can finish after the dictation screen has been rendered.
+                // If that original pointerdown happened before this button was
+                // created, its eventual click must never advance the activity.
+                const createdAt = typeof performance !== "undefined" && typeof performance.now === "function"
+                    ? performance.now()
+                    : Date.now();
                 let armed = false;
 
-                nextButton.addEventListener("pointerdown", function () {
-                    if (Date.now() - createdAt >= interactionDelay) armed = true;
+                nextButton.addEventListener("pointerdown", function (event) {
+                    const now = typeof performance !== "undefined" && typeof performance.now === "function"
+                        ? performance.now()
+                        : Date.now();
+                    if (now < createdAt) return;
+                    const lastPointerDown = DictationScreen.lastPointerDownAt;
+                    if (lastPointerDown != null && lastPointerDown <= createdAt) return;
+                    armed = true;
+                    nextButton.dataset.pointerId = String(event.pointerId == null ? "" : event.pointerId);
                 });
 
                 nextButton.addEventListener("keydown", function (event) {
-                    if ((event.key === "Enter" || event.key === " ") &&
-                        Date.now() - createdAt >= interactionDelay) {
+                    if (event.key === "Enter" || event.key === " ") {
                         armed = true;
                     }
                 });
@@ -216,7 +238,6 @@
                     if (!armed) return;
                     armed = false;
                     if (event && event.isTrusted === false) return;
-                    if (Date.now() - createdAt < interactionDelay) return;
                     if (window.DictationEngine && typeof window.DictationEngine.nextQuestion === "function") {
                         window.DictationEngine.nextQuestion();
                     }
