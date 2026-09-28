@@ -90,7 +90,7 @@
                             سؤال ${Number(state.currentIndex) + 1} از ${Number(state.totalQuestions) || 0}
                         </div>
                         ${state.questionCompleted ? `
-                            <button type="button" class="dictationNextButton" id="dictationNextButton">
+                            <button type="button" class="dictationNextButton" id="dictationNextButton" disabled>
                                 ${Number(state.currentIndex) + 1 >= Number(state.totalQuestions) ? "پایان" : "کلمه بعدی"}
                             </button>
                         ` : ""}
@@ -208,35 +208,16 @@
 
             const nextButton = document.getElementById("dictationNextButton");
             if (nextButton) {
-                // A pointer interaction that started on the activity-selection
-                // button can finish after the dictation screen has been rendered.
-                // If that original pointerdown happened before this button was
-                // created, its eventual click must never advance the activity.
-                const createdAt = typeof performance !== "undefined" && typeof performance.now === "function"
-                    ? performance.now()
-                    : Date.now();
-                let armed = false;
-
-                nextButton.addEventListener("pointerdown", function (event) {
-                    const now = typeof performance !== "undefined" && typeof performance.now === "function"
-                        ? performance.now()
-                        : Date.now();
-                    if (now < createdAt) return;
-                    const lastPointerDown = DictationScreen.lastPointerDownAt;
-                    if (lastPointerDown != null && lastPointerDown <= createdAt) return;
-                    armed = true;
-                    nextButton.dataset.pointerId = String(event.pointerId == null ? "" : event.pointerId);
-                });
-
-                nextButton.addEventListener("keydown", function (event) {
-                    if (event.key === "Enter" || event.key === " ") {
-                        armed = true;
-                    }
-                });
+                // Keep the Next button disabled briefly after render so the
+                // activity-selection click cannot retarget to this new button.
+                const interactionDelay = 700;
+                setTimeout(function () {
+                    if (!document.body.contains(nextButton)) return;
+                    nextButton.disabled = false;
+                }, interactionDelay);
 
                 nextButton.onclick = function (event) {
-                    if (!armed) return;
-                    armed = false;
+                    if (nextButton.disabled) return;
                     if (event && event.isTrusted === false) return;
                     if (window.DictationEngine && typeof window.DictationEngine.nextQuestion === "function") {
                         window.DictationEngine.nextQuestion();
@@ -332,4 +313,4 @@
     DictationScreen.init();
 })(window);
 
-console.log("Dictation Screen v2.0 Ready");
+console.log("Dictation Screen v2.1 Ready");
