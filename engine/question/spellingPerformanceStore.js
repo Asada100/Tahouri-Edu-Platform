@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Spelling Performance Store
-// Version 1.0
+// Version 1.1
 // Profile-scoped persistent spelling history
 // =====================================
 (function (window) {
@@ -31,7 +31,7 @@
         const key = storageKey();
         if (!key || !window.SaveManager) return false;
         return window.SaveManager.save(key, {
-            version: "1.0",
+            version: "1.1",
             answers: data.answers.slice(-MAX_RECORDS),
             targetAnswers: data.targetAnswers.slice(-MAX_RECORDS)
         });
@@ -96,21 +96,21 @@
     window.SpellingPerformanceStore = SpellingPerformanceStore;
 
     if (window.EventManager && typeof window.EventManager.on === "function") {
-        window.EventManager.on("activityFinished", function () {
+        window.EventManager.on("activityFinished", function (result) {
             if (!window.DictationEngine || typeof window.DictationEngine.getSessionState !== "function") return;
+
+            const activity = window.DictationEngine.activity;
             const state = window.DictationEngine.getSessionState();
-            if (!state || !state.isFinished || !state.activityId) {
-                const activity = window.DictationEngine.activity;
-                if (!activity || !activity.id || !state || !state.isFinished) return;
-                SpellingPerformanceStore.recordSession({
-                    activityId: activity.id,
-                    answers: state.answers,
-                    targetAnswers: state.targetAnswers
-                });
-                return;
-            }
+
+            if (!activity || !activity.id || !state || !state.isFinished) return;
+
+            // Only persist when the finished activity belongs to the DictationEngine.
+            // This prevents stale spelling state from being recorded when another
+            // activity emits the same generic lifecycle event.
+            if (result && result.activityId && result.activityId !== activity.id) return;
+
             SpellingPerformanceStore.recordSession({
-                activityId: state.activityId,
+                activityId: activity.id,
                 answers: state.answers,
                 targetAnswers: state.targetAnswers
             });
