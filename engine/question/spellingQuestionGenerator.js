@@ -14,19 +14,11 @@
     function getPerformanceRecords(performance){if(!performance)return[];if(Array.isArray(performance))return performance;if(Array.isArray(performance.targetAnswers)&&performance.targetAnswers.length)return performance.targetAnswers;if(Array.isArray(performance.records))return performance.records;if(Array.isArray(performance.answers))return performance.answers;return[];}
     const SpellingQuestionGenerator={version:"1.3",
         rankByPerformance:function(items,performance){
-            if(!performance||!window.SpellingPerformanceAnalyzer)return items;
-            const records=getPerformanceRecords(performance);
-            if(!records.length)return items;
-            const a=window.SpellingPerformanceAnalyzer.analyze(records);
-            return items.slice().sort(function(x,y){
-                const xt=a.byTarget[x.answer]||null, yt=a.byTarget[y.answer]||null;
-                const xr=a.byRule[x.spellingRule]||null, yr=a.byRule[y.spellingRule]||null;
-                const xError=xt ? xt.errorRate : (xr ? xr.errorRate : 0);
-                const yError=yt ? yt.errorRate : (yr ? yr.errorRate : 0);
-                const xAccuracy=xt ? xt.accuracy : (xr ? xr.accuracy : 0);
-                const yAccuracy=yt ? yt.accuracy : (yr ? yr.accuracy : 0);
-                return (yError-xError) || (xAccuracy-yAccuracy) || String(x.id||"").localeCompare(String(y.id||""));
-            });
+            if (window.SpellingSmartQuestionSelector &&
+                typeof window.SpellingSmartQuestionSelector.select === "function") {
+                return window.SpellingSmartQuestionSelector.select(items, performance);
+            }
+            return items.slice();
         },
         generate:function(config){const source=config||{},difficulty=source.difficulty||DEFAULT_DIFFICULTY,bank=Array.isArray(source.wordBank)?source.wordBank:[],rules=Array.isArray(source.rules)&&source.rules.length?source.rules:null,limit=Math.max(0,Number(source.limit)||bank.length);
             const candidates=bank.filter(function(item){return item&&typeof item.answer==="string"&&(!rules||rules.indexOf(item.spellingRule)!==-1);}).map(function(item){return buildTarget(item,difficulty);}).filter(Boolean);
