@@ -9,29 +9,20 @@
 
     const DictationProvider = {
         orderByPerformance: function (questions) {
-            if (!Array.isArray(questions) || questions.length < 2) return questions;
-            const store = window.SpellingPerformanceStore;
-            const analyzer = window.SpellingPerformanceAnalyzer;
-            if (!store || typeof store.getPerformance !== "function" ||
-                !analyzer || typeof analyzer.analyze !== "function") return questions;
-            const performance = store.getPerformance();
-            const records = Array.isArray(performance && performance.answers) ? performance.answers : [];
-            if (!records.length) return questions;
-            const analysis = analyzer.analyze(records);
-            return questions.map(function (question, index) {
-                const target = question && question.answer ? question.answer : "";
-                const rule = question && question.spellingRule ? question.spellingRule : "unclassified";
-                const record = analysis.byTarget[target] || analysis.byRule[rule] || null;
-                let priority = 50;
-                if (record) {
-                    priority = Math.round((1 - (record.accuracy || 0)) * 100);
-                    priority += Math.min(20, Number(record.characterErrors) || 0);
-                }
-                return { question: question, index: index, priority: priority };
-            }).sort(function (a, b) {
-                return (b.priority - a.priority) || (a.index - b.index);
-            }).map(function (item) { return item.question; });
+            if (!Array.isArray(questions) || questions.length < 2) {
+                return Array.isArray(questions) ? questions.slice() : [];
+            }
+
+            if (
+                window.SpellingSmartQuestionSelector &&
+                typeof window.SpellingSmartQuestionSelector.select === "function"
+            ) {
+                return window.SpellingSmartQuestionSelector.select(questions);
+            }
+
+            return questions.slice();
         },
+
         getContent: function (activityData) {
             const source = activityData && activityData.dictation
                 ? activityData.dictation
