@@ -263,8 +263,7 @@ const ActivityScreen = {
 
         if (typeof App !== "undefined" && typeof App.startActivity === "function") {
             console.log("Activity Screen: Start Activity:", activity);
-            App.startActivity(activity);
-            return;
+            // Start on the next task turn so the activity-selection click\n            // cannot be retargeted to a newly rendered activity button.\n            setTimeout(function () {\n                App.startActivity(activity);\n            }, 0);\n            return;
         }
 
         console.error("Activity Screen: App.startActivity Not Available");
@@ -273,4 +272,4 @@ const ActivityScreen = {
 
 window.ActivityScreen = ActivityScreen;
 
-console.log("Activity Screen v3.9 Ready");
+console.log("Activity Screen v3.10 Ready");
