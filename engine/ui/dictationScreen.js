@@ -188,17 +188,22 @@
 
             const nextButton = document.getElementById("dictationNextButton");
             if (nextButton) {
-                // Prevent the activity-selection click that triggered this render
-                // from being retargeted to the newly-created Next button.
-                nextButton.disabled = true;
-                setTimeout(function () {
-                    if (nextButton && nextButton.isConnected) {
-                        nextButton.disabled = false;
-                    }
-                }, 0);
+                // Only accept a Next click after this exact button received
+                // its own pointer/keyboard interaction. This blocks a trusted
+                // click retargeted to a button created during another click.
+                let armed = false;
+
+                nextButton.addEventListener("pointerdown", function () {
+                    armed = true;
+                });
+
+                nextButton.addEventListener("keydown", function (event) {
+                    if (event.key === "Enter" || event.key === " ") armed = true;
+                });
 
                 nextButton.onclick = function (event) {
-                    if (nextButton.disabled) return;
+                    if (!armed) return;
+                    armed = false;
                     if (event && event.isTrusted === false) return;
                     if (window.DictationEngine && typeof window.DictationEngine.nextQuestion === "function") {
                         window.DictationEngine.nextQuestion();
