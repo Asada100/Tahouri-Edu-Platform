@@ -145,7 +145,7 @@
             if (this.getMode() === "context") return this.getContextDisplayText();
             if (this.getMode() === "missing-letter") {
                 const pending = new Set(this.state.missingSlots.slice(this.state.currentSlotIndex));
-                return chars.map((char, index) => pending.has(index) ? "...." : char).join("");
+                return chars.map((char, index) => pending.has(index) ? "ـ...ـ" : char).join("");
             }
             return chars.slice(0, this.state.currentCharIndex).join("");
         },
@@ -161,11 +161,11 @@
                 const target = targets[index];
                 if (!target) return match;
                 if (index < this.state.currentTargetIndex) return target.answer;
-                if (index > this.state.currentTargetIndex) return target.masked || "....";
+                if (index > this.state.currentTargetIndex) return target.masked || "ـ...ـ";
                 const chars = Array.from(target.answer || "");
                 const slots = new Set(this.state.missingSlots.slice(this.state.currentSlotIndex));
                 return chars.map(function (char, charIndex) {
-                    return slots.has(charIndex) ? "...." : char;
+                    return slots.has(charIndex) ? "ـ...ـ" : char;
                 }).join("");
             });
         },
