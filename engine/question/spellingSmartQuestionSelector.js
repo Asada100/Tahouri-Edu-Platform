@@ -93,9 +93,11 @@
                 Array.isArray(source)
                     ? source
                     : (
-                        Array.isArray(source.targetAnswers)
+                        Array.isArray(source.targetAnswers) && source.targetAnswers.length
                             ? source.targetAnswers
-                            : source
+                            : Array.isArray(source.answers)
+                                ? source.answers
+                                : []
                     );
 
             if (!Array.isArray(records) || !records.length) {
