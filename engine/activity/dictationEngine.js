@@ -340,12 +340,24 @@
             // stale/duplicate lifecycle calls finishing a fresh run.
             const total = Number(this.state.totalQuestions) || 0;
             const completed = Number(this.state.correctAnswers) || 0;
-            if (total <= 0 || completed < total) {
+            const currentIndex = Number(this.state.currentIndex);
+            const questionCompleted = !!this.state.questionCompleted;
+
+            // The only legal finish point is after the final question has been
+            // completed and nextQuestion() has advanced past it. This prevents
+            // any external/stale lifecycle call from finishing a fresh run.
+            const atTerminalPosition =
+                total > 0 &&
+                currentIndex >= total &&
+                questionCompleted &&
+                completed >= total;
+
+            if (!atTerminalPosition) {
                 console.warn("DictationEngine: Premature finish ignored.", {
                     completed: completed,
                     total: total,
-                    currentIndex: Number(this.state.currentIndex) || 0,
-                    questionCompleted: !!this.state.questionCompleted
+                    currentIndex: currentIndex,
+                    questionCompleted: questionCompleted
                 });
                 return null;
             }
