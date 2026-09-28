@@ -22,6 +22,10 @@ const EventManager = {
 
     emit:function(eventName,data){
 
+        if(eventName === "activityFinished"){
+            console.trace("EventManager: activityFinished EMITTED", data);
+        }
+
         if(!this.events[eventName]){
 
             return;
