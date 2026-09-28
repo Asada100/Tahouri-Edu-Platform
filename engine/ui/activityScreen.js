@@ -261,9 +261,26 @@ const ActivityScreen = {
             Navigation.selectActivity(activity.id);
         }
 
-        if (typeof App !== "undefined" && typeof App.startActivity === "function") {
+        if (typeof window !== "undefined" &&
+            window.App &&
+            typeof window.App.startActivity === "function") {
             console.log("Activity Screen: Start Activity:", activity);
-            // Start on the next task turn so the activity-selection click\n            // cannot be retargeted to a newly rendered activity button.\n            setTimeout(function () {\n                App.startActivity(activity);\n            }, 0);\n            return;
+
+            const buttons = document.querySelectorAll(".activitySelectBtn");
+            buttons.forEach(function (button) {
+                if (button.dataset.id === activity.id) {
+                    button.disabled = true;
+                }
+            });
+
+            setTimeout(function () {
+                if (window.App && typeof window.App.startActivity === "function") {
+                    window.App.startActivity(activity);
+                } else {
+                    console.error("Activity Screen: App.startActivity Not Available");
+                }
+            }, 0);
+            return;
         }
 
         console.error("Activity Screen: App.startActivity Not Available");
@@ -272,4 +289,4 @@ const ActivityScreen = {
 
 window.ActivityScreen = ActivityScreen;
 
-console.log("Activity Screen v3.10 Ready");
+console.log("Activity Screen v3.11 Ready");
