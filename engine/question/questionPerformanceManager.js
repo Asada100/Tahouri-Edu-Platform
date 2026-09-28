@@ -221,7 +221,7 @@ const QuestionPerformanceManager = {
                 ? ProfileContext.getStudentId()
                 : null;
 
-        if (!studentId || !question) {
+        if (!studentId || !question || this.isSpellingActivity()) {
             return false;
         }
 
