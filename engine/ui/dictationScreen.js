@@ -194,23 +194,29 @@
 
             const nextButton = document.getElementById("dictationNextButton");
             if (nextButton) {
-                // Only accept a Next click after this exact button received
-                // its own pointer/keyboard interaction. This blocks a trusted
-                // click retargeted to a button created during another click.
+                // This button can be created while the activity-selection click
+                // handler is still unwinding (the handler is async). Do not allow
+                // that same trusted click to activate the newly-created button.
+                const createdAt = Date.now();
+                const interactionDelay = 700;
                 let armed = false;
 
                 nextButton.addEventListener("pointerdown", function () {
-                    armed = true;
+                    if (Date.now() - createdAt >= interactionDelay) armed = true;
                 });
 
                 nextButton.addEventListener("keydown", function (event) {
-                    if (event.key === "Enter" || event.key === " ") armed = true;
+                    if ((event.key === "Enter" || event.key === " ") &&
+                        Date.now() - createdAt >= interactionDelay) {
+                        armed = true;
+                    }
                 });
 
                 nextButton.onclick = function (event) {
                     if (!armed) return;
                     armed = false;
                     if (event && event.isTrusted === false) return;
+                    if (Date.now() - createdAt < interactionDelay) return;
                     if (window.DictationEngine && typeof window.DictationEngine.nextQuestion === "function") {
                         window.DictationEngine.nextQuestion();
                     }
