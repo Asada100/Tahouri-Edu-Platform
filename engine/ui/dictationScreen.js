@@ -16,9 +16,9 @@
                 // Starting an activity can replace #app while the activity-selection
                 // click is still being dispatched; rendering synchronously can retarget
                 // that same trusted click to the newly-created Next button.
-                Promise.resolve().then(function () {
+                setTimeout(function () {
                     DictationScreen.render(payload.result);
-                });
+                }, 0);
             });
 
             EventManager.on("dictationQuestionChanged", function (state) {
