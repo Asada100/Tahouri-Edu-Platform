@@ -25,7 +25,7 @@
             }
 
             return shuffled;
-        },,
+        },
 
         getContent: function (activityData) {
             const source = activityData && activityData.dictation
