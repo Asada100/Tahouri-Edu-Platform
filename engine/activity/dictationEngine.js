@@ -23,7 +23,6 @@
 
         start: async function (activityData) {
             this.reset();
-            const currentRunToken = this.runToken;
             this.activity = activityData || {};
             if (!window.DictationProvider || typeof window.DictationProvider.getContent !== "function") {
                 throw new Error("DictationProvider is not available");
