@@ -211,13 +211,42 @@
                 // Keep the Next button disabled briefly after render so the
                 // activity-selection click cannot retarget to this new button.
                 const interactionDelay = 700;
+                const createdAt = typeof performance !== "undefined" && typeof performance.now === "function"
+                    ? performance.now()
+                    : Date.now();
+                let armed = false;
+
+                nextButton.addEventListener("pointerdown", function () {
+                    const now = typeof performance !== "undefined" && typeof performance.now === "function"
+                        ? performance.now()
+                        : Date.now();
+                    const lastPointerDown = DictationScreen.lastPointerDownAt;
+
+                    // Reject the original activity-selection pointer sequence if it
+                    // began before this Next button existed.
+                    if (lastPointerDown != null && lastPointerDown <= createdAt) {
+                        return;
+                    }
+
+                    if (now - createdAt >= interactionDelay) {
+                        armed = true;
+                    }
+                });
+
+                nextButton.addEventListener("keydown", function (event) {
+                    if (event.key === "Enter" || event.key === " ") {
+                        armed = true;
+                    }
+                });
+
                 setTimeout(function () {
                     if (!document.body.contains(nextButton)) return;
                     nextButton.disabled = false;
                 }, interactionDelay);
 
                 nextButton.onclick = function (event) {
-                    if (nextButton.disabled) return;
+                    if (nextButton.disabled || !armed) return;
+                    armed = false;
                     if (event && event.isTrusted === false) return;
                     if (window.DictationEngine && typeof window.DictationEngine.nextQuestion === "function") {
                         window.DictationEngine.nextQuestion();
@@ -313,4 +342,4 @@
     DictationScreen.init();
 })(window);
 
-console.log("Dictation Screen v2.1 Ready");
+console.log("Dictation Screen v2.2 Ready");
