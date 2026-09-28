@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Edu Platform
-// Question Performance Manager v2.0
+// Question Performance Manager v2.1
 // Smart Content — Question & Skill Data Layer
 //
 // Responsibilities:
@@ -9,22 +9,29 @@
 // - Aggregate performance by skill for adaptive content
 // - Keep data isolated per active profile
 //
-// This module remains independent from:
-// - QuizEngine execution
-// - StatisticsManager aggregates
-// - ProgressManager
-// - Memory / Puzzle engines
+// Spelling/dictation performance is handled separately by
+// SpellingPerformanceStore and must not enter this generic layer.
 // =====================================
 
 const QuestionPerformanceManager = {
 
-    VERSION: "2.0",
+    VERSION: "2.1",
 
     STORAGE_KEY: "Tahouri_QuestionPerformance",
 
     currentActivityId: null,
 
     initialized: false,
+
+    isSpellingActivity: function (activityId) {
+        const id = String(activityId || "");
+        return [
+            "persianSpellingWords",
+            "persianSpellingGuided",
+            "persianSpellingContext",
+            "persianSpellingGenerated"
+        ].indexOf(id) !== -1;
+    },
 
     init: function () {
 
@@ -45,10 +52,16 @@ const QuestionPerformanceManager = {
         });
 
         EventManager.on("answer:correct", (question) => {
+            if (this.isSpellingActivity(this.currentActivityId)) {
+                return;
+            }
             this.record(question, true);
         });
 
         EventManager.on("answer:wrong", (question) => {
+            if (this.isSpellingActivity(this.currentActivityId)) {
+                return;
+            }
             this.record(question, false);
         });
 
@@ -58,7 +71,7 @@ const QuestionPerformanceManager = {
 
         this.initialized = true;
 
-        console.log("Question Performance Manager v2.0 Ready");
+        console.log("Question Performance Manager v2.1 Ready");
     },
 
     getStorageKey: function () {
@@ -123,10 +136,6 @@ const QuestionPerformanceManager = {
             return false;
         }
     },
-
-    // -------------------------------------
-    // SKILL / CONCEPT IDENTITY
-    // -------------------------------------
 
     getSkill: function (question, activityId) {
 
