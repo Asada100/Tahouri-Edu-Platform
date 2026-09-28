@@ -70,55 +70,41 @@ const ActivityManager = {
     allowNewActivityStart: function () { this.postFinishLoadBlocked = false; this.allowActivityStartFromResult = false; console.log("ActivityManager: Explicit activity start allowed."); },
     blockPostFinishLoads: function () { this.postFinishLoadBlocked = true; this.allowActivityStartFromResult = false; console.log("ActivityManager: Post-finish activity loads blocked."); },
 
-    start: async function (activityData, selectedDifficulty = null) {
+    start: async function (activityData, selectedDifficulty = null, resumeExisting = false) {
         const fullActivity = await this.loadActivityConfig(activityData, selectedDifficulty);
         if (!fullActivity) { console.error("ActivityManager: Full Activity Could Not Be Prepared"); return null; }
         if (typeof ActivitySessionManager !== "undefined") {
-            let existing = typeof ActivitySessionManager.load === "function" ? ActivitySessionManager.load(fullActivity.id) : null;
-            const invalidClassificationSession = existing && fullActivity.engine === "classification" && existing.engineState && (!Array.isArray(existing.engineState.items) || !Array.isArray(existing.engineState.categories) || existing.engineState.items.length === 0 || existing.engineState.categories.length === 0 || Number(existing.engineState.totalItems || 0) <= 0);
-            if (invalidClassificationSession) { ActivitySessionManager.clear(); existing = null; }
-            const invalidPuzzleSession = existing && fullActivity.engine === "puzzle" && existing.engineState && (existing.engineState.kind !== "puzzle" || !existing.engineState.puzzle || !existing.engineState.puzzle.type);
-            if (invalidPuzzleSession) { ActivitySessionManager.clear(); existing = null; }
-            const currentPuzzleType = fullActivity.engine === "puzzle" && fullActivity.puzzle ? fullActivity.puzzle.type : null;
-            const savedPuzzleType = existing && existing.engineState && existing.engineState.puzzle ? existing.engineState.puzzle.type : null;
-            const incompatiblePuzzleSession = existing && fullActivity.engine === "puzzle" && currentPuzzleType && savedPuzzleType && currentPuzzleType !== savedPuzzleType;
-            if (incompatiblePuzzleSession) { ActivitySessionManager.clear(); existing = null; }
+            const existing = typeof ActivitySessionManager.load === "function"
+                ? ActivitySessionManager.load(fullActivity.id)
+                : null;
 
-            const currentJigsawGrid = fullActivity.engine === "puzzle" && currentPuzzleType === "jigsaw" && fullActivity.puzzle
-                ? { rows: Number(fullActivity.puzzle.rows), cols: Number(fullActivity.puzzle.cols) }
-                : null;
-            const savedJigsawGrid = existing && existing.engineState && existing.engineState.puzzle && savedPuzzleType === "jigsaw"
-                ? { rows: Number(existing.engineState.puzzle.rows), cols: Number(existing.engineState.puzzle.cols) }
-                : null;
-            const incompatibleJigsawGrid = !!(existing && currentJigsawGrid && savedJigsawGrid &&
-                (currentJigsawGrid.rows !== savedJigsawGrid.rows || currentJigsawGrid.cols !== savedJigsawGrid.cols));
-            if (incompatibleJigsawGrid) {
-                ActivitySessionManager.clear();
-                existing = null;
-                console.log("ActivityManager: Jigsaw session grid changed; starting a fresh session.", {
-                    current: currentJigsawGrid,
-                    saved: savedJigsawGrid
-                });
-            }
-            const solvedJigsawSession = existing && fullActivity.engine === "puzzle" && existing.engineState && savedPuzzleType === "jigsaw" && Array.isArray(existing.engineState.items) && existing.engineState.items.length > 1 && existing.engineState.items.every(function (id, index) { const value = String(id || ""); return value === `word-${index}` || value === `piece-${index}`; });
-            if (solvedJigsawSession) { ActivitySessionManager.clear(); existing = null; }
-            const unfinished = existing && (existing.status === "resumable" || existing.status === "active") && existing.engineState;
-            if (unfinished) {
-                const engineState = existing.engineState;
-                const state = engineState.state || {};
-                const completedSnapshot = state.isFinished === true || engineState.finished === true || engineState.completed === true;
-                if (completedSnapshot) ActivitySessionManager.clear();
-                else {
-                    // An explicit activity click must not dead-end on a stale resumable
-                    // session. Try to restore it first; if restoration fails, discard the
-                    // broken session and start a clean attempt.
-                    if (typeof ActivitySessionManager.resume === "function") {
+            // A normal activity selection is always a NEW attempt.
+            // Restoring a saved session is reserved for an explicit resume path.
+            // This prevents a stale resumable Dictation session from receiving
+            // the original activity-selection click as a Next-button click.
+            if (existing) {
+                const resumable = (existing.status === "resumable" || existing.status === "active") && existing.engineState;
+
+                if (resumeExisting && resumable) {
+                    const engineState = existing.engineState;
+                    const state = engineState.state || {};
+                    const completedSnapshot =
+                        state.isFinished === true ||
+                        engineState.finished === true ||
+                        engineState.completed === true;
+
+                    if (!completedSnapshot && typeof ActivitySessionManager.resume === "function") {
                         const resumed = await ActivitySessionManager.resume(fullActivity.id);
                         if (resumed) return ActivitySessionManager.currentSession;
                     }
-                    ActivitySessionManager.clear();
-                    console.warn("ActivityManager: Invalid resumable session cleared; starting fresh.", fullActivity.id);
                 }
+
+                // Explicit NEW start: discard the previous saved session.
+                ActivitySessionManager.clear();
+                console.log("ActivityManager: Starting a fresh session.", {
+                    activityId: fullActivity.id,
+                    previousStatus: existing.status || null
+                });
             }
         }
         this.currentActivity = fullActivity;
@@ -191,4 +177,4 @@ const ActivityManager = {
 };
 
 window.ActivityManager = ActivityManager;
-console.log("Activity Manager v6.9 Ready");
+console.log("Activity Manager v6.10 Ready");
