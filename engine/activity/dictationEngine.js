@@ -20,6 +20,7 @@
         content: null,
         state: null,
         runToken: 0,
+        finishAuthorized: false,
 
         start: async function (activityData) {
             this.reset();
@@ -236,6 +237,7 @@
             if (nextIndex >= this.content.questions.length) {
                 this.state.currentIndex = nextIndex;
                 this.state.transitioning = false;
+                this.finishAuthorized = true;
                 this.finish();
                 return true;
             }
@@ -352,7 +354,7 @@
                 questionCompleted &&
                 completed >= total;
 
-            if (!atTerminalPosition) {
+            if (!this.finishAuthorized || !atTerminalPosition) {
                 console.warn("DictationEngine: Premature finish ignored.", {
                     completed: completed,
                     total: total,
@@ -362,6 +364,7 @@
                 return null;
             }
 
+            this.finishAuthorized = false;
             this.state.isFinished = true;
             this.state.locked = true;
             const percentage = total > 0 ? Math.round((this.state.correctAnswers / total) * 100) : 0;
@@ -420,7 +423,7 @@
             catch (error) { this.reset(); return false; }
         },
         getResult: function () { return this.state && this.state.result ? this.state.result : null; },
-        reset: function () { this.runToken += 1; this.activity = null; this.content = null; this.state = null; }
+        reset: function () { this.runToken += 1; this.finishAuthorized = false; this.activity = null; this.content = null; this.state = null; }
     };
 
     window.DictationEngine = DictationEngine;
