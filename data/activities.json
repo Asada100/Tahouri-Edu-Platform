@@ -189,8 +189,8 @@
     "type": "dictation",
     "engine": "dictation",
     "group": "setayesh",
-    "locked": true,
-    "requires": "persianSetayeshAntonym",
+    "locked": false,
+    "requires": null,
     "lesson": "setayesh",
     "path": "content/grades/grade6/persian/chapter1/setayesh/spelling"
   },
