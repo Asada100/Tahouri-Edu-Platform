@@ -181,6 +181,20 @@
     "path": "content/grades/grade6/persian/chapter1/setayesh/antonym"
   },
   {
+    "id": "persianSetayeshSpelling",
+    "title": "املای ستایش ✍️",
+    "grade": "grade6",
+    "subject": "persian",
+    "chapter": "chapter1",
+    "type": "dictation",
+    "engine": "dictation",
+    "group": "setayesh",
+    "locked": true,
+    "requires": "persianSetayeshAntonym",
+    "lesson": "setayesh",
+    "path": "content/grades/grade6/persian/chapter1/setayesh/spelling"
+  },
+  {
     "id": "persianLesson1Jigsaw",
     "title": "درس اول — پازل",
     "grade": "grade6",
@@ -244,8 +258,8 @@
     "requires": null,
     "lesson": "spelling",
     "path": "content/grades/grade6/persian/chapter1/spellingGuided"
-  }
-,  {
+  },
+  {
     "id": "persianSpellingContext",
     "title": "املای جمله‌ای",
     "grade": "grade6",
@@ -257,8 +271,8 @@
     "requires": null,
     "lesson": "spelling",
     "path": "content/grades/grade6/persian/chapter1/spellingContext"
-  }
-,  {
+  },
+  {
     "id": "persianSpellingGenerated",
     "title": "املای هوشمند",
     "grade": "grade6",
