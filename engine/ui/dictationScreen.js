@@ -53,6 +53,7 @@
             const mode = state.mode || q.mode || "guided-word";
             const rows = Array.isArray(state.keyboardRows) ? state.keyboardRows : [];
             const isGuided = mode === "guided-word";
+            const isDictation = mode === "dictation";
             const isContext = mode === "context";
             const rule = this.getRuleGuide(q, mode);
 
@@ -68,9 +69,10 @@
                         <div class="dictationRuleGuide">${this.escape(rule.guide)}</div>
                         ${q.context ? `<div class="dictationContext">${this.escape(q.context)}</div>` : ""}
                         ${this.renderMedia(q)}
+                        ${isDictation ? this.renderAudio(q) : ""}
 
                         <div class="dictationAnswer${state.questionCompleted ? " is-complete" : ""}" id="dictationAnswer" aria-live="polite">
-                            ${this.renderAnswer(state, isGuided)}
+                            ${this.renderAnswer(state, isGuided, isDictation)}
                         </div>
 
                         <div class="dictationFeedback" id="dictationFeedback" aria-live="polite"></div>
@@ -98,6 +100,13 @@
                 </div>
             `;
             this.bind();
+        },
+
+        renderAudio: function (question) {
+            if (!window.DictationAudioProvider || typeof window.DictationAudioProvider.getForQuestion !== "function") return "";
+            const media = window.DictationAudioProvider.getForQuestion(question);
+            if (!media || !media.src) return "";
+            return `<button type="button" class="dictationAudioButton" id="dictationAudioButton" aria-label="پخش صدای کلمه">🔊 پخش واژه</button>`;
         },
 
         renderMedia: function (question) {
@@ -146,7 +155,10 @@
             });
         },
 
-        renderAnswer: function (state, isGuided) {
+        renderAnswer: function (state, isGuided, isDictation) {
+            if (isDictation) {
+                return `<span class="dictationTyped">${this.escape(state.currentInput || "")}</span>`;
+            }
             if (isGuided) {
                 const actual = state.displayText || "";
                 const guide = state.guideChar || "";
@@ -254,6 +266,14 @@
                 };
             }
 
+            const audioButton = document.getElementById("dictationAudioButton");
+            if (audioButton) audioButton.onclick = function () {
+                if (!window.DictationAudioProvider) return;
+                window.DictationAudioProvider.play(window.DictationEngine.getCurrentQuestion()).catch(function () {
+                    self.showFeedback("پخش صدا ممکن نشد؛ دوباره تلاش کن.", "wrong");
+                });
+            };
+
             const backspace = document.getElementById("dictationBackspace");
             if (backspace) backspace.onclick = function () {
                 const changed = window.DictationEngine.backspace();
@@ -342,4 +362,4 @@
     DictationScreen.init();
 })(window);
 
-console.log("Dictation Screen v2.2 Ready");
+console.log("Dictation Screen v2.4 Ready");
