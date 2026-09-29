@@ -343,6 +343,12 @@
                 if (!engine.state || engine.state.isFinished) return;
                 engine.state.transitioning = false;
                 EventManager.emit("dictationQuestionCompleted", engine.getState());
+
+                // Guided-word spelling advances automatically after a word is
+                // completed. Space is not required to separate words.
+                if (engine.getMode() === "guided-word" && engine.state.questionCompleted) {
+                    engine.nextQuestion();
+                }
             }, 600);
 
             return this.getState();
