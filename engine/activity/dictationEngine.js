@@ -208,6 +208,11 @@
                 return result;
             }
 
+            // A guide is corrective feedback for the last mistake only.
+            // Once the learner enters the correct character, hide the guide
+            // before moving to the next character.
+            this.state.showGuide = false;
+
             if (this.getMode() === "missing-letter" || this.getMode() === "context") {
                 this.state.currentSlotIndex += 1;
             } else {
