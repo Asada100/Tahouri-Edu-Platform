@@ -122,24 +122,6 @@
       ]
     },
     {
-      "id": "setayesh-08",
-      "mode": "missing-letter",
-      "answer": "خرد",
-      "masked": "ـ....ـرد",
-      "missing": [
-        {
-          "start": 0,
-          "length": 1
-        }
-      ],
-      "spellingRule": null,
-      "lesson": "setayesh",
-      "allowedLetters": [
-        "خ",
-        "خ"
-      ]
-    },
-    {
       "id": "setayesh-09",
       "mode": "missing-letter",
       "answer": "پیدایی",
@@ -214,18 +196,36 @@
       "lesson": "setayesh"
     },
     {
-      "id": "setayesh-14",
+      "id": "setayesh-08",
       "mode": "missing-letter",
-      "answer": "تجلی",
-      "masked": "تجـ....ـی",
+      "answer": "خرد",
+      "masked": "ـ....ـرد",
       "missing": [
         {
-          "start": 3,
+          "start": 0,
           "length": 1
         }
       ],
       "spellingRule": null,
       "lesson": "setayesh"
+    },
+    {
+      "id": "setayesh-14",
+      "mode": "missing-letter",
+      "answer": "حق",
+      "masked": "ـ....ـق",
+      "missing": [
+        {
+          "start": 0,
+          "length": 1
+        }
+      ],
+      "spellingRule": null,
+      "lesson": "setayesh",
+      "allowedLetters": [
+        "ح",
+        "ه"
+      ]
     }
   ]
 }
