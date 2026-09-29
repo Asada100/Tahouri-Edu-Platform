@@ -39,7 +39,7 @@
                 characterErrors: 0, currentQuestionCharacterErrors: 0, currentTargetCharacterErrors: 0, answers: [], targetAnswers: [], currentInput: "",
                 missingSlots: [], currentSlotIndex: 0, currentCharIndex: 0,
                 currentTargetIndex: 0, contextTargetAnswers: [],
-                questionCompleted: false, transitioning: false
+                questionCompleted: false, transitioning: false, showGuide: false
             };
             this.prepareCurrentQuestion();
             EventManager.emit("activityStarted", this.activity);
@@ -69,6 +69,7 @@
             this.state.contextTargetAnswers = [];
             this.state.questionCompleted = false;
             this.state.transitioning = false;
+            this.state.showGuide = false;
             this.state.missingSlots = this.buildMissingSlots(this.getCurrentTarget());
         },
 
@@ -201,6 +202,7 @@
                 this.state.characterErrors += 1;
                 this.state.currentQuestionCharacterErrors += 1;
                 this.state.currentTargetCharacterErrors += 1;
+                this.state.showGuide = true;
                 const result = { correct: false, character: char, expected: expected, questionIndex: this.state.currentIndex };
                 EventManager.emit("answer:wrong", result);
                 return result;
