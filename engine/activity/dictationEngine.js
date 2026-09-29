@@ -210,6 +210,7 @@
                 this.state.currentSlotIndex += 1;
             } else {
                 this.state.currentCharIndex += 1;
+                if (this.getMode() === "dictation") this.state.currentInput += char;
             }
 
             const complete = this.isCurrentQuestionComplete();
@@ -264,6 +265,11 @@
             }
             if (this.state.currentCharIndex <= 0) return false;
             this.state.currentCharIndex -= 1;
+            if (mode === "dictation") {
+                const chars = Array.from(this.state.currentInput || "");
+                chars.pop();
+                this.state.currentInput = chars.join("");
+            }
             return true;
         },
 
