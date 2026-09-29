@@ -162,7 +162,7 @@
             if (isGuided) {
                 const actual = state.displayText || "";
                 const guide = state.guideChar || "";
-                return `<span class="dictationTyped">${this.escape(actual)}</span><span class="dictationGhost">${this.escape(guide)}</span>`;
+                return `<span class="dictationTyped">${this.escape(actual)}</span>${state.showGuide && guide ? `<span class="dictationGhost">${this.escape(guide)}</span>` : ""}`;
             }
 
             const q = state.currentQuestion || {};
