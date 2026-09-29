@@ -2,7 +2,7 @@
 // Tahouri Edu Platform
 // Dictation Engine
 // Version 2.0
-// Guided Word + Missing Letter + Context
+// Guided Word + Missing Letter + Context + Dictation
 // =====================================
 
 (function (window) {
@@ -145,6 +145,7 @@
             const target = this.getCurrentTarget() || q;
             const chars = Array.from(target.answer || "");
             if (this.getMode() === "context") return this.getContextDisplayText();
+            if (this.getMode() === "dictation") return this.state.currentInput || "";
             if (this.getMode() === "missing-letter") {
                 const pending = new Set(this.state.missingSlots.slice(this.state.currentSlotIndex));
                 return chars.map((char, index) => pending.has(index) ? "ـ...ـ" : char).join("");
