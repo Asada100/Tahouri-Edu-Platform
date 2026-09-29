@@ -321,6 +321,10 @@
             if (!result.correct) {
                 this.flash("wrong");
                 this.showFeedback("اشتباه است؛ دوباره تلاش کن.", "wrong");
+                // The engine enables the guide only for this wrong position.
+                // Re-render immediately so the single corrective character is
+                // visible without waiting for another input.
+                this.render(window.DictationEngine.getState());
                 return;
             }
 
