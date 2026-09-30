@@ -63,6 +63,21 @@
 
 .dictationAnswer.is-wrong { animation: dictationWrong .18s ease; }
 .dictationAnswer.is-complete { color: #2f8f57; border-bottom-color: #8bc9a5; }
+.dictationGuidedWord {
+    position: relative;
+    display: inline-block;
+    direction: rtl;
+    unicode-bidi: plaintext;
+    white-space: nowrap;
+}
+.dictationGuidedTyped,
+.dictationGuidedPlaceholders {
+    white-space: pre;
+}
+.dictationGuidedPlaceholders {
+    opacity: .34;
+    letter-spacing: 6px;
+}
 .dictationPlaceholder {
     display: inline-block;
     margin-inline-start: 4px;
@@ -72,6 +87,13 @@
 }
 .dictationTyped { color: inherit; }
 .dictationGhost { opacity: .24; margin-inline-start: 2px; }
+.dictationGuidedGhost {
+    position: absolute;
+    z-index: 2;
+    pointer-events: none;
+    margin: 0;
+    white-space: nowrap;
+}
 .dictationMissing { color: #6f86a8; letter-spacing: 3px; opacity: .9; }
 .dictationGuide { min-height: 24px; opacity: .18; font-size: 22px; }
 
