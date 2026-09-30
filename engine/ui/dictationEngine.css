@@ -40,7 +40,9 @@
 
 .dictationAnswer {
     font-family: "Tahouri Faraz", "Tahouri Yekan", "B Yekan", Tahoma, sans-serif;
-    min-height: 72px;
+    height: 86px;
+    min-height: 86px;
+    max-height: 86px;
     margin: 0 auto 8px;
     padding: 12px 16px;
     border-bottom: 2px solid #d9dee7;
@@ -50,6 +52,12 @@
     text-align: center;
     unicode-bidi: plaintext;
     font-variant-ligatures: contextual;
+    white-space: nowrap;
+    overflow: hidden;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     transition: border-color .15s ease, transform .15s ease;
 }
 
@@ -122,6 +130,31 @@
 }
 
 .dictationSpace { width: min(380px, 55%); min-width: 180px; }
+.dictationFeedback {
+    min-height: 28px;
+    line-height: 28px;
+    box-sizing: border-box;
+}
+
+.dictationNextSlot {
+    height: 46px;
+    min-height: 46px;
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.dictationNextSlot .dictationNextButton {
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.dictationNextSlot.is-visible .dictationNextButton {
+    visibility: visible;
+    pointer-events: auto;
+}
+
 .dictationProgress { margin-top: 14px; opacity: .68; }
 
 @keyframes dictationWrong {
@@ -134,7 +167,7 @@
     .dictationCard { padding: 18px 10px; }
     .dictationKeyboardRow { gap: 4px; }
     .dictationKey { min-width: 0; flex: 1 1 0; min-height: 48px; padding: 5px 3px; }
-    .dictationAnswer { font-size: 30px; }
+    .dictationAnswer { height: 82px; min-height: 82px; max-height: 82px; font-size: 30px; }
 }
 
 @media (max-width: 480px) {
@@ -142,7 +175,7 @@
     .dictationKeyboardRow { gap: 3px; }
     .dictationKey { font-size: 18px; min-height: 44px; }
     .dictationUtility { min-height: 46px; }
-    .dictationAnswer { font-size: 27px; }
+    .dictationAnswer { height: 78px; min-height: 78px; max-height: 78px; font-size: 27px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
