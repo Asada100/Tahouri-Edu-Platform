@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 3.1
+// Version 3.2
 // Data Manager
 // =====================================
 
@@ -16,7 +16,7 @@ const DataManager = {
 
         }
 
-        const response = await fetch(path);
+        const response = await fetch(path, { cache: "no-store" });
 
         if (!response.ok) {
 
@@ -91,5 +91,5 @@ const DataManager = {
 };
 
 console.log(
-    "Data Manager Ready"
+    "Data Manager v3.2 Ready"
 );
