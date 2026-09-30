@@ -100,8 +100,25 @@
                 </div>
             `;
             this.bind();
+            this.positionGuidedGuide();
         },
 
+
+        positionGuidedGuide: function () {
+            const word = document.querySelector(".dictationGuidedWord");
+            const guide = word && word.querySelector(".dictationGuidedGhost");
+            const typed = word && word.querySelector(".dictationGuidedTyped");
+            if (!word || !guide || !typed) return;
+
+            const wordRect = word.getBoundingClientRect();
+            const typedRect = typed.getBoundingClientRect();
+            const guideRect = guide.getBoundingClientRect();
+            const anchorX = typed.textContent ? typedRect.left : wordRect.right;
+            const right = wordRect.right - anchorX - (guideRect.width / 2);
+            guide.style.right = Math.max(0, right) + "px";
+            guide.style.top = "50%";
+            guide.style.transform = "translateY(-50%)";
+        },
         renderAudio: function (question) {
             if (!window.DictationAudioProvider || typeof window.DictationAudioProvider.getForQuestion !== "function") return "";
             const media = window.DictationAudioProvider.getForQuestion(question);
