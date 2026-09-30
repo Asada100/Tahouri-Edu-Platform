@@ -218,6 +218,19 @@
             } else {
                 this.state.currentCharIndex += 1;
                 if (this.getMode() === "dictation") this.state.currentInput += char;
+
+                // In guided-word mode, spaces inside a multi-word answer are
+                // structural separators, not learner input. Consume them
+                // automatically so "دانش آموز" continues directly to "آ".
+                if (this.getMode() === "guided-word") {
+                    const answerChars = Array.from(q.answer || "");
+                    while (
+                        this.state.currentCharIndex < answerChars.length &&
+                        /\s/.test(answerChars[this.state.currentCharIndex])
+                    ) {
+                        this.state.currentCharIndex += 1;
+                    }
+                }
             }
 
             const complete = this.isCurrentQuestionComplete();
