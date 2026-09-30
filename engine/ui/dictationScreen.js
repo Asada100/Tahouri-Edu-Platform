@@ -160,9 +160,24 @@
                 return `<span class="dictationTyped">${this.escape(state.currentInput || "")}</span>`;
             }
             if (isGuided) {
+                const q = state.currentQuestion || {};
+                const answer = Array.from(q.answer || "");
                 const actual = state.displayText || "";
                 const guide = state.guideChar || "";
-                return `<span class="dictationTyped">${this.escape(actual)}</span>${state.showGuide && guide ? `<span class="dictationGhost">${this.escape(guide)}</span>` : ""}`;
+
+                // Show the target length without revealing its letters.
+                const typedCount = Array.from(actual).length;
+                const remaining = answer.slice(typedCount);
+                let placeholders = "";
+                remaining.forEach(function (char) {
+                    placeholders += /\\s/.test(char) ? "  " : "ـ ";
+                });
+
+                const guideHtml = state.showGuide && guide
+                    ? `<span class="dictationGhost">${this.escape(guide)}</span>`
+                    : "";
+
+                return `<span class="dictationTyped">${this.escape(actual)}</span><span class="dictationPlaceholder">${this.escape(placeholders)}</span>${guideHtml}`;
             }
 
             const q = state.currentQuestion || {};
