@@ -30,8 +30,8 @@
     {
       "id": "setayesh-02",
       "mode": "missing-letter",
-      "answer": "فضلش",
-      "masked": "فـلش",
+      "answer": "فضل",
+      "masked": "فـل",
       "missing": [
         {
           "start": 1,
@@ -48,8 +48,8 @@
     {
       "id": "setayesh-03",
       "mode": "missing-letter",
-      "answer": "فیضش",
-      "masked": "فیـش",
+      "answer": "فیض",
+      "masked": "فیـ",
       "missing": [
         {
           "start": 2,
