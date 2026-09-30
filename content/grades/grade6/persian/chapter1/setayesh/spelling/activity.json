@@ -19,7 +19,7 @@
     {"id":"setayesh-08","mode":"missing-letter","answer":"عالم","masked":"ـالم","missing":[{"start":0,"length":1}],"spellingRule":"ع/آ","lesson":"setayesh","allowedLetters":["ع","آ"]},
     {"id":"setayesh-09","mode":"missing-letter","answer":"بهر","masked":"بـر","missing":[{"start":1,"length":1}],"spellingRule":"ه/ح","lesson":"setayesh","allowedLetters":["ه","ح"]},
     {"id":"setayesh-10","mode":"missing-letter","answer":"تجلی","masked":"ـجلی","missing":[{"start":0,"length":1}],"spellingRule":"ت/ط","lesson":"setayesh","allowedLetters":["ت","ط"]},
-    {"id":"setayesh-11","mode":"missing-letter","answer":"تعالی","masked":"تعـی","missing":[{"start":2,"length":1},{"start":3,"length":1}],"spellingRule":"ع/ا","lesson":"setayesh","allowedLetters":["ا","ع"]},
+    {"id":"setayesh-11","mode":"missing-letter","answer":"تعالی","masked":"تعاـ...ـی","missing":[{"start":3,"length":1}],"spellingRule":"ا/ع","lesson":"setayesh","allowedLetters":["ا","ع"]},
     {"id":"setayesh-12","mode":"missing-letter","answer":"دیده","masked":"دیـه","missing":[{"start":2,"length":1}],"spellingRule":"ه/ح","lesson":"setayesh","allowedLetters":["ه","ح"]},
     {"id":"setayesh-13","mode":"missing-letter","answer":"نزد","masked":"نـد","missing":[{"start":1,"length":1}],"spellingRule":"ز/ذ","lesson":"setayesh","allowedLetters":["ز","ذ"]}
   ]
