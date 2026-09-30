@@ -60,10 +60,15 @@
 .dictationMissing { color: #6f86a8; letter-spacing: 3px; opacity: .9; }
 .dictationGuide { min-height: 24px; opacity: .18; font-size: 22px; }
 
-.dictationKeyboard { width: min(760px, 100%); margin: 12px auto 0; }
+.dictationKeyboard {
+    width: min(760px, 100%);
+    margin: 12px auto 0;
+    direction: ltr;
+}
 
 .dictationKeyboardRow {
     display: flex;
+    direction: ltr;
     justify-content: center;
     gap: 7px;
     margin: 7px 0;
