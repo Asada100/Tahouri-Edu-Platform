@@ -419,17 +419,9 @@
                 const state = window.DictationEngine.getState();
                 this.render(state);
 
-                // In guided-word mode, finishing a word should move to the
-                // next word automatically. Space is not part of the answer.
-                if (state && state.mode === "guided-word" && !state.isFinished) {
-                    const self = this;
-                    setTimeout(function () {
-                        if (!window.DictationEngine || !window.DictationEngine.state) return;
-                        if (window.DictationEngine.state.isFinished) return;
-                        window.DictationEngine.nextQuestion();
-                        self.render(window.DictationEngine.getState());
-                    }, 450);
-                }
+                // Guided-word stays here until the learner presses «کلمه بعدی».
+                // Spaces inside the answer are still consumed automatically by
+                // the engine; this only controls the transition between words.
                 return;
             }
             if ((window.DictationEngine.getState() || {}).isFinished) return;
