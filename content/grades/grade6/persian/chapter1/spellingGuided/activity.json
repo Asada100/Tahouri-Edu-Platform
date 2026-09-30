@@ -22,7 +22,19 @@
     {
       "id": "guided-03",
       "mode": "guided-word",
-      "answer": "کتاب",
+      "answer": "آرام",
+      "lesson": "spelling"
+    },
+    {
+      "id": "guided-04",
+      "mode": "guided-word",
+      "answer": "مؤمن",
+      "lesson": "spelling"
+    },
+    {
+      "id": "guided-05",
+      "mode": "guided-word",
+      "answer": "مسئول",
       "lesson": "spelling"
     }
   ]
