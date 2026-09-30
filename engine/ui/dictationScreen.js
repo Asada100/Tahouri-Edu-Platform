@@ -133,7 +133,11 @@
                 range.detach();
             }
 
-            const left = anchorX - wordRect.left - (guideRect.width / 2);
+            // In RTL the next guide character belongs immediately to the
+            // left of the entered text. Its RIGHT edge must therefore meet
+            // the visual left boundary of the typed run; centering it causes
+            // the guide glyph to overlap the last entered character.
+            const left = anchorX - wordRect.left - guideRect.width;
             guide.style.left = left + "px";
             guide.style.right = "auto";
             guide.style.top = "50%";
