@@ -12,180 +12,110 @@
       "mode": "missing-letter",
       "answer": "چراغ",
       "masked": "چراـغ",
-      "missing": [
-        {
-          "start": 3,
-          "length": 1
-        }
-      ],
+      "missing": [{"start": 3, "length": 1}],
       "spellingRule": "غ/ق",
       "lesson": "setayesh",
-      "allowedLetters": [
-        "غ",
-        "ق"
-      ]
+      "allowedLetters": ["غ", "ق"]
     },
     {
       "id": "setayesh-02",
       "mode": "missing-letter",
       "answer": "فضلش",
       "masked": "فـلش",
-      "missing": [
-        {
-          "start": 1,
-          "length": 1
-        }
-      ],
+      "missing": [{"start": 1, "length": 1}],
       "spellingRule": "ض/ظ",
       "lesson": "setayesh",
-      "allowedLetters": [
-        "ض",
-        "ظ"
-      ]
+      "allowedLetters": ["ض", "ظ"]
     },
     {
       "id": "setayesh-03",
       "mode": "missing-letter",
       "answer": "فیضش",
       "masked": "فیـش",
-      "missing": [
-        {
-          "start": 2,
-          "length": 1
-        }
-      ],
+      "missing": [{"start": 2, "length": 1}],
       "spellingRule": "ض/ظ",
       "lesson": "setayesh",
-      "allowedLetters": [
-        "ض",
-        "ظ"
-      ]
+      "allowedLetters": ["ض", "ظ"]
     },
     {
       "id": "setayesh-04",
       "mode": "missing-letter",
-      "answer": "گلشن",
-      "masked": "گلشـ",
-      "missing": [
-        {
-          "start": 3,
-          "length": 1
-        }
-      ],
-      "spellingRule": "ش/س",
+      "answer": "فروغ",
+      "masked": "فروـ",
+      "missing": [{"start": 3, "length": 1}],
+      "spellingRule": "غ/ق",
       "lesson": "setayesh",
-      "allowedLetters": [
-        "ش",
-        "س"
-      ]
+      "allowedLetters": ["غ", "ق"]
     },
     {
       "id": "setayesh-05",
       "mode": "missing-letter",
-      "answer": "فروغ",
-      "masked": "فروـ",
-      "missing": [
-        {
-          "start": 3,
-          "length": 1
-        }
-      ],
-      "spellingRule": "غ/ق",
+      "answer": "جهان",
+      "masked": "جـان",
+      "missing": [{"start": 1, "length": 1}],
+      "spellingRule": "ه/ح",
       "lesson": "setayesh",
-      "allowedLetters": [
-        "غ",
-        "ق"
-      ]
+      "allowedLetters": ["ه", "ح"]
     },
     {
       "id": "setayesh-06",
       "mode": "missing-letter",
-      "answer": "جهان",
-      "masked": "جـان",
-      "missing": [
-        {
-          "start": 1,
-          "length": 1
-        }
-      ],
-      "spellingRule": "ه/ح",
+      "answer": "حق",
+      "masked": "ـق",
+      "missing": [{"start": 0, "length": 1}],
+      "spellingRule": "ح/ه",
       "lesson": "setayesh",
-      "allowedLetters": [
-        "ه",
-        "ح"
-      ]
+      "allowedLetters": ["ح", "ه"]
     },
     {
       "id": "setayesh-07",
       "mode": "missing-letter",
-      "answer": "حق",
-      "masked": "ـق",
-      "missing": [
-        {
-          "start": 0,
-          "length": 1
-        }
-      ],
-      "spellingRule": "ح/ه",
+      "answer": "فکرت",
+      "masked": "فکرـ",
+      "missing": [{"start": 4, "length": 1}],
+      "spellingRule": "ت/ط",
       "lesson": "setayesh",
-      "allowedLetters": [
-        "ح",
-        "ه"
-      ]
+      "allowedLetters": ["ت", "ط"]
     },
     {
       "id": "setayesh-08",
       "mode": "missing-letter",
-      "answer": "بیش",
-      "masked": "بیـ",
-      "missing": [
-        {
-          "start": 2,
-          "length": 1
-        }
-      ],
-      "spellingRule": "ش/س",
+      "answer": "عالم",
+      "masked": "ـالم",
+      "missing": [{"start": 0, "length": 1}],
+      "spellingRule": "ع/آ",
       "lesson": "setayesh",
-      "allowedLetters": [
-        "ش",
-        "س"
-      ]
+      "allowedLetters": ["ع", "آ"]
     },
     {
       "id": "setayesh-09",
       "mode": "missing-letter",
-      "answer": "خویش",
-      "masked": "خویـ",
-      "missing": [
-        {
-          "start": 3,
-          "length": 1
-        }
-      ],
-      "spellingRule": "ش/س",
+      "answer": "بحر",
+      "masked": "بـر",
+      "missing": [{"start": 1, "length": 1}],
+      "spellingRule": "ح/ه",
       "lesson": "setayesh",
-      "allowedLetters": [
-        "ش",
-        "س"
-      ]
+      "allowedLetters": ["ح", "ه"]
     },
     {
       "id": "setayesh-10",
       "mode": "missing-letter",
-      "answer": "نشانی",
-      "masked": "نـانی",
-      "missing": [
-        {
-          "start": 1,
-          "length": 1
-        }
-      ],
-      "spellingRule": "ش/س",
+      "answer": "تجلی",
+      "masked": "تجـی",
+      "missing": [{"start": 2, "length": 1}],
+      "spellingRule": null,
       "lesson": "setayesh",
-      "allowedLetters": [
-        "ش",
-        "س"
-      ]
+      "allowedLetters": ["ل"]
+    },
+    {
+      "id": "setayesh-11",
+      "mode": "missing-letter",
+      "answer": "تعالی",
+      "masked": "تعـی",
+      "missing": [{"start": 2, "length": 1}],
+      "spellingRule": null,
+      "lesson": "setayesh",
+      "allowedLetters": ["ا"]
     }
   ]
 }
