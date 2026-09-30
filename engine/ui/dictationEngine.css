@@ -93,6 +93,8 @@
     pointer-events: none;
     margin: 0;
     white-space: nowrap;
+    left: 0;
+    right: auto;
 }
 .dictationMissing { color: #6f86a8; letter-spacing: 3px; opacity: .9; }
 .dictationGuide { min-height: 24px; opacity: .18; font-size: 22px; }
