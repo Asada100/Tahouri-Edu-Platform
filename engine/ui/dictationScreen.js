@@ -91,11 +91,11 @@
                         <div class="dictationProgress">
                             سؤال ${Number(state.currentIndex) + 1} از ${Number(state.totalQuestions) || 0}
                         </div>
-                        ${state.questionCompleted ? `
-                            <button type="button" class="dictationNextButton" id="dictationNextButton" disabled>
+                        <div class="dictationNextSlot${state.questionCompleted ? " is-visible" : ""}" aria-live="polite">
+                            <button type="button" class="dictationNextButton" id="dictationNextButton" ${state.questionCompleted ? "" : "disabled"} ${state.questionCompleted ? "" : "aria-hidden=\"true\""}>
                                 ${Number(state.currentIndex) + 1 >= Number(state.totalQuestions) ? "پایان" : "کلمه بعدی"}
                             </button>
-                        ` : ""}
+                        </div>
                     </div>
                 </div>
             `;
