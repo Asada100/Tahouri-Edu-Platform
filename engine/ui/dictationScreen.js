@@ -167,6 +167,9 @@
 
                 // Show the target length without revealing its letters.
                 const typedCount = Array.from(actual).length;
+                // Keep typed Persian text continuous for correct shaping.
+                // Render the corrective guide as an overlay at the boundary after
+                // the typed prefix, so RTL BiDi cannot move it to the line end.
                 const remaining = answer.slice(typedCount);
                 let placeholders = "";
                 remaining.forEach(function (char) {
@@ -174,10 +177,10 @@
                 });
 
                 const guideHtml = state.showGuide && guide
-                    ? `<span class="dictationGhost">${this.escape(guide)}</span>`
+                    ? `<span class="dictationGhost dictationGuidedGhost" aria-hidden="true">${this.escape(guide)}</span>`
                     : "";
 
-                return `<span class="dictationTyped">${this.escape(actual)}</span><span class="dictationPlaceholder">${this.escape(placeholders)}</span>${guideHtml}`;
+                return `<span class="dictationGuidedWord" dir="rtl"><span class="dictationGuidedTyped">${this.escape(actual)}</span><span class="dictationGuidedPlaceholders">${this.escape(placeholders)}</span>${guideHtml}</span>`;
             }
 
             const q = state.currentQuestion || {};
