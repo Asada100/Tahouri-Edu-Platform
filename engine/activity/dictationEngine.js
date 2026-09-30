@@ -384,11 +384,8 @@
                 engine.state.transitioning = false;
                 EventManager.emit("dictationQuestionCompleted", engine.getState());
 
-                // Guided-word spelling advances automatically after a word is
-                // completed. Space is not required to separate words.
-                if (engine.getMode() === "guided-word" && engine.state.questionCompleted) {
-                    engine.nextQuestion();
-                }
+                // Guided-word stays on the completed word so the learner can
+                // see the result and use the explicit «کلمه بعدی» button.
             }, 600);
 
             return this.getState();
