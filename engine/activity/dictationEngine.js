@@ -10,10 +10,29 @@
 
     const PERSIAN_ROWS = [
         ["ض","ص","ث","ق","ف","غ","ع","ه","خ","ح","ج","چ"],
-        ["ش","س","ی","ب","ل","ا","آ","ت","ن","م","ک","گ"],
+        ["ش","س","ی","ب","ل","ا","ت","ن","م","ک","گ"],
         ["ظ","ط","ز","ر","ذ","د","ئ","و","پ","ژ"]
     ];
     const SPACE = " ";
+
+    // Characters that are reached from a base key on touch devices.
+    // Desktop users can still enter the actual character directly through
+    // the operating-system Persian keyboard (including Shift combinations).
+    const PERSIAN_VARIANTS = {
+        "ا": ["آ"],
+        "ی": ["ئ"],
+        "و": ["ؤ"],
+        "ه": ["ۀ"]
+    };
+
+    const getVariantBase = function (char) {
+        const value = String(char || "");
+        const bases = Object.keys(PERSIAN_VARIANTS);
+        for (let i = 0; i < bases.length; i += 1) {
+            if (PERSIAN_VARIANTS[bases[i]].indexOf(value) !== -1) return bases[i];
+        }
+        return null;
+    };
 
     const DictationEngine = {
         activity: null,
@@ -116,12 +135,20 @@
                             : this.state.missingSlots.map(i => Array.from(target.answer || "")[i]).filter(Boolean);
                     candidates.forEach(c => active.add(c));
                 } else {
-                    Array.from(question.answer || "").forEach(c => { if (c !== SPACE) active.add(c); });
+                    Array.from(question.answer || "").forEach(c => {
+                        if (c === SPACE) return;
+                        const base = getVariantBase(c);
+                        active.add(base || c);
+                    });
                 }
             }
             const expected = this.getExpectedChar();
+            const expectedBase = getVariantBase(expected);
             return PERSIAN_ROWS.map(row => row.map(key => ({
-                key: key, active: active.has(key), expected: key === expected
+                key: key,
+                active: active.has(key),
+                expected: key === expected || key === expectedBase,
+                variants: PERSIAN_VARIANTS[key] || []
             })));
         },
 
