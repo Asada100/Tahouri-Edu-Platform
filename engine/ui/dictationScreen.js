@@ -110,12 +110,32 @@
             const typed = word && word.querySelector(".dictationGuidedTyped");
             if (!word || !guide || !typed) return;
 
+            /*
+             * Do not use the typed element's bounding box directly.
+             * In RTL/BiDi, that box can represent the whole inline run rather
+             * than the visual boundary after the last entered character.
+             *
+             * Range.getBoundingClientRect() gives us the actual visual edge of
+             * the rendered text. The guide is then positioned relative to the
+             * guided-word wrapper, completely outside the BiDi text flow.
+             */
             const wordRect = word.getBoundingClientRect();
-            const typedRect = typed.getBoundingClientRect();
             const guideRect = guide.getBoundingClientRect();
-            const anchorX = typed.textContent ? typedRect.left : wordRect.right;
-            const right = wordRect.right - anchorX - (guideRect.width / 2);
-            guide.style.right = Math.max(0, right) + "px";
+            let anchorX = wordRect.right;
+
+            if (typed.textContent) {
+                const range = document.createRange();
+                range.selectNodeContents(typed);
+                const rangeRect = range.getBoundingClientRect();
+                if (rangeRect && Number.isFinite(rangeRect.left)) {
+                    anchorX = rangeRect.left;
+                }
+                range.detach();
+            }
+
+            const left = anchorX - wordRect.left - (guideRect.width / 2);
+            guide.style.left = left + "px";
+            guide.style.right = "auto";
             guide.style.top = "50%";
             guide.style.transform = "translateY(-50%)";
         },
@@ -493,4 +513,4 @@
     DictationScreen.init();
 })(window);
 
-console.log("Dictation Screen v2.4 Ready");
+console.log("Dictation Screen v2.5 Ready");
