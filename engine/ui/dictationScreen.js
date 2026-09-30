@@ -218,13 +218,15 @@
                     .map(function (value) { return value.trim(); })
                     .filter(Boolean);
 
-                button.onclick = function () {
+                button.addEventListener("click", function (event) {
                     if (holdTriggered) {
                         holdTriggered = false;
+                        event.preventDefault();
                         return;
                     }
-                    self.handleInput(this.dataset.key || "");
-                };
+                    event.preventDefault();
+                    self.handleInput(button.dataset.key || "");
+                });
 
                 // On touch devices, long-press a base key to reveal its
                 // Persian character variants (ا→آ, ی→ئ, و→ؤ, ...).
