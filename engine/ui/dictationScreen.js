@@ -80,7 +80,7 @@
                         <div class="dictationKeyboard" id="dictationKeyboard">
                             ${rows.map(row => `<div class="dictationKeyboardRow">${row.map(key => {
                                 const cls = ["dictationKey", key.active ? "is-active" : "is-disabled", key.expected ? "is-expected" : ""].filter(Boolean).join(" ");
-                                return `<button type="button" class="${cls}" data-key="${this.escape(key.key)}" ${key.active ? "" : "disabled"}>${this.escape(key.key)}</button>`;
+                                return `<button type="button" class="${cls}" data-key="${this.escape(key.key)}" data-variants="${this.escape((key.variants || []).join("|"))}" ${key.active ? "" : "disabled"}>${this.escape(key.key)}</button>`;
                             }).join("")}</div>`).join("")}
                             <div class="dictationUtilityRow">
                                 <button type="button" class="dictationUtility dictationSpace" id="dictationSpace" aria-label="کلید فاصله"></button>
@@ -210,9 +210,47 @@
             const self = this;
 
             document.querySelectorAll(".dictationKey.is-active").forEach(function (button) {
+                let holdTimer = null;
+                let holdTriggered = false;
+
+                const variants = String(button.dataset.variants || "")
+                    .split("|")
+                    .map(function (value) { return value.trim(); })
+                    .filter(Boolean);
+
                 button.onclick = function () {
+                    if (holdTriggered) {
+                        holdTriggered = false;
+                        return;
+                    }
                     self.handleInput(this.dataset.key || "");
                 };
+
+                // On touch devices, long-press a base key to reveal its
+                // Persian character variants (ا→آ, ی→ئ, و→ؤ, ...).
+                if (variants.length) {
+                    button.addEventListener("pointerdown", function () {
+                        holdTriggered = false;
+                        holdTimer = setTimeout(function () {
+                            holdTimer = null;
+                            holdTriggered = true;
+                            self.showKeyVariants(button, variants);
+                        }, 450);
+                    });
+
+                    const cancelHold = function () {
+                        if (holdTimer) {
+                            clearTimeout(holdTimer);
+                            holdTimer = null;
+                        }
+                    };
+                    button.addEventListener("pointerup", cancelHold);
+                    button.addEventListener("pointercancel", cancelHold);
+                    button.addEventListener("pointerleave", cancelHold);
+                    button.addEventListener("contextmenu", function (event) {
+                        event.preventDefault();
+                    });
+                }
             });
 
             const space = document.getElementById("dictationSpace");
@@ -298,6 +336,53 @@
 
                 if (event.key && event.key.length === 1) self.handleInput(event.key);
             };
+        },
+
+        showKeyVariants: function (button, variants) {
+            const self = this;
+            const old = document.getElementById("dictationVariantPopup");
+            if (old) old.remove();
+
+            const popup = document.createElement("div");
+            popup.id = "dictationVariantPopup";
+            popup.className = "dictationVariantPopup";
+            popup.setAttribute("role", "menu");
+
+            const base = button.dataset.key || "";
+            [base].concat(variants).forEach(function (char, index) {
+                const option = document.createElement("button");
+                option.type = "button";
+                option.className = "dictationVariantOption" + (index === 0 ? " is-base" : "");
+                option.textContent = char;
+                option.setAttribute("role", "menuitem");
+                option.addEventListener("pointerdown", function (event) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    popup.remove();
+                    self.handleInput(char);
+                });
+                popup.appendChild(option);
+            });
+
+            document.body.appendChild(popup);
+            const rect = button.getBoundingClientRect();
+            const popupRect = popup.getBoundingClientRect();
+            let left = rect.left + (rect.width / 2) - (popupRect.width / 2);
+            let top = rect.top - popupRect.height - 8;
+            left = Math.max(6, Math.min(left, window.innerWidth - popupRect.width - 6));
+            if (top < 6) top = rect.bottom + 8;
+            popup.style.left = left + "px";
+            popup.style.top = top + "px";
+
+            const close = function (event) {
+                if (!popup.contains(event.target) && event.target !== button) {
+                    popup.remove();
+                    document.removeEventListener("pointerdown", close, true);
+                }
+            };
+            setTimeout(function () {
+                document.addEventListener("pointerdown", close, true);
+            }, 0);
         },
 
         getRuleGuide: function (question, mode) {
