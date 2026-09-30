@@ -63,6 +63,13 @@
 
 .dictationAnswer.is-wrong { animation: dictationWrong .18s ease; }
 .dictationAnswer.is-complete { color: #2f8f57; border-bottom-color: #8bc9a5; }
+.dictationPlaceholder {
+    display: inline-block;
+    margin-inline-start: 4px;
+    opacity: .34;
+    letter-spacing: 6px;
+    white-space: pre;
+}
 .dictationTyped { color: inherit; }
 .dictationGhost { opacity: .24; margin-inline-start: 2px; }
 .dictationMissing { color: #6f86a8; letter-spacing: 3px; opacity: .9; }
