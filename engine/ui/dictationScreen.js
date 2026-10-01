@@ -476,16 +476,17 @@
             if (result.complete || result.completed) {
                 const state = window.DictationEngine.getState();
                 this.render(state);
-                this.showFeedback("درست است؛ آفرین! 🌟", "correct");
 
-                // Guided-word stays here until the learner presses «کلمه بعدی».
-                // Spaces inside the answer are still consumed automatically by
-                // the engine; this only controls the transition between words.
+                // Keep the motivational feedback visible until the learner
+                // explicitly presses «کلمه بعدی». The next-question render
+                // replaces the whole screen and therefore clears this message.
+                this.showFeedback(this.getRandomCorrectFeedback(), "correct");
                 return;
             }
 
-            this.render(window.DictationEngine.getState());
-            this.showFeedback("درست است؛ آفرین! 🌟", "correct");
+            // A correct intermediate character does not replace the current
+            // question with a transient message. The motivational message is
+            // reserved for completing the whole answer.
         },
 
         flash: function (type) {
@@ -494,6 +495,22 @@
             answer.classList.remove("is-wrong");
             void answer.offsetWidth;
             if (type === "wrong") answer.classList.add("is-wrong");
+        },
+
+        getRandomCorrectFeedback: function () {
+            const messages = [
+                "درست است؛ آفرین! 🌟",
+                "عالی بود! 👏",
+                "آفرین! خیلی خوب دقت کردی. ⭐",
+                "درست نوشتی؛ ادامه بده! 🌱",
+                "چه خوب! یک قدم دیگر جلو رفتی. 🚀",
+                "آفرین به دقتت! 👌",
+                "کارت عالی بود! 🌟",
+                "درست و دقیق! آفرین 👏",
+                "خیلی خوب! همین‌طور ادامه بده. 💪",
+                "آفرین! با دقت جواب دادی. ✨"
+            ];
+            return messages[Math.floor(Math.random() * messages.length)];
         },
 
         showFeedback: function (message, type) {
@@ -516,4 +533,4 @@
     DictationScreen.init();
 })(window);
 
-console.log("Dictation Screen v2.5 Ready");
+console.log("Dictation Screen v2.6 Ready");
