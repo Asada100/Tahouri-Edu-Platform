@@ -125,7 +125,7 @@
     color: #a5acb8;
     font: inherit;
     font-size: 22px;
-    cursor: not-allowed;
+    cursor: pointer;
     box-sizing: border-box;
     transition: transform .12s ease, background .12s ease, border-color .12s ease, opacity .12s ease;
 }
@@ -135,7 +135,15 @@
     color: #172033;
     border-color: #b9c6d8;
     cursor: pointer;
+    opacity: 1;
+    pointer-events: auto;
     box-shadow: 0 2px 7px rgba(15,23,42,.07);
+}
+
+.dictationKey.is-disabled {
+    opacity: .35;
+    cursor: not-allowed;
+    pointer-events: none;
 }
 
 .dictationKey.is-expected {
@@ -144,8 +152,11 @@
 
 .dictationKey:active,
 .dictationUtility:active { transform: scale(.96); }
-.dictationKey:disabled { opacity: .48; }
 
+.dictationKey:disabled {
+    opacity: .35;
+    cursor: not-allowed;
+}
 .dictationUtilityRow {
     display: flex;
     justify-content: center;
