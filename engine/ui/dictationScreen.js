@@ -478,10 +478,21 @@
                 const state = window.DictationEngine.getState();
                 this.render(state);
 
-                // Keep the motivational feedback visible until the learner
-                // explicitly presses «کلمه بعدی». The next-question render
-                // replaces the whole screen and therefore clears this message.
                 this.showFeedback(this.getRandomCorrectFeedback(), "correct");
+
+                // Full dictation is a continuous listening-and-writing flow:
+                // after a correct word, move automatically to the next word.
+                // Keep a short confirmation window so the learner can see the
+                // success feedback before the next word replaces the screen.
+                if (window.DictationEngine.getMode() === "dictation") {
+                    const questionIndex = state.currentIndex;
+                    window.setTimeout(function () {
+                        const engine = window.DictationEngine;
+                        if (!engine || !engine.state || engine.state.isFinished) return;
+                        if (!engine.state.questionCompleted || engine.state.currentIndex !== questionIndex) return;
+                        engine.nextQuestion();
+                    }, 650);
+                }
                 return;
             }
 
