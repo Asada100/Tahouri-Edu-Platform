@@ -147,7 +147,7 @@
         renderAudio: function (question) {
             if (!window.DictationAudioProvider || typeof window.DictationAudioProvider.getForQuestion !== "function") return "";
             const media = window.DictationAudioProvider.getForQuestion(question);
-            if (!media || !media.src) return "";
+            if (!media || (!media.src && !media.speech)) return "";
             return `<button type="button" class="dictationAudioButton" id="dictationAudioButton" aria-label="پخش صدای کلمه">🔊 پخش واژه</button>`;
         },
 
@@ -539,4 +539,4 @@
     DictationScreen.init();
 })(window);
 
-console.log("Dictation Screen v2.7 Ready");
+console.log("Dictation Screen v2.8 Ready");
