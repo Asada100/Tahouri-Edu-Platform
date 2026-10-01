@@ -184,11 +184,12 @@
                 const actual = state.displayText || "";
                 const typedCount = Array.from(actual).length;
                 const remaining = answer.slice(typedCount);
+                const wrongChar = state.currentWrongChar || "";
                 let placeholders = "";
                 remaining.forEach(function (char) { placeholders += /\s/.test(char) ? "  " : "ـ "; });
                 // Guided-word never reveals the target letter as a faint preview.
                 // The learner's only clue is the spoken word.
-                return `<span class="dictationGuidedWord" dir="rtl"><span class="dictationGuidedTyped">${this.escape(actual)}</span><span class="dictationGuidedPlaceholders">${this.escape(placeholders)}</span></span>`;
+                return `<span class="dictationGuidedWord" dir="rtl"><span class="dictationGuidedTyped">${this.escape(actual)}</span>${wrongChar ? `<span class="dictationGuidedWrong">${this.escape(wrongChar)}</span>` : ""}<span class="dictationGuidedPlaceholders">${this.escape(placeholders)}</span></span>`;
             }
             const q = state.currentQuestion || {};
             const missingSlots = Array.isArray(state.missingSlots) ? state.missingSlots : [];
