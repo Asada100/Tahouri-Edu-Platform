@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Dictation Engine
-// Version 2.0
+// Version 2.1
 // Guided Word + Missing Letter + Context + Dictation
 // =====================================
 
@@ -342,21 +342,27 @@
                 this.state.currentSlotIndex -= 1;
                 return true;
             }
-            if (this.state.currentCharIndex <= 0) return false;
-            this.state.currentCharIndex -= 1;
             if (mode === "dictation") {
                 const chars = Array.from(this.state.currentInput || "");
                 if (!chars.length) return false;
                 chars.pop();
                 this.state.currentInput = chars.join("");
 
+                // After a wrong character, only remove that visible wrong
+                // character and unlock the keyboard. The target index has not
+                // advanced, so it must stay unchanged.
                 if (this.state.inputBlockedAfterWrong) {
                     this.state.inputBlockedAfterWrong = false;
-                } else if (this.state.currentCharIndex > 0) {
-                    this.state.currentCharIndex -= 1;
+                    return true;
                 }
+
+                if (this.state.currentCharIndex <= 0) return false;
+                this.state.currentCharIndex -= 1;
                 return true;
             }
+
+            if (this.state.currentCharIndex <= 0) return false;
+            this.state.currentCharIndex -= 1;
             return true;
         },
 
