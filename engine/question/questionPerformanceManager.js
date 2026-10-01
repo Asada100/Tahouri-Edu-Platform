@@ -29,7 +29,8 @@ const QuestionPerformanceManager = {
             "persianSpellingWords",
             "persianSpellingGuided",
             "persianSpellingContext",
-            "persianSpellingGenerated"
+            "persianSpellingGenerated",
+            "persianSetayeshSpelling"
         ].indexOf(id) !== -1;
     },
 
