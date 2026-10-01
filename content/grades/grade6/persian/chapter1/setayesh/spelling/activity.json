@@ -123,8 +123,8 @@
       "id": "setayesh-12",
       "mode": "missing-letter",
       "answer": "دیده",
-      "masked": "دیـه",
-      "missing": [{"start": 2, "length": 1}],
+      "masked": "دیدـ",
+      "missing": [{"start": 3, "length": 1}],
       "spellingRule": "ه/ح",
       "lesson": "setayesh",
       "allowedLetters": ["ه", "ح"]
