@@ -466,27 +466,26 @@
 
             if (!result.correct) {
                 this.flash("wrong");
-                this.showFeedback("اشتباه است؛ دوباره تلاش کن.", "wrong");
-                // The engine enables the guide only for this wrong position.
-                // Re-render immediately so the single corrective character is
-                // visible without waiting for another input.
+                // Render first, then show feedback. render() replaces #app,
+                // so any feedback written before it would be immediately lost.
                 this.render(window.DictationEngine.getState());
+                this.showFeedback("اشتباه است؛ دوباره تلاش کن.", "wrong");
                 return;
             }
-
-            this.showFeedback("", "");
 
             if (result.complete || result.completed) {
                 const state = window.DictationEngine.getState();
                 this.render(state);
+                this.showFeedback("درست است؛ آفرین! 🌟", "correct");
 
                 // Guided-word stays here until the learner presses «کلمه بعدی».
                 // Spaces inside the answer are still consumed automatically by
                 // the engine; this only controls the transition between words.
                 return;
             }
-            if ((window.DictationEngine.getState() || {}).isFinished) return;
+
             this.render(window.DictationEngine.getState());
+            this.showFeedback("درست است؛ آفرین! 🌟", "correct");
         },
 
         flash: function (type) {
