@@ -235,7 +235,7 @@
   },
   {
     "id": "persianSpellingWords",
-    "title": "املای کلمه",
+    "title": "املای شنیداری",
     "grade": "grade6",
     "subject": "persian",
     "chapter": "chapter1",
@@ -244,7 +244,7 @@
     "locked": false,
     "requires": null,
     "lesson": "spelling",
-    "path": "content/grades/grade6/persian/chapter1/spelling"
+    "path": "content/grades/grade6/persian/chapter1/spellingComplete"
   },
   {
     "id": "persianSpellingGuided",
