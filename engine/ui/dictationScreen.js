@@ -86,7 +86,8 @@
                                 const keyIsActive = isDictation && !state.questionCompleted ? true : !!key.active;
                                 const cls = ["dictationKey", keyIsActive ? "is-active" : "is-disabled", key.expected ? "is-expected" : ""].filter(Boolean).join(" ");
                                 const disabledAttr = keyIsActive ? "" : "disabled";
-                                return `<button type="button" class="${cls}" data-key="${this.escape(key.key)}" data-variants="${this.escape((key.variants || []).join("|"))}" ${disabledAttr}>${this.escape(key.key)}</button>`;
+                                const activeStyle = keyIsActive ? ' style="opacity:1!important;pointer-events:auto!important;cursor:pointer!important;filter:none!important;"' : "";
+                                return `<button type="button" class="${cls}" data-key="${this.escape(key.key)}" data-variants="${this.escape((key.variants || []).join("|"))}" ${disabledAttr}${activeStyle}>${this.escape(key.key)}</button>`;
                             }).join("")}</div>`).join("")}
                             <div class="dictationUtilityRow">
                                 <button type="button" class="dictationUtility dictationSpace" id="dictationSpace" aria-label="کلید فاصله"></button>
