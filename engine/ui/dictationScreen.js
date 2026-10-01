@@ -9,6 +9,7 @@
 
     const DictationScreen = {
         lastPointerDownAt: null,
+        lastCorrectFeedbackIndex: -1,
 
         init: function () {
             // Keep the timestamp of the most recent real pointerdown globally.
@@ -40,10 +41,10 @@
                 DictationScreen.render(state);
             });
 
-            EventManager.on("dictationQuestionCompleted", function (state) {
-                if (!state) return;
-                DictationScreen.render(state);
-            });
+            // Completion is rendered by handleInput() itself so the
+            // motivational feedback remains visible until «کلمه بعدی».
+            // The engine also emits dictationQuestionCompleted after 600ms;
+            // rendering again here would erase that feedback.
         },
 
         render: function (state) {
@@ -510,7 +511,12 @@
                 "خیلی خوب! همین‌طور ادامه بده. 💪",
                 "آفرین! با دقت جواب دادی. ✨"
             ];
-            return messages[Math.floor(Math.random() * messages.length)];
+            let index = Math.floor(Math.random() * messages.length);
+            if (messages.length > 1 && index === this.lastCorrectFeedbackIndex) {
+                index = (index + 1 + Math.floor(Math.random() * (messages.length - 1))) % messages.length;
+            }
+            this.lastCorrectFeedbackIndex = index;
+            return messages[index];
         },
 
         showFeedback: function (message, type) {
@@ -533,4 +539,4 @@
     DictationScreen.init();
 })(window);
 
-console.log("Dictation Screen v2.6 Ready");
+console.log("Dictation Screen v2.7 Ready");
