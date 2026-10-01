@@ -224,7 +224,20 @@
             // Bind every rendered letter key. In full dictation all letter keys
             // are intentionally enabled; selecting only .is-active made the
             // handler depend on a visual state instead of the actual keyboard.
+            const isDictationMode = window.DictationEngine
+                && typeof window.DictationEngine.getMode === "function"
+                && window.DictationEngine.getMode() === "dictation";
+
             document.querySelectorAll(".dictationKey").forEach(function (button) {
+                // In full dictation every Persian letter is intentionally clickable.
+                // Force the DOM state here as the final UI authority.
+                if (isDictationMode) {
+                    button.disabled = false;
+                    button.removeAttribute("disabled");
+                    button.classList.add("is-active");
+                    button.classList.remove("is-disabled");
+                }
+
                 let holdTimer = null;
                 let holdTriggered = false;
                 const variants = String(button.dataset.variants || "")
