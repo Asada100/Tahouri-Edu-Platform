@@ -2,7 +2,7 @@
   "mode": "dictation",
   "instruction": "واژه را با دقت بشنو و آن را کامل بنویس.",
   "settings": {
-    "keyboardMode": "guided",
+    "keyboardMode": "full",
     "allowRetry": true,
     "scorePerCorrect": 10,
     "questionCount": 10,
