@@ -83,8 +83,9 @@
 
                         <div class="dictationKeyboard" id="dictationKeyboard">
                             ${rows.map(row => `<div class="dictationKeyboardRow">${row.map(key => {
-                                const cls = ["dictationKey", key.active ? "is-active" : "is-disabled", key.expected ? "is-expected" : ""].filter(Boolean).join(" ");
-                                const disabledAttr = isDictation ? "" : (key.active ? "" : "disabled");
+                                const keyIsActive = isDictation && !state.questionCompleted ? true : !!key.active;
+                                const cls = ["dictationKey", keyIsActive ? "is-active" : "is-disabled", key.expected ? "is-expected" : ""].filter(Boolean).join(" ");
+                                const disabledAttr = keyIsActive ? "" : "disabled";
                                 return `<button type="button" class="${cls}" data-key="${this.escape(key.key)}" data-variants="${this.escape((key.variants || []).join("|"))}" ${disabledAttr}>${this.escape(key.key)}</button>`;
                             }).join("")}</div>`).join("")}
                             <div class="dictationUtilityRow">
