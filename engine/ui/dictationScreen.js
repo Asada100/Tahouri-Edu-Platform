@@ -182,13 +182,13 @@
                 const q = state.currentQuestion || {};
                 const answer = Array.from(q.answer || "");
                 const actual = state.displayText || "";
-                const guide = state.guideChar || "";
                 const typedCount = Array.from(actual).length;
                 const remaining = answer.slice(typedCount);
                 let placeholders = "";
                 remaining.forEach(function (char) { placeholders += /\s/.test(char) ? "  " : "ـ "; });
-                // Guided-word must never reveal the target letter as a faint preview.\n                // The only clue is the spoken word from the audio button.\n                const guideHtml = "";
-                return `<span class="dictationGuidedWord" dir="rtl"><span class="dictationGuidedTyped">${this.escape(actual)}</span><span class="dictationGuidedPlaceholders">${this.escape(placeholders)}</span>${guideHtml}</span>`;
+                // Guided-word never reveals the target letter as a faint preview.
+                // The learner's only clue is the spoken word.
+                return `<span class="dictationGuidedWord" dir="rtl"><span class="dictationGuidedTyped">${this.escape(actual)}</span><span class="dictationGuidedPlaceholders">${this.escape(placeholders)}</span></span>`;
             }
             const q = state.currentQuestion || {};
             const missingSlots = Array.isArray(state.missingSlots) ? state.missingSlots : [];
