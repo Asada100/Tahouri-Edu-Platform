@@ -27,10 +27,6 @@
             if (typeof EventManager === "undefined") return;
             EventManager.on("activityReady", function (payload) {
                 if (!payload || payload.engineName !== "dictation") return;
-                // Render after the current click event has fully finished.
-                // Starting an activity can replace #app while the activity-selection
-                // click is still being dispatched; rendering synchronously can retarget
-                // that same trusted click to the newly-created Next button.
                 setTimeout(function () {
                     DictationScreen.render(payload.result);
                 }, 0);
@@ -40,11 +36,6 @@
                 if (!state) return;
                 DictationScreen.render(state);
             });
-
-            // Completion is rendered by handleInput() itself so the
-            // motivational feedback remains visible until «کلمه بعدی».
-            // The engine also emits dictationQuestionCompleted after 600ms;
-            // rendering again here would erase that feedback.
         },
 
         render: function (state) {
@@ -110,40 +101,21 @@
             this.positionGuidedGuide();
         },
 
-
         positionGuidedGuide: function () {
             const word = document.querySelector(".dictationGuidedWord");
             const guide = word && word.querySelector(".dictationGuidedGhost");
             const typed = word && word.querySelector(".dictationGuidedTyped");
             if (!word || !guide || !typed) return;
-
-            /*
-             * Do not use the typed element's bounding box directly.
-             * In RTL/BiDi, that box can represent the whole inline run rather
-             * than the visual boundary after the last entered character.
-             *
-             * Range.getBoundingClientRect() gives us the actual visual edge of
-             * the rendered text. The guide is then positioned relative to the
-             * guided-word wrapper, completely outside the BiDi text flow.
-             */
             const wordRect = word.getBoundingClientRect();
             const guideRect = guide.getBoundingClientRect();
             let anchorX = wordRect.right;
-
             if (typed.textContent) {
                 const range = document.createRange();
                 range.selectNodeContents(typed);
                 const rangeRect = range.getBoundingClientRect();
-                if (rangeRect && Number.isFinite(rangeRect.left)) {
-                    anchorX = rangeRect.left;
-                }
+                if (rangeRect && Number.isFinite(rangeRect.left)) anchorX = rangeRect.left;
                 range.detach();
             }
-
-            // In RTL the next guide character belongs immediately to the
-            // left of the entered text. Its RIGHT edge must therefore meet
-            // the visual left boundary of the typed run; centering it causes
-            // the guide glyph to overlap the last entered character.
             const left = anchorX - wordRect.left - guideRect.width;
             guide.style.left = left + "px";
             guide.style.right = "auto";
@@ -161,9 +133,7 @@
             const media = window.SpellingMediaProvider && typeof window.SpellingMediaProvider.getForQuestion === "function"
                 ? window.SpellingMediaProvider.getForQuestion(question)
                 : question && question.media;
-
             if (!media || media.type !== "image" || !media.src) return "";
-
             return `
                 <figure class="dictationMedia">
                     <img src="${this.escape(media.src)}" alt="${this.escape(media.alt || "تصویر آموزشی")}" loading="lazy">
@@ -179,23 +149,17 @@
             if (!template) return "";
             const currentIndex = Number(state.currentTargetIndex) || 0;
             const slots = new Set((state.missingSlots || []).slice(Number(state.currentSlotIndex) || 0));
-
             return this.escape(template).replace(/\{\{(\d+)\}\}/g, function (match, rawIndex) {
                 const index = Number(rawIndex);
                 const target = targets[index];
                 if (!target) return match;
                 const answer = String(target.answer || "");
                 const chars = Array.from(answer);
-
-                if (index < currentIndex) {
-                    return '<span class="dictationContextTarget is-complete">' + DictationScreen.escape(answer) + '</span>';
-                }
-
+                if (index < currentIndex) return '<span class="dictationContextTarget is-complete">' + DictationScreen.escape(answer) + '</span>';
                 if (index > currentIndex) {
                     const future = DictationScreen.buildMaskedWord(target);
                     return '<span class="dictationContextTarget is-pending">' + DictationScreen.escape(future) + '</span>';
                 }
-
                 const visible = chars.map(function (char, charIndex) {
                     return slots.has(charIndex) ? "ـ...ـ" : char;
                 }).join("");
@@ -204,55 +168,32 @@
         },
 
         renderAnswer: function (state, isGuided, isDictation) {
-            if (isDictation) {
-                return `<span class="dictationTyped">${this.escape(state.currentInput || "")}</span>`;
-            }
+            if (isDictation) return `<span class="dictationTyped">${this.escape(state.currentInput || "")}</span>`;
             if (isGuided) {
                 const q = state.currentQuestion || {};
                 const answer = Array.from(q.answer || "");
                 const actual = state.displayText || "";
                 const guide = state.guideChar || "";
-
-                // Show the target length without revealing its letters.
                 const typedCount = Array.from(actual).length;
-                // Keep typed Persian text continuous for correct shaping.
-                // Render the corrective guide as an overlay at the boundary after
-                // the typed prefix, so RTL BiDi cannot move it to the line end.
                 const remaining = answer.slice(typedCount);
                 let placeholders = "";
-                remaining.forEach(function (char) {
-                    placeholders += /\\s/.test(char) ? "  " : "ـ ";
-                });
-
-                const guideHtml = state.showGuide && guide
-                    ? `<span class="dictationGhost dictationGuidedGhost" aria-hidden="true">${this.escape(guide)}</span>`
-                    : "";
-
+                remaining.forEach(function (char) { placeholders += /\s/.test(char) ? "  " : "ـ "; });
+                const guideHtml = state.showGuide && guide ? `<span class="dictationGhost dictationGuidedGhost" aria-hidden="true">${this.escape(guide)}</span>` : "";
                 return `<span class="dictationGuidedWord" dir="rtl"><span class="dictationGuidedTyped">${this.escape(actual)}</span><span class="dictationGuidedPlaceholders">${this.escape(placeholders)}</span>${guideHtml}</span>`;
             }
-
             const q = state.currentQuestion || {};
             const missingSlots = Array.isArray(state.missingSlots) ? state.missingSlots : [];
             const currentSlot = Math.max(0, Number(state.currentSlotIndex) || 0);
             const answerChars = Array.from(q.answer || "");
             const pendingSlots = new Set(missingSlots.slice(currentSlot));
-
-            if (!missingSlots.length || currentSlot >= missingSlots.length) {
-                return DictationScreen.escape(q.answer || "");
-            }
-
+            if (!missingSlots.length || currentSlot >= missingSlots.length) return DictationScreen.escape(q.answer || "");
             let rendered = "";
             let chunk = "";
             answerChars.forEach(function (char, index) {
                 if (pendingSlots.has(index)) {
-                    if (chunk) {
-                        rendered += chunk;
-                        chunk = "";
-                    }
+                    if (chunk) { rendered += chunk; chunk = ""; }
                     rendered += "ـ...ـ";
-                } else {
-                    chunk += char;
-                }
+                } else chunk += char;
             });
             if (chunk) rendered += chunk;
             return DictationScreen.escape(rendered);
@@ -267,24 +208,25 @@
                 const length = Math.max(1, Number(slot.length) || 1);
                 for (let i = 0; i < length; i += 1) slots.add(start + i);
             });
-            return Array.from(answer).map(function (char, index) {
-                return slots.has(index) ? "ـ...ـ" : char;
-            }).join("");
+            return Array.from(answer).map(function (char, index) { return slots.has(index) ? "ـ...ـ" : char; }).join("");
         },
 
         bind: function () {
             const self = this;
 
-            document.querySelectorAll(".dictationKey.is-active").forEach(function (button) {
+            // Bind every rendered letter key. In full dictation all letter keys
+            // are intentionally enabled; selecting only .is-active made the
+            // handler depend on a visual state instead of the actual keyboard.
+            document.querySelectorAll(".dictationKey").forEach(function (button) {
                 let holdTimer = null;
                 let holdTriggered = false;
-
                 const variants = String(button.dataset.variants || "")
                     .split("|")
                     .map(function (value) { return value.trim(); })
                     .filter(Boolean);
 
                 button.addEventListener("click", function (event) {
+                    if (button.disabled) return;
                     if (holdTriggered) {
                         holdTriggered = false;
                         event.preventDefault();
@@ -294,8 +236,6 @@
                     self.handleInput(button.dataset.key || "");
                 });
 
-                // On touch devices, long-press a base key to reveal its
-                // Persian character variants (ا→آ, ی→ئ, و→ؤ, ...).
                 if (variants.length) {
                     button.addEventListener("pointerdown", function () {
                         holdTriggered = false;
@@ -305,73 +245,43 @@
                             self.showKeyVariants(button, variants);
                         }, 450);
                     });
-
                     const cancelHold = function () {
-                        if (holdTimer) {
-                            clearTimeout(holdTimer);
-                            holdTimer = null;
-                        }
+                        if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
                     };
                     button.addEventListener("pointerup", cancelHold);
                     button.addEventListener("pointercancel", cancelHold);
                     button.addEventListener("pointerleave", cancelHold);
-                    button.addEventListener("contextmenu", function (event) {
-                        event.preventDefault();
-                    });
+                    button.addEventListener("contextmenu", function (event) { event.preventDefault(); });
                 }
             });
 
             const space = document.getElementById("dictationSpace");
             if (space) space.onclick = function () { self.handleInput(" "); };
-
             const nextButton = document.getElementById("dictationNextButton");
             if (nextButton) {
-                // Keep the Next button disabled briefly after render so the
-                // activity-selection click cannot retarget to this new button.
                 const interactionDelay = 700;
-                const createdAt = typeof performance !== "undefined" && typeof performance.now === "function"
-                    ? performance.now()
-                    : Date.now();
+                const createdAt = typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
                 let armed = false;
-
                 nextButton.addEventListener("pointerdown", function () {
-                    const now = typeof performance !== "undefined" && typeof performance.now === "function"
-                        ? performance.now()
-                        : Date.now();
+                    const now = typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
                     const lastPointerDown = DictationScreen.lastPointerDownAt;
-
-                    // Reject the original activity-selection pointer sequence if it
-                    // began before this Next button existed.
-                    if (lastPointerDown != null && lastPointerDown <= createdAt) {
-                        return;
-                    }
-
-                    if (now - createdAt >= interactionDelay) {
-                        armed = true;
-                    }
+                    if (lastPointerDown != null && lastPointerDown <= createdAt) return;
+                    if (now - createdAt >= interactionDelay) armed = true;
                 });
-
                 nextButton.addEventListener("keydown", function (event) {
-                    if (event.key === "Enter" || event.key === " ") {
-                        armed = true;
-                    }
+                    if (event.key === "Enter" || event.key === " ") armed = true;
                 });
-
                 setTimeout(function () {
                     if (!document.body.contains(nextButton)) return;
                     nextButton.disabled = false;
                 }, interactionDelay);
-
                 nextButton.onclick = function (event) {
                     if (nextButton.disabled || !armed) return;
                     armed = false;
                     if (event && event.isTrusted === false) return;
-                    if (window.DictationEngine && typeof window.DictationEngine.nextQuestion === "function") {
-                        window.DictationEngine.nextQuestion();
-                    }
+                    if (window.DictationEngine && typeof window.DictationEngine.nextQuestion === "function") window.DictationEngine.nextQuestion();
                 };
             }
-
             const audioButton = document.getElementById("dictationAudioButton");
             if (audioButton) audioButton.onclick = function () {
                 if (!window.DictationAudioProvider) return;
@@ -379,29 +289,24 @@
                     self.showFeedback("پخش صدا ممکن نشد؛ دوباره تلاش کن.", "wrong");
                 });
             };
-
             const backspace = document.getElementById("dictationBackspace");
             if (backspace) backspace.onclick = function () {
                 const changed = window.DictationEngine.backspace();
                 if (changed) self.render(window.DictationEngine.getState());
             };
-
             document.onkeydown = function (event) {
                 if (!window.DictationEngine || !window.DictationEngine.state || window.DictationEngine.state.isFinished) return;
-
                 if (event.key === "Backspace") {
                     event.preventDefault();
                     const changed = window.DictationEngine.backspace();
                     if (changed) self.render(window.DictationEngine.getState());
                     return;
                 }
-
                 if (event.key === " ") {
                     event.preventDefault();
                     self.handleInput(" ");
                     return;
                 }
-
                 if (event.key && event.key.length === 1) self.handleInput(event.key);
             };
         },
@@ -410,12 +315,10 @@
             const self = this;
             const old = document.getElementById("dictationVariantPopup");
             if (old) old.remove();
-
             const popup = document.createElement("div");
             popup.id = "dictationVariantPopup";
             popup.className = "dictationVariantPopup";
             popup.setAttribute("role", "menu");
-
             const base = button.dataset.key || "";
             [base].concat(variants).forEach(function (char, index) {
                 const option = document.createElement("button");
@@ -431,7 +334,6 @@
                 });
                 popup.appendChild(option);
             });
-
             document.body.appendChild(popup);
             const rect = button.getBoundingClientRect();
             const popupRect = popup.getBoundingClientRect();
@@ -441,22 +343,17 @@
             if (top < 6) top = rect.bottom + 8;
             popup.style.left = left + "px";
             popup.style.top = top + "px";
-
             const close = function (event) {
                 if (!popup.contains(event.target) && event.target !== button) {
                     popup.remove();
                     document.removeEventListener("pointerdown", close, true);
                 }
             };
-            setTimeout(function () {
-                document.addEventListener("pointerdown", close, true);
-            }, 0);
+            setTimeout(function () { document.addEventListener("pointerdown", close, true); }, 0);
         },
 
         getRuleGuide: function (question, mode) {
-            if (mode === "guided-word") {
-                return { title: "کلمه را کامل و با دقت بنویس.", guide: "حرف‌ها را به ترتیب انتخاب کن." };
-            }
+            if (mode === "guided-word") return { title: "کلمه را کامل و با دقت بنویس.", guide: "حرف‌ها را به ترتیب انتخاب کن." };
             const rule = question && question.spellingRule ? question.spellingRule : "";
             const guides = {
                 h: { title: "کدام حرف درست است؟ «ه» یا «ح»", guide: "حرف درست را برای جای خالی انتخاب کن." },
@@ -470,26 +367,16 @@
         handleInput: function (char) {
             const result = window.DictationEngine.inputChar(char);
             if (!result) return;
-
             if (!result.correct) {
                 this.flash("wrong");
-                // Render first, then show feedback. render() replaces #app,
-                // so any feedback written before it would be immediately lost.
                 this.render(window.DictationEngine.getState());
                 this.showFeedback("اشتباه است؛ دوباره تلاش کن.", "wrong");
                 return;
             }
-
             if (result.complete || result.completed) {
                 const state = window.DictationEngine.getState();
                 this.render(state);
-
                 this.showFeedback(this.getRandomCorrectFeedback(), "correct");
-
-                // Full dictation is a continuous listening-and-writing flow:
-                // after a correct word, move automatically to the next word.
-                // Keep a short confirmation window so the learner can see the
-                // success feedback before the next word replaces the screen.
                 if (window.DictationEngine.getMode() === "dictation") {
                     const questionIndex = state.currentIndex;
                     window.setTimeout(function () {
@@ -501,9 +388,6 @@
                 }
                 return;
             }
-
-            // Every correctly entered character must immediately appear
-            // in the answer box. Only completion gets motivational feedback.
             this.render(window.DictationEngine.getState());
         },
 
@@ -517,21 +401,12 @@
 
         getRandomCorrectFeedback: function () {
             const messages = [
-                "درست است؛ آفرین! 🌟",
-                "عالی بود! 👏",
-                "آفرین! خیلی خوب دقت کردی. ⭐",
-                "درست نوشتی؛ ادامه بده! 🌱",
-                "چه خوب! یک قدم دیگر جلو رفتی. 🚀",
-                "آفرین به دقتت! 👌",
-                "کارت عالی بود! 🌟",
-                "درست و دقیق! آفرین 👏",
-                "خیلی خوب! همین‌طور ادامه بده. 💪",
-                "آفرین! با دقت جواب دادی. ✨"
+                "درست است؛ آفرین! 🌟", "عالی بود! 👏", "آفرین! خیلی خوب دقت کردی. ⭐", "درست نوشتی؛ ادامه بده! 🌱",
+                "چه خوب! یک قدم دیگر جلو رفتی. 🚀", "آفرین به دقتت! 👌", "کارت عالی بود! 🌟", "درست و دقیق! آفرین 👏",
+                "خیلی خوب! همین‌طور ادامه بده. 💪", "آفرین! با دقت جواب دادی. ✨"
             ];
             let index = Math.floor(Math.random() * messages.length);
-            if (messages.length > 1 && index === this.lastCorrectFeedbackIndex) {
-                index = (index + 1 + Math.floor(Math.random() * (messages.length - 1))) % messages.length;
-            }
+            if (messages.length > 1 && index === this.lastCorrectFeedbackIndex) index = (index + 1 + Math.floor(Math.random() * (messages.length - 1))) % messages.length;
             this.lastCorrectFeedbackIndex = index;
             return messages[index];
         },
@@ -544,11 +419,7 @@
         },
 
         escape: function (value) {
-            return String(value == null ? "" : value)
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;");
+            return String(value == null ? "" : value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
         }
     };
 
