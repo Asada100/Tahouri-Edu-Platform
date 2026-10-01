@@ -52,10 +52,15 @@
             if (!app || !state) return;
             const q = state.currentQuestion || {};
             const mode = state.mode || q.mode || "guided-word";
-            const rows = Array.isArray(state.keyboardRows) ? state.keyboardRows.map(row => row.map(key => ({ ...key, active: isDictation && !state.questionCompleted ? true : key.active }))) : [];
             const isGuided = mode === "guided-word";
             const isDictation = mode === "dictation";
             const isContext = mode === "context";
+            const rows = Array.isArray(state.keyboardRows)
+                ? state.keyboardRows.map(row => row.map(key => ({
+                    ...key,
+                    active: isDictation && !state.questionCompleted ? true : key.active
+                })))
+                : [];
             const rule = this.getRuleGuide(q, mode);
 
             app.innerHTML = `
