@@ -187,7 +187,7 @@
                 const remaining = answer.slice(typedCount);
                 let placeholders = "";
                 remaining.forEach(function (char) { placeholders += /\s/.test(char) ? "  " : "ـ "; });
-                const guideHtml = state.showGuide && guide ? `<span class="dictationGhost dictationGuidedGhost" aria-hidden="true">${this.escape(guide)}</span>` : "";
+                // Guided-word must never reveal the target letter as a faint preview.\n                // The only clue is the spoken word from the audio button.\n                const guideHtml = "";
                 return `<span class="dictationGuidedWord" dir="rtl"><span class="dictationGuidedTyped">${this.escape(actual)}</span><span class="dictationGuidedPlaceholders">${this.escape(placeholders)}</span>${guideHtml}</span>`;
             }
             const q = state.currentQuestion || {};
