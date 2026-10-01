@@ -71,8 +71,14 @@
     white-space: nowrap;
 }
 .dictationGuidedTyped,
+.dictationGuidedWrong,
 .dictationGuidedPlaceholders {
     white-space: pre;
+}
+.dictationGuidedWrong {
+    color: #c53b3b;
+    font-weight: 600;
+    margin-inline: 2px;
 }
 .dictationGuidedPlaceholders {
     opacity: .34;
