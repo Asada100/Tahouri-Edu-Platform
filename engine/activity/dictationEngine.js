@@ -73,7 +73,7 @@
                 started: true, isFinished: false, locked: false,
                 currentIndex: 0, totalQuestions: this.content.questions.length,
                 correctAnswers: 0, wrongAnswers: 0, score: 0, attempts: 0,
-                characterErrors: 0, currentQuestionCharacterErrors: 0, currentTargetCharacterErrors: 0, answers: [], targetAnswers: [], currentInput: "", inputBlockedAfterWrong: false,
+                characterErrors: 0, currentQuestionCharacterErrors: 0, currentTargetCharacterErrors: 0, answers: [], targetAnswers: [], currentInput: "", inputBlockedAfterWrong: false, currentWrongChar: "",
                 missingSlots: [], currentSlotIndex: 0, currentCharIndex: 0,
                 currentTargetIndex: 0, contextTargetAnswers: [],
                 questionCompleted: false, transitioning: false, showGuide: false
@@ -98,6 +98,7 @@
             const q = this.getCurrentQuestion();
             if (!q || !this.state) return;
             this.state.currentInput = "";
+            this.state.currentWrongChar = "";
             this.state.currentQuestionCharacterErrors = 0;
             this.state.currentTargetCharacterErrors = 0;
             this.state.currentSlotIndex = 0;
@@ -255,6 +256,7 @@
                 this.state.currentQuestionCharacterErrors += 1;
                 this.state.currentTargetCharacterErrors += 1;
                 this.state.showGuide = true;
+                this.state.currentWrongChar = char;
 
                 if (this.getMode() === "dictation") {
                     this.state.currentInput += char;
@@ -267,6 +269,8 @@
             }
 
             // A guide is corrective feedback for the last mistake only.
+            // Once the learner enters the correct character, clear the visible wrong character.
+            this.state.currentWrongChar = "";
             // Once the learner enters the correct character, hide the guide
             // before moving to the next character.
             this.state.showGuide = false;
