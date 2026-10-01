@@ -155,11 +155,10 @@
                             : this.state.missingSlots.map(i => Array.from(target.answer || "")[i]).filter(Boolean);
                     candidates.forEach(c => active.add(c));
                 } else {
-                    Array.from(question.answer || "").forEach(c => {
-                        if (c === SPACE) return;
-                        const base = getVariantBase(c);
-                        active.add(base || c);
-                    });
+                    // Guided spelling uses the complete Persian keyboard.
+                    // The learner must see and be able to choose from every
+                    // letter; correctness is still checked against the target.
+                    PERSIAN_ROWS.flat().forEach(c => active.add(c));
                 }
             }
             const expected = this.state && !this.state.questionCompleted ? this.getExpectedChar() : "";
