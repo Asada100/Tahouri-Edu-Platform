@@ -55,6 +55,7 @@
             const isGuided = mode === "guided-word";
             const isDictation = mode === "dictation";
             const isContext = mode === "context";
+            const activityTitle = isDictation ? "املای شنیداری" : isGuided ? "املای کمکی" : isContext ? "املای جمله" : "کشف املای درست";
             const rows = Array.isArray(state.keyboardRows)
                 ? state.keyboardRows.map(row => row.map(key => ({
                     ...key,
@@ -70,7 +71,7 @@
                             <span class="dictationIcon" aria-hidden="true">✍️</span>
                             <h1>املا</h1>
                         </div>
-                        <div class="dictationQuestionTitle">املای کلمه</div>
+                        <div class="dictationQuestionTitle">${activityTitle}</div>
                         <p class="dictationInstruction">${this.escape(rule.title)}</p>
                         <div class="dictationRuleGuide">${this.escape(rule.guide)}</div>
                         ${q.context ? `<div class="dictationContext">${this.escape(q.context)}</div>` : ""}
