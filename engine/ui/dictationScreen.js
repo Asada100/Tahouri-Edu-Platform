@@ -47,8 +47,14 @@
             const isDictation = mode === "dictation";
             const isContext = mode === "context";
             const activityTitle = isDictation ? "املای شنیداری" : isGuided ? "املای کمکی" : isContext ? "املای جمله" : "کشف املای درست";
-            const rows = Array.isArray(state.keyboardRows)
-                ? state.keyboardRows.map(row => row.map(key => ({
+            const engineRows = isDictation
+                && window.DictationEngine
+                && typeof window.DictationEngine.getKeyboardRows === "function"
+                ? window.DictationEngine.getKeyboardRows()
+                : null;
+            const sourceRows = engineRows || state.keyboardRows;
+            const rows = Array.isArray(sourceRows)
+                ? sourceRows.map(row => row.map(key => ({
                     ...key,
                     active: isDictation && !state.questionCompleted ? true : key.active
                 })))
