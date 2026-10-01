@@ -496,9 +496,9 @@
                 return;
             }
 
-            // A correct intermediate character does not replace the current
-            // question with a transient message. The motivational message is
-            // reserved for completing the whole answer.
+            // Every correctly entered character must immediately appear
+            // in the answer box. Only completion gets motivational feedback.
+            this.render(window.DictationEngine.getState());
         },
 
         flash: function (type) {
