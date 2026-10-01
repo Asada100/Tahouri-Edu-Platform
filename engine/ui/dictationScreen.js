@@ -73,7 +73,7 @@
                         <div class="dictationRuleGuide">${this.escape(rule.guide)}</div>
                         ${q.context ? `<div class="dictationContext">${this.escape(q.context)}</div>` : ""}
                         ${this.renderMedia(q)}
-                        ${isDictation ? this.renderAudio(q) : ""}
+                        ${(isDictation || isGuided) ? this.renderAudio(q) : ""}
 
                         <div class="dictationAnswer${state.questionCompleted ? " is-complete" : ""}" id="dictationAnswer" aria-live="polite">
                             ${this.renderAnswer(state, isGuided, isDictation)}
