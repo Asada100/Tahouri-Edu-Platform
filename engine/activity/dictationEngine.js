@@ -73,7 +73,7 @@
                 started: true, isFinished: false, locked: false,
                 currentIndex: 0, totalQuestions: this.content.questions.length,
                 correctAnswers: 0, wrongAnswers: 0, score: 0, attempts: 0,
-                characterErrors: 0, currentQuestionCharacterErrors: 0, currentTargetCharacterErrors: 0, answers: [], targetAnswers: [], currentInput: "",
+                characterErrors: 0, currentQuestionCharacterErrors: 0, currentTargetCharacterErrors: 0, answers: [], targetAnswers: [], currentInput: "", inputBlockedAfterWrong: false,
                 missingSlots: [], currentSlotIndex: 0, currentCharIndex: 0,
                 currentTargetIndex: 0, contextTargetAnswers: [],
                 questionCompleted: false, transitioning: false, showGuide: false
@@ -142,7 +142,9 @@
             const question = this.getCurrentQuestion();
             const active = new Set();
             if (question && !this.state.questionCompleted) {
-                if (this.getMode() === "missing-letter" || this.getMode() === "context") {
+                if (this.getMode() === "dictation") {
+                    PERSIAN_ROWS.flat().forEach(c => active.add(c));
+                } else if (this.getMode() === "missing-letter" || this.getMode() === "context") {
                     const target = this.getCurrentTarget() || question;
                     const ruleLetters = target.spellingRule && window.SpellingRules && typeof window.SpellingRules.getLetters === "function"
                         ? window.SpellingRules.getLetters(target.spellingRule) : [];
@@ -243,15 +245,23 @@
             const q = this.getCurrentQuestion();
             if (!q) return null;
             const expected = this.getExpectedChar();
-            const normalizedChar = this.normalizeChar(char);
-            const normalizedExpected = this.normalizeChar(expected);
+            const normalizedChar = char === SPACE ? SPACE : this.normalizeChar(char);
+            const normalizedExpected = expected === SPACE ? SPACE : this.normalizeChar(expected);
             this.state.attempts += 1;
+
+            if (this.getMode() === "dictation" && this.state.inputBlockedAfterWrong) return null;
 
             if (normalizedChar !== normalizedExpected) {
                 this.state.characterErrors += 1;
                 this.state.currentQuestionCharacterErrors += 1;
                 this.state.currentTargetCharacterErrors += 1;
                 this.state.showGuide = true;
+
+                if (this.getMode() === "dictation") {
+                    this.state.currentInput += char;
+                    this.state.inputBlockedAfterWrong = true;
+                }
+
                 const result = { correct: false, character: char, expected: expected, questionIndex: this.state.currentIndex };
                 EventManager.emit("answer:wrong", result);
                 return result;
@@ -336,8 +346,16 @@
             this.state.currentCharIndex -= 1;
             if (mode === "dictation") {
                 const chars = Array.from(this.state.currentInput || "");
+                if (!chars.length) return false;
                 chars.pop();
                 this.state.currentInput = chars.join("");
+
+                if (this.state.inputBlockedAfterWrong) {
+                    this.state.inputBlockedAfterWrong = false;
+                } else if (this.state.currentCharIndex > 0) {
+                    this.state.currentCharIndex -= 1;
+                }
+                return true;
             }
             return true;
         },
@@ -508,4 +526,4 @@
     window.DictationEngine = DictationEngine;
 })(window);
 
-console.log("Dictation Engine v2.0 Ready");
+console.log("Dictation Engine v2.1 Ready");
