@@ -141,7 +141,7 @@
         getKeyboardRows: function () {
             const question = this.getCurrentQuestion();
             const active = new Set();
-            if (question) {
+            if (question && !this.state.questionCompleted) {
                 if (this.getMode() === "missing-letter" || this.getMode() === "context") {
                     const target = this.getCurrentTarget() || question;
                     const ruleLetters = target.spellingRule && window.SpellingRules && typeof window.SpellingRules.getLetters === "function"
@@ -160,7 +160,7 @@
                     });
                 }
             }
-            const expected = this.getExpectedChar();
+            const expected = this.state && !this.state.questionCompleted ? this.getExpectedChar() : "";
             const expectedBase = getVariantBase(expected);
             return PERSIAN_ROWS.map(row => row.map(key => ({
                 key: key,
@@ -235,7 +235,11 @@
         },
 
         inputChar: function (char) {
-            if (!this.state || this.state.isFinished || this.state.transitioning || !char) return null;
+            // Once a question is completed, the keyboard is locked until the
+            // learner explicitly moves to the next question. This prevents
+            // post-completion clicks from overwriting the final feedback or
+            // being recorded as extra attempts.
+            if (!this.state || this.state.isFinished || this.state.transitioning || this.state.questionCompleted || !char) return null;
             const q = this.getCurrentQuestion();
             if (!q) return null;
             const expected = this.getExpectedChar();
@@ -321,7 +325,7 @@
         },
 
         backspace: function () {
-            if (!this.state || this.state.isFinished) return false;
+            if (!this.state || this.state.isFinished || this.state.questionCompleted || this.state.transitioning) return false;
             const mode = this.getMode();
             if (mode === "missing-letter" || mode === "context") {
                 if (this.state.currentSlotIndex <= 0) return false;
