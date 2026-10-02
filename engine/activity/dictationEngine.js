@@ -345,6 +345,14 @@
                 this.state.currentSlotIndex -= 1;
                 return true;
             }
+            if (mode === "guided-word" && this.state.currentWrongChar) {
+                // Backspace must remove the visible wrong character first.
+                // It must not delete the previously correct character.
+                this.state.currentWrongChar = "";
+                this.state.showGuide = false;
+                return true;
+            }
+
             if (mode === "dictation") {
                 const chars = Array.from(this.state.currentInput || "");
                 if (!chars.length) return false;
