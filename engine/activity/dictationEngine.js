@@ -58,11 +58,13 @@
             const questionCount = Number(settings.questionCount);
             if (settings.randomizeQuestions === true || Number.isFinite(questionCount)) {
                 const questions = this.content.questions.slice();
-                for (let i = questions.length - 1; i > 0; i -= 1) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    const temp = questions[i];
-                    questions[i] = questions[j];
-                    questions[j] = temp;
+                if (settings.randomizeQuestions === true) {
+                    for (let i = questions.length - 1; i > 0; i -= 1) {
+                        const j = Math.floor(Math.random() * (i + 1));
+                        const temp = questions[i];
+                        questions[i] = questions[j];
+                        questions[j] = temp;
+                    }
                 }
                 this.content.questions = Number.isFinite(questionCount) && questionCount > 0
                     ? questions.slice(0, Math.min(questionCount, questions.length))
