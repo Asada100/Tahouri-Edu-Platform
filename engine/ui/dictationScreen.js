@@ -46,8 +46,8 @@
             const isGuided = mode === "guided-word";
             const isDictation = mode === "dictation";
             const isContext = mode === "context";
-            const activityTitle = isDictation ? "املای شنیداری" : isGuided ? "املای کمکی" : isContext ? "املای جمله" : "کشف املای درست";
-            const engineRows = isDictation
+            const activityTitle = isDictation ? "املای شنیداری" : isGuided ? "املای هدایت‌شده" : isContext ? "املای عبارت" : "کشف املای درست";
+            const engineRows = (isDictation || isContext)
                 && window.DictationEngine
                 && typeof window.DictationEngine.getKeyboardRows === "function"
                 ? window.DictationEngine.getKeyboardRows()
@@ -56,7 +56,7 @@
             const rows = Array.isArray(sourceRows)
                 ? sourceRows.map(row => row.map(key => ({
                     ...key,
-                    active: isDictation && !state.questionCompleted ? true : key.active
+                    active: (isDictation || isContext) && !state.questionCompleted ? true : key.active
                 })))
                 : [];
             const rule = this.getRuleGuide(q, mode);
@@ -73,17 +73,17 @@
                         <div class="dictationRuleGuide">${this.escape(rule.guide)}</div>
                         ${q.context ? `<div class="dictationContext">${this.escape(q.context)}</div>` : ""}
                         ${this.renderMedia(q)}
-                        ${(isDictation || isGuided) ? this.renderAudio(q) : ""}
+                        ${(isDictation || isGuided || isContext) ? this.renderAudio(q, isContext) : ""}
 
                         <div class="dictationAnswer${state.questionCompleted ? " is-complete" : ""}" id="dictationAnswer" aria-live="polite">
-                            ${this.renderAnswer(state, isGuided, isDictation)}
+                            ${this.renderAnswer(state, isGuided, isDictation, isContext)}
                         </div>
 
                         <div class="dictationFeedback" id="dictationFeedback" aria-live="polite"></div>
 
                         <div class="dictationKeyboard" id="dictationKeyboard">
                             ${rows.map(row => `<div class="dictationKeyboardRow">${row.map(key => {
-                                const keyIsActive = isDictation && !state.questionCompleted ? true : !!key.active;
+                                const keyIsActive = (isDictation || isContext) && !state.questionCompleted ? true : !!key.active;
                                 const cls = ["dictationKey", keyIsActive ? "is-active" : "is-disabled", key.expected ? "is-expected" : ""].filter(Boolean).join(" ");
                                 const disabledAttr = keyIsActive ? "" : "disabled";
                                 const activeStyle = keyIsActive ? ' style="opacity:1!important;pointer-events:auto!important;cursor:pointer!important;filter:none!important;"' : "";
@@ -131,11 +131,11 @@
             guide.style.top = "50%";
             guide.style.transform = "translateY(-50%)";
         },
-        renderAudio: function (question) {
+        renderAudio: function (question, isPhrase) {
             if (!window.DictationAudioProvider || typeof window.DictationAudioProvider.getForQuestion !== "function") return "";
             const media = window.DictationAudioProvider.getForQuestion(question);
             if (!media || (!media.src && !media.speech)) return "";
-            return `<button type="button" class="dictationAudioButton" id="dictationAudioButton" aria-label="پخش صدای کلمه">🔊 پخش واژه</button>`;
+            return `<button type="button" class="dictationAudioButton" id="dictationAudioButton" aria-label="${isPhrase ? "پخش عبارت" : "پخش واژه"}">🔊 ${isPhrase ? "پخش عبارت" : "پخش واژه"}</button>`;
         },
 
         renderMedia: function (question) {
@@ -176,8 +176,9 @@
             });
         },
 
-        renderAnswer: function (state, isGuided, isDictation) {
+        renderAnswer: function (state, isGuided, isDictation, isContext) {
             if (isDictation) return `<span class="dictationTyped">${this.escape(state.currentInput || "")}</span>`;
+            if (isContext) return `<span class="dictationTyped">${this.escape(state.currentInput || "")}</span>${state.currentWrongChar ? `<span class="dictationGuidedWrong">${this.escape(state.currentWrongChar)}</span>` : ""}`;
             if (isGuided) {
                 const q = state.currentQuestion || {};
                 const answer = Array.from(q.answer || "");
@@ -400,7 +401,7 @@
                 const state = window.DictationEngine.getState();
                 this.render(state);
                 this.showFeedback(this.getRandomCorrectFeedback(), "correct");
-                if (window.DictationEngine.getMode() === "dictation") {
+                if (window.DictationEngine.getMode() === "dictation" || window.DictationEngine.getMode() === "context") {
                     const questionIndex = state.currentIndex;
                     window.setTimeout(function () {
                         const engine = window.DictationEngine;
