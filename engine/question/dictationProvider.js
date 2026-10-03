@@ -89,9 +89,9 @@
                     if (mode === "missing-letter" && missing.length === 0) {
                         mode = "guided-word";
                     }
-                    if (mode === "context" && missing.length === 0 && (!Array.isArray(item.targets) || item.targets.length === 0)) {
-                        mode = "guided-word";
-                    }
+                    // Context mode is full phrase dictation. It may intentionally
+                    // have no targets/missing slots because the learner writes the
+                    // complete hidden phrase from listening.
 
                     return {
                         id: item.id || "spelling-question-" + (index + 1),
