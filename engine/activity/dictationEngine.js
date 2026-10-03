@@ -212,8 +212,8 @@
                 const index = Number(rawIndex);
                 const target = targets[index];
                 if (!target) return match;
-                if (index < this.state.currentTargetIndex) return target.answer;
-                if (index > this.state.currentTargetIndex) {
+                if (index < engine.state.currentTargetIndex) return target.answer;
+                if (index > engine.state.currentTargetIndex) {
                     const futureSlots = Array.isArray(target.missing) ? target.missing : [];
                     const futureSet = new Set();
                     futureSlots.forEach(function (slot) {
@@ -226,7 +226,7 @@
                     }).join("");
                 }
                 const chars = Array.from(target.answer || "");
-                const slots = new Set(this.state.missingSlots.slice(this.state.currentSlotIndex));
+                const slots = new Set(engine.state.missingSlots.slice(engine.state.currentSlotIndex));
                 return chars.map(function (char, charIndex) {
                     return slots.has(charIndex) ? "ـ...ـ" : char;
                 }).join("");
