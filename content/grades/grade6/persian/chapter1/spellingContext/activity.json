@@ -1,94 +1,55 @@
 {
   "mode": "context",
-  "instruction": "پسر دلبندم، املای کلمات مشخص‌شده را با توجه به جمله کامل کن.",
+  "instruction": "عبارت را با دقت بشنو و آن را کامل بنویس.",
   "settings": {
-    "keyboardMode": "guided",
+    "keyboardMode": "full",
     "allowRetry": true,
-    "scorePerCorrect": 10
+    "scorePerCorrect": 10,
+    "questionCount": 7,
+    "randomizeQuestions": false
   },
   "questions": [
     {
-      "id": "lesson1-context-01",
+      "id": "phrase-01",
       "mode": "context",
-      "contextTemplate": "ما باید از راه درست {{0}} و با {{1}} رفتار کنیم.",
-      "targets": [
-        {
-          "id": "lesson1-context-01-1",
-          "answer": "نهراسیم",
-          "masked": "نـ....ـراسیم",
-          "missing": [
-            {
-              "start": 1,
-              "length": 1
-            }
-          ],
-          "spellingRule": "h"
-        },
-        {
-          "id": "lesson1-context-01-2",
-          "answer": "محبت",
-          "masked": "مـ....ـبت",
-          "missing": [
-            {
-              "start": 1,
-              "length": 1
-            }
-          ],
-          "spellingRule": "h"
-        }
-      ],
+      "answer": "ما باید از راه درست نهراسیم و با محبت باشیم.",
       "lesson": "lesson1"
     },
     {
-      "id": "lesson1-context-02",
+      "id": "phrase-02",
       "mode": "context",
-      "contextTemplate": "داشتن {{0}} خوب، به رشد و پیشرفت ما کمک می‌کند.",
-      "targets": [
-        {
-          "id": "lesson1-context-02-1",
-          "answer": "شخصیت",
-          "masked": "شخـ....ـیت",
-          "missing": [
-            {
-              "start": 2,
-              "length": 1
-            }
-          ],
-          "spellingRule": "s-sad-se"
-        }
-      ],
+      "answer": "داشتن شخصیت خوب، به رشد و پیشرفت ما کمک می‌کند.",
       "lesson": "lesson1"
     },
     {
-      "id": "lesson1-context-03",
+      "id": "phrase-03",
       "mode": "context",
-      "contextTemplate": "او با {{0}} و آرامش از خانه {{1}}.",
-      "targets": [
-        {
-          "id": "lesson1-context-03-1",
-          "answer": "موزون",
-          "masked": "مو....ون",
-          "missing": [
-            {
-              "start": 2,
-              "length": 1
-            }
-          ],
-          "spellingRule": "z"
-        },
-        {
-          "id": "lesson1-context-03-2",
-          "answer": "برخاست",
-          "masked": "برخـ....ـست",
-          "missing": [
-            {
-              "start": 3,
-              "length": 1
-            }
-          ]
-        }
-      ],
+      "answer": "حرکت موزون و منظم، زیبا به نظر می‌رسد.",
       "lesson": "lesson1"
+    },
+    {
+      "id": "phrase-04",
+      "mode": "context",
+      "answer": "او با آرامش از خانه برخاست.",
+      "lesson": "lesson1"
+    },
+    {
+      "id": "phrase-05",
+      "mode": "context",
+      "answer": "نور خدا در دل مؤمن روشن است.",
+      "lesson": "lesson1"
+    },
+    {
+      "id": "phrase-06",
+      "mode": "context",
+      "answer": "عالم به فضل خدا به کمال می‌رسد.",
+      "lesson": "setayesh"
+    },
+    {
+      "id": "phrase-07",
+      "mode": "context",
+      "answer": "خداوند به انسان توانا، فرصت تعالی می‌دهد.",
+      "lesson": "setayesh"
     }
   ]
 }
