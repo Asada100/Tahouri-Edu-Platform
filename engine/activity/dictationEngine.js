@@ -207,6 +207,7 @@
             const targets = this.getContextTargets();
             const template = q.contextTemplate || q.context || "";
             if (!template) return "";
+            const engine = this;
             return template.replace(/\{\{(\d+)\}\}/g, function (match, rawIndex) {
                 const index = Number(rawIndex);
                 const target = targets[index];
