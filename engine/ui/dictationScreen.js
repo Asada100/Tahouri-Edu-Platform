@@ -91,6 +91,7 @@
                             }).join("")}</div>`).join("")}
                             <div class="dictationUtilityRow">
                                 <button type="button" class="dictationUtility dictationSpace" id="dictationSpace" aria-label="کلید فاصله"></button>
+                                ${isContext ? `<button type="button" class="dictationUtility dictationPunctuation" id="dictationPeriod" aria-label="نقطه">.</button>` : ""}
                                 <button type="button" class="dictationUtility" id="dictationBackspace" aria-label="حذف">⌫</button>
                             </div>
                         </div>
@@ -281,6 +282,8 @@
 
             const space = document.getElementById("dictationSpace");
             if (space) space.onclick = function () { self.handleInput(" "); };
+            const period = document.getElementById("dictationPeriod");
+            if (period) period.onclick = function () { self.handleInput("."); };
             const nextButton = document.getElementById("dictationNextButton");
             if (nextButton) {
                 const interactionDelay = 700;
