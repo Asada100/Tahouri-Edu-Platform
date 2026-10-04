@@ -9,22 +9,11 @@
 
     const DictationProvider = {
         orderByPerformance: function (questions) {
-            if (!Array.isArray(questions) || questions.length < 2) {
-                return Array.isArray(questions) ? questions.slice() : [];
-            }
-
-            // Dictation questions are intentionally shown in random order.
-            // Performance-based ordering is disabled for this activity.
-            const shuffled = questions.slice();
-
-            for (let i = shuffled.length - 1; i > 0; i -= 1) {
-                const j = Math.floor(Math.random() * (i + 1));
-                const temp = shuffled[i];
-                shuffled[i] = shuffled[j];
-                shuffled[j] = temp;
-            }
-
-            return shuffled;
+            // Keep the provider's order intact.
+            // Explicit randomization is handled by DictationEngine settings,
+            // while generated spelling content may already be ordered by
+            // SpellingSmartQuestionSelector.
+            return Array.isArray(questions) ? questions.slice() : [];
         },
 
         getContent: function (activityData) {
