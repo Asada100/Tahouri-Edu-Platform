@@ -283,6 +283,22 @@
                 this.state.currentCharIndex += 1;
                 if (this.getMode() === "dictation" || this.getMode() === "context") this.state.currentInput += char;
 
+                // In guided-word and phrase/context modes, spaces inside a
+                // multi-word answer are structural separators, not learner
+                // input. Consume them automatically so "دانش آموز" continues
+                // directly to "آ". For context mode the space is also added
+                // to currentInput so the final phrase remains exact.
+                if (this.getMode() === "context") {
+                    const contextAnswerChars = Array.from(q.answer || "");
+                    while (
+                        this.state.currentCharIndex < contextAnswerChars.length &&
+                        /\\s/.test(contextAnswerChars[this.state.currentCharIndex])
+                    ) {
+                        this.state.currentInput += contextAnswerChars[this.state.currentCharIndex];
+                        this.state.currentCharIndex += 1;
+                    }
+                }
+
                 // In guided-word mode, spaces inside a multi-word answer are
                 // structural separators, not learner input. Consume them
                 // automatically so "دانش آموز" continues directly to "آ".
