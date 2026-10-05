@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Generic Grouped Word Jigsaw Layout
-// Version 3.0
+// Version 3.1
 // =====================================
 
 (function () {
@@ -220,6 +220,9 @@
         // grouped-drag layer, otherwise the slots become separate flex items
         // and a selected word can jump to another line.
         const difficulty = Number(engine.puzzle.wordJigsawDifficulty || 3);
+        // Hard level now renders its own stable hemistich rows in Stage 2.
+        // Do not rebuild those rows here, or insertion positions become detached from the visual row.
+        if (difficulty >= 3) return;
         if (difficulty < 3) return;
 
         const lengths = getGroups(engine);
@@ -228,5 +231,5 @@
         installGroupedDrag(target, source, engine);
     };
 
-    console.log("Generic Grouped Word Jigsaw Layout v3.0 Ready");
+    console.log("Generic Grouped Word Jigsaw Layout v3.1 Ready");
 })();
