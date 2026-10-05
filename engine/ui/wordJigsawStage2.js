@@ -41,6 +41,21 @@
 
     function isStage2(engine) { return !!(enable(engine) && engine.puzzle.stage === 2); }
 
+    function getHardGroupLengths(engine) {
+        const puzzle = engine && engine.puzzle ? engine.puzzle : {};
+        const lengths = Array.isArray(puzzle.groupLengths)
+            ? puzzle.groupLengths.map(Number).filter(function (n) { return Number.isInteger(n) && n > 0; })
+            : [];
+        if (lengths.length) return lengths;
+        const first = Number(puzzle.firstLineLength || 0);
+        const total = Array.isArray(puzzle.correctOrder) ? puzzle.correctOrder.length : 0;
+        return first > 0 && first < total ? [first, total - first] : [];
+    }
+
+    function isHardGroupedBoard(engine) {
+        return !!(engine && engine.puzzle && Number(engine.puzzle.wordJigsawDifficulty || 3) >= 3 && getHardGroupLengths(engine).length >= 2);
+    }
+
     function emitChanged(engine) {
         engine.items = [...(engine.puzzle.targetWords || [])];
         engine.moves = Number(engine.moves || 0) + 1;
@@ -94,15 +109,17 @@
         const target = engine.puzzle.targetWords || [];
         const partialBoard = Array.isArray(engine.puzzle.movableIndexes) &&
             target.length === (engine.puzzle.correctOrder || engine.puzzle.words || []).length;
+        const hardGroupedBoard = isHardGroupedBoard(engine);
 
-        // In the full (hard) word-builder board, dropping onto an empty
-        // area of the answer box means "append this word".
+        // In the full (hard) word-builder board, empty positions before the
+        // second hemistich are preserved as nulls instead of being removed.
         const slot = targetIndex == null || targetIndex === ""
             ? target.length
             : Number(targetIndex);
 
-        if (!Number.isInteger(slot) || slot < 0 || (partialBoard ? slot >= target.length : slot > target.length)) return false;
-        if (partialBoard && target[slot] != null) return false;
+        const correctLength = (engine.puzzle.correctOrder || engine.puzzle.words || []).length;
+        if (!Number.isInteger(slot) || slot < 0 || slot >= correctLength) return false;
+        if ((partialBoard || hardGroupedBoard) && target[slot] != null) return false;
 
         engine.puzzle.history.push({
             availableWords: [...source],
@@ -115,7 +132,8 @@
         // Partial Setayesh board uses fixed positions (including null slots).
         // Never splice the target array here: doing so shifts the second hemistich
         // and can move a repeated word such as "حق" across the hemistich boundary.
-        if (partialBoard) {
+        if (partialBoard || hardGroupedBoard) {
+            while (target.length <= slot) target.push(null);
             target[slot] = word;
         } else {
             target.splice(slot, 0, word);
@@ -147,7 +165,8 @@
         const partialBoard = Array.isArray(engine.puzzle.movableIndexes) &&
             target.length === (engine.puzzle.correctOrder || engine.puzzle.words || []).length;
 
-        if (partialBoard) {
+        const hardGroupedBoard = isHardGroupedBoard(engine);
+        if (partialBoard || hardGroupedBoard) {
             target[index] = null;
         } else {
             target.splice(index, 1);
@@ -262,6 +281,8 @@
         if (!app) return;
         const source = Array.isArray(state.availableWords) ? state.availableWords : [];
         const target = Array.isArray(state.targetWords) ? state.targetWords : [];
+        const difficulty = Number(PuzzleEngine && PuzzleEngine.puzzle && PuzzleEngine.puzzle.wordJigsawDifficulty || 3);
+        const hardGroupedBoard = difficulty >= 3 && getHardGroupLengths(PuzzleEngine).length >= 2;
         const esc = this.escapeHTML.bind(this);
         app.innerHTML = `
             <div class="screen puzzleScreen jigsawScreen wordBuilderScreen" dir="rtl">
@@ -271,7 +292,7 @@
                     <p class="jigsawObjective">کلمات را با کشیدن و رها کردن به «پاسخ شما» منتقل کن و ترتیب درست را بساز.</p>
                 </div>
                 <section class="wordBuilderSection"><h2>کلمات</h2><div id="wordBuilderSource" class="wordBuilderBox" data-drop-zone="source">${source.map((w,i)=>`<button class="wordBuilderPiece" draggable="true" data-source-index="${i}" type="button">${esc(displayWord(w))}</button>`).join("") || '<span class="wordBuilderEmpty">همه کلمات در پاسخ شما هستند.</span>'}</div></section>
-                <section class="wordBuilderSection wordBuilderAnswerSection"><h2>پاسخ شما</h2><div id="wordBuilderTarget" class="wordBuilderBox wordBuilderTarget" data-drop-zone="target">${target.map((w,i)=>`<button class="wordBuilderPiece wordBuilderTargetPiece" draggable="true" data-target-index="${i}" type="button"><span class="wordBuilderWord">${esc(displayWord(w))}</span>${esc(punctuationForTarget(state, w, i)) ? `<span class="wordBuilderPunctuation">${esc(displayWord(punctuationForTarget(state, w, i)))}</span>` : ""}</button>`).join("") || '<span class="wordBuilderEmpty">کلمات را اینجا رها کن.</span>'}</div></section>
+                <section class="wordBuilderSection wordBuilderAnswerSection"><h2>پاسخ شما</h2><div id="wordBuilderTarget" class="wordBuilderBox wordBuilderTarget${hardGroupedBoard ? " wordBuilderTargetHard" : ""}" data-drop-zone="target">${target.map((w,i)=> w == null ? "" : `<button class="wordBuilderPiece wordBuilderTargetPiece" draggable="true" data-target-index="${i}" type="button"><span class="wordBuilderWord">${esc(displayWord(w))}</span>${esc(punctuationForTarget(state, w, i)) ? `<span class="wordBuilderPunctuation">${esc(displayWord(punctuationForTarget(state, w, i)))}</span>` : ""}</button>`).join("") || '<span class="wordBuilderEmpty">کلمات را اینجا رها کن.</span>'}</div></section>
                 <div class="wordBuilderControls"><button id="wordBuilderCheck" type="button">بررسی پاسخ</button><button id="wordBuilderUndo" type="button">↩ برگشت</button><button id="wordBuilderAlphabet" type="button">مرتب‌سازی الفبایی</button><button id="wordBuilderReset" type="button">شروع دوباره</button></div>
                 <div id="wordBuilderMessage" class="wordBuilderMessage" aria-live="polite"></div>
                 <div class="jigsawMoves">حرکت‌ها: <span>${state.moves || 0}</span></div>
@@ -374,7 +395,10 @@
                     const rowIndex = rows.indexOf(row);
                     let startIndex = 0;
                     for (let i = 0; i < rowIndex; i++) startIndex += rowsWithButtons[i].length;
-                    return startIndex + (row === rows[rowIndex] ? 0 : 0);
+                    const lengths = getHardGroupLengths(PuzzleEngine);
+                    let groupStart = 0;
+                    for (let i = 0; i < rowIndex; i++) groupStart += lengths[i] || 0;
+                    return groupStart;
                 }
                 return [...target.querySelectorAll("[data-target-index]")].length;
             }
@@ -536,5 +560,5 @@
         PuzzleEngine.buildResult = function () { const result = originalBuildResult(); if (this.puzzle && this.puzzle.twoStageWordOrder && this.puzzle.hintUsed) result.score = Math.max(0, Number(result.score || 0) - 2); return result; };
     }
 
-    console.log("Word Jigsaw Stage 2 v1.6 Ready");
+    console.log("Word Jigsaw Stage 2 v1.8 Ready");
 })();
