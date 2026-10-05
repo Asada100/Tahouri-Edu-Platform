@@ -123,8 +123,52 @@
   100% { transform:scale(1); }
 }
 .wordBuilderEmpty { opacity:.55; font-weight:700; pointer-events:none; }
-.wordBuilderControls { display:flex; justify-content:center; flex-wrap:wrap; gap:8px; margin:10px auto; }
-.wordBuilderControls button { min-width:130px; }
+.wordBuilderControls {
+  width:100%;
+  display:flex;
+  justify-content:center;
+  flex-wrap:wrap;
+  gap:10px;
+  margin:14px auto 8px;
+}
+.wordBuilderControls button {
+  min-width:132px;
+  min-height:46px;
+  padding:10px 16px;
+  border:1px solid rgba(148,163,184,.45);
+  border-radius:14px;
+  background:linear-gradient(180deg,#ffffff 0%,#f1f5f9 100%);
+  color:#1e293b;
+  box-shadow:0 3px 8px rgba(15,23,42,.08),0 1px 2px rgba(15,23,42,.06);
+  font:inherit;
+  font-weight:800;
+  font-size:.92rem;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease,background .15s ease;
+}
+.wordBuilderControls button:hover {
+  transform:translateY(-2px);
+  border-color:rgba(100,116,139,.6);
+  box-shadow:0 7px 14px rgba(15,23,42,.11);
+}
+.wordBuilderControls button:active {
+  transform:translateY(1px) scale(.98);
+  box-shadow:0 2px 5px rgba(15,23,42,.09);
+}
+.wordBuilderControls button:focus-visible {
+  outline:3px solid rgba(59,130,246,.25);
+  outline-offset:2px;
+}
+#wordBuilderCheck {
+  background:linear-gradient(180deg,#effcf4 0%,#dcfce7 100%);
+  border-color:rgba(34,197,94,.38);
+  color:#166534;
+}
+#wordBuilderCheck:hover { border-color:rgba(22,163,74,.58); }
+#wordBuilderUndo { background:linear-gradient(180deg,#f8fafc 0%,#e2e8f0 100%); }
+#wordBuilderAlphabet { background:linear-gradient(180deg,#f5f3ff 0%,#ede9fe 100%); border-color:rgba(139,92,246,.3); color:#5b21b6; }
+#wordBuilderReset { background:linear-gradient(180deg,#fff7ed 0%,#ffedd5 100%); border-color:rgba(249,115,22,.32); color:#9a3412; }
 .wordBuilderMessage { min-height:28px; text-align:center; font-weight:800; margin:5px 0; }
 .wordBuilderPoetryLine { box-sizing:border-box; min-height:74px; padding:8px 10px; border:2px dashed #b9cbe2; border-radius:15px; background:rgba(255,255,255,.72); }
 .wordBuilderPoetryLine + .wordBuilderPoetryLine { margin-top:9px; }
