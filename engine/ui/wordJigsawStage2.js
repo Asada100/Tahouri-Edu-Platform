@@ -342,18 +342,46 @@
             return element;
         }
 
-        function reorderTargetFromPoint(event, fromIndex) {
-            const buttons = [...target.querySelectorAll("[data-target-index]")];
-            let toIndex = buttons.length;
-            for (let i = 0; i < buttons.length; i += 1) {
-                const index = Number(buttons[i].dataset.targetIndex);
-                if (index === fromIndex) continue;
-                const rect = buttons[i].getBoundingClientRect();
-                if (event.clientX < rect.left + rect.width / 2) {
-                    toIndex = index;
-                    break;
+        function getInsertIndexFromPoint(event, excludedIndex) {
+            const buttons = [...target.querySelectorAll("[data-target-index]")].filter(function (button) {
+                return Number(button.dataset.targetIndex) !== Number(excludedIndex);
+            });
+            if (!buttons.length) return 0;
+
+            // Find the word nearest to the actual release point, not merely
+            // the element returned by elementFromPoint(). This is important
+            // in RTL and when the answer wraps onto more than one line.
+            let nearest = null;
+            let nearestDistance = Infinity;
+            buttons.forEach(function (button) {
+                const rect = button.getBoundingClientRect();
+                const dx = event.clientX - (rect.left + rect.width / 2);
+                const dy = event.clientY - (rect.top + rect.height / 2);
+                const inside = event.clientX >= rect.left && event.clientX <= rect.right &&
+                    event.clientY >= rect.top && event.clientY <= rect.bottom;
+                const distance = inside ? 0 : (dx * dx + dy * dy);
+                if (distance < nearestDistance) {
+                    nearestDistance = distance;
+                    nearest = { button: button, rect: rect };
                 }
+            });
+
+            const hoveredIndex = Number(nearest.button.dataset.targetIndex);
+            const center = nearest.rect.left + nearest.rect.width / 2;
+            const direction = getComputedStyle(target).direction || "rtl";
+
+            // In RTL, the logical word with the smaller index is visually
+            // on the right. Dropping on the right half inserts before it;
+            // dropping on the left half inserts after it.
+            if (direction === "rtl") {
+                return event.clientX > center ? hoveredIndex : hoveredIndex + 1;
             }
+            return event.clientX < center ? hoveredIndex : hoveredIndex + 1;
+        }
+
+        function reorderTargetFromPoint(event, fromIndex) {
+            const toIndexRaw = getInsertIndexFromPoint(event, fromIndex);
+            let toIndex = toIndexRaw;
             if (toIndex > fromIndex) toIndex -= 1;
             if (toIndex !== fromIndex) {
                 if (JigsawPuzzleHandler.reorderTarget(PuzzleEngine, fromIndex, toIndex)) rerender();
@@ -369,17 +397,8 @@
                 if (dropElement && dropElement.closest("#wordBuilderTarget")) {
                     const targetButton = dropElement.closest("[data-target-index]");
                     if (targetButton) {
-                        // Insert before/after the word according to the actual
-                        // drop position, so source words can be placed anywhere
-                        // in the answer rather than always ending up at the end.
-                        const buttons = [...target.querySelectorAll("[data-target-index]")];
-                        const hoveredIndex = Number(targetButton.dataset.targetIndex);
-                        const hoveredRect = targetButton.getBoundingClientRect();
-                        const insertIndex = event.clientX > hoveredRect.left + hoveredRect.width / 2
-                            ? hoveredIndex
-                            : hoveredIndex + 1;
-                        JigsawPuzzleHandler.moveWordToTarget(PuzzleEngine, data.index, insertIndex);
-                        rerender();
+                        const insertIndex = getInsertIndexFromPoint(event);
+                        if (JigsawPuzzleHandler.moveWordToTarget(PuzzleEngine, data.index, insertIndex)) rerender();
                     } else {
                         const slot = dropElement.closest("[data-target-slot]");
                         if (slot) {
