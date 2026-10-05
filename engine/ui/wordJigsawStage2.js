@@ -114,29 +114,38 @@
 
         if (hardGroupedBoard) {
             const group = Number(targetGroup);
+            const requested = Number(targetIndex);
             if (!Number.isInteger(group) || group < 0) return false;
-            if (!Array.isArray(engine.puzzle.targetGroups)) engine.puzzle.targetGroups = [];
-            const groups = engine.puzzle.targetGroups;
+
+            const groups = Array.isArray(engine.puzzle.targetGroups)
+                ? engine.puzzle.targetGroups
+                : [];
             if (groups.length !== target.length) {
                 engine.puzzle.targetGroups = target.map(function () { return 0; });
             }
+
             const currentGroups = engine.puzzle.targetGroups;
-            const same = [];
+            const groupPositions = [];
             for (let i = 0; i < currentGroups.length; i++) {
-                if (Number(currentGroups[i]) === group) same.push(i);
+                if (Number(currentGroups[i]) === group) groupPositions.push(i);
             }
-            const requested = Number(targetIndex);
-            const before = currentGroups.filter(function (g) { return Number(g) < group; }).length;
-            let insertAt = before + same.length;
-            if (same.length && Number.isInteger(requested)) {
-                insertAt = Math.max(before, Math.min(requested, before + same.length));
+
+            const groupStart = currentGroups.filter(function (g) {
+                return Number(g) < group;
+            }).length;
+
+            let insertAt = groupStart + groupPositions.length;
+            if (Number.isInteger(requested)) {
+                insertAt = Math.max(groupStart, Math.min(requested, groupStart + groupPositions.length));
             }
+
             engine.puzzle.history.push({
                 availableWords: [...source],
                 targetWords: [...target],
                 targetGroups: [...currentGroups],
                 hintUsed: !!engine.puzzle.hintUsed
             });
+
             const word = source.splice(index, 1)[0];
             target.splice(insertAt, 0, word);
             currentGroups.splice(insertAt, 0, group);
@@ -424,57 +433,65 @@
             return element;
         }
 
-        function getInsertIndexFromPoint(event, excludedIndex) {
+        function getHardInsertInfo(event, excludedIndex) {
             const rows = [...target.querySelectorAll(".wordBuilderPoetryLine")];
             const direction = getComputedStyle(target).direction || "rtl";
-
-            // First choose the actual poetry line under the release point.
-            // This prevents a drop in the first hemistich from being compared
-            // with words in the second hemistich.
+            let rowIndex = -1;
             let row = null;
-            for (const candidate of rows) {
+
+            rows.forEach(function (candidate, index) {
                 const rect = candidate.getBoundingClientRect();
                 if (event.clientY >= rect.top && event.clientY <= rect.bottom) {
                     row = candidate;
-                    break;
+                    rowIndex = index;
                 }
+            });
+
+            if (rowIndex < 0) {
+                // If the pointer is in the gap between rows, use the nearest row.
+                let best = Infinity;
+                rows.forEach(function (candidate, index) {
+                    const rect = candidate.getBoundingClientRect();
+                    const dy = event.clientY < rect.top ? rect.top - event.clientY :
+                        event.clientY > rect.bottom ? event.clientY - rect.bottom : 0;
+                    if (dy < best) {
+                        best = dy;
+                        row = candidate;
+                        rowIndex = index;
+                    }
+                });
             }
 
-            const buttons = (row
-                ? [...row.querySelectorAll("[data-target-index]")]
-                : [...target.querySelectorAll("[data-target-index]")])
-                .filter(function (button) {
+            if (rowIndex < 0) return { group: 0, index: 0 };
+
+            const buttons = [...row.querySelectorAll("[data-target-index]")].filter(function (button) {
+                return Number(button.dataset.targetIndex) !== Number(excludedIndex);
+            });
+
+            // Important: the target array is compact in hard mode. Therefore the
+            // start of the second hemistich is the number of words currently in
+            // the first hemistich, NOT firstLineLength/group capacity.
+            const allRows = rows.map(function (r) {
+                return [...r.querySelectorAll("[data-target-index]")].filter(function (button) {
                     return Number(button.dataset.targetIndex) !== Number(excludedIndex);
                 });
+            });
+            let groupStart = 0;
+            for (let i = 0; i < rowIndex; i++) groupStart += allRows[i].length;
 
             if (!buttons.length) {
-                if (row) {
-                    const all = [...target.querySelectorAll("[data-target-index]")];
-                    const rowsWithButtons = rows.map(function (r) {
-                        return [...r.querySelectorAll("[data-target-index]")];
-                    });
-                    const rowIndex = rows.indexOf(row);
-                    let startIndex = 0;
-                    for (let i = 0; i < rowIndex; i++) startIndex += rowsWithButtons[i].length;
-                    const lengths = getHardGroupLengths(PuzzleEngine);
-                    let groupStart = 0;
-                    for (let i = 0; i < rowIndex; i++) groupStart += lengths[i] || 0;
-                    return groupStart;
-                }
-                return [...target.querySelectorAll("[data-target-index]")].length;
+                return { group: rowIndex, index: groupStart };
             }
 
-            // Work only with the words in the selected hemistich.
-            // In RTL, DOM index 0 is visually the rightmost word.
             let nearest = null;
             let nearestDistance = Infinity;
             buttons.forEach(function (button) {
                 const rect = button.getBoundingClientRect();
-                const dx = event.clientX - (rect.left + rect.width / 2);
-                const dy = event.clientY - (rect.top + rect.height / 2);
+                const centerX = rect.left + rect.width / 2;
+                const dx = event.clientX - centerX;
                 const inside = event.clientX >= rect.left && event.clientX <= rect.right &&
                     event.clientY >= rect.top && event.clientY <= rect.bottom;
-                const distance = inside ? 0 : (dx * dx + dy * dy);
+                const distance = inside ? 0 : Math.abs(dx);
                 if (distance < nearestDistance) {
                     nearestDistance = distance;
                     nearest = { button: button, rect: rect };
@@ -483,18 +500,24 @@
 
             const localIndex = buttons.indexOf(nearest.button);
             const center = nearest.rect.left + nearest.rect.width / 2;
-            const localInsert = direction === "rtl"
-                ? (event.clientX > center ? localIndex : localIndex + 1)
-                : (event.clientX < center ? localIndex : localIndex + 1);
+            const insertAfter = direction === "rtl"
+                ? event.clientX < center
+                : event.clientX > center;
+            const localInsert = localIndex + (insertAfter ? 1 : 0);
 
-            const all = [...target.querySelectorAll("[data-target-index]")];
-            const firstGlobal = all.indexOf(buttons[0]);
-            return firstGlobal + localInsert;
+            return {
+                group: rowIndex,
+                index: groupStart + localInsert
+            };
+        }
+
+        function getInsertIndexFromPoint(event, excludedIndex) {
+            return getHardInsertInfo(event, excludedIndex).index;
         }
 
         function reorderTargetFromPoint(event, fromIndex) {
-            const toIndexRaw = getInsertIndexFromPoint(event, fromIndex);
-            let toIndex = toIndexRaw;
+            const info = getHardInsertInfo(event, fromIndex);
+            let toIndex = info.index;
             if (toIndex > fromIndex) toIndex -= 1;
             if (toIndex !== fromIndex) {
                 if (JigsawPuzzleHandler.reorderTarget(PuzzleEngine, fromIndex, toIndex)) rerender();
@@ -510,8 +533,8 @@
                 if (dropElement && dropElement.closest("#wordBuilderTarget")) {
                     const targetButton = dropElement.closest("[data-target-index]");
                     if (targetButton) {
-                        const insertIndex = getInsertIndexFromPoint(event);
-                        if (JigsawPuzzleHandler.moveWordToTarget(PuzzleEngine, data.index, insertIndex)) rerender();
+                        const info = getHardInsertInfo(event);
+                        if (JigsawPuzzleHandler.moveWordToTarget(PuzzleEngine, data.index, info.index, info.group)) rerender();
                     } else {
                         const slot = dropElement.closest("[data-target-slot]");
                         if (slot) {
@@ -519,8 +542,8 @@
                             JigsawPuzzleHandler.moveWordToTarget(PuzzleEngine, data.index, targetIndex);
                             rerender();
                         } else if (dropElement.closest("#wordBuilderTarget")) {
-                            JigsawPuzzleHandler.moveWordToTarget(PuzzleEngine, data.index);
-                            rerender();
+                            const info = getHardInsertInfo(event);
+                            if (JigsawPuzzleHandler.moveWordToTarget(PuzzleEngine, data.index, info.index, info.group)) rerender();
                         }
                     }
                 }
@@ -621,5 +644,5 @@
         PuzzleEngine.buildResult = function () { const result = originalBuildResult(); if (this.puzzle && this.puzzle.twoStageWordOrder && this.puzzle.hintUsed) result.score = Math.max(0, Number(result.score || 0) - 2); return result; };
     }
 
-    console.log("Word Jigsaw Stage 2 v1.9 Ready");
+    console.log("Word Jigsaw Stage 2 v2.0 Ready");
 })();
