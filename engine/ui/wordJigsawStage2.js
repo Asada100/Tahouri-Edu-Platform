@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Word Jigsaw Stage 2
-// Version 1.7
+// Version 1.9
 // =====================================
 
 (function () {
@@ -31,6 +31,7 @@
         if (!Number.isInteger(engine.puzzle.stage)) engine.puzzle.stage = 2;
         if (!Array.isArray(engine.puzzle.availableWords)) engine.puzzle.availableWords = [];
         if (!Array.isArray(engine.puzzle.targetWords)) engine.puzzle.targetWords = [];
+        if (!Array.isArray(engine.puzzle.targetGroups)) engine.puzzle.targetGroups = [];
         if (!Array.isArray(engine.puzzle.history)) engine.puzzle.history = [];
         if (!Array.isArray(engine.puzzle.correctOrder) || !engine.puzzle.correctOrder.length) engine.puzzle.correctOrder = definition.correctOrder.slice();
         if (!Array.isArray(engine.puzzle.words) || !engine.puzzle.words.length) engine.puzzle.words = definition.words.slice();
@@ -100,7 +101,7 @@
         return false;
     };
 
-    JigsawPuzzleHandler.moveWordToTarget = function (engine, sourceIndex, targetIndex) {
+    JigsawPuzzleHandler.moveWordToTarget = function (engine, sourceIndex, targetIndex, targetGroup) {
         if (!isStage2(engine)) return false;
         const source = engine.puzzle.availableWords || [];
         const index = Number(sourceIndex);
@@ -111,6 +112,38 @@
             target.length === (engine.puzzle.correctOrder || engine.puzzle.words || []).length;
         const hardGroupedBoard = isHardGroupedBoard(engine);
 
+        if (hardGroupedBoard) {
+            const group = Number(targetGroup);
+            if (!Number.isInteger(group) || group < 0) return false;
+            if (!Array.isArray(engine.puzzle.targetGroups)) engine.puzzle.targetGroups = [];
+            const groups = engine.puzzle.targetGroups;
+            if (groups.length !== target.length) {
+                engine.puzzle.targetGroups = target.map(function () { return 0; });
+            }
+            const currentGroups = engine.puzzle.targetGroups;
+            const same = [];
+            for (let i = 0; i < currentGroups.length; i++) {
+                if (Number(currentGroups[i]) === group) same.push(i);
+            }
+            const requested = Number(targetIndex);
+            const before = currentGroups.filter(function (g) { return Number(g) < group; }).length;
+            let insertAt = before + same.length;
+            if (same.length && Number.isInteger(requested)) {
+                insertAt = Math.max(before, Math.min(requested, before + same.length));
+            }
+            engine.puzzle.history.push({
+                availableWords: [...source],
+                targetWords: [...target],
+                targetGroups: [...currentGroups],
+                hintUsed: !!engine.puzzle.hintUsed
+            });
+            const word = source.splice(index, 1)[0];
+            target.splice(insertAt, 0, word);
+            currentGroups.splice(insertAt, 0, group);
+            emitChanged(engine);
+            return true;
+        }
+
         // In the full (hard) word-builder board, empty positions before the
         // second hemistich are preserved as nulls instead of being removed.
         const slot = targetIndex == null || targetIndex === ""
@@ -119,11 +152,12 @@
 
         const correctLength = (engine.puzzle.correctOrder || engine.puzzle.words || []).length;
         if (!Number.isInteger(slot) || slot < 0 || slot >= correctLength) return false;
-        if ((partialBoard || hardGroupedBoard) && target[slot] != null) return false;
+        if (partialBoard && target[slot] != null) return false;
 
         engine.puzzle.history.push({
             availableWords: [...source],
             targetWords: [...target],
+            targetGroups: [...(engine.puzzle.targetGroups || [])],
             hintUsed: !!engine.puzzle.hintUsed
         });
 
@@ -132,7 +166,7 @@
         // Partial Setayesh board uses fixed positions (including null slots).
         // Never splice the target array here: doing so shifts the second hemistich
         // and can move a repeated word such as "حق" across the hemistich boundary.
-        if (partialBoard || hardGroupedBoard) {
+        if (partialBoard) {
             while (target.length <= slot) target.push(null);
             target[slot] = word;
         } else {
@@ -166,7 +200,10 @@
             target.length === (engine.puzzle.correctOrder || engine.puzzle.words || []).length;
 
         const hardGroupedBoard = isHardGroupedBoard(engine);
-        if (partialBoard || hardGroupedBoard) {
+        if (hardGroupedBoard) {
+            target.splice(index, 1);
+            engine.puzzle.targetGroups.splice(index, 1);
+        } else if (partialBoard) {
             target[index] = null;
         } else {
             target.splice(index, 1);
@@ -180,9 +217,15 @@
         if (!isStage2(engine)) return false;
         const from = Number(fromIndex), to = Number(toIndex), target = engine.puzzle.targetWords || [];
         if (!Number.isInteger(from) || !Number.isInteger(to) || from < 0 || to < 0 || from >= target.length || to >= target.length || from === to) return false;
-        engine.puzzle.history.push({ availableWords: [...engine.puzzle.availableWords], targetWords: [...target], hintUsed: !!engine.puzzle.hintUsed });
+        engine.puzzle.history.push({ availableWords: [...engine.puzzle.availableWords], targetWords: [...target], targetGroups: [...(engine.puzzle.targetGroups || [])], hintUsed: !!engine.puzzle.hintUsed });
+        const hardGroupedBoard = isHardGroupedBoard(engine);
+        const groups = engine.puzzle.targetGroups || [];
+        if (hardGroupedBoard && groups.length === target.length && Number(groups[from]) !== Number(groups[to])) return false;
+        engine.puzzle.history.push({ availableWords:[...engine.puzzle.availableWords], targetWords:[...target], targetGroups:[...groups], hintUsed:!!engine.puzzle.hintUsed });
         const word = target.splice(from, 1)[0];
+        const group = groups.splice(from, 1)[0];
         target.splice(to, 0, word);
+        if (hardGroupedBoard) groups.splice(to, 0, group);
         emitChanged(engine);
         return true;
     };
@@ -193,6 +236,7 @@
         if (!previous) return false;
         engine.puzzle.availableWords = [...previous.availableWords];
         engine.puzzle.targetWords = [...previous.targetWords];
+        engine.puzzle.targetGroups = [...(previous.targetGroups || [])];
         engine.puzzle.hintUsed = !!previous.hintUsed;
         emitChanged(engine);
         return true;
@@ -200,10 +244,11 @@
 
     JigsawPuzzleHandler.alphabeticalHint = function (engine) {
         if (!isStage2(engine)) return false;
-        const allWords = [...(engine.puzzle.availableWords || []), ...(engine.puzzle.targetWords || [])];
+        const allWords = [...(engine.puzzle.availableWords || []), ...(engine.puzzle.targetWords || []).filter(function (w) { return w != null; })];
         engine.puzzle.history.push({ availableWords: [...engine.puzzle.availableWords], targetWords: [...engine.puzzle.targetWords], hintUsed: !!engine.puzzle.hintUsed });
         engine.puzzle.availableWords = [];
         engine.puzzle.targetWords = allWords.sort(function (a, b) { return String(a).localeCompare(String(b), "fa"); });
+        engine.puzzle.targetGroups = engine.puzzle.targetWords.map(function () { return 0; });
         engine.puzzle.hintUsed = true;
         emitChanged(engine);
         return true;
@@ -216,6 +261,7 @@
         engine.puzzle.stage = 2;
         engine.puzzle.availableWords = shuffleWords(words);
         engine.puzzle.targetWords = [];
+        engine.puzzle.targetGroups = [];
         engine.puzzle.history = [];
         engine.puzzle.hintUsed = false;
         engine.items = [];
@@ -239,6 +285,7 @@
             state.stage = this.puzzle.stage || 2;
             state.availableWords = [...(this.puzzle.availableWords || [])];
             state.targetWords = [...(this.puzzle.targetWords || [])];
+            state.targetGroups = [...(this.puzzle.targetGroups || [])];
             state.correctWords = [...(this.puzzle.correctOrder || this.puzzle.words || [])];
             state.hintUsed = !!this.puzzle.hintUsed;
             state.punctuation = { ...(this.puzzle.punctuation || {}) };
@@ -284,6 +331,20 @@
         const difficulty = Number(PuzzleEngine && PuzzleEngine.puzzle && PuzzleEngine.puzzle.wordJigsawDifficulty || 3);
         const hardGroupedBoard = difficulty >= 3 && getHardGroupLengths(PuzzleEngine).length >= 2;
         const esc = this.escapeHTML.bind(this);
+        let targetMarkup = "";
+        if (hardGroupedBoard) {
+            const groups = Array.isArray(state.targetGroups) ? state.targetGroups : [];
+            const lengths = getHardGroupLengths(PuzzleEngine);
+            targetMarkup = lengths.map(function (_, groupIndex) {
+                const buttons = target.map(function (w, i) {
+                    if (w == null || Number(groups[i]) !== groupIndex) return "";
+                    return `<button class="wordBuilderPiece wordBuilderTargetPiece" draggable="true" data-target-index="${i}" type="button"><span class="wordBuilderWord">${esc(displayWord(w))}</span></button>`;
+                }).join("");
+                return `<div class="wordBuilderPoetryLine wordBuilderPoetryLineGroup" data-group-index="${groupIndex}">${buttons || '<span class="wordBuilderEmpty">کلمات این مصرع را اینجا رها کن.</span>'}</div>`;
+            }).join("");
+        } else {
+            targetMarkup = target.map(function (w,i) { return w == null ? "" : `<button class="wordBuilderPiece wordBuilderTargetPiece" draggable="true" data-target-index="${i}" type="button"><span class="wordBuilderWord">${esc(displayWord(w))}</span>${esc(punctuationForTarget(state, w, i)) ? `<span class="wordBuilderPunctuation">${esc(displayWord(punctuationForTarget(state, w, i)))}</span>` : ""}</button>`; }).join("") || '<span class="wordBuilderEmpty">کلمات را اینجا رها کن.</span>';
+        }
         app.innerHTML = `
             <div class="screen puzzleScreen jigsawScreen wordBuilderScreen" dir="rtl">
                 <div class="jigsawHeader wordJigsawHeader">
@@ -292,7 +353,7 @@
                     <p class="jigsawObjective">کلمات را با کشیدن و رها کردن به «پاسخ شما» منتقل کن و ترتیب درست را بساز.</p>
                 </div>
                 <section class="wordBuilderSection"><h2>کلمات</h2><div id="wordBuilderSource" class="wordBuilderBox" data-drop-zone="source">${source.map((w,i)=>`<button class="wordBuilderPiece" draggable="true" data-source-index="${i}" type="button">${esc(displayWord(w))}</button>`).join("") || '<span class="wordBuilderEmpty">همه کلمات در پاسخ شما هستند.</span>'}</div></section>
-                <section class="wordBuilderSection wordBuilderAnswerSection"><h2>پاسخ شما</h2><div id="wordBuilderTarget" class="wordBuilderBox wordBuilderTarget${hardGroupedBoard ? " wordBuilderTargetHard" : ""}" data-drop-zone="target">${target.map((w,i)=> w == null ? "" : `<button class="wordBuilderPiece wordBuilderTargetPiece" draggable="true" data-target-index="${i}" type="button"><span class="wordBuilderWord">${esc(displayWord(w))}</span>${esc(punctuationForTarget(state, w, i)) ? `<span class="wordBuilderPunctuation">${esc(displayWord(punctuationForTarget(state, w, i)))}</span>` : ""}</button>`).join("") || '<span class="wordBuilderEmpty">کلمات را اینجا رها کن.</span>'}</div></section>
+                <section class="wordBuilderSection wordBuilderAnswerSection"><h2>پاسخ شما</h2><div id="wordBuilderTarget" class="wordBuilderBox wordBuilderTarget${hardGroupedBoard ? " wordBuilderTargetHard" : ""}" data-drop-zone="target">${targetMarkup}</div></section>
                 <div class="wordBuilderControls"><button id="wordBuilderCheck" type="button">بررسی پاسخ</button><button id="wordBuilderUndo" type="button">↩ برگشت</button><button id="wordBuilderAlphabet" type="button">مرتب‌سازی الفبایی</button><button id="wordBuilderReset" type="button">شروع دوباره</button></div>
                 <div id="wordBuilderMessage" class="wordBuilderMessage" aria-live="polite"></div>
                 <div class="jigsawMoves">حرکت‌ها: <span>${state.moves || 0}</span></div>
@@ -560,5 +621,5 @@
         PuzzleEngine.buildResult = function () { const result = originalBuildResult(); if (this.puzzle && this.puzzle.twoStageWordOrder && this.puzzle.hintUsed) result.score = Math.max(0, Number(result.score || 0) - 2); return result; };
     }
 
-    console.log("Word Jigsaw Stage 2 v1.8 Ready");
+    console.log("Word Jigsaw Stage 2 v1.9 Ready");
 })();
