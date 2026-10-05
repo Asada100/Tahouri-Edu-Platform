@@ -1,7 +1,7 @@
 /* =====================================
    Tahouri Edu Platform
    Jigsaw Puzzle UI
-   Version 3.4
+   Version 3.5
    Image + Word/Sentence Jigsaw + Word Builder
    ===================================== */
 
@@ -41,7 +41,7 @@
 .wordBuilderBox { min-height:110px; padding:16px; display:flex; flex-wrap:wrap; align-content:flex-start; justify-content:center; align-items:center; gap:10px; border:2px dashed #d7e0ea; border-radius:20px; background:#f8fafc; direction:rtl; transition:border-color .15s ease,background .15s ease,box-shadow .15s ease; }
 .wordBuilderBox.is-drag-over { border-color:#7aa2d8; background:#f0f6ff; box-shadow:0 0 0 3px rgba(37,99,235,.08); }
 .wordBuilderTarget { min-height:145px; background:linear-gradient(145deg,#ffffff,#f7fbff); border-style:solid; }
-.wordBuilderTargetHard { box-sizing:border-box; height:190px; min-height:190px; display:flex; flex-direction:column; flex-wrap:nowrap; align-items:stretch; justify-content:flex-start; align-content:stretch; gap:0; overflow:hidden; }
+.wordBuilderTargetHard { box-sizing:border-box; height:210px; min-height:210px; display:flex; flex-direction:column; flex-wrap:nowrap; align-items:stretch; justify-content:flex-start; align-content:stretch; gap:0; overflow:hidden; }
 .wordBuilderPartialTarget { display:flex; flex-direction:column; flex-wrap:nowrap; align-content:stretch; justify-content:flex-start; align-items:stretch; gap:10px; }
 .wordBuilderPartialTarget .wordBuilderPoetryLine { width:100%; }
 .wordBuilderFixedPiece { cursor:default; background:#eef1f5; border-color:#d6dde6; box-shadow:none; opacity:.9; }
@@ -171,7 +171,7 @@
     .jigsawPiece { border-radius:5px; }
     .wordBuilderBox { min-height:100px; padding:12px 8px; gap:7px; border-radius:17px; }
     .wordBuilderTarget { min-height:140px; }
-.wordBuilderTargetHard { height:168px; min-height:168px; }
+.wordBuilderTargetHard { height:190px; min-height:190px; }
     .wordBuilderPoetryLine { min-height:66px; padding:7px 6px; border-radius:13px; gap:7px; }
     .wordBuilderPiece { min-width:0; width:max-content; max-width:100%; min-height:46px; padding:8px 11px; font-size:.94rem; border-radius:12px; }
     .wordBuilderControls {
