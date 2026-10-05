@@ -181,69 +181,151 @@
         if (!source || !target) return;
 
         let dragData = null;
+        let dragGhost = null;
+        let activeButton = null;
+        let activePointerId = null;
+        let startX = 0;
+        let startY = 0;
+        let dragging = false;
+
         function rerender() { JigsawScreen.render(PuzzleEngine.getState()); }
 
-        source.querySelectorAll("[data-source-index]").forEach(function (button) {
-            button.addEventListener("dragstart", function (event) {
-                dragData = { zone: "source", index: Number(button.dataset.sourceIndex) };
-                button.classList.add("is-dragging");
-                if (event.dataTransfer) event.dataTransfer.setData("text/plain", "word");
-            });
-            button.addEventListener("dragend", function () { button.classList.remove("is-dragging"); dragData = null; });
-        });
+        function clearDrag() {
+            if (activeButton) activeButton.classList.remove("is-dragging");
+            if (dragGhost && dragGhost.parentNode) dragGhost.parentNode.removeChild(dragGhost);
+            source.classList.remove("is-drag-over");
+            target.classList.remove("is-drag-over");
+            target.querySelectorAll(".is-drag-over").forEach(function (el) { el.classList.remove("is-drag-over"); });
+            dragData = null;
+            dragGhost = null;
+            activeButton = null;
+            activePointerId = null;
+            dragging = false;
+        }
 
-        target.querySelectorAll("[data-target-index]").forEach(function (button) {
-            button.addEventListener("dragstart", function (event) {
-                dragData = { zone: "target", index: Number(button.dataset.targetIndex) };
-                button.classList.add("is-dragging");
-                if (event.dataTransfer) event.dataTransfer.setData("text/plain", "word");
-            });
-            button.addEventListener("dragend", function () { button.classList.remove("is-dragging"); dragData = null; });
-        });
+        function createGhost(button) {
+            const rect = button.getBoundingClientRect();
+            const ghost = button.cloneNode(true);
+            ghost.removeAttribute("data-source-index");
+            ghost.removeAttribute("data-target-index");
+            ghost.removeAttribute("data-target-slot");
+            ghost.style.position = "fixed";
+            ghost.style.left = rect.left + "px";
+            ghost.style.top = rect.top + "px";
+            ghost.style.width = rect.width + "px";
+            ghost.style.height = rect.height + "px";
+            ghost.style.margin = "0";
+            ghost.style.zIndex = "99999";
+            ghost.style.pointerEvents = "none";
+            ghost.style.opacity = ".92";
+            ghost.style.transform = "scale(1.04) rotate(-1deg)";
+            ghost.style.transition = "none";
+            document.body.appendChild(ghost);
+            return ghost;
+        }
 
-        target.querySelectorAll("[data-target-slot]").forEach(function (slot) {
-            slot.addEventListener("dragover", function (event) { event.preventDefault(); slot.classList.add("is-drag-over"); });
-            slot.addEventListener("dragleave", function () { slot.classList.remove("is-drag-over"); });
-            slot.addEventListener("drop", function (event) {
-                event.preventDefault();
-                slot.classList.remove("is-drag-over");
-                if (!dragData) return;
+        function updateGhost(event) {
+            if (!dragGhost || !activeButton) return;
+            const rect = activeButton.getBoundingClientRect();
+            dragGhost.style.left = (event.clientX - startX + rect.left) + "px";
+            dragGhost.style.top = (event.clientY - startY + rect.top) + "px";
+        }
 
-                const index = Number(slot.dataset.targetSlot);
-                if (dragData.zone === "source") {
-                    if (JigsawPuzzleHandler.moveWordToTarget(PuzzleEngine, dragData.index, index)) rerender();
-                } else if (dragData.zone === "target" && dragData.index !== index) {
-                    const current = PuzzleEngine.puzzle.targetWords[index];
-                    if (current == null) {
-                        JigsawPuzzleHandler.moveWordToSource(PuzzleEngine, dragData.index);
+        function elementAt(event) {
+            if (dragGhost) dragGhost.style.display = "none";
+            const element = document.elementFromPoint(event.clientX, event.clientY);
+            if (dragGhost) dragGhost.style.display = "";
+            return element;
+        }
+
+        function pointerDown(event, button, zone, index) {
+            if (event.pointerType === "mouse" && event.button !== 0) return;
+            activeButton = button;
+            activePointerId = event.pointerId;
+            startX = event.clientX;
+            startY = event.clientY;
+            dragging = false;
+            dragData = { zone: zone, index: Number(index) };
+            if (button.setPointerCapture) {
+                try { button.setPointerCapture(event.pointerId); } catch (e) {}
+            }
+        }
+
+        function pointerMove(event) {
+            if (!dragData || activePointerId !== event.pointerId || !activeButton) return;
+            const dx = event.clientX - startX;
+            const dy = event.clientY - startY;
+            if (!dragging && Math.hypot(dx, dy) < 6) return;
+
+            dragging = true;
+            activeButton.classList.add("is-dragging");
+            if (!dragGhost) dragGhost = createGhost(activeButton);
+            updateGhost(event);
+            event.preventDefault();
+
+            const over = elementAt(event);
+            source.classList.toggle("is-drag-over", !!(over && over.closest("#wordBuilderSource")));
+            target.classList.toggle("is-drag-over", !!(over && over.closest("#wordBuilderTarget")));
+            if (over) {
+                const slot = over.closest("[data-target-slot]");
+                if (slot) slot.classList.add("is-drag-over");
+            }
+        }
+
+        function finish(event) {
+            if (!dragData || activePointerId !== event.pointerId) return;
+            const data = dragData;
+            const over = elementAt(event);
+
+            if (data.zone === "source") {
+                if (over && over.closest("#wordBuilderTarget")) {
+                    const button = over.closest("[data-target-index]");
+                    if (button) {
+                        const index = Number(button.dataset.targetIndex);
+                        JigsawPuzzleHandler.moveWordToSource(PuzzleEngine, index);
                         const sourceIndex = PuzzleEngine.puzzle.availableWords.length - 1;
-                        JigsawPuzzleHandler.moveWordToTarget(PuzzleEngine, sourceIndex, index);
-                        rerender();
+                        if (JigsawPuzzleHandler.moveWordToTarget(PuzzleEngine, sourceIndex, index)) rerender();
+                    } else {
+                        const slot = over.closest("[data-target-slot]");
+                        if (slot) {
+                            const index = Number(slot.dataset.targetSlot);
+                            if (JigsawPuzzleHandler.moveWordToTarget(PuzzleEngine, data.index, index)) rerender();
+                        }
                     }
                 }
-            });
-        });
-
-        target.querySelectorAll("[data-target-index]").forEach(function (button) {
-            button.addEventListener("dragover", function (event) { event.preventDefault(); button.classList.add("is-drag-over"); });
-            button.addEventListener("dragleave", function () { button.classList.remove("is-drag-over"); });
-            button.addEventListener("drop", function (event) {
-                event.preventDefault();
-                button.classList.remove("is-drag-over");
-                if (!dragData || dragData.zone !== "source") return;
-                const index = Number(button.dataset.targetIndex);
-                JigsawPuzzleHandler.moveWordToSource(PuzzleEngine, index);
-                const sourceIndex = PuzzleEngine.puzzle.availableWords.length - 1;
-                if (JigsawPuzzleHandler.moveWordToTarget(PuzzleEngine, sourceIndex, index)) rerender();
-            });
-        });
-
-        source.addEventListener("dragover", function (event) { event.preventDefault(); });
-        source.addEventListener("drop", function (event) {
-            event.preventDefault();
-            if (dragData && dragData.zone === "target") {
-                if (JigsawPuzzleHandler.moveWordToSource(PuzzleEngine, dragData.index)) rerender();
+            } else if (data.zone === "target") {
+                if (over && over.closest("#wordBuilderSource")) {
+                    if (JigsawPuzzleHandler.moveWordToSource(PuzzleEngine, data.index)) rerender();
+                } else if (over && over.closest("[data-target-slot]")) {
+                    const index = Number(over.closest("[data-target-slot]").dataset.targetSlot);
+                    if (index !== data.index && PuzzleEngine.puzzle.targetWords[index] == null) {
+                        JigsawPuzzleHandler.moveWordToSource(PuzzleEngine, data.index);
+                        const sourceIndex = PuzzleEngine.puzzle.availableWords.length - 1;
+                        if (JigsawPuzzleHandler.moveWordToTarget(PuzzleEngine, sourceIndex, index)) rerender();
+                    }
+                }
             }
+
+            clearDrag();
+        }
+
+        function bindButton(button, zone, index) {
+            button.draggable = false;
+            button.addEventListener("pointerdown", function (event) { pointerDown(event, button, zone, index); });
+            button.addEventListener("pointermove", pointerMove, { passive: false });
+            button.addEventListener("pointerup", finish);
+            button.addEventListener("pointercancel", clearDrag);
+        }
+
+        source.querySelectorAll("[data-source-index]").forEach(function (button) {
+            bindButton(button, "source", button.dataset.sourceIndex);
+        });
+        target.querySelectorAll("[data-target-index]").forEach(function (button) {
+            bindButton(button, "target", button.dataset.targetIndex);
+        });
+
+        document.addEventListener("pointerup", function (event) {
+            if (dragData && activePointerId === event.pointerId) finish(event);
         });
 
         const check = document.getElementById("wordBuilderCheck");
@@ -261,6 +343,7 @@
         const reset = document.getElementById("wordBuilderReset");
         if (reset) reset.onclick = function () { if (JigsawPuzzleHandler.reset(PuzzleEngine)) rerender(); };
     }
+
 
     JigsawPuzzleHandler.start = function (engine, data) {
         const result = originalStart(engine, data);
