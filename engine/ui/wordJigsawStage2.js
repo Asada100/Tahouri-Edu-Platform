@@ -187,6 +187,7 @@
         engine.puzzle.history.push({
             availableWords: [...engine.puzzle.availableWords],
             targetWords: [...target],
+            targetGroups: [...(engine.puzzle.targetGroups || [])],
             hintUsed: !!engine.puzzle.hintUsed
         });
 
@@ -217,7 +218,6 @@
         if (!isStage2(engine)) return false;
         const from = Number(fromIndex), to = Number(toIndex), target = engine.puzzle.targetWords || [];
         if (!Number.isInteger(from) || !Number.isInteger(to) || from < 0 || to < 0 || from >= target.length || to >= target.length || from === to) return false;
-        engine.puzzle.history.push({ availableWords: [...engine.puzzle.availableWords], targetWords: [...target], targetGroups: [...(engine.puzzle.targetGroups || [])], hintUsed: !!engine.puzzle.hintUsed });
         const hardGroupedBoard = isHardGroupedBoard(engine);
         const groups = engine.puzzle.targetGroups || [];
         if (hardGroupedBoard && groups.length === target.length && Number(groups[from]) !== Number(groups[to])) return false;
@@ -245,7 +245,7 @@
     JigsawPuzzleHandler.alphabeticalHint = function (engine) {
         if (!isStage2(engine)) return false;
         const allWords = [...(engine.puzzle.availableWords || []), ...(engine.puzzle.targetWords || []).filter(function (w) { return w != null; })];
-        engine.puzzle.history.push({ availableWords: [...engine.puzzle.availableWords], targetWords: [...engine.puzzle.targetWords], hintUsed: !!engine.puzzle.hintUsed });
+        engine.puzzle.history.push({ availableWords: [...engine.puzzle.availableWords], targetWords: [...engine.puzzle.targetWords], targetGroups: [...(engine.puzzle.targetGroups || [])], hintUsed: !!engine.puzzle.hintUsed });
         engine.puzzle.availableWords = [];
         engine.puzzle.targetWords = allWords.sort(function (a, b) { return String(a).localeCompare(String(b), "fa"); });
         engine.puzzle.targetGroups = engine.puzzle.targetWords.map(function () { return 0; });
