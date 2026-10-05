@@ -360,7 +360,7 @@
 
             const buttons = (row
                 ? [...row.querySelectorAll("[data-target-index]")]
-                : [...target.querySelectorAll("[data-target-index])"])
+                : [...target.querySelectorAll("[data-target-index]")])
                 .filter(function (button) {
                     return Number(button.dataset.targetIndex) !== Number(excludedIndex);
                 });
