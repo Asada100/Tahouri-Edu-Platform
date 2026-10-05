@@ -90,11 +90,32 @@
         const source = engine.puzzle.availableWords || [];
         const index = Number(sourceIndex);
         if (!Number.isInteger(index) || index < 0 || index >= source.length) return false;
-        engine.puzzle.history.push({ availableWords: [...source], targetWords: [...engine.puzzle.targetWords], hintUsed: !!engine.puzzle.hintUsed });
-        const word = source.splice(index, 1)[0];
+
         const target = engine.puzzle.targetWords || [];
-        const insertAt = Number.isInteger(Number(targetIndex)) ? Math.max(0, Math.min(Number(targetIndex), target.length)) : target.length;
-        target.splice(insertAt, 0, word);
+        const slot = Number(targetIndex);
+        const partialBoard = Array.isArray(engine.puzzle.movableIndexes) &&
+            target.length === (engine.puzzle.correctOrder || engine.puzzle.words || []).length;
+
+        if (!Number.isInteger(slot) || slot < 0 || slot >= target.length) return false;
+        if (partialBoard && target[slot] != null) return false;
+
+        engine.puzzle.history.push({
+            availableWords: [...source],
+            targetWords: [...target],
+            hintUsed: !!engine.puzzle.hintUsed
+        });
+
+        const word = source.splice(index, 1)[0];
+
+        // Partial Setayesh board uses fixed positions (including null slots).
+        // Never splice the target array here: doing so shifts the second hemistich
+        // and can move a repeated word such as "حق" across the hemistich boundary.
+        if (partialBoard) {
+            target[slot] = word;
+        } else {
+            target.splice(slot, 0, word);
+        }
+
         emitChanged(engine);
         return true;
     };
@@ -104,8 +125,29 @@
         const target = engine.puzzle.targetWords || [];
         const index = Number(targetIndex);
         if (!Number.isInteger(index) || index < 0 || index >= target.length) return false;
-        engine.puzzle.history.push({ availableWords: [...engine.puzzle.availableWords], targetWords: [...target], hintUsed: !!engine.puzzle.hintUsed });
-        engine.puzzle.availableWords.push(target.splice(index, 1)[0]);
+        if (target[index] == null) return false;
+
+        engine.puzzle.history.push({
+            availableWords: [...engine.puzzle.availableWords],
+            targetWords: [...target],
+            hintUsed: !!engine.puzzle.hintUsed
+        });
+
+        engine.puzzle.availableWords.push(
+            target[index]
+        );
+
+        // Partial Setayesh board keeps its fixed position; clear the slot
+        // instead of removing it from the array.
+        const partialBoard = Array.isArray(engine.puzzle.movableIndexes) &&
+            target.length === (engine.puzzle.correctOrder || engine.puzzle.words || []).length;
+
+        if (partialBoard) {
+            target[index] = null;
+        } else {
+            target.splice(index, 1);
+        }
+
         emitChanged(engine);
         return true;
     };
