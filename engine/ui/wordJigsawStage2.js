@@ -369,8 +369,16 @@
                 if (dropElement && dropElement.closest("#wordBuilderTarget")) {
                     const targetButton = dropElement.closest("[data-target-index]");
                     if (targetButton) {
-                        const targetIndex = Number(targetButton.dataset.targetIndex);
-                        JigsawPuzzleHandler.moveWordToTarget(PuzzleEngine, data.index, targetIndex);
+                        // Insert before/after the word according to the actual
+                        // drop position, so source words can be placed anywhere
+                        // in the answer rather than always ending up at the end.
+                        const buttons = [...target.querySelectorAll("[data-target-index]")];
+                        const hoveredIndex = Number(targetButton.dataset.targetIndex);
+                        const hoveredRect = targetButton.getBoundingClientRect();
+                        const insertIndex = event.clientX > hoveredRect.left + hoveredRect.width / 2
+                            ? hoveredIndex
+                            : hoveredIndex + 1;
+                        JigsawPuzzleHandler.moveWordToTarget(PuzzleEngine, data.index, insertIndex);
                         rerender();
                     } else {
                         const slot = dropElement.closest("[data-target-slot]");
