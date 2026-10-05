@@ -92,11 +92,16 @@
         if (!Number.isInteger(index) || index < 0 || index >= source.length) return false;
 
         const target = engine.puzzle.targetWords || [];
-        const slot = Number(targetIndex);
         const partialBoard = Array.isArray(engine.puzzle.movableIndexes) &&
             target.length === (engine.puzzle.correctOrder || engine.puzzle.words || []).length;
 
-        if (!Number.isInteger(slot) || slot < 0 || slot >= target.length) return false;
+        // In the full (hard) word-builder board, dropping onto an empty
+        // area of the answer box means "append this word".
+        const slot = targetIndex == null || targetIndex === ""
+            ? target.length
+            : Number(targetIndex);
+
+        if (!Number.isInteger(slot) || slot < 0 || (partialBoard ? slot >= target.length : slot > target.length)) return false;
         if (partialBoard && target[slot] != null) return false;
 
         engine.puzzle.history.push({
