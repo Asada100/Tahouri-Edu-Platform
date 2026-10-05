@@ -70,9 +70,39 @@
 }
 
 .wordBuilderLevelNote { min-height:24px; text-align:center; margin:0 0 8px; font-weight:700; opacity:.75; }
-.wordBuilderPiece { min-width:82px; min-height:50px; padding:9px 15px; border:1px solid #d7e0ea; border-radius:14px; background:#fff; color:#172033; box-shadow:0 4px 10px rgba(31,41,55,.08); font:inherit; font-weight:800; font-size:clamp(.95rem,2vw,1.1rem); cursor:grab; touch-action:none; user-select:none; }
-.wordBuilderPiece:hover { transform:translateY(-2px); box-shadow:0 8px 16px rgba(31,41,55,.12); }
-.wordBuilderPiece.is-dragging { opacity:.45; transform:scale(.98); cursor:grabbing; }
+.wordBuilderPiece {
+  min-width:82px;
+  min-height:50px;
+  padding:10px 16px;
+  border:1px solid rgba(148,163,184,.42);
+  border-radius:16px;
+  background:linear-gradient(180deg,#ffffff 0%,#f8fafc 100%);
+  color:#172033;
+  box-shadow:0 3px 8px rgba(15,23,42,.08),0 1px 2px rgba(15,23,42,.06);
+  font:inherit;
+  font-weight:800;
+  font-size:clamp(.95rem,2vw,1.1rem);
+  cursor:grab;
+  touch-action:none;
+  user-select:none;
+  -webkit-tap-highlight-color:transparent;
+  transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease,background .16s ease;
+}
+.wordBuilderPiece:hover {
+  transform:translateY(-2px);
+  border-color:rgba(100,116,139,.55);
+  box-shadow:0 7px 15px rgba(15,23,42,.11);
+}
+.wordBuilderPiece:active { transform:scale(.97); }
+.wordBuilderPiece.is-dragging { opacity:.38; transform:scale(.97); cursor:grabbing; }
+.wordBuilderTargetPiece {
+  border-color:rgba(96,165,250,.48);
+  background:linear-gradient(180deg,#f4f8ff 0%,#eaf2ff 100%);
+}
+.wordBuilderTargetPiece:hover {
+  border-color:rgba(59,130,246,.62);
+  box-shadow:0 7px 15px rgba(37,99,235,.12);
+}
 .wordBuilderTargetPiece { border-color:#b9cbe2; background:#eef5ff; }
 .wordBuilderTargetPiece.wordBuilderCorrect {
   border-color:#34a853;
