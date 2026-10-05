@@ -187,11 +187,18 @@
         let startX = 0;
         let startY = 0;
         let dragging = false;
+        let pendingMoveEvent = null;
+        let moveFrame = 0;
 
         function rerender() { JigsawScreen.render(PuzzleEngine.getState()); }
 
         function clearDrag() {
             if (activeButton) activeButton.classList.remove("is-dragging");
+            if (moveFrame) {
+                cancelAnimationFrame(moveFrame);
+                moveFrame = 0;
+            }
+            pendingMoveEvent = null;
             if (dragGhost && dragGhost.parentNode) dragGhost.parentNode.removeChild(dragGhost);
             source.classList.remove("is-drag-over");
             target.classList.remove("is-drag-over");
@@ -227,8 +234,21 @@
         function updateGhost(event) {
             if (!dragGhost || !activeButton) return;
             const rect = activeButton.getBoundingClientRect();
-            dragGhost.style.left = (event.clientX - startX + rect.left) + "px";
-            dragGhost.style.top = (event.clientY - startY + rect.top) + "px";
+            dragGhost.style.transform = "translate3d(" + (event.clientX - startX) + "px," + (event.clientY - startY) + "px,0) scale(1.04) rotate(-1deg)";
+            dragGhost.style.left = rect.left + "px";
+            dragGhost.style.top = rect.top + "px";
+        }
+
+        function scheduleGhostMove(event) {
+            pendingMoveEvent = event;
+            if (moveFrame) return;
+            moveFrame = requestAnimationFrame(function () {
+                moveFrame = 0;
+                if (pendingMoveEvent) {
+                    updateGhost(pendingMoveEvent);
+                    pendingMoveEvent = null;
+                }
+            });
         }
 
         function elementAt(event) {
@@ -260,7 +280,7 @@
             dragging = true;
             activeButton.classList.add("is-dragging");
             if (!dragGhost) dragGhost = createGhost(activeButton);
-            updateGhost(event);
+            scheduleGhostMove(event);
             event.preventDefault();
 
             const over = elementAt(event);
@@ -274,6 +294,7 @@
 
         function finish(event) {
             if (!dragData || activePointerId !== event.pointerId) return;
+            if (pendingMoveEvent) updateGhost(pendingMoveEvent);
             const data = dragData;
             const over = elementAt(event);
 
@@ -324,9 +345,6 @@
             bindButton(button, "target", button.dataset.targetIndex);
         });
 
-        document.addEventListener("pointerup", function (event) {
-            if (dragData && activePointerId === event.pointerId) finish(event);
-        });
 
         const check = document.getElementById("wordBuilderCheck");
         if (check) check.onclick = function () { PuzzleEngine.check(); };
