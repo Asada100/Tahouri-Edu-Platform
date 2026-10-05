@@ -343,14 +343,44 @@
         }
 
         function getInsertIndexFromPoint(event, excludedIndex) {
-            const buttons = [...target.querySelectorAll("[data-target-index]")].filter(function (button) {
-                return Number(button.dataset.targetIndex) !== Number(excludedIndex);
-            });
-            if (!buttons.length) return 0;
+            const rows = [...target.querySelectorAll(".wordBuilderPoetryLine")];
+            const direction = getComputedStyle(target).direction || "rtl";
 
-            // Find the word nearest to the actual release point, not merely
-            // the element returned by elementFromPoint(). This is important
-            // in RTL and when the answer wraps onto more than one line.
+            // First choose the actual poetry line under the release point.
+            // This prevents a drop in the first hemistich from being compared
+            // with words in the second hemistich.
+            let row = null;
+            for (const candidate of rows) {
+                const rect = candidate.getBoundingClientRect();
+                if (event.clientY >= rect.top && event.clientY <= rect.bottom) {
+                    row = candidate;
+                    break;
+                }
+            }
+
+            const buttons = (row
+                ? [...row.querySelectorAll("[data-target-index]")]
+                : [...target.querySelectorAll("[data-target-index])"])
+                .filter(function (button) {
+                    return Number(button.dataset.targetIndex) !== Number(excludedIndex);
+                });
+
+            if (!buttons.length) {
+                if (row) {
+                    const all = [...target.querySelectorAll("[data-target-index]")];
+                    const rowsWithButtons = rows.map(function (r) {
+                        return [...r.querySelectorAll("[data-target-index]")];
+                    });
+                    const rowIndex = rows.indexOf(row);
+                    let startIndex = 0;
+                    for (let i = 0; i < rowIndex; i++) startIndex += rowsWithButtons[i].length;
+                    return startIndex + (row === rows[rowIndex] ? 0 : 0);
+                }
+                return [...target.querySelectorAll("[data-target-index]")].length;
+            }
+
+            // Work only with the words in the selected hemistich.
+            // In RTL, DOM index 0 is visually the rightmost word.
             let nearest = null;
             let nearestDistance = Infinity;
             buttons.forEach(function (button) {
@@ -366,17 +396,15 @@
                 }
             });
 
-            const hoveredIndex = Number(nearest.button.dataset.targetIndex);
+            const localIndex = buttons.indexOf(nearest.button);
             const center = nearest.rect.left + nearest.rect.width / 2;
-            const direction = getComputedStyle(target).direction || "rtl";
+            const localInsert = direction === "rtl"
+                ? (event.clientX > center ? localIndex : localIndex + 1)
+                : (event.clientX < center ? localIndex : localIndex + 1);
 
-            // In RTL, the logical word with the smaller index is visually
-            // on the right. Dropping on the right half inserts before it;
-            // dropping on the left half inserts after it.
-            if (direction === "rtl") {
-                return event.clientX > center ? hoveredIndex : hoveredIndex + 1;
-            }
-            return event.clientX < center ? hoveredIndex : hoveredIndex + 1;
+            const all = [...target.querySelectorAll("[data-target-index]")];
+            const firstGlobal = all.indexOf(buttons[0]);
+            return firstGlobal + localInsert;
         }
 
         function reorderTargetFromPoint(event, fromIndex) {
