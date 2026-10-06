@@ -167,6 +167,11 @@ const EngineManager = {
 
 
         // =================================
+        // Word Puzzle Engine
+        // =================================
+        if(window.WordPuzzleEngine){ this.register("wordPuzzle", window.WordPuzzleEngine); }
+
+        // =================================
         // Dictation Engine
         // =================================
         if(
