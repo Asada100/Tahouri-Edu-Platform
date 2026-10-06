@@ -77,7 +77,7 @@ lpath(){
 const words=WordPuzzleRepository.getWords(this.activity).filter(x=>x.word.length>=4);
 const w=words[this.state.round%Math.max(1,words.length)]||{word:"دانش",clue:"واژه را در مسیر L شکل پیدا کن."};
 const n=7,grid=Array.from({length:n},()=>Array(n).fill("")),path=[];
-const horizontal=Math.min(3,w.word.length-1);
+const horizontal=Math.max(1,Math.min(3,[...w.word].length-2));
 let r=1,c=1;
 for(let i=0;i<w.word.length;i++){
 path.push([r,c]);grid[r][c]=w.word[i];
