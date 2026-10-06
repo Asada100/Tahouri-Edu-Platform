@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Word Jigsaw Stage 2
-// Version 1.9
+// Version 2.1
 // =====================================
 
 (function () {
@@ -524,33 +524,41 @@
             }
         }
 
+        function isPointInside(element, event) {
+            if (!element) return false;
+            const rect = element.getBoundingClientRect();
+            return event.clientX >= rect.left && event.clientX <= rect.right &&
+                event.clientY >= rect.top && event.clientY <= rect.bottom;
+        }
+
         function finishPointerDrag(event) {
             if (!dragData || activePointerId !== event.pointerId) return;
             const data = dragData;
             const dropElement = findDropTarget(event);
 
             if (data.fromZone === "source") {
-                if (dropElement && dropElement.closest("#wordBuilderTarget")) {
-                    const targetButton = dropElement.closest("[data-target-index]");
+                // Mobile pointer capture can make elementFromPoint() unreliable.
+                // The target box geometry is authoritative for accepting a drop.
+                if (isPointInside(target, event)) {
+                    const targetButton = dropElement && dropElement.closest("[data-target-index]");
                     if (targetButton) {
                         const info = getHardInsertInfo(event);
                         if (JigsawPuzzleHandler.moveWordToTarget(PuzzleEngine, data.index, info.index, info.group)) rerender();
                     } else {
-                        const slot = dropElement.closest("[data-target-slot]");
+                        const slot = dropElement && dropElement.closest("[data-target-slot]");
                         if (slot) {
                             const targetIndex = Number(slot.dataset.targetSlot);
-                            JigsawPuzzleHandler.moveWordToTarget(PuzzleEngine, data.index, targetIndex);
-                            rerender();
-                        } else if (dropElement.closest("#wordBuilderTarget")) {
+                            if (JigsawPuzzleHandler.moveWordToTarget(PuzzleEngine, data.index, targetIndex)) rerender();
+                        } else {
                             const info = getHardInsertInfo(event);
                             if (JigsawPuzzleHandler.moveWordToTarget(PuzzleEngine, data.index, info.index, info.group)) rerender();
                         }
                     }
                 }
             } else if (data.fromZone === "target") {
-                if (dropElement && dropElement.closest("#wordBuilderSource")) {
+                if (isPointInside(source, event)) {
                     if (JigsawPuzzleHandler.moveWordToSource(PuzzleEngine, data.index)) rerender();
-                } else if (dropElement && dropElement.closest("#wordBuilderTarget")) {
+                } else if (isPointInside(target, event)) {
                     reorderTargetFromPoint(event, data.index);
                 }
             }
