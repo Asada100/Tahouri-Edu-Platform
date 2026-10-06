@@ -574,6 +574,7 @@
             startY = event.clientY;
             dragging = false;
             dragData = { fromZone: zone, index: Number(index) };
+            if (event.pointerType === "mouse" && event.preventDefault) event.preventDefault();
             if (button.setPointerCapture) {
                 try { button.setPointerCapture(event.pointerId); } catch (e) {}
             }
@@ -627,6 +628,10 @@
                 target.classList.add("is-drag-over");
                 event.preventDefault();
             }
+        }, { passive: false });
+
+        document.addEventListener("pointermove", function (event) {
+            if (dragData && activePointerId === event.pointerId) pointerMove(event);
         }, { passive: false });
 
         document.addEventListener("pointerup", function (event) {
