@@ -37,7 +37,7 @@ type:"wordBuilder",
 title:"کلمه‌ساز",
 instruction:w.clue||"با حروف زیر واژه را بساز.",
 word:w.word,
-letters:this.shuffle(letters.map((letter,index)=>({letter,index}))).map(x=>x.letter)
+letters:this.shuffle(letters.slice())
 };
 },
 
