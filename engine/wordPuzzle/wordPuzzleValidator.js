@@ -1,0 +1,1 @@
+window.WordPuzzleValidator={word(value,source){let n=WordPuzzleRepository.normalize(value);return WordPuzzleRepository.getWords(source).some(x=>x.normalized===n)},family(value,f){let n=WordPuzzleRepository.normalize(value);return (f?.members||[]).some(x=>WordPuzzleRepository.normalize(x)===n)}};
