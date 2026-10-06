@@ -114,7 +114,7 @@ b.onclick=()=>{if(selected.includes(i))return;selected.push(i);b.classList.add("
 q.appendChild(b);
 });
 x.querySelector("[data-clear]").onclick=()=>{selected=[];q.querySelectorAll(".sel").forEach(b=>b.classList.remove("sel"));update();};
-x.querySelector("[data-hint]").onclick=()=>this.hint(x,(value,type)=>{if(type==="cell"){const cell=grid.querySelector('[data-r="'+value[0]+'"][data-c="'+value[1]+'"]');if(cell)cell.classList.add("hint-cell");hintBox.textContent="یک خانه از واژه مشخص شد.";}else{hintBox.textContent="حرف راهنما: "+value;}hintBox.classList.add("show");});
+x.querySelector("[data-hint]").onclick=()=>this.hint(x,v=>{hintBox.textContent="حرف راهنما: "+v;hintBox.classList.add("show");});
 x.querySelector("[data-check]").onclick=()=>{
 if(!selected.length){this.feedback(x,"ابتدا واژه را بساز.",false);return;}
 this.afterSubmit(x,WordPuzzleEngine.submitBuilder(selected.map(i=>d.letters[i]).join("")));
@@ -176,7 +176,7 @@ path.push([r,c]);b.classList.add("sel");update();
 grid.appendChild(b);
 }));
 x.querySelector("[data-clear]").onclick=()=>{path=[];grid.querySelectorAll(".sel").forEach(b=>b.classList.remove("sel"));update();};
-x.querySelector("[data-hint]").onclick=()=>this.hint(x,v=>{hintBox.textContent="حرف راهنما: "+v;hintBox.classList.add("show");});
+x.querySelector("[data-hint]").onclick=()=>this.hint(x,(value,type)=>{if(type==="cell"){const cell=grid.querySelector('[data-r="'+value[0]+'"][data-c="'+value[1]+'"]');if(cell)cell.classList.add("hint-cell");hintBox.textContent="یک خانه از واژه مشخص شد.";}else{hintBox.textContent="حرف راهنما: "+value;}hintBox.classList.add("show");});
 x.querySelector("[data-check]").onclick=()=>{
 if(path.length<2){this.feedback(x,"یک واژه را کامل انتخاب کن.",false);return;}
 this.afterSubmit(x,WordPuzzleEngine.submitSearch(path));
@@ -212,7 +212,7 @@ path.push([r,c]);b.classList.add("sel");update();
 grid.appendChild(b);
 }));
 x.querySelector("[data-clear]").onclick=()=>{path=[];grid.querySelectorAll(".sel").forEach(b=>b.classList.remove("sel"));update();};
-x.querySelector("[data-hint]").onclick=()=>this.hint(x,v=>{hintBox.textContent="حرف راهنما: "+v;hintBox.classList.add("show");});
+x.querySelector("[data-hint]").onclick=()=>this.hint(x,(value,type)=>{if(type==="cell"){const cell=grid.querySelector('[data-r="'+value[0]+'"][data-c="'+value[1]+'"]');if(cell)cell.classList.add("hint-cell");hintBox.textContent="یک خانه از واژه مشخص شد.";}else{hintBox.textContent="حرف راهنما: "+value;}hintBox.classList.add("show");});
 x.querySelector("[data-check]").onclick=()=>{
 if(path.length<3){this.feedback(x,"مسیر L شکل را کامل انتخاب کن.",false);return;}
 this.afterSubmit(x,WordPuzzleEngine.submitL(path));
