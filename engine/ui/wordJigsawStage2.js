@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Word Jigsaw Stage 2
-// Version 2.8
+// Version 2.9
 // =====================================
 
 (function () {
@@ -346,14 +346,24 @@
         const esc = this.escapeHTML.bind(this);
         let targetMarkup = "";
         if (hardGroupedBoard) {
-            const groups = Array.isArray(state.targetGroups) ? state.targetGroups : [];
+            // Hard mode owns the two visible hemistich rows. Read the compact
+            // target and its group map directly from the puzzle state so a
+            // re-render can never lose words just because the event payload was
+            // produced before the latest targetGroups update.
+            const puzzle = PuzzleEngine.puzzle || {};
+            const groups = Array.isArray(puzzle.targetGroups) ? puzzle.targetGroups : [];
             const lengths = getHardGroupLengths(PuzzleEngine);
+            const safeGroups = groups.length === target.length
+                ? groups.map(function (g) { return Number(g); })
+                : target.map(function () { return 0; });
+
             targetMarkup = lengths.map(function (_, groupIndex) {
-                const buttons = target.map(function (w, i) {
-                    if (w == null || Number(groups[i]) !== groupIndex) return "";
-                    return `<button class="wordBuilderPiece wordBuilderTargetPiece" draggable="true" data-target-index="${i}" type="button"><span class="wordBuilderWord">${esc(displayWord(w))}</span></button>`;
-                }).join("");
-                return `<div class="wordBuilderPoetryLine wordBuilderPoetryLineGroup" data-group-index="${groupIndex}">${buttons || '<span class="wordBuilderEmpty">کلمات این مصرع را اینجا رها کن.</span>'}</div>`;
+                const buttons = [];
+                target.forEach(function (w, i) {
+                    if (w == null || Number(safeGroups[i]) !== groupIndex) return;
+                    buttons.push(`<button class="wordBuilderPiece wordBuilderTargetPiece" draggable="true" data-target-index="${i}" type="button"><span class="wordBuilderWord">${esc(displayWord(w))}</span></button>`);
+                });
+                return `<div class="wordBuilderPoetryLine wordBuilderPoetryLineGroup" data-group-index="${groupIndex}">${buttons.join("") || '<span class="wordBuilderEmpty">کلمات این مصرع را اینجا رها کن.</span>'}</div>`;
             }).join("");
         } else {
             targetMarkup = target.map(function (w,i) { return w == null ? "" : `<button class="wordBuilderPiece wordBuilderTargetPiece" draggable="true" data-target-index="${i}" type="button"><span class="wordBuilderWord">${esc(displayWord(w))}</span>${esc(punctuationForTarget(state, w, i)) ? `<span class="wordBuilderPunctuation">${esc(displayWord(punctuationForTarget(state, w, i)))}</span>` : ""}</button>`; }).join("") || '<span class="wordBuilderEmpty">کلمات را اینجا رها کن.</span>';
@@ -681,5 +691,5 @@
         PuzzleEngine.buildResult = function () { const result = originalBuildResult(); if (this.puzzle && this.puzzle.twoStageWordOrder && this.puzzle.hintUsed) result.score = Math.max(0, Number(result.score || 0) - 2); return result; };
     }
 
-    console.log("Word Jigsaw Stage 2 v2.8 Ready");
+    console.log("Word Jigsaw Stage 2 v2.9 Ready");
 })();
