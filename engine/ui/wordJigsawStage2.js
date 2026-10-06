@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Word Jigsaw Stage 2
-// Version 2.1
+// Version 2.2
 // =====================================
 
 (function () {
@@ -379,6 +379,8 @@
         let dragData = null;
         let dragGhost = null;
         let activePointerId = null;
+        let lastPointerX = 0;
+        let lastPointerY = 0;
         let activeButton = null;
         let startX = 0;
         let startY = 0;
@@ -394,6 +396,9 @@
             target.querySelectorAll(".is-drag-over").forEach(function (el) { el.classList.remove("is-drag-over"); });
             dragGhost = null;
             dragData = null;
+            if (activeButton && activeButton.releasePointerCapture && activePointerId != null) {
+                try { activeButton.releasePointerCapture(activePointerId); } catch (e) {}
+            }
             activePointerId = null;
             activeButton = null;
             dragging = false;
@@ -572,6 +577,8 @@
             activePointerId = event.pointerId;
             startX = event.clientX;
             startY = event.clientY;
+            lastPointerX = event.clientX;
+            lastPointerY = event.clientY;
             dragging = false;
             dragData = { fromZone: zone, index: Number(index) };
             if (event.pointerType === "mouse" && event.preventDefault) event.preventDefault();
@@ -582,6 +589,8 @@
 
         function pointerMove(event) {
             if (!dragData || activePointerId !== event.pointerId || !activeButton) return;
+            lastPointerX = event.clientX;
+            lastPointerY = event.clientY;
             const dx = event.clientX - startX;
             const dy = event.clientY - startY;
             if (!dragging && Math.hypot(dx, dy) < 6) return;
@@ -635,8 +644,16 @@
         }, { passive: false });
 
         document.addEventListener("pointerup", function (event) {
-            if (dragData && activePointerId === event.pointerId) pointerUp(event);
-        });
+            if (!dragData || activePointerId !== event.pointerId) return;
+            // Always finish from the document-level listener as well. Pointer capture
+            // can keep pointerup attached to the dragged button, especially on desktop.
+            if (dragging) {
+                event.preventDefault();
+                finishPointerDrag(event);
+            } else {
+                clearDrag();
+            }
+        }, { capture: true, passive: false });
 
         const check = document.getElementById("wordBuilderCheck");
         if (check) check.onclick = function () { PuzzleEngine.check(); };
