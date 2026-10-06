@@ -142,7 +142,7 @@
 #wordBuilderAlphabet { background:linear-gradient(180deg,#f5f3ff 0%,#ede9fe 100%); border-color:rgba(139,92,246,.3); color:#5b21b6; }
 #wordBuilderReset { background:linear-gradient(180deg,#fff7ed 0%,#ffedd5 100%); border-color:rgba(249,115,22,.32); color:#9a3412; }
 .wordBuilderMessage { min-height:28px; text-align:center; font-weight:800; margin:5px 0; }
-.wordBuilderPoetryLine { box-sizing:border-box; min-height:74px; width:100%; padding:8px 10px; border:2px dashed #b9cbe2; border-radius:15px; background:rgba(255,255,255,.72); display:flex; flex-direction:row; flex-wrap:wrap; align-items:center; align-content:center; justify-content:center; gap:10px; overflow:hidden; }
+.wordBuilderPoetryLine { box-sizing:border-box; min-height:74px; width:100%; padding:8px 10px; border:2px dashed #b9cbe2; border-radius:15px; background:rgba(255,255,255,.72); display:flex; flex-direction:row; flex-wrap:nowrap; align-items:center; align-content:center; justify-content:flex-start; gap:10px; overflow-x:auto; overflow-y:hidden; scrollbar-width:thin; }
 .wordBuilderPoetryLine + .wordBuilderPoetryLine { margin-top:9px; }
 .wordBuilderPunctuation { margin-inline-start:3px; font-weight:900; }
 .wordBuilderWord { white-space:nowrap; }
