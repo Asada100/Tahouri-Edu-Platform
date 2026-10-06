@@ -284,5 +284,19 @@
     "requires": null,
     "lesson": "spelling",
     "path": "content/grades/grade6/persian/chapter1/spellingGenerated"
+  },
+  {
+    "id": "persianWordPuzzle",
+    "title": "واژه‌خانه 🧩",
+    "grade": "grade6",
+    "subject": "persian",
+    "chapter": "chapter1",
+    "type": "wordPuzzle",
+    "engine": "wordPuzzle",
+    "group": "wordPuzzle",
+    "locked": false,
+    "requires": null,
+    "lesson": "chapter1",
+    "path": "content/grades/grade6/persian/chapter1/wordPuzzle"
   }
 ]
