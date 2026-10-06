@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Word Jigsaw Stage 2
-// Version 2.2
+// Version 2.3
 // =====================================
 
 (function () {
@@ -542,23 +542,17 @@
             const dropElement = findDropTarget(event);
 
             if (data.fromZone === "source") {
-                // Mobile pointer capture can make elementFromPoint() unreliable.
-                // The target box geometry is authoritative for accepting a drop.
+                // In hard mode the target box itself is the drop zone.
+                // Do not depend on elementFromPoint(): pointer capture and the
+                // drag ghost can make it report the wrong element.
                 if (isPointInside(target, event)) {
-                    const targetButton = dropElement && dropElement.closest("[data-target-index]");
-                    if (targetButton) {
-                        const info = getHardInsertInfo(event);
-                        if (JigsawPuzzleHandler.moveWordToTarget(PuzzleEngine, data.index, info.index, info.group)) rerender();
-                    } else {
-                        const slot = dropElement && dropElement.closest("[data-target-slot]");
-                        if (slot) {
-                            const targetIndex = Number(slot.dataset.targetSlot);
-                            if (JigsawPuzzleHandler.moveWordToTarget(PuzzleEngine, data.index, targetIndex)) rerender();
-                        } else {
-                            const info = getHardInsertInfo(event);
-                            if (JigsawPuzzleHandler.moveWordToTarget(PuzzleEngine, data.index, info.index, info.group)) rerender();
-                        }
-                    }
+                    const info = getHardInsertInfo(event);
+                    if (JigsawPuzzleHandler.moveWordToTarget(
+                        PuzzleEngine,
+                        data.index,
+                        info.index,
+                        info.group
+                    )) rerender();
                 }
             } else if (data.fromZone === "target") {
                 if (isPointInside(source, event)) {
