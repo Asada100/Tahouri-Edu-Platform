@@ -456,23 +456,22 @@
             let rowIndex = -1;
             let row = null;
 
-            rows.forEach(function (candidate, index) {
-                const rect = candidate.getBoundingClientRect();
-                if (event.clientY >= rect.top && event.clientY <= rect.bottom) {
-                    row = candidate;
-                    rowIndex = index;
-                }
-            });
+            // Hard mode has exactly two visible hemistich rows. Determine the
+            // row from the vertical position inside the whole answer box first.
+            // This is more reliable than element hit-testing when an empty row
+            // contains only its placeholder text or when the browser reports a
+            // pointer position in the gap between the rows.
+            if (rows.length) {
+                const targetRect = target.getBoundingClientRect();
+                const half = targetRect.top + (targetRect.height / rows.length);
+                rowIndex = event.clientY < half ? 0 : Math.min(1, rows.length - 1);
+                row = rows[rowIndex];
 
-            if (rowIndex < 0) {
-                // If the pointer is in the gap between rows, use the nearest row.
-                let best = Infinity;
+                // If the actual row rectangles are available and clearly contain
+                // the pointer, prefer that exact row.
                 rows.forEach(function (candidate, index) {
                     const rect = candidate.getBoundingClientRect();
-                    const dy = event.clientY < rect.top ? rect.top - event.clientY :
-                        event.clientY > rect.bottom ? event.clientY - rect.bottom : 0;
-                    if (dy < best) {
-                        best = dy;
+                    if (event.clientY >= rect.top && event.clientY <= rect.bottom) {
                         row = candidate;
                         rowIndex = index;
                     }
@@ -691,5 +690,5 @@
         PuzzleEngine.buildResult = function () { const result = originalBuildResult(); if (this.puzzle && this.puzzle.twoStageWordOrder && this.puzzle.hintUsed) result.score = Math.max(0, Number(result.score || 0) - 2); return result; };
     }
 
-    console.log("Word Jigsaw Stage 2 v2.9 Ready");
+    console.log("Word Jigsaw Stage 2 v3.0 Ready");
 })();
