@@ -1,1 +1,205 @@
-const WordPuzzleEngine={version:"1.0",activity:null,state:null,round:null,start(a){this.activity=a;this.state={started:true,finished:false,round:0,total:Number(a?.settings?.rounds||5),correct:0,wrong:0,score:0,hints:0};this.next();return this.getState()},next(){const modes=this.activity?.settings?.modes||["wordBuilder","wordSearch","crossword","wordFamily","lPath"];const mode=modes[this.state.round%modes.length];this.round=this.build(mode);this.state.mode=mode;EventManager?.emit("activityReady",{engineName:"WordPuzzleEngine",engine:this,result:this.getState()})},build(mode){if(mode==="wordBuilder")return this.builder();if(mode==="wordSearch")return this.search();if(mode==="crossword")return this.crossword();if(mode==="wordFamily")return this.family();return this.lpath()},builder(){let w=WordPuzzleRepository.getWords(this.activity)[this.state.round%WordPuzzleRepository.getWords(this.activity).length];return{type:"wordBuilder",title:"کلمه‌ساز",instruction:w.clue||"با حروف زیر واژه را بساز.",word:w.word,letters:this.shuffle([...w.word])}},search(){let words=WordPuzzleRepository.getWords(this.activity).slice(0,5).map(x=>x.word);let n=9,g=Array.from({length:n},()=>Array(n).fill(""));let ds=WordPuzzlePathEngine.directions;for(const w of words){let ok=false;for(let t=0;t<300&&!ok;t++){let d=ds[Math.floor(Math.random()*ds.length)],r=Math.floor(Math.random()*n),c=Math.floor(Math.random()*n),er=r+d[0]*(w.length-1),ec=c+d[1]*(w.length-1);if(er<0||er>=n||ec<0||ec>=n)continue;let good=true;for(let i=0;i<w.length;i++){let x=g[r+d[0]*i][c+d[1]*i];if(x&&x!==w[i])good=false}if(!good)continue;for(let i=0;i<w.length;i++)g[r+d[0]*i][c+d[1]*i]=w[i];ok=true}}this.fill(g);return{type:"wordSearch",title:"واژه‌یاب",instruction:"واژه‌ها را پیدا کن.",grid:g,words}},crossword(){let ws=WordPuzzleRepository.getWords(this.activity).slice(0,5);return{type:"crossword",title:"جدول واژه‌ها",instruction:"شرح‌ها را بخوان و واژه‌ها را وارد کن.",entries:ws}},family(){let f=WordPuzzleRepository.getFamilies(this.activity)[this.state.round%Math.max(1,WordPuzzleRepository.getFamilies(this.activity).length)];return{type:"wordFamily",title:"خانواده واژه‌ها",instruction:"هم‌خانواده را انتخاب کن.",base:f?.base||"",options:this.shuffle([...(f?.members||[]),...WordPuzzleRepository.getWords(this.activity).slice(0,3).map(x=>x.word)]),answers:f?.members||[]}},lpath(){let w=WordPuzzleRepository.getWords(this.activity).find(x=>x.word.length>=4);let n=7,g=Array.from({length:n},()=>Array(n).fill(""));let p=[],r=1,c=1;for(let i=0;i<w.word.length;i++){p.push([r,c]);g[r][c]=w.word[i];if(i<2)c++;else r++}this.fill(g);return{type:"lPath",title:"مسیر واژه",instruction:"مسیر واژه را پیدا کن.",grid:g,word:w.word,path:p}},submit(ok){if(!this.state.started||this.state.finished)return false;ok=!!ok;if(ok){this.state.correct++;this.state.score+=WordPuzzleScore.correct(10,this.state.hints)}else this.state.wrong++;this.state.round++;if(this.state.round>=this.state.total)return this.finish();this.next();return ok},submitBuilder(v){return this.submit(WordPuzzleValidator.word(v,this.activity))},submitFamily(v){return this.submit(this.round.answers.includes(v))},submitSearch(p){let s=WordPuzzlePathEngine.read(this.round.grid,p),r=[...s].reverse();return this.submit(this.round.words.includes(s)||this.round.words.includes(r.join("")))},submitL(p){let s=WordPuzzlePathEngine.read(this.round.grid,p),r=[...s].reverse();return this.submit((s===this.round.word||r.join("")===this.round.word)&&WordPuzzlePathEngine.isL(p))},hint(){this.state.hints++;return this.round?.word?.[0]||null},finish(){this.state.finished=true;let percentage=Math.round(this.state.correct/this.state.total*100);let result=ActivityResult.create({activityId:this.activity?.id||"wordPuzzle",score:this.state.score,percentage,totalQuestions:this.state.total,correctAnswers:this.state.correct,wrongAnswers:this.state.wrong,message:"🎉 آفرین! بازی واژه‌ها را کامل کردی."});EventManager?.emit("activityFinished",result);return result},getState(){return{...this.state,data:this.round}},fill(g){let l="ابپتثجچحخدذرزژسشصضطظعغفقکگلمنوهی";for(let r=0;r<g.length;r++)for(let c=0;c<g[r].length;c++)if(!g[r][c])g[r][c]=l[Math.floor(Math.random()*l.length)]},shuffle(a){for(let i=a.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}};window.WordPuzzleEngine=WordPuzzleEngine;console.log("Word Puzzle Engine v1.0 Ready");
+const WordPuzzleEngine={
+version:"1.1",
+activity:null,
+state:null,
+round:null,
+
+start(a){
+this.activity=a||{};
+const total=Math.max(1,Number(a?.settings?.rounds)||5);
+this.state={started:true,finished:false,round:0,total,correct:0,wrong:0,score:0,hints:0};
+this.next();
+return this.getState();
+},
+
+next(){
+const modes=(this.activity?.settings?.modes||["wordBuilder","wordSearch","wordFamily","lPath"]).filter(Boolean);
+const mode=modes[this.state.round%modes.length]||"wordBuilder";
+this.state.hints=0;
+this.round=this.build(mode);
+this.state.mode=mode;
+this.emitReady();
+},
+
+build(mode){
+if(mode==="wordBuilder")return this.builder();
+if(mode==="wordSearch")return this.search();
+if(mode==="wordFamily")return this.family();
+return this.lpath();
+},
+
+builder(){
+const words=WordPuzzleRepository.getWords(this.activity);
+const w=words[this.state.round%words.length]||{word:"دانش",clue:"واژه را بساز."};
+const letters=[...w.word];
+return{
+type:"wordBuilder",
+title:"کلمه‌ساز",
+instruction:w.clue||"با حروف زیر واژه را بساز.",
+word:w.word,
+letters:this.shuffle(letters.map((letter,index)=>({letter,index}))).map(x=>x.letter)
+};
+},
+
+search(){
+const difficulty=WordPuzzleDifficulty.settings(this.activity?.settings?.difficulty||2);
+const source=WordPuzzleRepository.getWords(this.activity);
+const words=this.shuffle(source.slice()).slice(0,Math.min(difficulty.words,source.length)).map(x=>x.word);
+const n=difficulty.grid;
+const grid=Array.from({length:n},()=>Array(n).fill(""));
+for(const word of words)this.placeWord(grid,word);
+this.fill(grid);
+return{
+type:"wordSearch",
+title:"واژه‌یاب",
+instruction:"واژه‌ها را در جدول پیدا کن؛ افقی، عمودی و اریب.",
+grid,
+words
+};
+},
+
+placeWord(grid,word){
+const dirs=WordPuzzlePathEngine.directions;
+for(let attempt=0;attempt<600;attempt++){
+const d=dirs[Math.floor(Math.random()*dirs.length)];
+const r=Math.floor(Math.random()*grid.length);
+const c=Math.floor(Math.random()*grid.length);
+const endR=r+d[0]*(word.length-1),endC=c+d[1]*(word.length-1);
+if(endR<0||endR>=grid.length||endC<0||endC>=grid.length)continue;
+let ok=true;
+for(let i=0;i<word.length;i++){
+const cell=grid[r+d[0]*i][c+d[1]*i];
+if(cell&&cell!==word[i]){ok=false;break;}
+}
+if(!ok)continue;
+for(let i=0;i<word.length;i++)grid[r+d[0]*i][c+d[1]*i]=word[i];
+return true;
+}
+return false;
+},
+
+family(){
+const families=WordPuzzleRepository.getFamilies(this.activity);
+const family=families[this.state.round%families.length]||{base:"",members:[]};
+const correct=[...family.members];
+const decoys=WordPuzzleRepository.getWords(this.activity)
+.map(x=>x.word)
+.filter(w=>!correct.some(c=>WordPuzzleRepository.normalize(c)===WordPuzzleRepository.normalize(w)))
+.slice(0,4);
+return{
+type:"wordFamily",
+title:"خانواده واژه‌ها",
+instruction:"همه واژه‌های هم‌خانواده را انتخاب کن.",
+base:family.base,
+options:this.shuffle([...correct,...decoys]).slice(0,Math.max(correct.length,4)),
+answers:correct
+};
+},
+
+lpath(){
+const words=WordPuzzleRepository.getWords(this.activity).filter(x=>x.word.length>=4);
+const w=words[this.state.round%Math.max(1,words.length)]||{word:"دانش"};
+const n=7,grid=Array.from({length:n},()=>Array(n).fill(""));
+const path=[];
+const horizontal=Math.min(3,w.word.length-1);
+let r=1,c=1;
+for(let i=0;i<w.word.length;i++){
+if(i===horizontal){r++;c=1;}
+path.push([r,c]);
+grid[r][c]=w.word[i];
+if(i<horizontal)c++;else r++;
+if(r>=n&&i<w.word.length-1)break;
+}
+this.fill(grid);
+return{
+type:"lPath",
+title:"مسیر واژه",
+instruction:"حروف واژه را با یک مسیر L شکل پیدا کن.",
+grid,
+word:w.word,
+path
+};
+},
+
+submit(ok){
+if(!this.state?.started||this.state.finished)return false;
+const correct=!!ok;
+if(correct){
+this.state.correct++;
+this.state.score+=WordPuzzleScore.correct(10,this.state.hints);
+}else{
+this.state.wrong++;
+}
+this.state.round++;
+if(this.state.round>=this.state.total)return this.finish();
+this.next();
+return correct;
+},
+
+submitBuilder(value){
+return this.submit(WordPuzzleValidator.word(value,this.activity));
+},
+
+submitFamily(values){
+return this.submit(WordPuzzleValidator.familySelection(values,this.round));
+},
+
+submitSearch(path){
+if(!WordPuzzlePathEngine.valid(this.round.grid,path)||!WordPuzzlePathEngine.straight(path))return this.submit(false);
+const value=WordPuzzlePathEngine.read(this.round.grid,path);
+const reverse=[...value].reverse().join("");
+return this.submit(this.round.words.some(w=>w===value||w===reverse));
+},
+
+submitL(path){
+if(!WordPuzzlePathEngine.valid(this.round.grid,path)||!WordPuzzlePathEngine.isL(path))return this.submit(false);
+const value=WordPuzzlePathEngine.read(this.round.grid,path);
+const reverse=[...value].reverse().join("");
+return this.submit(value===this.round.word||reverse===this.round.word);
+},
+
+hint(){
+if(this.state.finished)return null;
+this.state.hints++;
+return WordPuzzleHint.letter(this.round,this.state.hints-1);
+},
+
+finish(){
+this.state.finished=true;
+const percentage=Math.round(this.state.correct/this.state.total*100);
+const result=typeof ActivityResult!=="undefined"&&ActivityResult.create
+?ActivityResult.create({
+activityId:this.activity?.id||"persianWordPuzzle",
+score:this.state.score,
+percentage,
+totalQuestions:this.state.total,
+correctAnswers:this.state.correct,
+wrongAnswers:this.state.wrong,
+message:"🎉 آفرین! بازی واژه‌ها را کامل کردی."
+})
+:{activityId:this.activity?.id||"persianWordPuzzle",score:this.state.score,percentage,totalQuestions:this.state.total,correctAnswers:this.state.correct,wrongAnswers:this.state.wrong,message:"🎉 آفرین! بازی واژه‌ها را کامل کردی."};
+if(typeof EventManager!=="undefined")EventManager.emit("activityFinished",result);
+return result;
+},
+
+emitReady(){
+if(typeof EventManager!=="undefined")EventManager.emit("activityReady",{engineName:"WordPuzzleEngine",engine:this,result:this.getState()});
+},
+
+getState(){return{...this.state,data:this.round};},
+
+fill(grid){
+const letters="ابپتثجچحخدذرزژسشصضطظعغفقکگلمنوهی";
+for(let r=0;r<grid.length;r++)for(let c=0;c<grid[r].length;c++)if(!grid[r][c])grid[r][c]=letters[Math.floor(Math.random()*letters.length)];
+},
+
+shuffle(a){
+for(let i=a.length-1;i>0;i--){
+const j=Math.floor(Math.random()*(i+1));
+[a[i],a[j]]=[a[j],a[i]];
+}
+return a;
+}
+};
+window.WordPuzzleEngine=WordPuzzleEngine;
+console.log("Word Puzzle Engine v1.1 Ready");
