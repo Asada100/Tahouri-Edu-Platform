@@ -1,0 +1,1 @@
+window.WordPuzzleRepository={normalize(w){return String(w||"").replace(/[يى]/g,"ی").replace(/[ك]/g,"ک").replace(/[ۀة]/g,"ه").replace(/[\u200c\s]/g,"")},getWords(a){return (a?.puzzle?.words||[]).filter(x=>x&&x.word).map(x=>({...x,normalized:this.normalize(x.word)}))},getFamilies(a){return a?.puzzle?.families||[]}};
