@@ -47,7 +47,10 @@ const source=WordPuzzleRepository.getWords(this.activity);
 const candidates=this.shuffle(source.slice());\nconst words=[];
 const n=difficulty.grid;
 const grid=Array.from({length:n},()=>Array(n).fill(""));
-for(const word of words)this.placeWord(grid,word);
+for(const candidate of candidates){
+if(words.length>=Math.min(difficulty.words,candidates.length))break;
+if(this.placeWord(grid,candidate.word))words.push(candidate.word);
+}
 this.fill(grid);
 return{
 type:"wordSearch",
@@ -137,7 +140,9 @@ return correct;
 },
 
 submitBuilder(value){
-return this.submit(WordPuzzleValidator.word(value,this.activity));
+const target=WordPuzzleRepository.normalize(this.round?.word);
+const answer=WordPuzzleRepository.normalize(value);
+return this.submit(!!target&&answer===target);
 },
 
 submitFamily(values){
