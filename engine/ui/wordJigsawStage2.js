@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Word Jigsaw Stage 2
-// Version 2.4
+// Version 2.6
 // =====================================
 
 (function () {
@@ -396,9 +396,7 @@
             target.querySelectorAll(".is-drag-over").forEach(function (el) { el.classList.remove("is-drag-over"); });
             dragGhost = null;
             dragData = null;
-            if (activeButton && activeButton.releasePointerCapture && activePointerId != null) {
-                try { activeButton.releasePointerCapture(activePointerId); } catch (e) {}
-            }
+            // Pointer capture is intentionally not used for this drag system.
             activePointerId = null;
             activeButton = null;
             dragging = false;
@@ -588,9 +586,10 @@
             dragging = false;
             dragData = { fromZone: zone, index: Number(index) };
             if (event.pointerType === "mouse" && event.preventDefault) event.preventDefault();
-            if (button.setPointerCapture) {
-                try { button.setPointerCapture(event.pointerId); } catch (e) {}
-            }
+            // Do NOT use pointer capture here.
+            // The answer box must receive the real pointer trajectory while the
+            // word is dragged from the source. Document-level pointer listeners
+            // handle the drag globally.
         }
 
         function pointerMove(event) {
@@ -649,10 +648,8 @@
             if (dragData && activePointerId === event.pointerId) pointerMove(event);
         }, { passive: false });
 
-        document.addEventListener("pointerup", function (event) {
+        window.addEventListener("pointerup", function (event) {
             if (!dragData || activePointerId !== event.pointerId) return;
-            // Always finish from the document-level listener as well. Pointer capture
-            // can keep pointerup attached to the dragged button, especially on desktop.
             if (dragging) {
                 event.preventDefault();
                 finishPointerDrag(event);
