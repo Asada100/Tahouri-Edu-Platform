@@ -44,7 +44,7 @@ letters:this.shuffle(letters.map((letter,index)=>({letter,index}))).map(x=>x.let
 search(){
 const difficulty=WordPuzzleDifficulty.settings(this.activity?.settings?.difficulty||2);
 const source=WordPuzzleRepository.getWords(this.activity);
-const words=this.shuffle(source.slice()).slice(0,Math.min(difficulty.words,source.length)).map(x=>x.word);
+const candidates=this.shuffle(source.slice());\nconst words=[];
 const n=difficulty.grid;
 const grid=Array.from({length:n},()=>Array(n).fill(""));
 for(const word of words)this.placeWord(grid,word);
