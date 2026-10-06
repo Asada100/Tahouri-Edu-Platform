@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Word Jigsaw Stage 2
-// Version 2.3
+// Version 2.4
 // =====================================
 
 (function () {
@@ -538,27 +538,39 @@
 
         function finishPointerDrag(event) {
             if (!dragData || activePointerId !== event.pointerId) return;
+
+            // Use the last pointer coordinates captured during the drag. On some
+            // browsers the final pointerup can be retargeted to the captured
+            // source button, while the last pointermove still contains the real
+            // position over the answer box.
+            const point = {
+                clientX: Number.isFinite(lastPointerX) ? lastPointerX : event.clientX,
+                clientY: Number.isFinite(lastPointerY) ? lastPointerY : event.clientY
+            };
             const data = dragData;
-            const dropElement = findDropTarget(event);
 
             if (data.fromZone === "source") {
-                // In hard mode the target box itself is the drop zone.
-                // Do not depend on elementFromPoint(): pointer capture and the
-                // drag ghost can make it report the wrong element.
-                if (isPointInside(target, event)) {
-                    const info = getHardInsertInfo(event);
-                    if (JigsawPuzzleHandler.moveWordToTarget(
+                if (isPointInside(target, point)) {
+                    const info = getHardInsertInfo(point);
+                    const moved = JigsawPuzzleHandler.moveWordToTarget(
                         PuzzleEngine,
                         data.index,
                         info.index,
                         info.group
-                    )) rerender();
+                    );
+                    if (moved) rerender();
+                    else console.warn("Word Jigsaw: hard drop rejected", {
+                        sourceIndex: data.index,
+                        group: info.group,
+                        index: info.index,
+                        target: PuzzleEngine.puzzle.targetWords
+                    });
                 }
             } else if (data.fromZone === "target") {
-                if (isPointInside(source, event)) {
+                if (isPointInside(source, point)) {
                     if (JigsawPuzzleHandler.moveWordToSource(PuzzleEngine, data.index)) rerender();
-                } else if (isPointInside(target, event)) {
-                    reorderTargetFromPoint(event, data.index);
+                } else if (isPointInside(target, point)) {
+                    reorderTargetFromPoint(point, data.index);
                 }
             }
 
