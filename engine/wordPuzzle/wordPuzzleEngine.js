@@ -108,10 +108,10 @@ const path=[];
 const horizontal=Math.min(3,w.word.length-1);
 let r=1,c=1;
 for(let i=0;i<w.word.length;i++){
-if(i===horizontal){r++;c=1;}
 path.push([r,c]);
 grid[r][c]=w.word[i];
-if(i<horizontal)c++;else r++;
+if(i<horizontal)c++;
+else r++;
 if(r>=n&&i<w.word.length-1)break;
 }
 this.fill(grid);
