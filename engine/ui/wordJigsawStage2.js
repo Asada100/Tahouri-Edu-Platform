@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Word Jigsaw Stage 2
-// Version 2.7
+// Version 2.8
 // =====================================
 
 (function () {
@@ -110,20 +110,18 @@
         const target = engine.puzzle.targetWords || [];
         const partialBoard = Array.isArray(engine.puzzle.movableIndexes) &&
             target.length === (engine.puzzle.correctOrder || engine.puzzle.words || []).length;
-        // Stage 2 owns the hard grouped board. The difficulty layer overrides
-        // this method for partial levels, so do not gate hard drops on a
-        // second difficulty predicate here.
-        const hardGroupedBoard = Number(engine.puzzle.wordJigsawDifficulty || 3) >= 3 &&
-            getHardGroupLengths(engine).length >= 2;
+        // Hard Stage 2 is a grouped board whenever the drag layer supplies
+        // a hemistich (targetGroup). Do not depend on a second difficulty or
+        // group-length predicate here: those values are already resolved by
+        // the rendered two-row board, and partial levels call a different
+        // override before reaching this method.
+        const group = Number(targetGroup);
+        const requested = Number(targetIndex);
 
-        if (hardGroupedBoard) {
-            const group = Number(targetGroup);
-            const requested = Number(targetIndex);
-            if (!Number.isInteger(group) || group < 0) return false;
-
-            // targetGroups used to be initialized as [[], []] by the puzzle
-            // handler. For a compact target array that shape is invalid.
-            // Normalize it before calculating insertion positions.
+        if (Number.isInteger(group) && group >= 0) {
+            // The puzzle handler originally initializes targetGroups as
+            // [[], []]. The visual target is compact, so normalize that shape
+            // to one numeric group value per word before inserting.
             if (!Array.isArray(engine.puzzle.targetGroups) ||
                 engine.puzzle.targetGroups.length !== target.length ||
                 engine.puzzle.targetGroups.some(function (g) { return !Number.isFinite(Number(g)); })) {
@@ -683,5 +681,5 @@
         PuzzleEngine.buildResult = function () { const result = originalBuildResult(); if (this.puzzle && this.puzzle.twoStageWordOrder && this.puzzle.hintUsed) result.score = Math.max(0, Number(result.score || 0) - 2); return result; };
     }
 
-    console.log("Word Jigsaw Stage 2 v2.0 Ready");
+    console.log("Word Jigsaw Stage 2 v2.8 Ready");
 })();
