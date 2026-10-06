@@ -1,0 +1,30 @@
+{
+  "id":"persianWordPuzzle",
+  "title":"واژه‌خانه 🧩",
+  "grade":"grade6",
+  "subject":"persian",
+  "chapter":"chapter1",
+  "type":"wordPuzzle",
+  "engine":"wordPuzzle",
+  "group":"wordPuzzle",
+  "locked":false,
+  "requires":null,
+  "lesson":"chapter1",
+  "settings":{"rounds":5,"modes":["wordBuilder","wordSearch","wordFamily","crossword","lPath"],"difficulty":2},
+  "puzzle":{
+    "words":[
+      {"word":"چراغ","clue":"وسیله‌ای که نور می‌دهد."},
+      {"word":"فروغ","clue":"روشنایی و تابش."},
+      {"word":"جهان","clue":"همه عالم و هستی."},
+      {"word":"تجلی","clue":"آشکار شدن و جلوه کردن."},
+      {"word":"تعالی","clue":"بلندی و کمال."},
+      {"word":"کتاب","clue":"چیزی برای خواندن."},
+      {"word":"مدرسه","clue":"محل آموزش."},
+      {"word":"دانش","clue":"آگاهی و آموخته‌ها."}
+    ],
+    "families":[
+      {"id":"علم","base":"علم","members":["عالم","علوم","معلوم","تعلیم","معلم"]},
+      {"id":"دان","base":"دان","members":["دانش","دانشمند","دانا","دانایی"]}
+    ]
+  }
+}
