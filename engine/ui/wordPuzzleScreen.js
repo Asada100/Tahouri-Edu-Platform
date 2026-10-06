@@ -57,8 +57,8 @@ if(result.type==="letter"){
 renderHint(result.value);
 this.feedback(x,"یک راهنما نمایش داده شد؛ امتیاز این مرحله کمی کاهش می‌یابد.",false);
 }else if(result.type==="cell"){
-renderHint(result.value);
-this.feedback(x,"یک خانه از مسیر راهنما شد؛ حالا مسیر را کامل کن.",false);
+renderHint(result.value,result.type);
+this.feedback(x,"یک خانه از مسیر راهنما مشخص شد؛ حالا واژه را پیدا کن.",false);
 }
 },
 
@@ -85,7 +85,7 @@ box.innerHTML=`
 </div>`;
 root.innerHTML="";
 root.appendChild(box);
-box.querySelector("[data-finish]").onclick=()=>window.history.back();
+box.querySelector("[data-finish]").onclick=()=>{if(typeof NavigationHistory!=="undefined")NavigationHistory.back();if(typeof Screen!=="undefined"&&typeof Screen.showActivities==="function"&&typeof AppState!=="undefined"){Screen.showActivities(AppState.grade,AppState.subject,AppState.chapter);return;}if(typeof Screen!=="undefined"&&typeof Screen.showHome==="function")Screen.showHome();};
 },
 
 builder(x,d){
@@ -114,7 +114,7 @@ b.onclick=()=>{if(selected.includes(i))return;selected.push(i);b.classList.add("
 q.appendChild(b);
 });
 x.querySelector("[data-clear]").onclick=()=>{selected=[];q.querySelectorAll(".sel").forEach(b=>b.classList.remove("sel"));update();};
-x.querySelector("[data-hint]").onclick=()=>this.hint(x,v=>{hintBox.textContent="حرف راهنما: "+v;hintBox.classList.add("show");});
+x.querySelector("[data-hint]").onclick=()=>this.hint(x,(value,type)=>{if(type==="cell"){const cell=grid.querySelector('[data-r="'+value[0]+'"][data-c="'+value[1]+'"]');if(cell)cell.classList.add("hint-cell");hintBox.textContent="یک خانه از واژه مشخص شد.";}else{hintBox.textContent="حرف راهنما: "+value;}hintBox.classList.add("show");});
 x.querySelector("[data-check]").onclick=()=>{
 if(!selected.length){this.feedback(x,"ابتدا واژه را بساز.",false);return;}
 this.afterSubmit(x,WordPuzzleEngine.submitBuilder(selected.map(i=>d.letters[i]).join("")));
@@ -166,6 +166,7 @@ const update=()=>x.querySelector(".wp-selection strong").textContent=WordPuzzleP
 d.grid.forEach((row,r)=>row.forEach((letter,c)=>{
 const b=document.createElement("button");b.type="button";b.className="wp-cell";b.textContent=letter;
 b.setAttribute("aria-label",`ردیف ${r+1} ستون ${c+1}`);
+b.dataset.r=r;b.dataset.c=c;
 b.onclick=()=>{
 const idx=path.findIndex(p=>p[0]===r&&p[1]===c);
 if(idx>=0){path.splice(idx,1);b.classList.remove("sel");update();return;}
@@ -186,7 +187,7 @@ lpath(x,d){
 let path=[];
 x.innerHTML=`
 <div class="wp-card">
-<div class="wp-lpath-word">واژه هدف: <strong>${d.word}</strong></div>
+<div class="wp-lpath-word">راهنما: <strong>${d.clue||"واژه را در مسیر L شکل پیدا کن."}</strong></div>
 <div class="wp-hint" aria-live="polite"></div>
 <div class="wp-grid wp-l-grid"></div>
 <div class="wp-selection">مسیر انتخاب‌شده: <strong>—</strong></div>
@@ -200,6 +201,8 @@ const grid=x.querySelector(".wp-grid"),hintBox=x.querySelector(".wp-hint");
 const update=()=>x.querySelector(".wp-selection strong").textContent=WordPuzzlePathEngine.read(d.grid,path)||"—";
 d.grid.forEach((row,r)=>row.forEach((letter,c)=>{
 const b=document.createElement("button");b.type="button";b.className="wp-cell";b.textContent=letter;
+b.setAttribute("aria-label",`ردیف ${r+1} ستون ${c+1}`);
+b.dataset.r=r;b.dataset.c=c;
 b.onclick=()=>{
 const idx=path.findIndex(p=>p[0]===r&&p[1]===c);
 if(idx>=0){path.splice(idx,1);b.classList.remove("sel");update();return;}
