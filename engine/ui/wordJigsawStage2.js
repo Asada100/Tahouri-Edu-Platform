@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Word Jigsaw Stage 2
-// Version 2.6
+// Version 2.7
 // =====================================
 
 (function () {
@@ -110,17 +110,23 @@
         const target = engine.puzzle.targetWords || [];
         const partialBoard = Array.isArray(engine.puzzle.movableIndexes) &&
             target.length === (engine.puzzle.correctOrder || engine.puzzle.words || []).length;
-        const hardGroupedBoard = isHardGroupedBoard(engine);
+        // Stage 2 owns the hard grouped board. The difficulty layer overrides
+        // this method for partial levels, so do not gate hard drops on a
+        // second difficulty predicate here.
+        const hardGroupedBoard = Number(engine.puzzle.wordJigsawDifficulty || 3) >= 3 &&
+            getHardGroupLengths(engine).length >= 2;
 
         if (hardGroupedBoard) {
             const group = Number(targetGroup);
             const requested = Number(targetIndex);
             if (!Number.isInteger(group) || group < 0) return false;
 
-            const groups = Array.isArray(engine.puzzle.targetGroups)
-                ? engine.puzzle.targetGroups
-                : [];
-            if (groups.length !== target.length) {
+            // targetGroups used to be initialized as [[], []] by the puzzle
+            // handler. For a compact target array that shape is invalid.
+            // Normalize it before calculating insertion positions.
+            if (!Array.isArray(engine.puzzle.targetGroups) ||
+                engine.puzzle.targetGroups.length !== target.length ||
+                engine.puzzle.targetGroups.some(function (g) { return !Number.isFinite(Number(g)); })) {
                 engine.puzzle.targetGroups = target.map(function () { return 0; });
             }
 
