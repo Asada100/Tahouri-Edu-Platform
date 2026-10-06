@@ -128,6 +128,7 @@ x.innerHTML=`
 const list=x.querySelector(".wp-target-list");
 list.innerHTML=d.words.map(w=>`<span>${w}</span>`).join("");
 const grid=x.querySelector(".wp-grid");
+grid.style.gridTemplateColumns="repeat("+d.grid.length+",minmax(0,1fr))";
 const update=()=>{
 const value=WordPuzzlePathEngine.read(d.grid,path);
 x.querySelector(".wp-selection strong").textContent=value||"—";
