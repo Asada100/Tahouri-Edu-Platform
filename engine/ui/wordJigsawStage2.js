@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Word Jigsaw Stage 2
-// Version 3.7
+// Version 3.8
 // =====================================
 
 (function () {
@@ -57,6 +57,45 @@
 
     function isHardGroupedBoard(engine) {
         return !!(engine && engine.puzzle && Number(engine.puzzle.wordJigsawDifficulty || 3) >= 3 && getHardGroupLengths(engine).length >= 2);
+    }
+
+    // In hard mode a word may enter only a hemistich where that word actually
+    // occurs in the correct poem. Identical repeated words can legitimately
+    // belong to more than one hemistich, so all matching groups are accepted.
+    function getWordAllowedGroups(engine, word) {
+        const correct = Array.isArray(engine && engine.puzzle && engine.puzzle.correctOrder)
+            ? engine.puzzle.correctOrder
+            : [];
+        const lengths = getHardGroupLengths(engine);
+        if (lengths.length < 2) return [];
+        const allowed = [];
+        let offset = 0;
+        lengths.forEach(function (length, groupIndex) {
+            for (let i = 0; i < length; i++) {
+                if (normalizeWord(correct[offset + i]) === normalizeWord(word)) {
+                    if (!allowed.includes(groupIndex)) allowed.push(groupIndex);
+                    break;
+                }
+            }
+            offset += length;
+        });
+        return allowed;
+    }
+
+    function canWordEnterGroup(engine, word, group) {
+        if (!isHardGroupedBoard(engine)) return true;
+        const allowed = getWordAllowedGroups(engine, word);
+        return allowed.includes(Number(group));
+    }
+
+    function rejectWrongHemistich(engine, word, group) {
+        const message = document.getElementById("wordBuilderMessage");
+        if (!message) return;
+        const allowed = getWordAllowedGroups(engine, word);
+        const label = allowed.length === 1
+            ? (allowed[0] === 0 ? "مصرع اول" : "مصرع دوم")
+            : "مصرع مربوط به خودش";
+        message.textContent = "این کلمه مربوط به " + label + " است و نمی‌تواند اینجا قرار بگیرد.";
     }
 
     function emitChanged(engine) {
@@ -147,6 +186,12 @@
         const requested = Number(targetIndex);
 
         if (Number.isInteger(group) && group >= 0) {
+            const sourceWord = source[index];
+            if (!canWordEnterGroup(engine, sourceWord, group)) {
+                rejectWrongHemistich(engine, sourceWord, group);
+                return false;
+            }
+
             // The puzzle handler originally initializes targetGroups as
             // [[], []]. The visual target is compact, so normalize that shape
             // to one numeric group value per word before inserting.
@@ -271,6 +316,10 @@
 
         const group = Number(targetGroup);
         if (hardGroupedBoard && (!Number.isInteger(group) || group < 0)) return false;
+        if (hardGroupedBoard && !canWordEnterGroup(engine, target[from], group)) {
+            rejectWrongHemistich(engine, target[from], group);
+            return false;
+        }
 
         // getHardInsertInfo calculates the insertion index after excluding
         // the dragged word, so remove first and insert at that exact index.
@@ -785,5 +834,5 @@
         PuzzleEngine.buildResult = function () { const result = originalBuildResult(); if (this.puzzle && this.puzzle.twoStageWordOrder && this.puzzle.hintUsed) result.score = Math.max(0, Number(result.score || 0) - 2); return result; };
     }
 
-    console.log("Word Jigsaw Stage 2 v3.7 Ready");
+    console.log("Word Jigsaw Stage 2 v3.8 Ready");
 })();
