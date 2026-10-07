@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Word Jigsaw Difficulty
-// Version 1.1
+// Version 1.2
 // Word-only difficulty layer.
 // Image Jigsaw and all other puzzle types are untouched.
 // =====================================
@@ -383,8 +383,11 @@
         return engine.getState();
     };
 
-    JigsawPuzzleHandler.moveWordToTarget = function (engine, sourceIndex, targetIndex) {
-        if (!partial(engine)) return originalMoveToTarget(engine, sourceIndex, targetIndex);
+    JigsawPuzzleHandler.moveWordToTarget = function (engine, sourceIndex, targetIndex, targetGroup) {
+        // Hard mode is owned by Stage 2. Preserve the targetGroup argument
+        // when forwarding the call; otherwise the hard board loses the
+        // hemistich selected by the drag layer and falls back to a flat target.
+        if (!partial(engine)) return originalMoveToTarget(engine, sourceIndex, targetIndex, targetGroup);
 
         const source = engine.puzzle.availableWords || [];
         const target = engine.puzzle.targetWords || [];
