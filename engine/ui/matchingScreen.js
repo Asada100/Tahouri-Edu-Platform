@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Matching Screen
-// Version 1.3
+// Version 1.4
 //
 // Supports one-to-one and many-to-one Matching.
 // Right-side targets remain reusable.
@@ -20,7 +20,10 @@ const MatchingScreen = {
         itemId: null,
         moveHandler: null,
         upHandler: null,
-        cancelHandler: null
+        cancelHandler: null,
+        pointerId: null,
+        pathPoints: [],
+        lastTargetButton: null
     },
 
     init: function () {
@@ -225,6 +228,9 @@ const MatchingScreen = {
         this.connection.active = true;
         this.connection.side = side;
         this.connection.itemId = itemId;
+        this.connection.pointerId = event.pointerId !== undefined ? event.pointerId : null;
+        this.connection.pathPoints = [];
+        this.connection.lastTargetButton = null;
 
         if (typeof button.setPointerCapture === "function" && event.pointerId !== undefined) {
             try {
@@ -262,13 +268,15 @@ const MatchingScreen = {
 
         const startSide = this.connection.side;
         const startId = this.connection.itemId;
-        const target = event
+        const pointerTarget = event
             ? document.elementFromPoint(event.clientX, event.clientY)
             : null;
 
-        const targetButton = target && typeof target.closest === "function"
-            ? target.closest("[data-matching-side][data-matching-id]")
+        const pointerButton = pointerTarget && typeof pointerTarget.closest === "function"
+            ? pointerTarget.closest("[data-matching-side][data-matching-id]")
             : null;
+
+        const targetButton = this.connection.lastTargetButton || pointerButton;
 
         const targetSide = targetButton ? targetButton.getAttribute("data-matching-side") : null;
         const targetId = targetButton ? targetButton.getAttribute("data-matching-id") : null;
@@ -310,6 +318,9 @@ const MatchingScreen = {
         this.connection.active = false;
         this.connection.side = null;
         this.connection.itemId = null;
+        this.connection.pointerId = null;
+        this.connection.pathPoints = [];
+        this.connection.lastTargetButton = null;
         this.connection.moveHandler = null;
         this.connection.upHandler = null;
         this.connection.cancelHandler = null;
@@ -319,6 +330,10 @@ const MatchingScreen = {
             const preview = svg.querySelector(".matchingPreviewConnection");
             if (preview) preview.remove();
         }
+
+        document.querySelectorAll(".matchingItem.connectionTarget").forEach(function(item) {
+            item.classList.remove("connectionTarget");
+        });
     },
 
     // Backward-compatible name for any existing internal/external callers.
@@ -341,22 +356,49 @@ const MatchingScreen = {
             y: clientY - boardRect.top
         };
 
+        const path = this.connection.pathPoints;
+        const last = path[path.length - 1];
+        if (!last || Math.hypot(last.x - endPoint.x, last.y - endPoint.y) >= 3) {
+            path.push(endPoint);
+            if (path.length > 120) path.shift();
+        }
+
         let preview = svg.querySelector(".matchingPreviewConnection");
         if (!preview) {
-            preview = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            preview = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
             preview.setAttribute("class", "matchingPreviewConnection");
             preview.setAttribute("fill", "none");
             preview.setAttribute("stroke", "#2563eb");
-            preview.setAttribute("stroke-width", "3");
+            preview.setAttribute("stroke-width", "4");
             preview.setAttribute("stroke-linecap", "round");
+            preview.setAttribute("stroke-linejoin", "round");
             preview.setAttribute("stroke-dasharray", "7 6");
             svg.appendChild(preview);
         }
 
-        preview.setAttribute("x1", startPoint.x);
-        preview.setAttribute("y1", startPoint.y);
-        preview.setAttribute("x2", endPoint.x);
-        preview.setAttribute("y2", endPoint.y);
+        const points = [startPoint].concat(path);
+        preview.setAttribute("points", points.map(function(point) {
+            return point.x + "," + point.y;
+        }).join(" "));
+
+        const pointerTarget = document.elementFromPoint(clientX, clientY);
+        const pointerButton = pointerTarget && typeof pointerTarget.closest === "function"
+            ? pointerTarget.closest("[data-matching-side][data-matching-id]")
+            : null;
+
+        if (pointerButton) {
+            const targetSide = pointerButton.getAttribute("data-matching-side");
+            const targetId = pointerButton.getAttribute("data-matching-id");
+            if (targetSide && targetSide !== this.connection.side &&
+                targetId && String(targetId) !== String(this.connection.itemId) &&
+                !pointerButton.disabled) {
+                this.connection.lastTargetButton = pointerButton;
+                document.querySelectorAll(".matchingItem.connectionTarget").forEach(function(item) {
+                    item.classList.remove("connectionTarget");
+                });
+                pointerButton.classList.add("connectionTarget");
+            }
+        }
     },
 
     drawMatchedConnections: function () {
@@ -507,4 +549,4 @@ window.MatchingScreen = MatchingScreen;
 // =====================================
 MatchingScreen.init();
 
-console.log("Matching Screen Ready v1.3");
+console.log("Matching Screen Ready v1.4");
