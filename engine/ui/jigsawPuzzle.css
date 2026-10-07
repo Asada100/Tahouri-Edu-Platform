@@ -161,6 +161,7 @@
   width:max-content;
   max-width:calc(100% - 28px);
   box-sizing:border-box;
+  white-space:normal;
   padding:8px 14px;
   border:1px solid rgba(255,255,255,.14);
   border-radius:10px;
@@ -240,4 +241,15 @@
 
 @media (prefers-reduced-motion:reduce) {
     .wordJigsawPiece,.jigsawPiece,.wordBuilderPiece,.wordBuilderControls button { transition:none; }
+}
+
+@media (max-width:600px) {
+  .wordBuilderTemporaryHint {
+    width:calc(100% - 20px);
+    max-width:calc(100% - 20px);
+    padding:7px 10px;
+    font-size:.82rem;
+    line-height:1.45;
+    white-space:normal;
+  }
 }
