@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Word Jigsaw Stage 2
-// Version 3.8
+// Version 3.9
 // =====================================
 
 (function () {
@@ -88,6 +88,8 @@
         return allowed.includes(Number(group));
     }
 
+    let wrongHemistichMessageTimer = null;
+
     function rejectWrongHemistich(engine, word, group) {
         const message = document.getElementById("wordBuilderMessage");
         if (!message) return;
@@ -95,7 +97,18 @@
         const label = allowed.length === 1
             ? (allowed[0] === 0 ? "مصرع اول" : "مصرع دوم")
             : "مصرع مربوط به خودش";
-        message.textContent = "این کلمه مربوط به " + label + " است و نمی‌تواند اینجا قرار بگیرد.";
+        message.textContent = "این کلمه مربوط به " + label + " است؛ جای درست آن را انتخاب کن.";
+        message.classList.add("wordBuilderTemporaryMessage");
+
+        if (wrongHemistichMessageTimer) clearTimeout(wrongHemistichMessageTimer);
+        wrongHemistichMessageTimer = setTimeout(function () {
+            const current = document.getElementById("wordBuilderMessage");
+            if (current) {
+                current.textContent = "";
+                current.classList.remove("wordBuilderTemporaryMessage");
+            }
+            wrongHemistichMessageTimer = null;
+        }, 2400);
     }
 
     function emitChanged(engine) {
@@ -834,5 +847,5 @@
         PuzzleEngine.buildResult = function () { const result = originalBuildResult(); if (this.puzzle && this.puzzle.twoStageWordOrder && this.puzzle.hintUsed) result.score = Math.max(0, Number(result.score || 0) - 2); return result; };
     }
 
-    console.log("Word Jigsaw Stage 2 v3.8 Ready");
+    console.log("Word Jigsaw Stage 2 v3.9 Ready");
 })();
