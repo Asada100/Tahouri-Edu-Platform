@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Word Jigsaw Stage 2
-// Version 3.9
+// Version 4.0
 // =====================================
 
 (function () {
@@ -91,21 +91,21 @@
     let wrongHemistichMessageTimer = null;
 
     function rejectWrongHemistich(engine, word, group) {
-        const message = document.getElementById("wordBuilderMessage");
+        const message = document.getElementById("wordBuilderTemporaryHint");
         if (!message) return;
         const allowed = getWordAllowedGroups(engine, word);
         const label = allowed.length === 1
             ? (allowed[0] === 0 ? "مصرع اول" : "مصرع دوم")
             : "مصرع مربوط به خودش";
         message.textContent = "این کلمه مربوط به " + label + " است؛ جای درست آن را انتخاب کن.";
-        message.classList.add("wordBuilderTemporaryMessage");
+        message.classList.add("is-visible");
 
         if (wrongHemistichMessageTimer) clearTimeout(wrongHemistichMessageTimer);
         wrongHemistichMessageTimer = setTimeout(function () {
-            const current = document.getElementById("wordBuilderMessage");
+            const current = document.getElementById("wordBuilderTemporaryHint");
             if (current) {
                 current.textContent = "";
-                current.classList.remove("wordBuilderTemporaryMessage");
+                current.classList.remove("is-visible");
             }
             wrongHemistichMessageTimer = null;
         }, 2400);
@@ -511,7 +511,7 @@
                     <p class="jigsawObjective">کلمات را با کشیدن و رها کردن به «پاسخ شما» منتقل کن و ترتیب درست را بساز.</p>
                 </div>
                 <section class="wordBuilderSection"><h2>کلمات</h2><div id="wordBuilderSource" class="wordBuilderBox" data-drop-zone="source">${source.map((w,i)=>`<button class="wordBuilderPiece" draggable="true" data-source-index="${i}" type="button">${esc(displayWord(w))}</button>`).join("") || '<span class="wordBuilderEmpty">همه کلمات در پاسخ شما هستند.</span>'}</div></section>
-                <section class="wordBuilderSection wordBuilderAnswerSection"><h2>پاسخ شما</h2><div id="wordBuilderTarget" class="wordBuilderBox wordBuilderTarget${hardGroupedBoard ? " wordBuilderTargetHard" : ""}" data-drop-zone="target">${targetMarkup}</div></section>
+                <section class="wordBuilderSection wordBuilderAnswerSection"><h2>پاسخ شما</h2><div id="wordBuilderTarget" class="wordBuilderBox wordBuilderTarget${hardGroupedBoard ? " wordBuilderTargetHard" : ""}" data-drop-zone="target">${targetMarkup}<div id="wordBuilderTemporaryHint" class="wordBuilderTemporaryHint" aria-live="polite"></div></div></section>
                 <div class="wordBuilderControls"><button id="wordBuilderCheck" type="button">بررسی پاسخ</button><button id="wordBuilderUndo" type="button">↩ برگشت</button><button id="wordBuilderAlphabet" type="button">مرتب‌سازی الفبایی</button><button id="wordBuilderReset" type="button">شروع دوباره</button></div>
                 <div id="wordBuilderMessage" class="wordBuilderMessage" aria-live="polite"></div>
                 <div class="jigsawMoves">حرکت‌ها: <span>${state.moves || 0}</span></div>
@@ -847,5 +847,5 @@
         PuzzleEngine.buildResult = function () { const result = originalBuildResult(); if (this.puzzle && this.puzzle.twoStageWordOrder && this.puzzle.hintUsed) result.score = Math.max(0, Number(result.score || 0) - 2); return result; };
     }
 
-    console.log("Word Jigsaw Stage 2 v3.9 Ready");
+    console.log("Word Jigsaw Stage 2 v4.0 Ready");
 })();
