@@ -456,26 +456,31 @@
             let rowIndex = -1;
             let row = null;
 
-            // Hard mode has exactly two visible hemistich rows. Determine the
-            // row from the vertical position inside the whole answer box first.
-            // This is more reliable than element hit-testing when an empty row
-            // contains only its placeholder text or when the browser reports a
-            // pointer position in the gap between the rows.
+            // Hard mode: determine the hemistich from the actual row under
+            // the pointer. Do not infer it from the target box midpoint, because
+            // the two visible rows may not occupy equal heights.
             if (rows.length) {
-                const targetRect = target.getBoundingClientRect();
-                const half = targetRect.top + (targetRect.height / rows.length);
-                rowIndex = event.clientY < half ? 0 : Math.min(1, rows.length - 1);
-                row = rows[rowIndex];
+                const hit = document.elementFromPoint(event.clientX, event.clientY);
+                const hitRow = hit && hit.closest ? hit.closest(".wordBuilderPoetryLine") : null;
 
-                // If the actual row rectangles are available and clearly contain
-                // the pointer, prefer that exact row.
-                rows.forEach(function (candidate, index) {
-                    const rect = candidate.getBoundingClientRect();
-                    if (event.clientY >= rect.top && event.clientY <= rect.bottom) {
-                        row = candidate;
-                        rowIndex = index;
-                    }
-                });
+                if (hitRow && target.contains(hitRow)) {
+                    row = hitRow;
+                    rowIndex = rows.indexOf(hitRow);
+                } else {
+                    // If the pointer is in an empty gap inside the target, choose
+                    // the nearest row by its real visual center.
+                    let nearestRowDistance = Infinity;
+                    rows.forEach(function (candidate, index) {
+                        const rect = candidate.getBoundingClientRect();
+                        const centerY = rect.top + rect.height / 2;
+                        const distance = Math.abs(event.clientY - centerY);
+                        if (distance < nearestRowDistance) {
+                            nearestRowDistance = distance;
+                            row = candidate;
+                            rowIndex = index;
+                        }
+                    });
+                }
             }
 
             if (rowIndex < 0) return { group: 0, index: 0 };
