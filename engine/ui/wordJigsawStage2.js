@@ -283,11 +283,20 @@
 
     JigsawPuzzleHandler.alphabeticalHint = function (engine) {
         if (!isStage2(engine)) return false;
-        const allWords = [...(engine.puzzle.availableWords || []), ...(engine.puzzle.targetWords || []).filter(function (w) { return w != null; })];
-        engine.puzzle.history.push({ availableWords: [...engine.puzzle.availableWords], targetWords: [...engine.puzzle.targetWords], targetGroups: [...(engine.puzzle.targetGroups || [])], hintUsed: !!engine.puzzle.hintUsed });
-        engine.puzzle.availableWords = [];
-        engine.puzzle.targetWords = allWords.sort(function (a, b) { return String(a).localeCompare(String(b), "fa"); });
-        engine.puzzle.targetGroups = engine.puzzle.targetWords.map(function () { return 0; });
+
+        // Alphabetical sorting belongs to the source-word box.
+        // Do not move words that the student has already placed in either
+        // hemistich into the answer area.
+        engine.puzzle.history.push({
+            availableWords: [...(engine.puzzle.availableWords || [])],
+            targetWords: [...(engine.puzzle.targetWords || [])],
+            targetGroups: [...(engine.puzzle.targetGroups || [])],
+            hintUsed: !!engine.puzzle.hintUsed
+        });
+
+        engine.puzzle.availableWords = [...(engine.puzzle.availableWords || [])].sort(function (a, b) {
+            return String(a).localeCompare(String(b), "fa");
+        });
         engine.puzzle.hintUsed = true;
         emitChanged(engine);
         return true;
