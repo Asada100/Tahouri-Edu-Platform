@@ -1,7 +1,7 @@
 /* =====================================
    Tahouri Edu Platform
    Matching Engine UI
-   Version 1.1
+   Version 1.2
 
    Owns only Matching Screen presentation.
    ===================================== */
@@ -103,6 +103,12 @@
 .matchingItem:hover:not(:disabled) {
     transform: translateY(-1px);
     box-shadow: var(--ui-shadow-card-hover, 0 11px 26px rgba(31, 41, 55, .09));
+}
+
+.matchingItem.connectionTarget {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, .16);
+    transform: translateY(-1px);
 }
 
 .matchingItem.selected {
