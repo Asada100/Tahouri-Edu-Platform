@@ -74,18 +74,18 @@ const MatchingScreen = {
 
         this.cancelPointerConnection();
 
-        // A new activity/session starts with no previous visual paths.
-        // Existing correct matches are redrawn only when their paths are known.
-        if (!Array.isArray(matchedPairs) || matchedPairs.length === 0) {
-            this.completedConnectionPaths = {};
-        }
-
         const app = this.getApp();
         if (!app) return;
 
         const leftItems = Array.isArray(state.leftItems) ? state.leftItems : [];
         const rightItems = Array.isArray(state.rightItems) ? state.rightItems : [];
         const matchedPairs = Array.isArray(state.matchedPairs) ? state.matchedPairs : [];
+
+        // A new activity/session starts with no previous visual paths.
+        // Existing correct matches are redrawn only when their paths are known.
+        if (matchedPairs.length === 0) {
+            this.completedConnectionPaths = {};
+        }
 
         const selectedLeftId = state.selected && state.selected.left
             ? String(state.selected.left.id)
