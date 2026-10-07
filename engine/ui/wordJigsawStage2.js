@@ -465,19 +465,17 @@
 
                 if (hitRow && target.contains(hitRow)) {
                     row = hitRow;
-                    rowIndex = rows.indexOf(hitRow);
+                    rowIndex = Number(hitRow.dataset.groupIndex);
                 } else {
-                    // If the pointer is in an empty gap inside the target, choose
-                    // the nearest row by its real visual center.
                     let nearestRowDistance = Infinity;
-                    rows.forEach(function (candidate, index) {
+                    rows.forEach(function (candidate) {
                         const rect = candidate.getBoundingClientRect();
                         const centerY = rect.top + rect.height / 2;
                         const distance = Math.abs(event.clientY - centerY);
                         if (distance < nearestRowDistance) {
                             nearestRowDistance = distance;
                             row = candidate;
-                            rowIndex = index;
+                            rowIndex = Number(candidate.dataset.groupIndex);
                         }
                     });
                 }
@@ -695,5 +693,5 @@
         PuzzleEngine.buildResult = function () { const result = originalBuildResult(); if (this.puzzle && this.puzzle.twoStageWordOrder && this.puzzle.hintUsed) result.score = Math.max(0, Number(result.score || 0) - 2); return result; };
     }
 
-    console.log("Word Jigsaw Stage 2 v3.0 Ready");
+    console.log("Word Jigsaw Stage 2 v3.2 Ready");
 })();
