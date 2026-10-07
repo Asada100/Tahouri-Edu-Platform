@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Word Jigsaw Stage 2
-// Version 3.5
+// Version 3.7
 // =====================================
 
 (function () {
@@ -36,6 +36,8 @@
         if (!Array.isArray(engine.puzzle.correctOrder) || !engine.puzzle.correctOrder.length) engine.puzzle.correctOrder = definition.correctOrder.slice();
         if (!Array.isArray(engine.puzzle.words) || !engine.puzzle.words.length) engine.puzzle.words = definition.words.slice();
         if (engine.puzzle.hintUsed !== true) engine.puzzle.hintUsed = false;
+        if (!Array.isArray(engine.puzzle.wrongTargetIndexes)) engine.puzzle.wrongTargetIndexes = [];
+        if (engine.puzzle.answerChecked !== true) engine.puzzle.answerChecked = false;
         if (!engine.puzzle.punctuation || typeof engine.puzzle.punctuation !== "object") engine.puzzle.punctuation = {};
         return true;
     }
@@ -73,25 +75,51 @@
         return shuffled;
     }
 
+    function normalizeWord(word) {
+        return String(word == null ? "" : word)
+            .replace(/\u200c/g, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+    }
+
+    function getWrongTargetIndexes(engine) {
+        const current = engine.puzzle.targetWords || [];
+        const correct = engine.puzzle.correctOrder || engine.puzzle.words || [];
+        return current.reduce(function (indexes, word, index) {
+            if (normalizeWord(word) !== normalizeWord(correct[index])) indexes.push(index);
+            return indexes;
+        }, []);
+    }
+
     function isCorrect(engine) {
         const current = engine.puzzle.targetWords || [];
         const correct = engine.puzzle.correctOrder || engine.puzzle.words || [];
         return current.length === correct.length && current.every(function (word, index) {
-            return String(word).replace(/\u200c/g, " ").trim() === String(correct[index]).replace(/\u200c/g, " ").trim();
+            return normalizeWord(word) === normalizeWord(correct[index]);
         });
+    }
+
+    function clearCheckFeedback(engine) {
+        engine.puzzle.answerChecked = false;
+        engine.puzzle.wrongTargetIndexes = [];
     }
 
     function checkStage2(engine) {
         if (!isStage2(engine)) return false;
         if (isCorrect(engine)) {
+            engine.puzzle.answerChecked = true;
+            engine.puzzle.wrongTargetIndexes = [];
             engine.puzzle.stage = 3;
             console.log("Word Jigsaw Stage 2 Correct → Activity Complete");
             if (typeof engine.finish === "function") return engine.finish() !== false;
             return false;
         }
+        engine.puzzle.answerChecked = true;
+        engine.puzzle.wrongTargetIndexes = getWrongTargetIndexes(engine);
         if (typeof engine.emitWrong === "function") engine.emitWrong();
         const message = document.getElementById("wordBuilderMessage");
-        if (message) message.textContent = "این ترتیب درست نیست؛ کلمات را جابه‌جا کن و دوباره «بررسی پاسخ» را بزن.";
+        if (message) message.textContent = "این ترتیب درست نیست؛ کلمات قرمز را جابه‌جا کن و دوباره «بررسی پاسخ» را بزن.";
+        if (typeof JigsawScreen.renderWordBuilder === "function") JigsawScreen.renderWordBuilder(engine.getState());
         return false;
     }
 
@@ -151,6 +179,7 @@
             });
 
             const word = source.splice(index, 1)[0];
+            clearCheckFeedback(engine);
             target.splice(insertAt, 0, word);
             currentGroups.splice(insertAt, 0, group);
             emitChanged(engine);
@@ -175,6 +204,7 @@
         });
 
         const word = source.splice(index, 1)[0];
+        clearCheckFeedback(engine);
 
         // Partial Setayesh board uses fixed positions (including null slots).
         // Never splice the target array here: doing so shifts the second hemistich
@@ -204,6 +234,7 @@
             hintUsed: !!engine.puzzle.hintUsed
         });
 
+        clearCheckFeedback(engine);
         engine.puzzle.availableWords.push(
             target[index]
         );
@@ -260,6 +291,7 @@
             hintUsed: !!engine.puzzle.hintUsed
         });
 
+        clearCheckFeedback(engine);
         nextTarget.splice(insertAt, 0, word);
         if (hardGroupedBoard) nextGroups.splice(insertAt, 0, group);
 
@@ -294,6 +326,7 @@
             hintUsed: !!engine.puzzle.hintUsed
         });
 
+        clearCheckFeedback(engine);
         engine.puzzle.availableWords = [...(engine.puzzle.availableWords || [])].sort(function (a, b) {
             return String(a).localeCompare(String(b), "fa");
         });
@@ -312,6 +345,8 @@
         engine.puzzle.targetGroups = [];
         engine.puzzle.history = [];
         engine.puzzle.hintUsed = false;
+        engine.puzzle.answerChecked = false;
+        engine.puzzle.wrongTargetIndexes = [];
         engine.items = [];
         engine.moves = 0;
         if (typeof JigsawPuzzle !== "undefined") JigsawPuzzle.reset();
@@ -336,6 +371,8 @@
             state.targetGroups = [...(this.puzzle.targetGroups || [])];
             state.correctWords = [...(this.puzzle.correctOrder || this.puzzle.words || [])];
             state.hintUsed = !!this.puzzle.hintUsed;
+            state.answerChecked = !!this.puzzle.answerChecked;
+            state.wrongTargetIndexes = [...(this.puzzle.wrongTargetIndexes || [])];
             state.punctuation = { ...(this.puzzle.punctuation || {}) };
         }
         return state;
@@ -396,7 +433,8 @@
                 const buttons = [];
                 target.forEach(function (w, i) {
                     if (w == null || Number(safeGroups[i]) !== groupIndex) return;
-                    buttons.push(`<button class="wordBuilderPiece wordBuilderTargetPiece" draggable="true" data-target-index="${i}" type="button"><span class="wordBuilderWord">${esc(displayWord(w))}</span></button>`);
+                    const wrongClass = state.answerChecked && Array.isArray(state.wrongTargetIndexes) && state.wrongTargetIndexes.includes(i) ? " wordBuilderWrong" : "";
+                    buttons.push(`<button class="wordBuilderPiece wordBuilderTargetPiece${wrongClass}" draggable="true" data-target-index="${i}" type="button"><span class="wordBuilderWord">${esc(displayWord(w))}</span></button>`);
                 });
                 return `<div class="wordBuilderPoetryLine wordBuilderPoetryLineGroup" data-group-index="${groupIndex}">${buttons.join("") || '<span class="wordBuilderEmpty">کلمات این مصرع را اینجا رها کن.</span>'}</div>`;
             }).join("");
@@ -747,5 +785,5 @@
         PuzzleEngine.buildResult = function () { const result = originalBuildResult(); if (this.puzzle && this.puzzle.twoStageWordOrder && this.puzzle.hintUsed) result.score = Math.max(0, Number(result.score || 0) - 2); return result; };
     }
 
-    console.log("Word Jigsaw Stage 2 v3.4 Ready");
+    console.log("Word Jigsaw Stage 2 v3.7 Ready");
 })();
