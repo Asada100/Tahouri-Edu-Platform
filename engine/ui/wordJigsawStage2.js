@@ -399,6 +399,7 @@
         let startX = 0;
         let startY = 0;
         let dragging = false;
+        let activeDropGroup = -1;
 
         function rerender() { screen.render(PuzzleEngine.getState()); }
 
@@ -414,6 +415,7 @@
             activePointerId = null;
             activeButton = null;
             dragging = false;
+            activeDropGroup = -1;
         }
 
         function createGhost(button) {
@@ -568,6 +570,7 @@
             if (data.fromZone === "source") {
                 if (isPointInside(target, point)) {
                     const info = getHardInsertInfo(point);
+                    if (activeDropGroup >= 0) info.group = activeDropGroup;
                     const moved = JigsawPuzzleHandler.moveWordToTarget(
                         PuzzleEngine,
                         data.index,
@@ -620,6 +623,21 @@
 
             dragging = true;
             activeButton.classList.add("is-dragging");
+
+            // Track the hemistich continuously while dragging. This avoids
+            // relying on the final pointerup target, which can be the source
+            // button or another overlay.
+            const rows = [...target.querySelectorAll(".wordBuilderPoetryLine")];
+            let detectedGroup = -1;
+            rows.forEach(function (row) {
+                const rect = row.getBoundingClientRect();
+                if (event.clientY >= rect.top && event.clientY <= rect.bottom) {
+                    const group = Number(row.dataset.groupIndex);
+                    if (Number.isInteger(group)) detectedGroup = group;
+                }
+            });
+            if (detectedGroup >= 0) activeDropGroup = detectedGroup;
+
             if (!dragGhost) dragGhost = createGhost(activeButton);
             updateGhost(event);
             event.preventDefault();
@@ -695,5 +713,5 @@
         PuzzleEngine.buildResult = function () { const result = originalBuildResult(); if (this.puzzle && this.puzzle.twoStageWordOrder && this.puzzle.hintUsed) result.score = Math.max(0, Number(result.score || 0) - 2); return result; };
     }
 
-    console.log("Word Jigsaw Stage 2 v3.3 Ready");
+    console.log("Word Jigsaw Stage 2 v3.4 Ready");
 })();
