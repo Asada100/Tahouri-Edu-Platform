@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Matching Screen
-// Version 1.4
+// Version 1.5
 //
 // Supports one-to-one and many-to-one Matching.
 // Right-side targets remain reusable.
@@ -13,6 +13,10 @@ const MatchingScreen = {
     activityReadyConnected: false,
     lastMessage: "",
     lastMessageType: "",
+
+    // Keeps only the visual path of already-correct connections.
+    // MatchingEngine remains the source of truth for correctness.
+    completedConnectionPaths: {},
 
     connection: {
         active: false,
@@ -69,6 +73,12 @@ const MatchingScreen = {
         }
 
         this.cancelPointerConnection();
+
+        // A new activity/session starts with no previous visual paths.
+        // Existing correct matches are redrawn only when their paths are known.
+        if (!Array.isArray(matchedPairs) || matchedPairs.length === 0) {
+            this.completedConnectionPaths = {};
+        }
 
         const app = this.getApp();
         if (!app) return;
@@ -288,6 +298,24 @@ const MatchingScreen = {
             targetSide !== startSide &&
             String(targetId) !== String(startId);
 
+        const currentPath = this.connection.pathPoints.map(function(point) {
+            return {x: point.x, y: point.y};
+        });
+
+        if (validTarget) {
+            const board = document.querySelector(".matchingBoard");
+            if (board) {
+                const boardRect = board.getBoundingClientRect();
+                const targetPoint = this.getElementCenter(targetButton, boardRect);
+                const lastPoint = currentPath[currentPath.length - 1];
+
+                if (!lastPoint ||
+                    Math.hypot(lastPoint.x - targetPoint.x, lastPoint.y - targetPoint.y) >= 2) {
+                    currentPath.push(targetPoint);
+                }
+            }
+        }
+
         this.cancelPointerConnection();
         if (!validTarget) return;
 
@@ -299,7 +327,11 @@ const MatchingScreen = {
         const firstResult = MatchingEngine.select(startSide, startId);
         if (!firstResult) return;
 
-        this.handleSelection(targetSide, targetId);
+        this.handleSelection(targetSide, targetId, {
+            startSide: startSide,
+            startId: startId,
+            points: currentPath
+        });
     },
 
     cancelPointerConnection: function () {
@@ -363,6 +395,23 @@ const MatchingScreen = {
             if (path.length > 120) path.shift();
         }
 
+        // Children may intentionally doodle/zig-zag while dragging.
+        // If the CURRENT stroke becomes excessive, clear only that stroke.
+        // Completed correct connections remain untouched.
+        const maxPathLength = Math.max(900, Math.min(1800, boardRect.width * 2.2));
+        if (this.getPathLength([startPoint].concat(path)) > maxPathLength) {
+            this.connection.pathPoints = [];
+            this.connection.lastTargetButton = null;
+
+            document.querySelectorAll(".matchingItem.connectionTarget").forEach(function(item) {
+                item.classList.remove("connectionTarget");
+            });
+
+            const oldPreview = svg.querySelector(".matchingPreviewConnection");
+            if (oldPreview) oldPreview.remove();
+            return;
+        }
+
         let preview = svg.querySelector(".matchingPreviewConnection");
         if (!preview) {
             preview = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
@@ -401,6 +450,47 @@ const MatchingScreen = {
         }
     },
 
+    getPathLength: function (points) {
+        if (!Array.isArray(points) || points.length < 2) return 0;
+
+        let length = 0;
+        for (let index = 1; index < points.length; index += 1) {
+            length += Math.hypot(
+                points[index].x - points[index - 1].x,
+                points[index].y - points[index - 1].y
+            );
+        }
+        return length;
+    },
+
+    pointsToSmoothSvgPath: function (points) {
+        if (!Array.isArray(points) || points.length === 0) return "";
+        if (points.length === 1) {
+            return "M " + points[0].x + " " + points[0].y;
+        }
+
+        let d = "M " + points[0].x + " " + points[0].y;
+
+        for (let index = 0; index < points.length - 1; index += 1) {
+            const p0 = points[index - 1] || points[index];
+            const p1 = points[index];
+            const p2 = points[index + 1];
+            const p3 = points[index + 2] || p2;
+
+            const cp1x = p1.x + (p2.x - p0.x) / 6;
+            const cp1y = p1.y + (p2.y - p0.y) / 6;
+            const cp2x = p2.x - (p3.x - p1.x) / 6;
+            const cp2y = p2.y - (p3.y - p1.y) / 6;
+
+            d += " C " +
+                cp1x + " " + cp1y + " " +
+                cp2x + " " + cp2y + " " +
+                p2.x + " " + p2.y;
+        }
+
+        return d;
+    },
+
     drawMatchedConnections: function () {
         const board = document.querySelector(".matchingBoard");
         const svg = document.querySelector(".matchingConnections");
@@ -434,17 +524,20 @@ const MatchingScreen = {
             const leftPoint = MatchingScreen.getElementCenter(leftButton, boardRect);
             const rightPoint = MatchingScreen.getElementCenter(rightButton, boardRect);
 
-            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-            line.setAttribute("class", "matchingPairConnection");
-            line.setAttribute("x1", leftPoint.x);
-            line.setAttribute("y1", leftPoint.y);
-            line.setAttribute("x2", rightPoint.x);
-            line.setAttribute("y2", rightPoint.y);
-            line.setAttribute("fill", "none");
-            line.setAttribute("stroke", "#16a34a");
-            line.setAttribute("stroke-width", "4");
-            line.setAttribute("stroke-linecap", "round");
-            svg.appendChild(line);
+            const stored = MatchingScreen.completedConnectionPaths[String(pair.left.id)];
+            const points = stored && Array.isArray(stored.points) && stored.points.length >= 2
+                ? stored.points
+                : [leftPoint, rightPoint];
+
+            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            path.setAttribute("class", "matchingPairConnection");
+            path.setAttribute("d", MatchingScreen.pointsToSmoothSvgPath(points));
+            path.setAttribute("fill", "none");
+            path.setAttribute("stroke", "#16a34a");
+            path.setAttribute("stroke-width", "4");
+            path.setAttribute("stroke-linecap", "round");
+            path.setAttribute("stroke-linejoin", "round");
+            svg.appendChild(path);
         });
     },
 
@@ -471,7 +564,7 @@ const MatchingScreen = {
         };
     },
 
-    handleSelection: function (side, itemId) {
+    handleSelection: function (side, itemId, connectionData) {
         if (typeof MatchingEngine === "undefined" || typeof MatchingEngine.select !== "function") {
             console.error("Matching Screen: Matching Engine Not Available");
             return;
@@ -486,6 +579,28 @@ const MatchingScreen = {
                 : "این دو مورد با هم مرتبط نیستند.";
 
             this.lastMessageType = result.correct ? "success" : "error";
+
+            if (result.correct &&
+                connectionData &&
+                Array.isArray(connectionData.points) &&
+                connectionData.points.length >= 2) {
+                const leftId = connectionData.startSide === "left"
+                    ? String(connectionData.startId)
+                    : String(itemId);
+
+                const rightId = connectionData.startSide === "right"
+                    ? String(connectionData.startId)
+                    : String(itemId);
+
+                this.completedConnectionPaths[leftId] = {
+                    leftId: leftId,
+                    rightId: rightId,
+                    points: connectionData.points.map(function(point) {
+                        return {x: point.x, y: point.y};
+                    })
+                };
+            }
+
             this.show(MatchingEngine.getState());
 
             if (MatchingEngine.getState().finished) {
@@ -549,4 +664,4 @@ window.MatchingScreen = MatchingScreen;
 // =====================================
 MatchingScreen.init();
 
-console.log("Matching Screen Ready v1.4");
+console.log("Matching Screen Ready v1.5");
