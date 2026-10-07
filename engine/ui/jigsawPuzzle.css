@@ -44,6 +44,16 @@
 .wordBuilderTargetHard { box-sizing:border-box; height:210px; min-height:210px; display:flex; flex-direction:column; flex-wrap:nowrap; align-items:stretch; justify-content:flex-start; align-content:stretch; gap:0; overflow:hidden; }
 .wordBuilderPartialTarget { display:flex; flex-direction:column; flex-wrap:nowrap; align-content:stretch; justify-content:flex-start; align-items:stretch; gap:10px; }
 .wordBuilderPartialTarget .wordBuilderPoetryLine { width:100%; }
+.wordBuilderPoetryLine {
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  align-items:center;
+  align-content:center;
+  gap:10px;
+  width:100%;
+  box-sizing:border-box;
+}
 .wordBuilderFixedPiece { cursor:default; background:#eef1f5; border-color:#d6dde6; box-shadow:none; opacity:.9; }
 .wordBuilderFixedPiece:hover { transform:none; box-shadow:none; }
 
