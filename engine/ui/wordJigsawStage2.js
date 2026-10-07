@@ -456,29 +456,31 @@
             let rowIndex = -1;
             let row = null;
 
-            // Hard mode: determine the hemistich from the actual row under
-            // the pointer. Do not infer it from the target box midpoint, because
-            // the two visible rows may not occupy equal heights.
+            // Hard mode: map the pointer directly to the visible hemistich.
+            // Do not use elementFromPoint: the dragged source button can remain
+            // underneath the pointer and steal the hit-test from the target row.
             if (rows.length) {
-                const hit = document.elementFromPoint(event.clientX, event.clientY);
-                const hitRow = hit && hit.closest ? hit.closest(".wordBuilderPoetryLine") : null;
+                const targetRect = target.getBoundingClientRect();
+                let chosen = rows.length === 2
+                    ? (event.clientY < targetRect.top + targetRect.height / 2 ? rows[0] : rows[1])
+                    : null;
 
-                if (hitRow && target.contains(hitRow)) {
-                    row = hitRow;
-                    rowIndex = Number(hitRow.dataset.groupIndex);
-                } else {
-                    let nearestRowDistance = Infinity;
+                if (!chosen) {
+                    let nearestDistance = Infinity;
                     rows.forEach(function (candidate) {
                         const rect = candidate.getBoundingClientRect();
                         const centerY = rect.top + rect.height / 2;
                         const distance = Math.abs(event.clientY - centerY);
-                        if (distance < nearestRowDistance) {
-                            nearestRowDistance = distance;
-                            row = candidate;
-                            rowIndex = Number(candidate.dataset.groupIndex);
+                        if (distance < nearestDistance) {
+                            nearestDistance = distance;
+                            chosen = candidate;
                         }
                     });
                 }
+
+                row = chosen;
+                rowIndex = Number(chosen && chosen.dataset.groupIndex);
+                if (!Number.isInteger(rowIndex)) rowIndex = rows.indexOf(chosen);
             }
 
             if (rowIndex < 0) return { group: 0, index: 0 };
@@ -693,5 +695,5 @@
         PuzzleEngine.buildResult = function () { const result = originalBuildResult(); if (this.puzzle && this.puzzle.twoStageWordOrder && this.puzzle.hintUsed) result.score = Math.max(0, Number(result.score || 0) - 2); return result; };
     }
 
-    console.log("Word Jigsaw Stage 2 v3.2 Ready");
+    console.log("Word Jigsaw Stage 2 v3.3 Ready");
 })();
