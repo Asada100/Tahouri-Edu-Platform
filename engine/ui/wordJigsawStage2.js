@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Word Jigsaw Stage 2
-// Version 2.9
+// Version 3.5
 // =====================================
 
 (function () {
@@ -227,18 +227,44 @@
         return true;
     };
 
-    JigsawPuzzleHandler.reorderTarget = function (engine, fromIndex, toIndex) {
+    JigsawPuzzleHandler.reorderTarget = function (engine, fromIndex, toIndex, targetGroup) {
         if (!isStage2(engine)) return false;
-        const from = Number(fromIndex), to = Number(toIndex), target = engine.puzzle.targetWords || [];
-        if (!Number.isInteger(from) || !Number.isInteger(to) || from < 0 || to < 0 || from >= target.length || to >= target.length || from === to) return false;
+        const target = engine.puzzle.targetWords || [];
+        const from = Number(fromIndex);
+        const requestedTo = Number(toIndex);
+        if (!Number.isInteger(from) || !Number.isInteger(requestedTo) || from < 0 || from >= target.length) return false;
+
         const hardGroupedBoard = isHardGroupedBoard(engine);
         const groups = engine.puzzle.targetGroups || [];
-        if (hardGroupedBoard && groups.length === target.length && Number(groups[from]) !== Number(groups[to])) return false;
-        engine.puzzle.history.push({ availableWords:[...engine.puzzle.availableWords], targetWords:[...target], targetGroups:[...groups], hintUsed:!!engine.puzzle.hintUsed });
-        const word = target.splice(from, 1)[0];
-        const group = groups.splice(from, 1)[0];
-        target.splice(to, 0, word);
-        if (hardGroupedBoard) groups.splice(to, 0, group);
+        if (hardGroupedBoard && groups.length !== target.length) return false;
+
+        const group = Number(targetGroup);
+        if (hardGroupedBoard && (!Number.isInteger(group) || group < 0)) return false;
+
+        // getHardInsertInfo calculates the insertion index after excluding
+        // the dragged word, so remove first and insert at that exact index.
+        const word = target[from];
+        const oldGroup = hardGroupedBoard ? Number(groups[from]) : null;
+        const nextTarget = target.slice();
+        const nextGroups = groups.slice();
+        nextTarget.splice(from, 1);
+        if (hardGroupedBoard) nextGroups.splice(from, 1);
+
+        const insertAt = Math.max(0, Math.min(requestedTo, nextTarget.length));
+        if (insertAt === from && (!hardGroupedBoard || oldGroup === group)) return false;
+
+        engine.puzzle.history.push({
+            availableWords: [...engine.puzzle.availableWords],
+            targetWords: [...target],
+            targetGroups: [...groups],
+            hintUsed: !!engine.puzzle.hintUsed
+        });
+
+        nextTarget.splice(insertAt, 0, word);
+        if (hardGroupedBoard) nextGroups.splice(insertAt, 0, group);
+
+        engine.puzzle.targetWords = nextTarget;
+        if (hardGroupedBoard) engine.puzzle.targetGroups = nextGroups;
         emitChanged(engine);
         return true;
     };
@@ -540,10 +566,9 @@
 
         function reorderTargetFromPoint(event, fromIndex) {
             const info = getHardInsertInfo(event, fromIndex);
-            let toIndex = info.index;
-            if (toIndex > fromIndex) toIndex -= 1;
-            if (toIndex !== fromIndex) {
-                if (JigsawPuzzleHandler.reorderTarget(PuzzleEngine, fromIndex, toIndex)) rerender();
+            const toIndex = info.index;
+            if (toIndex !== fromIndex || info.group >= 0) {
+                if (JigsawPuzzleHandler.reorderTarget(PuzzleEngine, fromIndex, toIndex, info.group)) rerender();
             }
         }
 
