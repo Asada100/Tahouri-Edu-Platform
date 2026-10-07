@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Word Jigsaw Difficulty
-// Version 1.2
+// Version 1.3
 // Word-only difficulty layer.
 // Image Jigsaw and all other puzzle types are untouched.
 // =====================================
@@ -317,6 +317,32 @@
             } else if (data.zone === "target") {
                 if (over && over.closest("#wordBuilderSource")) {
                     if (JigsawPuzzleHandler.moveWordToSource(PuzzleEngine, data.index)) rerender();
+                } else if (over && over.closest("[data-target-index]")) {
+                    // Simple/Medium: allow direct swapping of two movable words
+                    // already placed in the answer. The student must not be
+                    // forced to return a word to the source box just to swap
+                    // two incorrect positions.
+                    const button = over.closest("[data-target-index]");
+                    const index = Number(button.dataset.targetIndex);
+                    const movable = new Set(Array.isArray(PuzzleEngine.puzzle.movableIndexes)
+                        ? PuzzleEngine.puzzle.movableIndexes.map(Number)
+                        : []);
+                    const targetWords = PuzzleEngine.puzzle.targetWords || [];
+                    if (index !== data.index &&
+                        movable.has(index) &&
+                        movable.has(Number(data.index)) &&
+                        targetWords[index] != null &&
+                        targetWords[data.index] != null) {
+                        PuzzleEngine.puzzle.history.push(snapshot(PuzzleEngine));
+                        const temp = targetWords[data.index];
+                        targetWords[data.index] = targetWords[index];
+                        targetWords[index] = temp;
+                        PuzzleEngine.puzzle.feedbackIndexes = [];
+                        PuzzleEngine.items = [...targetWords];
+                        PuzzleEngine.moves = Number(PuzzleEngine.moves || 0) + 1;
+                        EventManager.emit("puzzleChanged", PuzzleEngine.getState());
+                        rerender();
+                    }
                 } else if (over && over.closest("[data-target-slot]")) {
                     const index = Number(over.closest("[data-target-slot]").dataset.targetSlot);
                     if (index !== data.index && PuzzleEngine.puzzle.targetWords[index] == null) {
@@ -503,5 +529,5 @@
         renderPartial(state);
     };
 
-    console.log("Word Jigsaw Difficulty v1.0 Ready");
+    console.log("Word Jigsaw Difficulty v1.1 Ready");
 })();
