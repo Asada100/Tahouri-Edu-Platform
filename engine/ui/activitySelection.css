@@ -201,3 +201,51 @@
         padding-top: 10px;
     }
 }
+
+
+/* Temporary lock message — replaces blocking browser alert. */
+.activityLockMessageOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10050;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    box-sizing: border-box;
+    background: rgba(15, 23, 42, .16);
+    cursor: pointer;
+    opacity: 1;
+    transition: opacity .22s ease;
+}
+
+.activityLockMessageOverlay.is-hiding { opacity: 0; }
+
+.activityLockMessage {
+    width: min(460px, calc(100vw - 32px));
+    box-sizing: border-box;
+    padding: 18px 22px;
+    border-radius: 16px;
+    background: rgba(30, 30, 30, .90);
+    color: #fff;
+    text-align: center;
+    box-shadow: 0 12px 34px rgba(0, 0, 0, .18);
+    cursor: pointer;
+}
+
+.activityLockIcon {
+    margin-bottom: 5px;
+    font-size: 25px;
+    line-height: 1;
+}
+
+.activityLockText {
+    white-space: pre-line;
+    font-size: clamp(15px, 2.4vw, 17px);
+    font-weight: 700;
+    line-height: 1.8;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .activityLockMessageOverlay { transition: none; }
+}
