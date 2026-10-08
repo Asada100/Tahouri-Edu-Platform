@@ -211,10 +211,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 20px;
+    padding: 12px;
     box-sizing: border-box;
-    background: rgba(15, 23, 42, .16);
-    cursor: pointer;
+    pointer-events: none;
     opacity: 1;
     transition: opacity .22s ease;
 }
@@ -222,15 +221,17 @@
 .activityLockMessageOverlay.is-hiding { opacity: 0; }
 
 .activityLockMessage {
-    width: min(460px, calc(100vw - 32px));
+    width: max-content;
+    max-width: calc(100vw - 32px);
     box-sizing: border-box;
-    padding: 18px 22px;
+    padding: 8px 14px;
     border-radius: 16px;
-    background: rgba(30, 30, 30, .90);
+    background: rgba(30, 30, 30, .68);
     color: #fff;
     text-align: center;
     box-shadow: 0 12px 34px rgba(0, 0, 0, .18);
     cursor: pointer;
+    pointer-events: auto;
 }
 
 .activityLockIcon {
