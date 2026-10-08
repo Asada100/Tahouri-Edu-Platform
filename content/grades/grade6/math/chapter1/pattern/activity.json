@@ -1,0 +1,20 @@
+{
+  "id": "mathPattern",
+  "title": "الگوی عددی",
+  "description": "الگو را پیدا کن و عدد مناسب را در جای خالی قرار بده.",
+  "grade": "grade6",
+  "subject": "math",
+  "chapter": "chapter1",
+  "engine": "puzzle",
+  "version": "1.0",
+  "puzzle": {
+    "type": "pattern",
+    "source": "file",
+    "dataType": "number",
+    "instruction": "الگو را پیدا کن و جای خالی را با عدد درست کامل کن.",
+    "items": [2, 4, 2, 4, 2, null],
+    "missingIndex": 5,
+    "answer": 4,
+    "options": [2, 4, 6, 8]
+  }
+}
