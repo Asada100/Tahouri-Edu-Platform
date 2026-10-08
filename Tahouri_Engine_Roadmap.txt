@@ -198,8 +198,9 @@ B) Pattern
 
 C) Spatial
 اولویت: بالا
-روش: ابتدا Puzzle / Matching / Jigsaw بررسی شود.
-در صورت نیاز، Spatial Type ساخته شود.
+روش: ابتدا Puzzle / Matching / Jigsaw بررسی شد.
+Spatial Type در Puzzle ساخته شد.
+وضعیت: [TESTING]
 Engine مستقل فعلاً ممنوع.
 
 D) Auditory
