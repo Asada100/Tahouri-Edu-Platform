@@ -4518,7 +4518,7 @@ PuzzleScreen.showSpatialSymmetry = function (state) {
                     "<div class=\"spatialTrayPieces\">" + tray + "</div>" +
                 "</div>" +
             "</div>" +
-            "<button id=\"spatialSymmetryCheckBtn\" class=\"spatialCheckButton\" type=\"button\">بررسی پاسخ</button>" +
+            "<button id=\"spatialSymmetryCheckBtn\" class=\"spatialCheckButton\" type=\"button\" disabled>بررسی پاسخ</button>" +
             "<div id=\"spatialSymmetryMessage\" class=\"puzzleMessage\" role=\"status\"></div>" +
             this.renderStandardFooter(state.moves) +
         "</div>";
@@ -4577,7 +4577,12 @@ PuzzleScreen.showSpatialSymmetry = function (state) {
         setTimeout(function () {
             if (!checkButton.isConnected) return;
 
+            checkButton.disabled = !(Number(state.moves) > 0);
+
             checkButton.addEventListener("click", function () {
+                const currentState = PuzzleEngine.getState();
+                if (!(Number(currentState.moves) > 0)) return;
+
                 const correct = PuzzleEngine.check();
                 const message = app.querySelector("#spatialSymmetryMessage");
                 if (message) {
