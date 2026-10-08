@@ -58,6 +58,20 @@ const ClassificationScreen = {
             ? String(activity.classification.mode) : "choice";
     },
 
+    getCurrentStage: function () {
+        if (this.getMode() !== "multiStage") return null;
+        const classification = this.currentActivity && this.currentActivity.classification;
+        const stages = classification && Array.isArray(classification.stages) ? classification.stages : [];
+        const index = this.currentState && Number.isInteger(this.currentState.currentStage)
+            ? this.currentState.currentStage : 0;
+        return stages[index] || null;
+    },
+
+    getStageMode: function () {
+        const stage = this.getCurrentStage();
+        return stage && stage.mode ? String(stage.mode) : "choice";
+    },
+
     show: function (state) {
         if (!state) return;
         const app = document.getElementById("app");
@@ -67,7 +81,9 @@ const ClassificationScreen = {
         const classifications = state.classifications || {};
         const activity = this.currentActivity || {};
         const mode = this.getMode();
-        const isDragDrop = mode === "dragDrop";
+        const stage = this.getCurrentStage();
+        const isMultiStage = mode === "multiStage";
+        const isDragDrop = mode === "dragDrop" || (isMultiStage && this.getStageMode() === "dragDrop");
 
         const categoryHTML = categories.map(function (category) {
             const id = ClassificationScreen.escapeAttribute(category.id);
@@ -101,6 +117,7 @@ const ClassificationScreen = {
 
         app.innerHTML = `<div class="screen classificationScreen classificationMode-${ClassificationScreen.escapeAttribute(mode)} ${isDragDrop ? "classificationDragMode" : ""}" dir="rtl">
             <h1>${ClassificationScreen.escapeHTML(activity.title || "دسته‌بندی")}</h1>
+            ${isMultiStage && stage ? `<div class="classificationStageTitle">مرحله ${Number(state.currentStage) + 1} از ${Number(state.totalStages)}${stage.title ? " — " + ClassificationScreen.escapeHTML(stage.title) : ""}</div>` : ""}
             <p class="classificationInstruction">${ClassificationScreen.escapeHTML(instruction)}</p>
             <div class="classificationStatus">باقی‌مانده: ${Math.max(0, (state.totalItems || 0) - (state.classifiedItems || 0))} از ${state.totalItems || 0}</div>
             <div class="classificationItems">${itemsHTML}</div>
@@ -114,7 +131,7 @@ const ClassificationScreen = {
 
     bindEvents: function () {
         const self = this;
-        if (this.getMode() === "dragDrop") {
+        if (this.getMode() === "dragDrop" || (this.getMode() === "multiStage" && this.getStageMode() === "dragDrop")) {
             this.bindDragDropEvents();
         } else {
             let selected = null;
@@ -363,7 +380,7 @@ const ClassificationScreen = {
     submitClassification: function (itemId, categoryId, source) {
         if (source !== "user") return null;
         if (!window.ClassificationEngine) return null;
-        if (this.getMode() === "dragDrop" && this.dragSubmissionLocked === false) return null;
+        if ((this.getMode() === "dragDrop" || (this.getMode() === "multiStage" && this.getStageMode() === "dragDrop")) && this.dragSubmissionLocked === false) return null;
 
         const result = window.ClassificationEngine.classifyItem(itemId, categoryId);
         if (!result) {
@@ -441,4 +458,4 @@ const ClassificationScreen = {
 
 window.ClassificationScreen = ClassificationScreen;
 ClassificationScreen.init();
-console.log("Classification Screen Ready v2.0");
+console.log("Classification Screen Ready v2.1");
