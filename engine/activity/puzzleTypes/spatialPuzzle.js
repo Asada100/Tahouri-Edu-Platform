@@ -243,6 +243,7 @@ const SpatialPuzzle = {
                 items: normalizedPieces,
                 pieces: normalizedPieces,
                 placements: {},
+                hasUserMove: false,
                 options: [],
                 answer: null,
                 question: ""
@@ -324,6 +325,7 @@ const SpatialPuzzle = {
             }
 
             engine.userAnswer = { ...engine.puzzle.placements };
+            engine.puzzle.hasUserMove = true;
             engine.moves++;
             EventManager.emit("puzzleChanged", engine.getState());
             return true;
@@ -339,6 +341,11 @@ const SpatialPuzzle = {
         if (!engine.puzzle || engine.puzzle.type !== "spatial") return false;
 
         if (engine.puzzle.mode === "place" || engine.puzzle.mode === "symmetry") {
+            if (engine.puzzle.hasUserMove !== true) {
+                console.log("Spatial Puzzle: Check blocked before first user move.");
+                return false;
+            }
+
             const pieces = engine.puzzle.pieces || [];
             const placements = engine.puzzle.placements || {};
 
