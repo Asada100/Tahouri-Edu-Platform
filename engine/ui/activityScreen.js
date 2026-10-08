@@ -6,6 +6,8 @@
 
 const ActivityScreen = {
 
+    lockMessageTimer: null,
+
     show: function (activityList) {
         const app = document.getElementById("app");
 
@@ -131,7 +133,7 @@ const ActivityScreen = {
                 }
 
                 if (ActivityScreen.isLocked(activity)) {
-                    alert("🔒 این فعالیت هنوز قفل است.\n\nبرای ورود، ابتدا شرایط باز شدن آن را کامل کنید.");
+                    ActivityScreen.showLockMessage("این فعالیت قفل است.\nبرای ورود، شرط باز شدن آن را کامل کنید.");
                     return;
                 }
 
@@ -155,13 +157,52 @@ const ActivityScreen = {
                 });
 
                 if (groupLocked) {
-                    alert("🔒 این بخش هنوز قفل است.\n\nبرای ورود، ابتدا شرایط باز شدن آن را کامل کنید.");
+                    ActivityScreen.showLockMessage("این بخش قفل است.\nبرای ورود، شرط باز شدن آن را کامل کنید.");
                     return;
                 }
 
                 ActivityScreen.openGroup(groupId, groupActivities);
             };
         });
+    },
+
+    showLockMessage: function (message) {
+        if (this.lockMessageTimer) {
+            clearTimeout(this.lockMessageTimer);
+            this.lockMessageTimer = null;
+        }
+
+        const oldOverlay = document.getElementById("activityLockMessageOverlay");
+        if (oldOverlay) oldOverlay.remove();
+
+        const overlay = document.createElement("div");
+        overlay.id = "activityLockMessageOverlay";
+        overlay.className = "activityLockMessageOverlay";
+        overlay.setAttribute("role", "status");
+        overlay.setAttribute("aria-live", "polite");
+
+        const box = document.createElement("div");
+        box.className = "activityLockMessage";
+        box.innerHTML = "<div class=\"activityLockIcon\" aria-hidden=\"true\">🔒</div>" +
+            "<div class=\"activityLockText\"></div>";
+        box.querySelector(".activityLockText").textContent = message || "";
+
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+
+        const dismiss = function () {
+            if (ActivityScreen.lockMessageTimer) {
+                clearTimeout(ActivityScreen.lockMessageTimer);
+                ActivityScreen.lockMessageTimer = null;
+            }
+            overlay.classList.add("is-hiding");
+            window.setTimeout(function () {
+                if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+            }, 220);
+        };
+
+        overlay.addEventListener("click", dismiss);
+        this.lockMessageTimer = window.setTimeout(dismiss, 5000);
     },
 
     openGroup: function (groupId, activities) {
