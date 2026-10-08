@@ -302,19 +302,9 @@ const MatchingScreen = {
             return {x: point.x, y: point.y};
         });
 
-        if (validTarget) {
-            const board = document.querySelector(".matchingBoard");
-            if (board) {
-                const boardRect = board.getBoundingClientRect();
-                const targetPoint = this.getElementCenter(targetButton, boardRect);
-                const lastPoint = currentPath[currentPath.length - 1];
-
-                if (!lastPoint ||
-                    Math.hypot(lastPoint.x - targetPoint.x, lastPoint.y - targetPoint.y) >= 2) {
-                    currentPath.push(targetPoint);
-                }
-            }
-        }
+        // The target center is used only for validation/highlighting.
+        // The completed visual path must end exactly where the child released
+        // the mouse/finger, so it never crosses the target text unnecessarily.
 
         this.cancelPointerConnection();
         if (!validTarget) return;
@@ -664,4 +654,4 @@ window.MatchingScreen = MatchingScreen;
 // =====================================
 MatchingScreen.init();
 
-console.log("Matching Screen Ready v1.5");
+console.log("Matching Screen Ready v1.6");
