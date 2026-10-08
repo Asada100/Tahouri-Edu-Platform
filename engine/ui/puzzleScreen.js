@@ -4435,6 +4435,154 @@ const PuzzleScreen = {
 };
 
 
+
+
+// =====================================
+// SPATIAL SYMMETRY v2 UI OVERRIDE
+// =====================================
+PuzzleScreen.showSpatialSymmetry = function (state) {
+    const app = this.getApp();
+    if (!app) return;
+
+    const grid = state.grid || {};
+    const rows = Math.max(1, Number(grid.rows) || 1);
+    const cols = Math.max(1, Number(grid.cols) || 1);
+    const pieces = Array.isArray(state.pieces) ? state.pieces : [];
+    const placements = state.placements || {};
+    const sourceByCell = {};
+    const placedByCell = {};
+
+    pieces.forEach(function (piece) {
+        if (piece.source) {
+            sourceByCell[Number(piece.source.row) + ":" + Number(piece.source.col)] = piece;
+        }
+        const placement = placements[String(piece.id)];
+        if (placement) {
+            placedByCell[Number(placement.row) + ":" + Number(placement.col)] = piece;
+        }
+    });
+
+    const cells = [];
+
+    for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+            const key = row + ":" + col;
+            const sourcePiece = sourceByCell[key];
+            const placedPiece = placedByCell[key];
+            const isAxis = state.axis === "vertical"
+                ? (cols % 2 === 1 && col === Math.floor(cols / 2))
+                : (rows % 2 === 1 && row === Math.floor(rows / 2));
+
+            cells.push(
+                "<div class=\"spatialDropCell spatialSymmetryCell" +
+                    (placedPiece ? " filled" : "") +
+                    (sourcePiece ? " spatialSourceCell" : "") +
+                    (isAxis ? " spatialAxisCell" : "") +
+                    "\" data-row=\"" + row + "\" data-col=\"" + col + "\">" +
+                    (sourcePiece
+                        ? "<div class=\"spatialSourcePiece\">" + this.escapeHTML(sourcePiece.label || sourcePiece.id) + "</div>"
+                        : placedPiece
+                            ? "<div class=\"spatialPlacedPiece\" data-piece-id=\"" + this.escapeHTML(placedPiece.id) + "\">" + this.escapeHTML(placedPiece.label || placedPiece.id) + "</div>"
+                            : "<span class=\"spatialSlotHint\"></span>") +
+                "</div>"
+            );
+        }
+    }
+
+    const tray = pieces.map(function (piece) {
+        if (placements[String(piece.id)]) return "";
+        return "<div class=\"spatialDragPiece\" data-piece-id=\"" +
+            PuzzleScreen.escapeHTML(piece.id) +
+            "\" tabindex=\"0\">" +
+            PuzzleScreen.escapeHTML(piece.label || piece.id) +
+            "</div>";
+    }).join("");
+
+    const axisText = state.axis === "horizontal" ? "افقی" : "عمودی";
+
+    app.innerHTML =
+        "<div class=\"screen puzzleScreen spatialScreen spatialSymmetryScreen\" dir=\"rtl\">" +
+            "<div class=\"spatialSymmetryHeader\">" +
+                "<h1>تقارن شکل‌ها</h1>" +
+                "<p class=\"puzzleInstruction\">شکل‌ها را در جای قرینه قرار بده.</p>" +
+            "</div>" +
+            "<div class=\"spatialAxisLabel\">محور تقارن: " + axisText + "</div>" +
+            "<div class=\"spatialPlacementLayout\">" +
+                "<div class=\"spatialBoardWrap\">" +
+                    "<div class=\"spatialBoard\" style=\"--spatial-cols:" + cols + ";--spatial-rows:" + rows + "\">" +
+                        cells.join("") +
+                    "</div>" +
+                "</div>" +
+                "<div class=\"spatialTray\">" +
+                    "<div class=\"spatialTrayTitle\">شکل‌ها</div>" +
+                    "<div class=\"spatialTrayPieces\">" + tray + "</div>" +
+                "</div>" +
+            "</div>" +
+            "<button id=\"spatialSymmetryCheckBtn\" class=\"spatialCheckButton\" type=\"button\">بررسی پاسخ</button>" +
+            "<div id=\"spatialSymmetryMessage\" class=\"puzzleMessage\" role=\"status\"></div>" +
+            this.renderStandardFooter(state.moves) +
+        "</div>";
+
+    const beginDrag = function (pieceElement) {
+        const pieceId = pieceElement.dataset.pieceId;
+        if (!pieceId) return;
+
+        const ghost = document.createElement("div");
+        ghost.className = "spatialDragGhost";
+        ghost.textContent = pieceElement.textContent || "";
+        document.body.appendChild(ghost);
+
+        const moveGhost = function (event) {
+            ghost.style.left = (event.clientX - 28) + "px";
+            ghost.style.top = (event.clientY - 28) + "px";
+        };
+
+        const finishDrag = function (event) {
+            document.removeEventListener("pointermove", moveGhost);
+            document.removeEventListener("pointerup", finishDrag);
+            ghost.remove();
+
+            const target = document.elementFromPoint(event.clientX, event.clientY);
+            const cell = target && target.closest
+                ? target.closest(".spatialDropCell")
+                : null;
+
+            if (cell && app.contains(cell) && !cell.classList.contains("spatialSourceCell")) {
+                PuzzleEngine.setTypeAnswer({
+                    pieceId: pieceId,
+                    row: Number(cell.dataset.row),
+                    col: Number(cell.dataset.col)
+                });
+                PuzzleScreen.show(PuzzleEngine.getState());
+            }
+        };
+
+        document.addEventListener("pointermove", moveGhost);
+        document.addEventListener("pointerup", finishDrag, { once: true });
+        moveGhost(event);
+    };
+
+    app.querySelectorAll(".spatialDragPiece, .spatialPlacedPiece").forEach(function (pieceElement) {
+        pieceElement.addEventListener("pointerdown", function (event) {
+            event.preventDefault();
+            beginDrag(pieceElement);
+        });
+    });
+
+    const checkButton = app.querySelector("#spatialSymmetryCheckBtn");
+    if (checkButton) {
+        checkButton.addEventListener("click", function () {
+            const correct = PuzzleEngine.check();
+            const message = app.querySelector("#spatialSymmetryMessage");
+            if (message) {
+                message.textContent = correct
+                    ? "آفرین! تقارن کامل است."
+                    : "هنوز درست نیست؛ شکل‌ها را جابه‌جا کن و دوباره بررسی کن.";
+            }
+        });
+    }
+};
+
 // =====================================
 // GLOBAL
 // =====================================
