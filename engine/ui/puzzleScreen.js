@@ -285,6 +285,16 @@ const PuzzleScreen = {
     // =====================================
 
     showSpatial: function (state) {
+        if (state && state.mode === "place") {
+            this.showSpatialPlace(state);
+            return;
+        }
+
+        this.showSpatialLegacy(state);
+    },
+
+
+    showSpatialLegacy: function (state) {
         const app = this.getApp();
         if (!app) return;
 
@@ -334,6 +344,127 @@ const PuzzleScreen = {
         if (checkButton) checkButton.addEventListener("click", function () {
             PuzzleEngine.check();
         });
+    },
+
+
+    showSpatialPlace: function (state) {
+        const app = this.getApp();
+        if (!app) return;
+
+        const grid = state.grid || {};
+        const rows = Math.max(1, Number(grid.rows) || 1);
+        const cols = Math.max(1, Number(grid.cols) || 1);
+        const pieces = Array.isArray(state.pieces) ? state.pieces : [];
+        const placements = state.placements || {};
+        const placedByCell = {};
+
+        pieces.forEach(function (piece) {
+            const placement = placements[String(piece.id)];
+            if (placement) {
+                placedByCell[Number(placement.row) + ":" + Number(placement.col)] = piece;
+            }
+        });
+
+        const cells = [];
+        for (let row = 0; row < rows; row++) {
+            for (let col = 0; col < cols; col++) {
+                const key = row + ":" + col;
+                const piece = placedByCell[key];
+                cells.push(
+                    "<div class=\"spatialDropCell" + (piece ? " filled" : "") + "\" data-row=\"" + row + "\" data-col=\"" + col + "\">" +
+                        (piece
+                            ? "<div class=\"spatialPlacedPiece\" data-piece-id=\"" + PuzzleScreen.escapeHTML(piece.id) + "\">" + PuzzleScreen.escapeHTML(piece.label || piece.id) + "</div>"
+                            : "<span class=\"spatialSlotHint\">+</span>") +
+                    "</div>"
+                );
+            }
+        }
+
+        const tray = pieces.map(function (piece) {
+            const placement = placements[String(piece.id)];
+            if (placement) return "";
+            return "<div class=\"spatialDragPiece\" data-piece-id=\"" + PuzzleScreen.escapeHTML(piece.id) + "\" tabindex=\"0\">" +
+                PuzzleScreen.escapeHTML(piece.label || piece.id) +
+            "</div>";
+        }).join("");
+
+        const placedCount = Object.keys(placements).filter(function (id) {
+            return placements[id] !== null && placements[id] !== undefined;
+        }).length;
+
+        app.innerHTML =
+            "<div class=\"screen puzzleScreen spatialScreen spatialPlaceScreen\" dir=\"rtl\">" +
+                "<h1>جای درست شکل‌ها</h1>" +
+                "<p class=\"puzzleInstruction\">" + PuzzleScreen.escapeHTML(state.instruction) + "</p>" +
+                "<div class=\"spatialProgress\">" + placedCount + " از " + pieces.length + " شکل در صفحه قرار گرفته است</div>" +
+                "<div class=\"spatialPlacementLayout\">" +
+                    "<div class=\"spatialBoardWrap\">" +
+                        "<div class=\"spatialBoard\" style=\"--spatial-cols:" + cols + "\">" + cells.join("") + "</div>" +
+                    "</div>" +
+                    "<div class=\"spatialTray\">" +
+                        "<div class=\"spatialTrayTitle\">شکل‌ها</div>" +
+                        "<div class=\"spatialTrayPieces\">" + tray + "</div>" +
+                    "</div>" +
+                "</div>" +
+                "<button id=\"spatialPlaceCheckBtn\" class=\"spatialCheckButton\">بررسی چیدمان</button>" +
+                "<div id=\"spatialPlaceMessage\" class=\"puzzleMessage\"></div>" +
+                this.renderStandardFooter(state.moves) +
+            "</div>";
+
+        const beginDrag = function (pieceElement) {
+            const pieceId = pieceElement.dataset.pieceId;
+            if (!pieceId) return;
+
+            const ghost = document.createElement("div");
+            ghost.className = "spatialDragGhost";
+            ghost.textContent = pieceElement.textContent || "";
+            document.body.appendChild(ghost);
+
+            const moveGhost = function (event) {
+                ghost.style.left = (event.clientX - 32) + "px";
+                ghost.style.top = (event.clientY - 32) + "px";
+            };
+
+            const finishDrag = function (event) {
+                document.removeEventListener("pointermove", moveGhost);
+                document.removeEventListener("pointerup", finishDrag);
+                ghost.remove();
+
+                const target = document.elementFromPoint(event.clientX, event.clientY);
+                const cell = target && target.closest ? target.closest(".spatialDropCell") : null;
+
+                if (cell && app.contains(cell)) {
+                    PuzzleEngine.setTypeAnswer({
+                        pieceId: pieceId,
+                        row: Number(cell.dataset.row),
+                        col: Number(cell.dataset.col)
+                    });
+                    PuzzleScreen.show(PuzzleEngine.getState());
+                }
+            };
+
+            document.addEventListener("pointermove", moveGhost);
+            document.addEventListener("pointerup", finishDrag, { once: true });
+            moveGhost(event);
+        };
+
+        app.querySelectorAll(".spatialDragPiece, .spatialPlacedPiece").forEach(function (pieceElement) {
+            pieceElement.addEventListener("pointerdown", function (event) {
+                event.preventDefault();
+                beginDrag(pieceElement);
+            });
+        });
+
+        const checkButton = app.querySelector("#spatialPlaceCheckBtn");
+        if (checkButton) {
+            checkButton.addEventListener("click", function () {
+                const correct = PuzzleEngine.check();
+                if (!correct) {
+                    const message = app.querySelector("#spatialPlaceMessage");
+                    if (message) message.textContent = "هنوز همه شکل‌ها در جای درست نیستند.";
+                }
+            });
+        }
     },
 
 
