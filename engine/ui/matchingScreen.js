@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Matching Screen
-// Version 1.5
+// Version 1.8
 //
 // Supports one-to-one and many-to-one Matching.
 // Right-side targets remain reusable.
@@ -13,6 +13,7 @@ const MatchingScreen = {
     activityReadyConnected: false,
     lastMessage: "",
     lastMessageType: "",
+    messageTimer: null,
 
     // Keeps only the visual path of already-correct connections.
     // MatchingEngine remains the source of truth for correctness.
@@ -159,6 +160,44 @@ const MatchingScreen = {
 
         this.bindEvents();
         this.drawMatchedConnections();
+        this.scheduleMessageDismiss();
+    },
+
+    scheduleMessageDismiss: function () {
+        if (this.messageTimer) {
+            clearTimeout(this.messageTimer);
+            this.messageTimer = null;
+        }
+
+        const message = document.querySelector(".matchingMessage");
+        if (!message || !this.lastMessage) return;
+
+        message.addEventListener("click", this.dismissMessage.bind(this), { once: true });
+
+        this.messageTimer = window.setTimeout(function () {
+            MatchingScreen.dismissMessage();
+        }, 5000);
+    },
+
+    dismissMessage: function () {
+        if (this.messageTimer) {
+            clearTimeout(this.messageTimer);
+            this.messageTimer = null;
+        }
+
+        const message = document.querySelector(".matchingMessage");
+        if (!message) {
+            this.lastMessage = "";
+            this.lastMessageType = "";
+            return;
+        }
+
+        message.classList.add("is-hiding");
+        window.setTimeout(function () {
+            if (message.parentNode) message.parentNode.removeChild(message);
+            MatchingScreen.lastMessage = "";
+            MatchingScreen.lastMessageType = "";
+        }, 220);
     },
 
     renderItem: function (item, side, selectedId, matchedPairs, state) {
