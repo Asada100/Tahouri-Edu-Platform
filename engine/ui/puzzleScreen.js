@@ -251,6 +251,14 @@ const PuzzleScreen = {
 
                 return;
 
+            case "pattern":
+
+                this.showPattern(
+                    state
+                );
+
+                return;
+
 
             default:
 
@@ -1448,6 +1456,38 @@ const PuzzleScreen = {
 
         this.bindSentenceGrammarEvents();
 
+    },
+
+
+    // =====================================
+    // PATTERN
+    // =====================================
+
+    showPattern: function (state) {
+        const app = this.getApp();
+        if (!app) return;
+        const items = Array.isArray(state.items) ? state.items : [];
+        const options = Array.isArray(state.options) ? state.options : [];
+        const selected = state.userAnswer === null || state.userAnswer === undefined ? "" : String(state.userAnswer);
+        const itemsHTML = items.map(function (item, index) {
+            const missing = index === Number(state.missingIndex);
+            return "<div class=\"patternItem " + (missing ? "patternMissing" : "") + "\">" + (missing ? "؟" : PuzzleScreen.escapeHTML(item)) + "</div>";
+        }).join("");
+        const optionsHTML = options.map(function (option) {
+            const value = String(option);
+            return "<button class=\"patternOption " + (selected === value ? "selected" : "") + "\" data-pattern-value=\"" + PuzzleScreen.escapeHTML(value) + "\">" + PuzzleScreen.escapeHTML(option) + "</button>";
+        }).join("");
+        app.innerHTML = "<div class=\"screen puzzleScreen\" dir=\"rtl\"><h1>الگو</h1><p class=\"puzzleInstruction\">" + PuzzleScreen.escapeHTML(state.instruction) + "</p><div class=\"patternItems\">" + itemsHTML + "</div><div class=\"patternOptions\">" + optionsHTML + "</div><div class=\"puzzleControls\"><button id=\"patternCheckBtn\">بررسی پاسخ</button><button id=\"puzzleResetBtn\">شروع دوباره</button></div><div id=\"puzzleMessage\" class=\"puzzleMessage\"></div></div>";
+        document.querySelectorAll(".patternOption").forEach(function (button) {
+            button.onclick = function () {
+                PuzzleEngine.setTypeAnswer(this.dataset.patternValue);
+                document.querySelectorAll(".patternOption").forEach(function (item) { item.classList.remove("selected"); });
+                this.classList.add("selected");
+            };
+        });
+        const check = document.getElementById("patternCheckBtn");
+        if (check) check.onclick = function () { PuzzleScreen.checkPuzzle(); };
+        this.bindResetButton();
     },
 
 
@@ -3437,6 +3477,17 @@ const PuzzleScreen = {
                 margin-top: 14px;
                 opacity: .7;
             }
+
+            /* ============================= */
+            /* PATTERN */
+            /* ============================= */
+
+            .patternItems { display: flex; justify-content: center; align-items: center; gap: 12px; flex-wrap: wrap; margin: 30px auto; }
+            .patternItem, .patternOption { min-width: 70px; min-height: 70px; padding: 12px 18px; border: 2px solid #ddd; border-radius: 14px; background: white; font-size: 28px; display: flex; align-items: center; justify-content: center; }
+            .patternMissing { border-style: dashed; }
+            .patternOptions { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; margin: 20px auto; }
+            .patternOption { cursor: pointer; }
+            .patternOption.selected { border-color: #333; transform: scale(1.04); }
 
             /* ============================= */
             /* ORDERING */
