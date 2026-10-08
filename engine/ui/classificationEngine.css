@@ -48,3 +48,14 @@
     .classificationDropZoneItems { min-height:54px; gap:6px; }
     .classificationPlacedItem { padding:7px 8px; }
 }
+
+
+/* Multi-stage classification */
+.classificationStageTitle {
+    display: inline-block;
+    margin: 0 auto 8px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: 0.9rem;
+    opacity: 0.82;
+}
