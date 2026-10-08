@@ -1612,7 +1612,7 @@ const PuzzleScreen = {
                 ".patternHeader h1{margin:8px 0 6px;font-size:clamp(25px,4vw,34px);color:var(--ui-text,#172033);}" +
                 ".patternBadge{display:inline-block;padding:6px 14px;border-radius:999px;background:var(--ui-surface-soft,#f8fbff);border:1px solid var(--ui-border-soft,#e4e9f0);font-size:14px;color:var(--ui-muted,#667085);}" +
                 ".patternHeader .puzzleInstruction{max-width:650px;margin:8px auto 22px;line-height:1.9;color:var(--ui-muted,#667085);}" +
-                ".patternBoard{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;margin:10px auto 22px;padding:18px 12px;border-radius:20px;background:var(--ui-surface-soft,#f8fbff);border:1px solid var(--ui-border-soft,#e4e9f0);direction:ltr;}" +
+                ".patternBoard{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;margin:10px auto 22px;padding:18px 12px;border-radius:20px;background:var(--ui-surface-soft,#f8fbff);border:1px solid var(--ui-border-soft,#e4e9f0);direction:rtl;}" +
                 ".patternStep{display:flex;align-items:center;gap:8px;}" +
                 ".patternItem{min-width:64px;height:64px;padding:0 12px;display:flex;align-items:center;justify-content:center;border:2px solid var(--ui-border,#dbe4ef);border-radius:16px;background:#fff;font-family:\"Tahouri Yekan\",\"B Yekan\",Tahoma,sans-serif;font-size:clamp(25px,5vw,34px);font-weight:700;color:var(--ui-text,#172033);box-shadow:0 3px 8px rgba(31,41,55,.06);}" +
                 ".patternMissing{border-style:dashed;font-size:34px;color:var(--ui-muted,#667085);background:var(--ui-surface-soft,#f8fbff);}" +
@@ -4120,5 +4120,5 @@ PuzzleScreen.init();
 
 
 console.log(
-    "Puzzle Screen v2.0 Ready"
+    "Puzzle Screen v2.2 Ready"
 );
