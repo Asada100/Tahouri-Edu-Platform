@@ -318,6 +318,7 @@ const PuzzleScreen = {
                         return "<button class=\\"spatialOption" + selected + "\\" data-answer=\\"" + PuzzleScreen.escapeHTML(option) + "\\">" + PuzzleScreen.escapeHTML(option) + "</button>";
                     }).join("") +
                 "</div>" +
+                "<button id=\\"spatialCheckBtn\\">بررسی پاسخ</button>" +
                 "<div id=\\"puzzleMessage\\" class=\\"puzzleMessage\\"></div>" +
                 this.renderStandardFooter(state.moves) +
             "</div>";
@@ -329,7 +330,10 @@ const PuzzleScreen = {
             });
         });
 
-        this.bindTypeCheck("spatialOption", "spatial");
+        const checkButton = app.querySelector("#spatialCheckBtn");
+        if (checkButton) checkButton.addEventListener("click", function () {
+            PuzzleEngine.check();
+        });
     },
 
 
