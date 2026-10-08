@@ -1,8 +1,8 @@
 // =====================================
 // Tahouri Edu Platform
 // Spatial Puzzle
-// Version 1.1
-// Interactive placement mode
+// Version 1.2
+// Modes: legacy, place, symmetry
 // =====================================
 
 const SpatialPuzzle = {
@@ -20,16 +20,54 @@ const SpatialPuzzle = {
             return null;
         }
 
-        if (mode === "place") {
+        if (mode === "place" || mode === "symmetry") {
             if (!pieces.length) {
-                console.error("Spatial Puzzle: Placement Pieces Missing");
+                console.error("Spatial Puzzle: Pieces Missing");
+                return null;
+            }
+
+            const normalizedPieces = pieces.map(function (piece) {
+                if (!piece || piece.id === undefined) return null;
+                const normalized = { ...piece };
+
+                if (mode === "symmetry") {
+                    if (!piece.source) return null;
+
+                    const sourceRow = Number(piece.source.row);
+                    const sourceCol = Number(piece.source.col);
+                    const axis = data.axis || "vertical";
+
+                    if (!Number.isInteger(sourceRow) || !Number.isInteger(sourceCol)) return null;
+                    if (sourceRow < 0 || sourceRow >= Number(grid.rows) ||
+                        sourceCol < 0 || sourceCol >= Number(grid.cols)) return null;
+
+                    let targetRow = sourceRow;
+                    let targetCol = sourceCol;
+
+                    if (axis === "vertical") {
+                        targetCol = Number(grid.cols) - 1 - sourceCol;
+                    } else if (axis === "horizontal") {
+                        targetRow = Number(grid.rows) - 1 - sourceRow;
+                    } else {
+                        return null;
+                    }
+
+                    normalized.source = { row: sourceRow, col: sourceCol };
+                    normalized.target = { row: targetRow, col: targetCol };
+                }
+
+                return normalized;
+            }).filter(Boolean);
+
+            if (normalizedPieces.length !== pieces.length) {
+                console.error("Spatial Puzzle: Invalid Piece");
                 return null;
             }
 
             const seenTargets = new Set();
-            for (const piece of pieces) {
-                if (!piece || piece.id === undefined || !piece.target) {
-                    console.error("Spatial Puzzle: Invalid Placement Piece");
+            for (const piece of normalizedPieces) {
+                if (!piece.target) {
+                    console.error("Spatial Puzzle: Invalid Piece Target");
                     return null;
                 }
 
@@ -53,22 +91,26 @@ const SpatialPuzzle = {
 
             engine.puzzle = {
                 type: "spatial",
-                mode: "place",
+                mode: mode,
                 source: data.source || "file",
-                instruction: data.instruction || "شکل‌ها را بردار و در جای درست قرار بده.",
+                instruction: data.instruction ||
+                    (mode === "symmetry"
+                        ? "هر شکل را در جای قرینه خودش قرار بده."
+                        : "شکل‌ها را بردار و در جای درست قرار بده."),
                 grid: {
                     rows: Math.max(1, Number(grid.rows)),
                     cols: Math.max(1, Number(grid.cols))
                 },
-                items: pieces,
-                pieces: pieces,
+                axis: mode === "symmetry" ? (data.axis || "vertical") : null,
+                items: normalizedPieces,
+                pieces: normalizedPieces,
                 placements: {},
                 options: [],
                 answer: null,
                 question: ""
             };
 
-            engine.items = [...pieces];
+            engine.items = [...normalizedPieces];
             engine.userAnswer = {};
             engine.emitStarted();
             return engine.getState();
@@ -103,7 +145,7 @@ const SpatialPuzzle = {
     setAnswer: function (engine, value) {
         if (!engine.puzzle || engine.puzzle.type !== "spatial") return false;
 
-        if (engine.puzzle.mode === "place") {
+        if (engine.puzzle.mode === "place" || engine.puzzle.mode === "symmetry") {
             if (!value || value.pieceId === undefined) return false;
 
             const pieceId = String(value.pieceId);
@@ -132,17 +174,14 @@ const SpatialPuzzle = {
             const previous = engine.puzzle.placements[pieceId] || null;
 
             if (targetOwner) {
-                engine.puzzle.placements[pieceId] = {
-                    row: Number(row),
-                    col: Number(col)
-                };
-                engine.puzzle.placements[String(targetOwner.id)] = previous || null;
+                engine.puzzle.placements[pieceId] = { row: row, col: col };
+                if (previous) {
+                    engine.puzzle.placements[String(targetOwner.id)] = previous;
+                } else {
+                    delete engine.puzzle.placements[String(targetOwner.id)];
+                }
             } else {
-                delete engine.puzzle.placements[pieceId];
-                engine.puzzle.placements[pieceId] = {
-                    row: Number(row),
-                    col: Number(col)
-                };
+                engine.puzzle.placements[pieceId] = { row: row, col: col };
             }
 
             engine.userAnswer = { ...engine.puzzle.placements };
@@ -160,9 +199,14 @@ const SpatialPuzzle = {
     check: function (engine) {
         if (!engine.puzzle || engine.puzzle.type !== "spatial") return false;
 
-        if (engine.puzzle.mode === "place") {
+        if (engine.puzzle.mode === "place" || engine.puzzle.mode === "symmetry") {
             const pieces = engine.puzzle.pieces || [];
             const placements = engine.puzzle.placements || {};
+
+            if (Object.keys(placements).length !== pieces.length) {
+                engine.emitWrong();
+                return false;
+            }
 
             if (pieces.some(function (piece) {
                 const placement = placements[String(piece.id)];
@@ -191,4 +235,4 @@ const SpatialPuzzle = {
 window.SpatialPuzzle = SpatialPuzzle;
 PuzzleTypeRegistry.register("spatial", SpatialPuzzle);
 
-console.log("Spatial Puzzle v1.1 Ready");
+console.log("Spatial Puzzle v1.2 Ready");
