@@ -1,0 +1,33 @@
+{
+  "id": "mathSpatial",
+  "title": "درک فضایی",
+  "description": "جای شکل‌ها را در جدول پیدا کن و پاسخ درست را انتخاب کن.",
+  "grade": "grade6",
+  "subject": "math",
+  "chapter": "chapter1",
+  "engine": "puzzle",
+  "version": "1.0",
+  "puzzle": {
+    "type": "spatial",
+    "source": "file",
+    "dataType": "text",
+    "instruction": "به جای شکل‌ها در جدول دقت کن و پاسخ درست را انتخاب کن.",
+    "grid": {
+      "rows": 3,
+      "cols": 3
+    },
+    "items": [
+      { "row": 0, "col": 0, "label": "★" },
+      { "row": 1, "col": 1, "label": "●" },
+      { "row": 2, "col": 2, "label": "▲" }
+    ],
+    "question": "مثلث در کدام خانه قرار دارد؟",
+    "options": [
+      "سطر اول، ستون اول",
+      "سطر دوم، ستون دوم",
+      "سطر سوم، ستون سوم",
+      "سطر سوم، ستون دوم"
+    ],
+    "answer": "سطر سوم، ستون سوم"
+  }
+}
