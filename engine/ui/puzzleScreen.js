@@ -259,6 +259,14 @@ const PuzzleScreen = {
 
                 return;
 
+            case "spatial":
+
+                this.showSpatial(
+                    state
+                );
+
+                return;
+
 
             default:
 
@@ -269,6 +277,59 @@ const PuzzleScreen = {
 
         }
 
+    },
+
+
+    // =====================================
+    // SPATIAL
+    // =====================================
+
+    showSpatial: function (state) {
+        const app = this.getApp();
+        if (!app) return;
+
+        const grid = state.grid || {};
+        const rows = Math.max(1, Number(grid.rows) || 1);
+        const cols = Math.max(1, Number(grid.cols) || 1);
+        const items = Array.isArray(state.items) ? state.items : [];
+        const options = Array.isArray(state.options) ? state.options : [];
+        const cells = [];
+
+        for (let row = 0; row < rows; row++) {
+            for (let col = 0; col < cols; col++) {
+                const item = items.find(function (entry) {
+                    return entry && Number(entry.row) === row && Number(entry.col) === col;
+                });
+                cells.push("<div class=\\"spatialCell\\">" +
+                    (item ? PuzzleScreen.escapeHTML(item.label || item.id || "") : "") +
+                    "</div>");
+            }
+        }
+
+        app.innerHTML =
+            "<div class=\\"screen puzzleScreen spatialScreen\\" dir=\\"rtl\\">" +
+                "<h1>درک فضایی</h1>" +
+                "<p class=\\"puzzleInstruction\\">" + PuzzleScreen.escapeHTML(state.instruction) + "</p>" +
+                (state.question ? "<div class=\\"spatialQuestion\\">" + PuzzleScreen.escapeHTML(state.question) + "</div>" : "") +
+                "<div class=\\"spatialGrid\\" style=\\"--spatial-cols:" + cols + "\\">" + cells.join("") + "</div>" +
+                "<div class=\\"spatialOptions\\">" +
+                    options.map(function (option) {
+                        const selected = PuzzleScreen.valuesEqualForDisplay(option, state.userAnswer) ? " selected" : "";
+                        return "<button class=\\"spatialOption" + selected + "\\" data-answer=\\"" + PuzzleScreen.escapeHTML(option) + "\\">" + PuzzleScreen.escapeHTML(option) + "</button>";
+                    }).join("") +
+                "</div>" +
+                "<div id=\\"puzzleMessage\\" class=\\"puzzleMessage\\"></div>" +
+                this.renderStandardFooter(state.moves) +
+            "</div>";
+
+        app.querySelectorAll(".spatialOption").forEach(function (button) {
+            button.addEventListener("click", function () {
+                PuzzleEngine.setTypeAnswer(button.dataset.answer);
+                PuzzleScreen.show(PuzzleEngine.getState());
+            });
+        });
+
+        this.bindTypeCheck("spatialOption", "spatial");
     },
 
 
@@ -3353,6 +3414,11 @@ const PuzzleScreen = {
     },
 
 
+    valuesEqualForDisplay: function (a, b) {
+        if (a === null || a === undefined || b === null || b === undefined) return a === b;
+        return String(a) === String(b);
+    },
+
     // =====================================
     // HTML ESCAPE
     // =====================================
@@ -3488,6 +3554,17 @@ const PuzzleScreen = {
             .patternOptions { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; margin: 20px auto; }
             .patternOption { cursor: pointer; }
             .patternOption.selected { border-color: #333; transform: scale(1.04); }
+
+            /* ============================= */
+            /* SPATIAL */
+            /* ============================= */
+
+            .spatialQuestion { max-width: 720px; margin: 18px auto; font-size: 20px; font-weight: bold; }
+            .spatialGrid { display: grid; grid-template-columns: repeat(var(--spatial-cols), minmax(65px, 100px)); gap: 6px; justify-content: center; margin: 28px auto; width: fit-content; }
+            .spatialCell { min-width: 65px; min-height: 65px; display: flex; align-items: center; justify-content: center; border: 2px solid #ddd; border-radius: 12px; background: white; font-size: 20px; font-weight: bold; }
+            .spatialOptions { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; margin: 22px auto; }
+            .spatialOption { min-width: 100px; padding: 12px 18px; border: 2px solid #ddd; border-radius: 12px; background: white; cursor: pointer; font-size: 17px; }
+            .spatialOption.selected { border-color: #333; transform: scale(1.04); }
 
             /* ============================= */
             /* ORDERING */
