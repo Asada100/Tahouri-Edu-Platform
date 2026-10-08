@@ -1531,30 +1531,121 @@ const PuzzleScreen = {
     showPattern: function (state) {
         const app = this.getApp();
         if (!app) return;
+
         const items = Array.isArray(state.items) ? state.items : [];
         const options = Array.isArray(state.options) ? state.options : [];
-        const selected = state.userAnswer === null || state.userAnswer === undefined ? "" : String(state.userAnswer);
+        const selected = state.userAnswer === null || state.userAnswer === undefined
+            ? ""
+            : String(state.userAnswer);
+
+        const toPersianDigits = function (value) {
+            return String(value === null || value === undefined ? "" : value)
+                .replace(/[0-9]/g, function (digit) {
+                    return "۰۱۲۳۴۵۶۷۸۹"[Number(digit)];
+                });
+        };
+
+        const renderValue = function (value) {
+            if (value === null || value === undefined || value === "") return "؟";
+            return PuzzleScreen.escapeHTML(toPersianDigits(value));
+        };
+
         const itemsHTML = items.map(function (item, index) {
             const missing = index === Number(state.missingIndex);
-            return "<div class=\"patternItem " + (missing ? "patternMissing" : "") + "\">" + (missing ? "؟" : PuzzleScreen.escapeHTML(item)) + "</div>";
+            const arrow = index < items.length - 1
+                ? "<span class=\"patternArrow\" aria-hidden=\"true\">←</span>"
+                : "";
+
+            return "<div class=\"patternStep\">" +
+                "<div class=\"patternItem " + (missing ? "patternMissing" : "") + "\">" +
+                    renderValue(item) +
+                "</div>" +
+                arrow +
+            "</div>";
         }).join("");
+
         const optionsHTML = options.map(function (option) {
             const value = String(option);
-            return "<button class=\"patternOption " + (selected === value ? "selected" : "") + "\" data-pattern-value=\"" + PuzzleScreen.escapeHTML(value) + "\">" + PuzzleScreen.escapeHTML(option) + "</button>";
+            const selectedClass = selected === value ? " selected" : "";
+
+            return "<button type=\"button\" class=\"patternOption" + selectedClass +
+                "\" data-pattern-value=\"" + PuzzleScreen.escapeHTML(value) + "\">" +
+                renderValue(option) +
+            "</button>";
         }).join("");
-        app.innerHTML = "<div class=\"screen puzzleScreen\" dir=\"rtl\"><h1>الگو</h1><p class=\"puzzleInstruction\">" + PuzzleScreen.escapeHTML(state.instruction) + "</p><div class=\"patternItems\">" + itemsHTML + "</div><div class=\"patternOptions\">" + optionsHTML + "</div><div class=\"puzzleControls\"><button id=\"patternCheckBtn\">بررسی پاسخ</button><button id=\"puzzleResetBtn\">شروع دوباره</button></div><div id=\"puzzleMessage\" class=\"puzzleMessage\"></div></div>";
-        document.querySelectorAll(".patternOption").forEach(function (button) {
+
+        app.innerHTML =
+            "<div class=\"screen puzzleScreen patternScreen\" dir=\"rtl\">" +
+                "<div class=\"patternCard\">" +
+                    "<div class=\"patternHeader\">" +
+                        "<div class=\"patternBadge\">پازل الگو</div>" +
+                        "<h1>الگو را کشف کن</h1>" +
+                        "<p class=\"puzzleInstruction\">" +
+                            PuzzleScreen.escapeHTML(state.instruction) +
+                        "</p>" +
+                    "</div>" +
+
+                    "<div class=\"patternBoard\" aria-label=\"الگوی عددی\">" +
+                        itemsHTML +
+                    "</div>" +
+
+                    "<div class=\"patternPrompt\">" +
+                        "<span>عدد مناسب برای جای خالی را انتخاب کن</span>" +
+                    "</div>" +
+
+                    "<div class=\"patternOptions\">" +
+                        optionsHTML +
+                    "</div>" +
+
+                    "<div class=\"puzzleControls patternControls\">" +
+                        "<button type=\"button\" id=\"patternCheckBtn\">بررسی پاسخ</button>" +
+                        "<button type=\"button\" id=\"puzzleResetBtn\">شروع دوباره</button>" +
+                    "</div>" +
+
+                    "<div id=\"puzzleMessage\" class=\"puzzleMessage\"></div>" +
+                "</div>" +
+            "</div>" +
+
+            "<style>" +
+                ".patternScreen{width:min(900px,100%);margin:0 auto;padding:24px 14px 40px;}" +
+                ".patternCard{width:min(820px,100%);margin:0 auto;padding:24px 18px 28px;background:var(--ui-surface,#fff);border:1px solid var(--ui-border,#dbe4ef);border-radius:24px;box-shadow:var(--ui-shadow-card,0 7px 20px rgba(31,41,55,.06));text-align:center;}" +
+                ".patternHeader h1{margin:8px 0 6px;font-size:clamp(25px,4vw,34px);color:var(--ui-text,#172033);}" +
+                ".patternBadge{display:inline-block;padding:6px 14px;border-radius:999px;background:var(--ui-surface-soft,#f8fbff);border:1px solid var(--ui-border-soft,#e4e9f0);font-size:14px;color:var(--ui-muted,#667085);}" +
+                ".patternHeader .puzzleInstruction{max-width:650px;margin:8px auto 22px;line-height:1.9;color:var(--ui-muted,#667085);}" +
+                ".patternBoard{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;margin:10px auto 22px;padding:18px 12px;border-radius:20px;background:var(--ui-surface-soft,#f8fbff);border:1px solid var(--ui-border-soft,#e4e9f0);direction:ltr;}" +
+                ".patternStep{display:flex;align-items:center;gap:8px;}" +
+                ".patternItem{min-width:64px;height:64px;padding:0 12px;display:flex;align-items:center;justify-content:center;border:2px solid var(--ui-border,#dbe4ef);border-radius:16px;background:#fff;font-family:\"Tahouri Yekan\",\"B Yekan\",Tahoma,sans-serif;font-size:clamp(25px,5vw,34px);font-weight:700;color:var(--ui-text,#172033);box-shadow:0 3px 8px rgba(31,41,55,.06);}" +
+                ".patternMissing{border-style:dashed;font-size:34px;color:var(--ui-muted,#667085);background:var(--ui-surface-soft,#f8fbff);}" +
+                ".patternArrow{font-size:25px;color:var(--ui-muted,#667085);line-height:1;}" +
+                ".patternPrompt{margin:4px auto 12px;font-size:16px;color:var(--ui-muted,#667085);}" +
+                ".patternOptions{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin:0 auto 20px;}" +
+                ".patternOption{min-width:76px;height:58px;padding:0 18px;border:2px solid var(--ui-border,#dbe4ef);border-radius:15px;background:#fff;font-family:\"Tahouri Yekan\",\"B Yekan\",Tahoma,sans-serif;font-size:24px;font-weight:700;color:var(--ui-text,#172033);cursor:pointer;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease;}" +
+                ".patternOption:hover{transform:translateY(-2px);box-shadow:0 5px 12px rgba(31,41,55,.09);}" +
+                ".patternOption.selected{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.14);}" +
+                ".patternControls{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;}" +
+                ".patternControls button{min-width:130px;}" +
+                "@media(max-width:600px){.patternCard{padding:18px 10px 24px;border-radius:20px}.patternBoard{gap:5px;padding:14px 6px}.patternStep{gap:5px}.patternItem{min-width:52px;height:54px;padding:0 8px}.patternArrow{font-size:19px}.patternOption{min-width:64px;height:52px;padding:0 14px}}" +
+            "</style>";
+
+        app.querySelectorAll(".patternOption").forEach(function (button) {
             button.onclick = function () {
                 PuzzleEngine.setTypeAnswer(this.dataset.patternValue);
-                document.querySelectorAll(".patternOption").forEach(function (item) { item.classList.remove("selected"); });
+                app.querySelectorAll(".patternOption").forEach(function (item) {
+                    item.classList.remove("selected");
+                });
                 this.classList.add("selected");
             };
         });
-        const check = document.getElementById("patternCheckBtn");
-        if (check) check.onclick = function () { PuzzleScreen.checkPuzzle(); };
+
+        const check = app.querySelector("#patternCheckBtn");
+        if (check) {
+            check.onclick = function () {
+                PuzzleScreen.checkPuzzle();
+            };
+        }
+
         this.bindResetButton();
     },
-
 
     // =====================================
     // GRID
