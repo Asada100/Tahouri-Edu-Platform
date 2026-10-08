@@ -153,34 +153,6 @@
     "path": "content/grades/grade6/persian/chapter1/setayesh"
   },
   {
-    "id": "persianSetayeshSynonym",
-    "title": "هم‌معنی‌یاب ✨",
-    "grade": "grade6",
-    "subject": "persian",
-    "chapter": "chapter1",
-    "type": "matching",
-    "engine": "matching",
-    "group": "setayesh",
-    "locked": true,
-    "requires": "persianSetayeshJigsaw",
-    "lesson": "setayesh",
-    "path": "content/grades/grade6/persian/chapter1/setayesh/synonym"
-  },
-  {
-    "id": "persianSetayeshAntonym",
-    "title": "مخالف‌یاب ⚡",
-    "grade": "grade6",
-    "subject": "persian",
-    "chapter": "chapter1",
-    "type": "matching",
-    "engine": "matching",
-    "group": "setayesh",
-    "locked": true,
-    "requires": "persianSetayeshSynonym",
-    "lesson": "setayesh",
-    "path": "content/grades/grade6/persian/chapter1/setayesh/antonym"
-  },
-  {
     "id": "persianSetayeshSpelling",
     "title": "املای ستایش ✍️",
     "grade": "grade6",
