@@ -295,5 +295,18 @@
     "locked": false,
     "requires": null,
     "path": "content/grades/grade6/math/chapter1/spatial"
+  },
+  {
+    "id": "mathSpatialSymmetry",
+    "title": "تقارن شکل‌ها",
+    "grade": "grade6",
+    "subject": "math",
+    "chapter": "chapter1",
+    "type": "puzzle",
+    "engine": "puzzle",
+    "group": "spatial",
+    "locked": false,
+    "requires": null,
+    "path": "content/grades/grade6/math/chapter1/spatialSymmetry"
   }
 ]
