@@ -147,13 +147,14 @@
 
 .matchingMessage {
     position: fixed;
-    top: 16%;
+    top: 12%;
     left: 50%;
     transform: translateX(-50%);
-    width: min(600px, calc(100vw - 32px));
+    width: max-content;
+    max-width: calc(100vw - 32px);
     box-sizing: border-box;
     margin: 0;
-    padding: 14px 20px;
+    padding: 8px 14px;
     border-radius: 14px;
     font-weight: 800;
     line-height: 1.7;
@@ -167,12 +168,12 @@
 }
 
 .matchingMessage.success {
-    background: #ecfdf3;
+    background: rgba(236, 253, 243, .72);
     color: #166534;
 }
 
 .matchingMessage.error {
-    background: #fef2f2;
+    background: rgba(254, 242, 242, .72);
     color: #b91c1c;
 }
 
