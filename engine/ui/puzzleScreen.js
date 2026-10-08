@@ -4571,15 +4571,22 @@ PuzzleScreen.showSpatialSymmetry = function (state) {
 
     const checkButton = app.querySelector("#spatialSymmetryCheckBtn");
     if (checkButton) {
-        checkButton.addEventListener("click", function () {
-            const correct = PuzzleEngine.check();
-            const message = app.querySelector("#spatialSymmetryMessage");
-            if (message) {
-                message.textContent = correct
-                    ? "آفرین! تقارن کامل است."
-                    : "هنوز درست نیست؛ شکل‌ها را جابه‌جا کن و دوباره بررسی کن.";
-            }
-        });
+        // The activity-selection click can bubble into the freshly rendered screen.
+        // Bind the check handler after that click has fully completed so a new
+        // symmetry activity cannot finish before the learner interacts with it.
+        setTimeout(function () {
+            if (!checkButton.isConnected) return;
+
+            checkButton.addEventListener("click", function () {
+                const correct = PuzzleEngine.check();
+                const message = app.querySelector("#spatialSymmetryMessage");
+                if (message) {
+                    message.textContent = correct
+                        ? "آفرین! تقارن کامل است."
+                        : "هنوز درست نیست؛ شکل‌ها را جابه‌جا کن و دوباره بررسی کن.";
+                }
+            });
+        }, 0);
     }
 };
 
