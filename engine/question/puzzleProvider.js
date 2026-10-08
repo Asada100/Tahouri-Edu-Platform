@@ -15,6 +15,7 @@
 // - Grid
 // - Word Grid
 // - Cross Grid
+// - Pattern
 // - Mixed Puzzle
 //
 // Architecture:
@@ -400,6 +401,18 @@ const PuzzleProvider = {
 
         }
 
+        if (
+            type ===
+            "pattern"
+        ) {
+
+            return this.generatePatternQuestions(
+                activityData,
+                count
+            );
+
+        }
+
 
         console.warn(
             "PuzzleProvider: Unknown Puzzle Type:",
@@ -556,6 +569,17 @@ const PuzzleProvider = {
             normalized.dataType =
                 normalized.dataType ||
                 "number";
+
+        }
+
+        if (
+            normalized.type ===
+            "pattern"
+        ) {
+
+            normalized.dataType = normalized.dataType || "text";
+            normalized.items = Array.isArray(normalized.items) ? [...normalized.items] : [];
+            normalized.options = Array.isArray(normalized.options) ? [...normalized.options] : [];
 
         }
 
@@ -2448,6 +2472,32 @@ const PuzzleProvider = {
 
         return result;
 
+    },
+
+
+    // =====================================
+    // PATTERN
+    // =====================================
+
+    generatePatternQuestions: function (activityData, count) {
+        const puzzle = activityData.puzzle || {};
+        const symbols = Array.isArray(puzzle.symbols) && puzzle.symbols.length >= 2 ? [...puzzle.symbols] : ["●", "▲"];
+        const length = Math.max(3, Number(puzzle.length) || 5);
+        const result = [];
+        for (let i = 0; i < count; i++) {
+            const start = this.randomInteger(0, symbols.length - 1);
+            const items = [];
+            for (let j = 0; j < length; j++) items.push(symbols[(start + j) % symbols.length]);
+            const answer = items[items.length - 1];
+            items[items.length - 1] = null;
+            result.push(this.normalizePuzzle({
+                type: "pattern", source: "generated", dataType: puzzle.dataType || "text",
+                instruction: puzzle.instruction || "الگو را پیدا کن و جای خالی را کامل کن.",
+                items: items, missingIndex: items.length - 1, answer: answer,
+                options: this.shuffle(symbols).slice(0, Math.min(4, symbols.length))
+            }));
+        }
+        return result;
     },
 
 
