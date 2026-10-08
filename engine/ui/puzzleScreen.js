@@ -300,26 +300,26 @@ const PuzzleScreen = {
                 const item = items.find(function (entry) {
                     return entry && Number(entry.row) === row && Number(entry.col) === col;
                 });
-                cells.push("<div class=\\"spatialCell\\">" +
+                cells.push("<div class=\"spatialCell\">" +
                     (item ? PuzzleScreen.escapeHTML(item.label || item.id || "") : "") +
                     "</div>");
             }
         }
 
         app.innerHTML =
-            "<div class=\\"screen puzzleScreen spatialScreen\\" dir=\\"rtl\\">" +
+            "<div class=\"screen puzzleScreen spatialScreen\" dir=\"rtl\">" +
                 "<h1>درک فضایی</h1>" +
-                "<p class=\\"puzzleInstruction\\">" + PuzzleScreen.escapeHTML(state.instruction) + "</p>" +
-                (state.question ? "<div class=\\"spatialQuestion\\">" + PuzzleScreen.escapeHTML(state.question) + "</div>" : "") +
-                "<div class=\\"spatialGrid\\" style=\\"--spatial-cols:" + cols + "\\">" + cells.join("") + "</div>" +
-                "<div class=\\"spatialOptions\\">" +
+                "<p class=\"puzzleInstruction\">" + PuzzleScreen.escapeHTML(state.instruction) + "</p>" +
+                (state.question ? "<div class=\"spatialQuestion\">" + PuzzleScreen.escapeHTML(state.question) + "</div>" : "") +
+                "<div class=\"spatialGrid\" style=\"--spatial-cols:" + cols + "\">" + cells.join("") + "</div>" +
+                "<div class=\"spatialOptions\">" +
                     options.map(function (option) {
                         const selected = PuzzleScreen.valuesEqualForDisplay(option, state.userAnswer) ? " selected" : "";
-                        return "<button class=\\"spatialOption" + selected + "\\" data-answer=\\"" + PuzzleScreen.escapeHTML(option) + "\\">" + PuzzleScreen.escapeHTML(option) + "</button>";
+                        return "<button class=\"spatialOption" + selected + "\" data-answer=\"" + PuzzleScreen.escapeHTML(option) + "\">" + PuzzleScreen.escapeHTML(option) + "</button>";
                     }).join("") +
                 "</div>" +
-                "<button id=\\"spatialCheckBtn\\">بررسی پاسخ</button>" +
-                "<div id=\\"puzzleMessage\\" class=\\"puzzleMessage\\"></div>" +
+                "<button id=\"spatialCheckBtn\">بررسی پاسخ</button>" +
+                "<div id=\"puzzleMessage\" class=\"puzzleMessage\"></div>" +
                 this.renderStandardFooter(state.moves) +
             "</div>";
 
