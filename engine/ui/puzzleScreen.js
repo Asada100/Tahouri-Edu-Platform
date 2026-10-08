@@ -333,8 +333,8 @@ const PuzzleScreen = {
                         Number(entry.target.col) === col;
                 });
                 const isAxis = state.axis === "vertical"
-                    ? col === Math.floor((cols - 1) / 2)
-                    : row === Math.floor((rows - 1) / 2);
+                    ? (cols % 2 === 1 && col === Math.floor(cols / 2))
+                    : (rows % 2 === 1 && row === Math.floor(rows / 2));
 
                 cells.push(
                     "<div class=\"spatialDropCell spatialSymmetryCell" +
