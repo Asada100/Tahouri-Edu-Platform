@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Classification Engine
-// Version 1.4
+// Version 1.5
 // =====================================
 
 (function (window) {
@@ -33,19 +33,32 @@
                 this.handler.prepare(this.content);
             }
 
+            const isMultiStage = mode === 'multiStage';
+            const stages = isMultiStage ? this.content.stages : null;
+            const firstStage = isMultiStage ? stages[0] : null;
+            const items = isMultiStage ? firstStage.items : this.content.items;
+            const categories = isMultiStage ? firstStage.categories : this.content.categories;
+            const totalItems = isMultiStage
+                ? stages.reduce((sum, stage) => sum + stage.items.length, 0)
+                : items.length;
+
             this.state = {
                 started: true,
                 finished: false,
                 locked: false,
-                totalItems: this.content.items.length,
+                mode,
+                totalItems,
                 classifiedItems: 0,
+                totalClassifiedItems: 0,
                 correctAnswers: 0,
                 wrongAnswers: 0,
                 moves: 0,
                 score: 0,
-                items: this.content.items.slice(),
-                categories: this.content.categories.slice(),
-                currentStage: null,
+                items: items.slice(),
+                categories: categories.slice(),
+                currentStage: isMultiStage ? 0 : null,
+                totalStages: isMultiStage ? stages.length : null,
+                stageCompleted: 0,
                 classifications: {}
             };
 
@@ -53,11 +66,22 @@
                 activityId: this.activityData.id,
                 mode,
                 totalItems: this.state.totalItems,
+                totalStages: this.state.totalStages,
                 classifiedItems: this.state.classifiedItems,
                 moves: this.state.moves
             });
 
             return this.getState();
+        },
+
+        isMultiStage() {
+            return !!this.state && this.state.mode === 'multiStage';
+        },
+
+        getCurrentStage() {
+            if (!this.isMultiStage() || !this.content || !Array.isArray(this.content.stages)) return null;
+            const index = Number(this.state.currentStage);
+            return this.content.stages[index] || null;
         },
 
         selectCategory(categoryId) {
@@ -70,45 +94,67 @@
         classifyItem(itemId, categoryId) {
             if (!this.state || this.state.finished) return null;
 
-            const item = this.state.items.find(i => i.id === itemId);
+            const item = this.state.items.find(i => String(i.id) === String(itemId));
             if (!item) return null;
 
             const alreadyClassified = Object.prototype.hasOwnProperty.call(
                 this.state.classifications,
-                itemId
+                item.id
             );
             if (alreadyClassified) return null;
 
-            const category = this.state.categories.find(c => c.id === categoryId);
+            const category = this.state.categories.find(c => String(c.id) === String(categoryId));
             if (!category) return null;
 
             this.state.moves += 1;
 
             const correct = this.handler && typeof this.handler.classify === 'function'
                 ? !!this.handler.classify(item, categoryId)
-                : item.categoryId === categoryId;
+                : String(item.categoryId) === String(categoryId);
 
             if (correct) {
-                this.state.classifications[itemId] = {
-                    categoryId,
-                    correct: true
+                this.state.classifications[item.id] = {
+                    categoryId: String(categoryId),
+                    correct: true,
+                    stage: this.state.currentStage
                 };
                 this.state.classifiedItems += 1;
+                this.state.totalClassifiedItems += 1;
                 this.state.correctAnswers += 1;
                 this.state.score += this.getScorePerCorrect();
             } else {
                 this.state.wrongAnswers += 1;
 
                 if (!this.isRetryAllowed()) {
-                    this.state.classifications[itemId] = {
-                        categoryId,
-                        correct: false
+                    this.state.classifications[item.id] = {
+                        categoryId: String(categoryId),
+                        correct: false,
+                        stage: this.state.currentStage
                     };
                     this.state.classifiedItems += 1;
+                    this.state.totalClassifiedItems += 1;
                 }
             }
 
-            if (this.state.classifiedItems >= this.state.totalItems) {
+            if (this.isMultiStage()) {
+                if (this.state.classifiedItems >= this.state.items.length) {
+                    if (this.state.currentStage < this.state.totalStages - 1) {
+                        const completedStage = this.state.currentStage;
+                        this.advanceStage();
+                        return {
+                            itemId,
+                            categoryId,
+                            correct,
+                            retryAllowed: false,
+                            stageCompleted: true,
+                            completedStage,
+                            currentStage: this.state.currentStage,
+                            state: this.getState()
+                        };
+                    }
+                    return this.finish();
+                }
+            } else if (this.state.classifiedItems >= this.state.totalItems) {
                 return this.finish();
             }
 
@@ -119,6 +165,27 @@
                 retryAllowed: !correct && this.isRetryAllowed(),
                 state: this.getState()
             };
+        },
+
+        advanceStage() {
+            if (!this.isMultiStage()) return false;
+
+            const nextIndex = this.state.currentStage + 1;
+            const nextStage = this.content.stages[nextIndex];
+            if (!nextStage) return false;
+
+            this.state.stageCompleted += 1;
+            this.state.currentStage = nextIndex;
+            this.state.classifiedItems = 0;
+            this.state.items = nextStage.items.slice();
+            this.state.categories = nextStage.categories.slice();
+
+            console.log('ClassificationEngine: Stage Advanced', {
+                stage: nextIndex + 1,
+                totalStages: this.state.totalStages
+            });
+
+            return true;
         },
 
         isRetryAllowed() {
@@ -203,17 +270,47 @@
                     return false;
                 }
 
+                if (mode === 'multiStage') {
+                    const stages = this.content.stages || [];
+                    const stageIndex = Number.isInteger(state.currentStage) ? state.currentStage : 0;
+                    const stage = stages[stageIndex];
+                    if (!stage) return false;
+
+                    if (state.items.length !== stage.items.length ||
+                        state.categories.length !== stage.categories.length) {
+                        return false;
+                    }
+
+                    this.state = JSON.parse(JSON.stringify(state));
+                    this.state.mode = 'multiStage';
+                    this.state.totalItems = stages.reduce((sum, s) => sum + s.items.length, 0);
+                    this.state.totalStages = stages.length;
+                    this.state.items = stage.items.slice();
+                    this.state.categories = stage.categories.slice();
+                    this.state.classifications = this.state.classifications || {};
+                    this.state.classifiedItems = Number(this.state.classifiedItems) || 0;
+                    this.state.totalClassifiedItems = Number(this.state.totalClassifiedItems) || 0;
+                    this.state.correctAnswers = Number(this.state.correctAnswers) || 0;
+                    this.state.wrongAnswers = Number(this.state.wrongAnswers) || 0;
+                    this.state.moves = Number(this.state.moves) || 0;
+                    this.state.score = Number(this.state.score) || 0;
+                    this.state.stageCompleted = Number(this.state.stageCompleted) || 0;
+                    return true;
+                }
+
                 if (state.items.length !== this.content.items.length ||
                     state.categories.length !== this.content.categories.length) {
                     return false;
                 }
 
                 this.state = JSON.parse(JSON.stringify(state));
+                this.state.mode = mode;
                 this.state.totalItems = this.content.items.length;
                 this.state.items = this.content.items.slice();
                 this.state.categories = this.content.categories.slice();
                 this.state.classifications = this.state.classifications || {};
                 this.state.classifiedItems = Number(this.state.classifiedItems) || 0;
+                this.state.totalClassifiedItems = Number(this.state.totalClassifiedItems) || this.state.classifiedItems;
                 this.state.correctAnswers = Number(this.state.correctAnswers) || 0;
                 this.state.wrongAnswers = Number(this.state.wrongAnswers) || 0;
                 this.state.moves = Number(this.state.moves) || 0;
@@ -241,3 +338,5 @@
 
     window.ClassificationEngine = ClassificationEngine;
 })(window);
+
+console.log('Classification Engine Ready v1.5');
