@@ -129,14 +129,16 @@ const SpatialPuzzle = {
                     Number(engine.puzzle.placements[String(item.id)].col) === col;
             });
 
+            const previous = engine.puzzle.placements[pieceId] || null;
+
             if (targetOwner) {
-                const previous = engine.puzzle.placements[pieceId];
                 engine.puzzle.placements[pieceId] = {
                     row: Number(row),
                     col: Number(col)
                 };
                 engine.puzzle.placements[String(targetOwner.id)] = previous || null;
             } else {
+                delete engine.puzzle.placements[pieceId];
                 engine.puzzle.placements[pieceId] = {
                     row: Number(row),
                     col: Number(col)
