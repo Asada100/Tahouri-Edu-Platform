@@ -56,6 +56,9 @@
                 score: 0,
                 items: items.slice(),
                 categories: categories.slice(),
+                instruction: isMultiStage
+                    ? (firstStage.instruction || this.content.instruction || '')
+                    : (this.content.instruction || ''),
                 currentStage: isMultiStage ? 0 : null,
                 totalStages: isMultiStage ? stages.length : null,
                 stageCompleted: 0,
@@ -179,6 +182,7 @@
             this.state.classifiedItems = 0;
             this.state.items = nextStage.items.slice();
             this.state.categories = nextStage.categories.slice();
+            this.state.instruction = nextStage.instruction || this.content.instruction || '';
 
             console.log('ClassificationEngine: Stage Advanced', {
                 stage: nextIndex + 1,
@@ -287,6 +291,7 @@
                     this.state.totalStages = stages.length;
                     this.state.items = stage.items.slice();
                     this.state.categories = stage.categories.slice();
+                    this.state.instruction = stage.instruction || this.content.instruction || '';
                     this.state.classifications = this.state.classifications || {};
                     this.state.classifiedItems = Number(this.state.classifiedItems) || 0;
                     this.state.totalClassifiedItems = Number(this.state.totalClassifiedItems) || 0;
