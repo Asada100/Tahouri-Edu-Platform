@@ -108,14 +108,37 @@ const App = {
             return false;
         }
 
-        // Jigsaw activities require an explicit level selection before the
-        // engine starts. The selected activity is marked so the callback can
-        // enter normally without opening the modal a second time.
-        const isJigsaw =
+        // Only Jigsaw activities require the difficulty modal.
+        // Activity index entries contain routing metadata, so inspect the
+        // actual activity definition before deciding whether this is Jigsaw.
+        let isJigsaw = false;
+
+        if (
             String(activity.type || "").toLowerCase() === "puzzle" &&
             String(activity.engine || "").toLowerCase() === "puzzle" &&
             !difficultyAlreadySelected &&
-            !(activity.settings && activity.settings.jigsawLevelSelected === true);
+            !(activity.settings && activity.settings.jigsawLevelSelected === true) &&
+            activity.path &&
+            typeof DataManager !== "undefined" &&
+            typeof DataManager.loadJSON === "function"
+        ) {
+            try {
+                const config = await DataManager.loadJSON(
+                    activity.path + "/activity.json"
+                );
+
+                isJigsaw =
+                    config &&
+                    config.puzzle &&
+                    String(config.puzzle.type || "").toLowerCase() === "jigsaw";
+            }
+            catch (error) {
+                console.warn(
+                    "App Controller: Could not inspect activity type before difficulty selection.",
+                    error
+                );
+            }
+        }
 
         if (isJigsaw && typeof DifficultyModal !== "undefined" && typeof DifficultyModal.open === "function") {
             DifficultyModal.open(activity, function (selectedActivity) {
