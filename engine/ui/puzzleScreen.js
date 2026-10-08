@@ -4571,27 +4571,38 @@ PuzzleScreen.showSpatialSymmetry = function (state) {
 
     const checkButton = app.querySelector("#spatialSymmetryCheckBtn");
     if (checkButton) {
-        // The activity-selection click can bubble into the freshly rendered screen.
-        // Bind the check handler after that click has fully completed so a new
-        // symmetry activity cannot finish before the learner interacts with it.
+        // Only a real pointer interaction on this newly rendered button may
+        // authorize the check. This blocks any stale/bubbled/programmatic click
+        // from the activity-selection flow.
+        let userActivatedCheck = false;
+
+        checkButton.addEventListener("pointerdown", function () {
+            userActivatedCheck = true;
+        });
+
         setTimeout(function () {
             if (!checkButton.isConnected) return;
-
             checkButton.disabled = !(Number(state.moves) > 0);
-
-            checkButton.addEventListener("click", function () {
-                const currentState = PuzzleEngine.getState();
-                if (!(Number(currentState.moves) > 0)) return;
-
-                const correct = PuzzleEngine.check();
-                const message = app.querySelector("#spatialSymmetryMessage");
-                if (message) {
-                    message.textContent = correct
-                        ? "آفرین! تقارن کامل است."
-                        : "هنوز درست نیست؛ شکل‌ها را جابه‌جا کن و دوباره بررسی کن.";
-                }
-            });
         }, 0);
+
+        checkButton.addEventListener("click", function () {
+            if (!userActivatedCheck) return;
+            userActivatedCheck = false;
+
+            const currentState = PuzzleEngine.getState();
+            if (!(Number(currentState.moves) > 0)) {
+                checkButton.disabled = true;
+                return;
+            }
+
+            const correct = PuzzleEngine.check();
+            const message = app.querySelector("#spatialSymmetryMessage");
+            if (message) {
+                message.textContent = correct
+                    ? "آفرین! تقارن کامل است."
+                    : "هنوز درست نیست؛ شکل‌ها را جابه‌جا کن و دوباره بررسی کن.";
+            }
+        });
     }
 };
 
