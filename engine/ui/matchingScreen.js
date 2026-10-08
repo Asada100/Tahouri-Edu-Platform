@@ -382,7 +382,27 @@ const MatchingScreen = {
         const last = path[path.length - 1];
         if (!last || Math.hypot(last.x - endPoint.x, last.y - endPoint.y) >= 3) {
             path.push(endPoint);
-            if (path.length > 120) path.shift();
+
+            // Keep the ORIGINAL starting point. On touch devices a long
+            // gesture can generate many points; dropping points from the
+            // beginning makes the completed green path appear to start
+            // from the middle of the child's movement.
+            if (path.length > 120) {
+                const firstPoint = path[0];
+                const lastPoint = path[path.length - 1];
+                const sampled = [firstPoint];
+                const interiorCount = 118;
+
+                for (let index = 1; index <= interiorCount; index += 1) {
+                    const sourceIndex = Math.round(
+                        1 + (index - 1) * (path.length - 3) / (interiorCount - 1)
+                    );
+                    sampled.push(path[sourceIndex]);
+                }
+
+                sampled.push(lastPoint);
+                this.connection.pathPoints = sampled;
+            }
         }
 
         // Children may intentionally doodle/zig-zag while dragging.
@@ -654,4 +674,4 @@ window.MatchingScreen = MatchingScreen;
 // =====================================
 MatchingScreen.init();
 
-console.log("Matching Screen Ready v1.6");
+console.log("Matching Screen Ready v1.7");
