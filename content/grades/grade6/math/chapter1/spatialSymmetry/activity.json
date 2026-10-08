@@ -1,44 +1,21 @@
 {
   "id": "mathSpatialSymmetry",
   "title": "تقارن شکل‌ها",
-  "description": "نیمه قرینه شکل را روی شبکه کامل کن.",
+  "description": "شکل‌ها را نسبت به خط تقارن کامل کن.",
   "grade": "grade6",
   "subject": "math",
   "chapter": "chapter1",
   "engine": "puzzle",
-  "version": "1.2",
+  "version": "2.0",
   "puzzle": {
     "type": "spatial",
     "mode": "symmetry",
-    "source": "file",
-    "dataType": "text",
-    "axis": "vertical",
-    "instruction": "هر شکل را نسبت به محور عمودی در جای قرینه‌اش قرار بده.",
-    "grid": {
-      "rows": 5,
-      "cols": 6
-    },
-    "pieces": [
-      {
-        "id": "circleA",
-        "label": "●",
-        "source": { "row": 0, "col": 0 }
-      },
-      {
-        "id": "triangleA",
-        "label": "▲",
-        "source": { "row": 1, "col": 1 }
-      },
-      {
-        "id": "squareA",
-        "label": "■",
-        "source": { "row": 3, "col": 0 }
-      },
-      {
-        "id": "starA",
-        "label": "★",
-        "source": { "row": 4, "col": 1 }
-      }
-    ]
+    "source": "generated",
+    "difficulty": "medium",
+    "generator": {
+      "difficulty": "medium",
+      "axis": "random",
+      "randomPlacement": true
+    }
   }
 }
