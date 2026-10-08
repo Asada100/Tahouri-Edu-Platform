@@ -158,6 +158,7 @@ const PuzzleEngine = {
         if (this.puzzle.type === "wordGrid") { state.relation = this.puzzle.relation; state.relationType = this.puzzle.relationType; state.answer = this.puzzle.answer; }
         if (this.puzzle.type === "crossGrid") { state.horizontalPaths = Array.isArray(this.puzzle.horizontalPaths) ? [...this.puzzle.horizontalPaths] : []; state.verticalPaths = Array.isArray(this.puzzle.verticalPaths) ? [...this.puzzle.verticalPaths] : []; state.paths = Array.isArray(this.puzzle.paths) ? [...this.puzzle.paths] : []; state.rules = Array.isArray(this.puzzle.rules) ? [...this.puzzle.rules] : []; state.answer = this.puzzle.answer; }
         if (this.puzzle.type === "pattern") { state.missingIndex = this.puzzle.missingIndex; state.answer = this.puzzle.answer; state.options = Array.isArray(this.puzzle.options) ? [...this.puzzle.options] : []; }
+        if (this.puzzle.type === "spatial") { state.grid = this.puzzle.grid ? { ...this.puzzle.grid } : null; state.items = Array.isArray(this.puzzle.items) ? [...this.puzzle.items] : []; state.options = Array.isArray(this.puzzle.options) ? [...this.puzzle.options] : []; state.answer = this.puzzle.answer; state.question = this.puzzle.question || ""; }
         if (this.puzzle.type === "jigsaw") { state.objective = this.puzzle.objective || ""; state.title = this.puzzle.title || ""; state.difficulty = this.puzzle.difficulty; state.image = this.puzzle.image; state.rows = this.puzzle.rows; state.cols = this.puzzle.cols; state.pieceCount = this.puzzle.pieceCount; }
         return state;
     },
