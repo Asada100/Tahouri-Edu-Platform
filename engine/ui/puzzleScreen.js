@@ -370,11 +370,20 @@ const PuzzleScreen = {
             for (let col = 0; col < cols; col++) {
                 const key = row + ":" + col;
                 const piece = placedByCell[key];
+                const targetPiece = pieces.find(function (entry) {
+                    return entry &&
+                        entry.target &&
+                        Number(entry.target.row) === row &&
+                        Number(entry.target.col) === col;
+                });
+
                 cells.push(
-                    "<div class=\"spatialDropCell" + (piece ? " filled" : "") + "\" data-row=\"" + row + "\" data-col=\"" + col + "\">" +
+                    "<div class=\"spatialDropCell" + (piece ? " filled" : "") + (targetPiece && !piece ? " hasTarget" : "") + "\" data-row=\"" + row + "\" data-col=\"" + col + "\">" +
                         (piece
                             ? "<div class=\"spatialPlacedPiece\" data-piece-id=\"" + PuzzleScreen.escapeHTML(piece.id) + "\">" + PuzzleScreen.escapeHTML(piece.label || piece.id) + "</div>"
-                            : "<span class=\"spatialSlotHint\">+</span>") +
+                            : targetPiece
+                                ? "<div class=\"spatialTargetGhost\" aria-hidden=\"true\">" + PuzzleScreen.escapeHTML(targetPiece.label || targetPiece.id) + "</div>"
+                                : "<span class=\"spatialSlotHint\"></span>") +
                     "</div>"
                 );
             }
@@ -395,7 +404,7 @@ const PuzzleScreen = {
         app.innerHTML =
             "<div class=\"screen puzzleScreen spatialScreen spatialPlaceScreen\" dir=\"rtl\">" +
                 "<h1>جای درست شکل‌ها</h1>" +
-                "<p class=\"puzzleInstruction\">" + PuzzleScreen.escapeHTML(state.instruction) + "</p>" +
+                "<p class=\"puzzleInstruction\">هر شکل را روی جای هم‌شکل خودش قرار بده.</p>" +
                 "<div class=\"spatialProgress\">" + placedCount + " از " + pieces.length + " شکل در صفحه قرار گرفته است</div>" +
                 "<div class=\"spatialPlacementLayout\">" +
                     "<div class=\"spatialBoardWrap\">" +
@@ -3791,6 +3800,45 @@ const PuzzleScreen = {
             .spatialOptions { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; margin: 22px auto; }
             .spatialOption { min-width: 100px; padding: 12px 18px; border: 2px solid #ddd; border-radius: 12px; background: white; cursor: pointer; font-size: 17px; }
             .spatialOption.selected { border-color: #333; transform: scale(1.04); }
+
+            .spatialDropCell {
+                position: relative;
+                min-width: 88px;
+                min-height: 88px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border: 2px solid #d8d8d8;
+                border-radius: 14px;
+                background: #fff;
+                overflow: hidden;
+            }
+
+            .spatialDropCell.hasTarget {
+                border-style: dashed;
+            }
+
+            .spatialTargetGhost {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 68%;
+                height: 68%;
+                border: 2px dashed #aaa;
+                border-radius: 12px;
+                opacity: .28;
+                font-size: 34px;
+                font-weight: bold;
+                pointer-events: none;
+            }
+
+            .spatialSlotHint {
+                width: 12px;
+                height: 12px;
+                border-radius: 50%;
+                opacity: .12;
+                background: currentColor;
+            }
 
             /* ============================= */
             /* ORDERING */
