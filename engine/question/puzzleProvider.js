@@ -414,6 +414,19 @@ const PuzzleProvider = {
         }
 
 
+        if (
+            type ===
+            "spatial"
+        ) {
+
+            return this.generateSpatialQuestions(
+                activityData,
+                count
+            );
+
+        }
+
+
         console.warn(
             "PuzzleProvider: Unknown Puzzle Type:",
             type
@@ -421,6 +434,63 @@ const PuzzleProvider = {
 
 
         return [];
+
+    },
+
+
+    // =====================================
+    // SPATIAL
+    // =====================================
+
+    generateSpatialQuestions: function (
+        activityData,
+        count
+    ) {
+
+        const puzzle =
+            activityData.puzzle ||
+            {};
+
+        if (
+            !window.SpatialPuzzle ||
+            typeof window.SpatialPuzzle.generateSymmetry !== "function"
+        ) {
+
+            console.error(
+                "PuzzleProvider: Spatial Engine Not Ready"
+            );
+
+            return [];
+
+        }
+
+        const result = [];
+
+        for (
+            let i = 0;
+            i < count;
+            i++
+        ) {
+
+            const generated =
+                window.SpatialPuzzle.generateSymmetry({
+                    grade: activityData.grade,
+                    difficulty: puzzle.difficulty || "medium",
+                    generator: puzzle.generator || {}
+                });
+
+            if (generated) {
+                result.push(generated);
+            }
+
+        }
+
+        console.log(
+            "Generated Spatial Questions:",
+            result.length
+        );
+
+        return result;
 
     },
 
