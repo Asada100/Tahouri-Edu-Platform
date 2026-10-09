@@ -12,8 +12,9 @@ body{font-family:Tahoma,sans-serif;max-width:850px;margin:24px auto;padding:16px
 </head>
 <body>
 <h1>آزمون موتور دسته‌بندی چندمرحله‌ای</h1>
-<p>این صفحه، اعتبارسنجی داده، جابه‌جایی مرحله، تلاش مجدد، امتیاز و پایان فعالیت را بدون تغییر محتوای اصلی بررسی می‌کند.</p>
-<pre id="result">در حال اجرای آزمون…</pre>
+<p>این صفحه آزمون‌ها را خودکار اجرا می‌کند. اگر نتیجه ظاهر نشد، روی دکمهٔ زیر بزنید.</p>
+<button id="run-test" type="button" style="font:inherit;padding:10px 18px;border:0;border-radius:8px;background:#155e75;color:white;cursor:pointer">اجرای آزمون‌ها</button>
+<pre id="result">در حال آماده‌سازی آزمون…</pre>
 <script src="../engine/activity/activityResult.js"></script>
 <script src="../engine/question/classificationProvider.js"></script>
 <script src="../engine/activity/classificationTypes/classificationTypeRegistry.js"></script>
@@ -21,7 +22,7 @@ body{font-family:Tahoma,sans-serif;max-width:850px;margin:24px auto;padding:16px
 <script src="../engine/activity/classificationTypes/multiStageClassification.js"></script>
 <script src="../engine/activity/classificationEngine.js"></script>
 <script>
-(function(){
+function runTests(){
   const output=document.getElementById('result');
   const checks=[];
   function assert(name,condition,detail){
@@ -103,9 +104,18 @@ body{font-family:Tahoma,sans-serif;max-width:850px;margin:24px auto;padding:16px
     output.textContent='FAIL\n'+error.message+'\n\n'+JSON.stringify(checks,null,2);
     console.error('MULTI-STAGE CLASSIFICATION TEST FAIL',error,checks);
   }finally{
-    ClassificationEngine.reset();
+    if(window.ClassificationEngine) ClassificationEngine.reset();
   }
-})();
+}
+document.getElementById('run-test').addEventListener('click', runTests);
+window.addEventListener('error', function(event){
+  const output=document.getElementById('result');
+  if(output && output.textContent.includes('آماده‌سازی')){
+    output.className='fail';
+    output.textContent='خطا در بارگذاری فایل‌های آزمون: '+(event.message || event.target?.src || 'خطای ناشناخته');
+  }
+});
+runTests();
 </script>
 </body>
 </html>
