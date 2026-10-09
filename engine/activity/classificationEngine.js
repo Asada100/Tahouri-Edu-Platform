@@ -308,10 +308,13 @@
                     const classifiedItems = Number(state.classifiedItems) || 0;
                     const totalClassifiedItems = Number(state.totalClassifiedItems) || 0;
                     const stageCompleted = Number(state.stageCompleted) || 0;
+                    const completedBeforeCurrent = stages
+                        .slice(0, stageIndex)
+                        .reduce((sum, previousStage) => sum + previousStage.items.length, 0);
                     if (classifiedItems > stage.items.length ||
                         totalClassifiedItems > totalItems ||
                         stageCompleted !== stageIndex ||
-                        totalClassifiedItems < stageCompleted * 0) {
+                        totalClassifiedItems !== completedBeforeCurrent + classifiedItems) {
                         return false;
                     }
 
