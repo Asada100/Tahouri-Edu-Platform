@@ -33,6 +33,8 @@ const PuzzleScreen = {
 
     activityReadyConnected: false,
 
+    spatialScreenActivatedAt: 0,
+
 
     // =====================================
     // INIT
@@ -365,7 +367,11 @@ const PuzzleScreen = {
             return placements[id] !== null && placements[id] !== undefined;
         }).length;
 
-        const axisText = state.axis === "horizontal" ? "افقی" : "عمودی";
+        if (Number(state.moves) <= 0 && Object.keys(state.placements || {}).length === 0) {
+        PuzzleScreen.spatialScreenActivatedAt = Date.now();
+    }
+
+    const axisText = state.axis === "horizontal" ? "افقی" : "عمودی";
 
         app.innerHTML =
             "<div class=\"screen puzzleScreen spatialScreen spatialPlaceScreen\" dir=\"rtl\">" +
@@ -4526,6 +4532,10 @@ PuzzleScreen.showSpatialSymmetry = function (state) {
     const beginDrag = function (pieceElement) {
         const pieceId = pieceElement.dataset.pieceId;
         if (!pieceId) return;
+
+        // Do not let the pointer gesture that launched the activity become
+        // the first puzzle drag when the screen appears underneath it.
+        if (Date.now() - PuzzleScreen.spatialScreenActivatedAt < 900) return;
 
         const ghost = document.createElement("div");
         ghost.className = "spatialDragGhost";
