@@ -22,12 +22,23 @@
                     throw new Error(`Invalid classification stage: ${stageIndex + 1}`);
                 }
 
+                if (stage.categories.length === 0 || stage.items.length === 0) {
+                    throw new Error(`Classification stage ${stageIndex + 1} must contain categories and items`);
+                }
+
                 const categories = stage.categories.map((c, i) => ({
                     id: String(c.id ?? i),
                     title: String(c.title ?? c.name ?? c.id ?? i)
                 }));
 
-                const categoryIds = new Set(categories.map(c => c.id));
+                const categoryIds = new Set();
+                categories.forEach(category => {
+                    if (categoryIds.has(category.id)) {
+                        throw new Error(`Duplicate category id in stage ${stageIndex + 1}: ${category.id}`);
+                    }
+                    categoryIds.add(category.id);
+                });
+
                 const items = stage.items.map((item, i) => {
                     const normalized = {
                         id: String(item.id ?? i),
@@ -41,11 +52,16 @@
                     return normalized;
                 });
 
+                const mode = String(stage.mode || data.stageMode || 'choice');
+                if (mode !== 'choice' && mode !== 'dragDrop') {
+                    throw new Error(`Unsupported interaction mode in stage ${stageIndex + 1}: ${mode}`);
+                }
+
                 return {
                     id: String(stage.id ?? `stage-${stageIndex + 1}`),
                     title: stage.title || '',
                     instruction: stage.instruction || '',
-                    mode: stage.mode || data.stageMode || 'choice',
+                    mode,
                     categories,
                     items
                 };
