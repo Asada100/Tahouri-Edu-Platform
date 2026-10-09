@@ -24,6 +24,7 @@
   const start=CompositeActivityEngine.start(activity);
   assert(start.totalStages===2,'دو مرحله از محتوای فعالیت بارگذاری می‌شود');
   assert(start.stage.prompt.type==='image','پرسش تصویری نرمال می‌شود');
+  CompositeActivityScreen.init();
   EventManager.emit('activityReady',{engineName:'composite',activity:{id:activity.id,title:'آزمون فعالیت ترکیبی'},result:start});
   assert(!!document.querySelector('.compositeActivityScreen img'),'رابط گزینه تصویری را نمایش می‌دهد');
   const first=CompositeActivityEngine.answer('right');
