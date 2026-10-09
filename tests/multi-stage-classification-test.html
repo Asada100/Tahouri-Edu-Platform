@@ -80,7 +80,7 @@ body{font-family:Tahoma,sans-serif;max-width:850px;margin:24px auto;padding:16px
     assert('wrong attempt retained',finalResult.wrongAnswers===1);
     assert('score uses correct answers only',finalResult.score===30);
     assert('percentage based on all items',finalResult.percentage===100);
-    assert('completion reports three questions',finalResult.totalQuestions===3);
+    assert('completion reports three questions',finalResult.stats && finalResult.stats.totalQuestions===3);
 
     let invalidRejected=false;
     try{ClassificationProvider.validate({mode:'multiStage',stages:[]});}
