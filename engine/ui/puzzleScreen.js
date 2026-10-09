@@ -4571,13 +4571,13 @@ PuzzleScreen.showSpatialSymmetry = function (state) {
 
     const checkButton = app.querySelector("#spatialSymmetryCheckBtn");
     if (checkButton) {
-        // Only a real pointer interaction on this newly rendered button may
-        // authorize the check. This blocks any stale/bubbled/programmatic click
-        // from the activity-selection flow.
-        let userActivatedCheck = false;
+        // Ignore release/click events that belong to the activity-launch
+        // gesture and arrive while the newly rendered puzzle is taking over.
+        const screenReadyAt = Date.now();
+        let userActivatedCheckAt = 0;
 
         checkButton.addEventListener("pointerdown", function () {
-            userActivatedCheck = true;
+            userActivatedCheckAt = Date.now();
         });
 
         setTimeout(function () {
@@ -4586,8 +4586,15 @@ PuzzleScreen.showSpatialSymmetry = function (state) {
         }, 0);
 
         checkButton.addEventListener("click", function () {
-            if (!userActivatedCheck) return;
-            userActivatedCheck = false;
+            const now = Date.now();
+            const pointerStartedAt = userActivatedCheckAt;
+            userActivatedCheckAt = 0;
+
+            // A check is accepted only after the screen has settled and the
+            // button itself received a fresh pointerdown for this click.
+            if (now - screenReadyAt < 700) return;
+            if (!pointerStartedAt || pointerStartedAt < screenReadyAt ||
+                now - pointerStartedAt > 1500) return;
 
             const currentState = PuzzleEngine.getState();
             if (!(Number(currentState.moves) > 0)) {
