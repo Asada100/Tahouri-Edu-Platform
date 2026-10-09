@@ -233,7 +233,11 @@
 
             this.state.result = result;
 
-            if (typeof EventManager !== 'undefined' && typeof EventManager.emit === 'function') {
+            // Use the shared lifecycle finish path so pending activity loads are
+            // invalidated before listeners display the result or navigate.
+            if (typeof ActivityManager !== 'undefined' && typeof ActivityManager.finish === 'function') {
+                ActivityManager.finish(result);
+            } else if (typeof EventManager !== 'undefined' && typeof EventManager.emit === 'function') {
                 EventManager.emit('activityFinished', result);
             }
 
