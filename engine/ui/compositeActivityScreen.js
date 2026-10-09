@@ -8,8 +8,8 @@
         state: null,
 
         init() {
-            if (this.connected || !window.EventManager) return;
-            window.EventManager.on('activityReady', payload => {
+            if (this.connected || typeof EventManager === 'undefined') return;
+            EventManager.on('activityReady', payload => {
                 if (!payload || payload.engineName !== 'composite' || !payload.result) return;
                 this.activity = payload.activity || {};
                 this.state = payload.result;
