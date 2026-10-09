@@ -4454,6 +4454,14 @@ const PuzzleScreen = {
 // SPATIAL SYMMETRY v2 UI OVERRIDE
 // =====================================
 PuzzleScreen.showSpatialSymmetry = function (state) {
+    // Initialize the activation timestamp when the symmetry screen is first rendered.
+    // handleActivityReady resets it to 0; without this assignment the 900ms launch-gesture
+    // guard compares Date.now() against 0 and is effectively disabled.
+    if (!PuzzleScreen.spatialScreenActivatedAt) {
+        PuzzleScreen.spatialScreenActivatedAt = Date.now();
+        PuzzleScreen.spatialUserInitiatedDragAt = 0;
+    }
+
     const app = this.getApp();
     if (!app) return;
 
