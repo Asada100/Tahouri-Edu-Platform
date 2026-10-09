@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>آزمون موتور فعالیت ترکیبی</title></head>
+<body>
+<h1>آزمون قرارداد موتور فعالیت ترکیبی</h1><pre id="results">در حال اجرا...</pre>
+<script src="../engine/question/compositeActivityProvider.js"></script>
+<script src="../engine/activity/compositeActivityEngine.js"></script>
+<script>
+(function(){
+ const output=document.getElementById('results'), lines=[];
+ const assert=(condition,message)=>{if(!condition)throw new Error(message);lines.push('PASS: '+message);};
+ let finishCount=0, lastResult=null;
+ window.ActivityManager={finish(result){finishCount++;lastResult=result;}};
+ const activity={id:'composite-contract-test',settings:{scorePerCorrect:10},composite:{mode:'composite',stages:[
+  {id:'image-word',interaction:'choice',title:'تصویر به واژه',instruction:'واژه را انتخاب کن',prompt:{type:'image',src:'../assets/images/persian-jigsaw-text-test.svg',alt:'نمونه'},options:[{id:'right',media:{type:'text',value:'پاسخ درست'}},{id:'wrong',media:{type:'text',value:'پاسخ دیگر'}}],answerId:'right'},
+  {id:'audio-image',interaction:'choice',title:'صدا به تصویر',prompt:{type:'audio',src:'../assets/audio/example.mp3'},options:[{id:'cat',media:{type:'text',value:'گربه'}},{id:'bird',media:{type:'text',value:'پرنده'}}],answerId:'bird'}
+ ]}};
+ try{
+  const start=CompositeActivityEngine.start(activity);
+  assert(start.totalStages===2,'دو مرحله از محتوای فعالیت بارگذاری می‌شود');
+  assert(start.stage.prompt.type==='image','پرسش تصویری نرمال می‌شود');
+  const first=CompositeActivityEngine.answer('right');
+  assert(first.correct===true,'پاسخ درست ثبت می‌شود');
+  assert(CompositeActivityEngine.answer('wrong')===null,'پاسخ دوم برای یک مرحله پذیرفته نمی‌شود');
+  const second=CompositeActivityEngine.next();
+  assert(second.currentStage===1 && second.stage.prompt.type==='audio','به مرحله صوتی منتقل می‌شود');
+  CompositeActivityEngine.answer('bird');
+  CompositeActivityEngine.next();
+  assert(finishCount===1 && lastResult.percentage===100,'پایان فعالیت فقط یک نتیجه ۱۰۰٪ تولید می‌کند');
+  CompositeActivityEngine.finish();
+  assert(finishCount===1,'پایان تکراری رویداد نهایی دوم ایجاد نمی‌کند');
+  let rejected=false;
+  try{CompositeActivityProvider.getContent({composite:{mode:'composite',stages:[{id:'bad',interaction:'unknown',prompt:{type:'text',value:'x'},options:[{id:'a',media:{type:'text',value:'a'}},{id:'b',media:{type:'text',value:'b'}}],answerId:'a'}]}});}catch(e){rejected=true;}
+  assert(rejected,'نوع تعامل تعریف‌نشده رد می‌شود');
+  output.textContent=lines.join('\n')+'\n\nهمه آزمون‌ها موفق شدند.';
+ }catch(error){output.textContent=lines.join('\n')+'\nFAIL: '+error.message;throw error;}
+})();
+</script>
+</body></html>
