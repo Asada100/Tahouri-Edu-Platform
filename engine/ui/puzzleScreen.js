@@ -4523,6 +4523,10 @@ PuzzleScreen.showSpatialSymmetry = function (state) {
             this.renderStandardFooter(state.moves) +
         "</div>";
 
+    // A check is valid only after a placement made from this rendered
+    // symmetry screen, not from stale state or the activity-launch gesture.
+    let userPlacedPieceOnThisScreen = false;
+
     const beginDrag = function (pieceElement) {
         const pieceId = pieceElement.dataset.pieceId;
         if (!pieceId) return;
@@ -4548,11 +4552,12 @@ PuzzleScreen.showSpatialSymmetry = function (state) {
                 : null;
 
             if (cell && app.contains(cell) && !cell.classList.contains("spatialSourceCell")) {
-                PuzzleEngine.setTypeAnswer({
+                const accepted = PuzzleEngine.setTypeAnswer({
                     pieceId: pieceId,
                     row: Number(cell.dataset.row),
                     col: Number(cell.dataset.col)
                 });
+                if (accepted) userPlacedPieceOnThisScreen = true;
                 PuzzleScreen.show(PuzzleEngine.getState());
             }
         };
@@ -4597,7 +4602,7 @@ PuzzleScreen.showSpatialSymmetry = function (state) {
                 now - pointerStartedAt > 1500) return;
 
             const currentState = PuzzleEngine.getState();
-            if (!(Number(currentState.moves) > 0)) {
+            if (!userPlacedPieceOnThisScreen || !(Number(currentState.moves) > 0)) {
                 checkButton.disabled = true;
                 return;
             }
