@@ -387,7 +387,11 @@ const ClassificationScreen = {
             this.dragSubmissionLocked = false;
             return null;
         }
-        this.lastMessage = result.correct === true ? "✓ درست" : (result.retryAllowed ? "✗ دوباره تلاش کن" : "✗ نادرست");
+        if (result.stageCompleted === true) {
+            this.lastMessage = `✓ مرحله ${Number(result.completedStage) + 1} تمام شد؛ مرحله بعدی شروع شد.`;
+        } else {
+            this.lastMessage = result.correct === true ? "✓ درست" : (result.retryAllowed ? "✗ دوباره تلاش کن" : "✗ نادرست");
+        }
         this.currentState = window.ClassificationEngine.getState();
         if (this.currentState && this.currentState.finished) {
             this.showFinished(this.currentState.result);
@@ -458,4 +462,4 @@ const ClassificationScreen = {
 
 window.ClassificationScreen = ClassificationScreen;
 ClassificationScreen.init();
-console.log("Classification Screen Ready v2.1");
+console.log("Classification Screen Ready v2.2");
