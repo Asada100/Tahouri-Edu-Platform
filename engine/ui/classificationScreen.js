@@ -119,7 +119,7 @@ const ClassificationScreen = {
             <h1>${ClassificationScreen.escapeHTML(activity.title || "دسته‌بندی")}</h1>
             ${isMultiStage && stage ? `<div class="classificationStageTitle">مرحله ${Number(state.currentStage) + 1} از ${Number(state.totalStages)}${stage.title ? " — " + ClassificationScreen.escapeHTML(stage.title) : ""}</div>` : ""}
             <p class="classificationInstruction">${ClassificationScreen.escapeHTML(instruction)}</p>
-            <div class="classificationStatus">باقی‌مانده: ${Math.max(0, (state.totalItems || 0) - (state.classifiedItems || 0))} از ${state.totalItems || 0}</div>
+            <div class="classificationStatus">${isMultiStage ? `این مرحله: ${Math.max(0, (items.length || 0) - (state.classifiedItems || 0))} مورد باقی‌مانده از ${items.length || 0} | کل فعالیت: ${state.totalClassifiedItems || 0} از ${state.totalItems || 0}` : `باقی‌مانده: ${Math.max(0, (state.totalItems || 0) - (state.classifiedItems || 0))} از ${state.totalItems || 0}`}</div>
             <div class="classificationItems">${itemsHTML}</div>
             <div class="classificationCategories ${isDragDrop ? "classificationDropZones" : ""}">${categoryHTML}</div>
             <div id="classificationMessage" class="classificationMessage">${ClassificationScreen.escapeHTML(this.lastMessage)}</div>
