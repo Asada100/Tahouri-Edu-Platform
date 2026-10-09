@@ -1,0 +1,49 @@
+{
+  "id": "compositeAnimalMediaDemo",
+  "title": "آزمایش رسانه‌های ترکیبی",
+  "description": "نمونهٔ داخل پلتفرم برای ترکیب پرسش تصویری و پاسخ واژگانی",
+  "grade": "grade6",
+  "subject": "science",
+  "chapter": "chapter1",
+  "engine": "composite",
+  "settings": {
+    "scorePerCorrect": 10
+  },
+  "composite": {
+    "mode": "composite",
+    "instruction": "به هر پرسش دقت کن و پاسخ مناسب را انتخاب کن.",
+    "stages": [
+      {
+        "id": "picture-to-word",
+        "title": "تصویر را به واژه وصل کن",
+        "interaction": "choice",
+        "instruction": "به تصویر نگاه کن و واژهٔ درست را انتخاب کن.",
+        "prompt": {
+          "type": "image",
+          "src": "assets/images/spelling/meadow.svg",
+          "alt": "تصویر چمنزار"
+        },
+        "options": [
+          { "id": "meadow", "media": { "type": "text", "value": "چمنزار" } },
+          { "id": "ocean", "media": { "type": "text", "value": "اقیانوس" } }
+        ],
+        "answerId": "meadow"
+      },
+      {
+        "id": "meaning-check",
+        "title": "معنی را انتخاب کن",
+        "interaction": "choice",
+        "instruction": "کدام عبارت با چمنزار ارتباط دارد؟",
+        "prompt": {
+          "type": "text",
+          "value": "چمنزار"
+        },
+        "options": [
+          { "id": "plants", "media": { "type": "text", "value": "جایی پوشیده از چمن و گیاه" } },
+          { "id": "water", "media": { "type": "text", "value": "جایی پر از آب دریا" } }
+        ],
+        "answerId": "plants"
+      }
+    ]
+  }
+}

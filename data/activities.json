@@ -320,5 +320,17 @@
     "locked": false,
     "requires": null,
     "path": "content/grades/grade6/science/chapter1/multiStageAnimalJourney"
+  },
+  {
+    "id": "compositeAnimalMediaDemo",
+    "title": "آزمایش رسانه‌های ترکیبی",
+    "grade": "grade6",
+    "subject": "science",
+    "chapter": "chapter1",
+    "type": "composite",
+    "engine": "composite",
+    "locked": false,
+    "requires": null,
+    "path": "content/grades/grade6/science/chapter1/compositeAnimalMediaDemo"
   }
 ]
