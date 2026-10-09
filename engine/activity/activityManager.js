@@ -15,8 +15,16 @@ const ActivityManager = {
     },
 
     load: async function (activityData) {
-        if (this.postFinishLoadBlocked && !this.allowActivityStartFromResult) { console.warn("ActivityManager: Activity load blocked after completion; explicit restart is required."); return null; }
         const resultModalOpen = document.getElementById("resultModal");
+        if (this.allowActivityStartFromResult) {
+            console.warn("ActivityManager: Result-screen start permission is active.", {
+                activityId: activityData && activityData.id,
+                resultModalOpen: !!resultModalOpen,
+                postFinishLoadBlocked: this.postFinishLoadBlocked
+            });
+            console.trace("ActivityManager: Stack for load allowed from result screen");
+        }
+        if (this.postFinishLoadBlocked && !this.allowActivityStartFromResult) { console.warn("ActivityManager: Activity load blocked after completion; explicit restart is required."); return null; }
         if (resultModalOpen && !this.allowActivityStartFromResult) { console.warn("ActivityManager: Activity load blocked while result modal is open."); return null; }
         this.allowActivityStartFromResult = false;
         const loadToken = ++this.loadRequestToken;
@@ -183,7 +191,17 @@ const ActivityManager = {
     resolveEngine: function (engineName) { if (typeof EngineManager === "undefined") { console.error("EngineManager Not Available"); return null; } return EngineManager.getEngine(engineName); },
     publishActivityReady: function (engineName, engine, result, activity) { const payload = { activity: activity, engine: engine, engineName: engineName, result: result }; console.log("Activity Ready:", activity ? activity.id : null); EventManager.emit("activityReady", payload); },
     finish: function (result) { console.log("Activity Finished", result); this.blockPostFinishLoads(); ActivityState.set("finished"); EventManager.emit("activityFinished", result); },
-    restart: function () { if (!this.currentActivity) { console.warn("No Current Activity"); return; } this.allowActivityStartFromResult = true; this.postFinishLoadBlocked = false; return this.load(this.currentActivity); },
+    restart: function () {
+        console.warn("ActivityManager: Explicit restart requested.", {
+            activityId: this.currentActivity && this.currentActivity.id,
+            resultModalOpen: !!document.getElementById("resultModal")
+        });
+        console.trace("ActivityManager.restart caller");
+        if (!this.currentActivity) { console.warn("No Current Activity"); return; }
+        this.allowActivityStartFromResult = true;
+        this.postFinishLoadBlocked = false;
+        return this.load(this.currentActivity);
+    },
     showBlockedStartNotice: function (activity, session) { if (typeof ToastManager !== "undefined" && typeof ToastManager.show === "function") ToastManager.show("این فعالیت قبلاً شروع شده است. برای ادامه، گزینه «ادامه» را انتخاب کنید."); if (typeof DashboardController !== "undefined" && typeof DashboardController.showResumePrompt === "function") DashboardController.showResumePrompt(activity, session); }
 };
 
