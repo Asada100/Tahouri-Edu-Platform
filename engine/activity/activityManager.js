@@ -19,6 +19,7 @@ const ActivityManager = {
         const resultModalOpen = document.getElementById("resultModal");
         if (resultModalOpen && !this.allowActivityStartFromResult) { console.warn("ActivityManager: Activity load blocked while result modal is open."); return null; }
         this.allowActivityStartFromResult = false;
+        const loadToken = ++this.loadRequestToken;
         console.log("Loading Activity:", activityData);
         if (!activityData) { console.error("Activity Data Missing"); return null; }
 
@@ -45,6 +46,11 @@ const ActivityManager = {
                 }
             }
 
+            if (loadToken !== this.loadRequestToken || (this.postFinishLoadBlocked && !this.allowActivityStartFromResult)) {
+                console.warn("ActivityManager: Stale activity load cancelled after completion.", activityData.id);
+                return null;
+            }
+
             const isJigsaw = puzzleConfig && String(puzzleConfig.type || "").toLowerCase() === "jigsaw";
             const jigsawMode =
                 isJigsaw && puzzleConfig.image ? "image" :
@@ -60,19 +66,23 @@ const ActivityManager = {
                 return null;
             }
 
-            return await this.start(activityData, activityData.settings && activityData.settings.difficulty ? activityData.settings.difficulty : null);
+            return await this.start(activityData, activityData.settings && activityData.settings.difficulty ? activityData.settings.difficulty : null, false, loadToken);
         }
 
         const selectedDifficulty = activityData.settings && activityData.settings.difficulty ? activityData.settings.difficulty : null;
         EventManager.emit("activityLoaded", activityData);
-        return await this.start(activityData, selectedDifficulty);
+        return await this.start(activityData, selectedDifficulty, false, loadToken);
     },
 
     allowNewActivityStart: function () { this.postFinishLoadBlocked = false; this.allowActivityStartFromResult = false; console.log("ActivityManager: Explicit activity start allowed."); },
-    blockPostFinishLoads: function () { this.postFinishLoadBlocked = true; this.allowActivityStartFromResult = false; console.log("ActivityManager: Post-finish activity loads blocked."); },
+    blockPostFinishLoads: function () { this.postFinishLoadBlocked = true; this.allowActivityStartFromResult = false; this.loadRequestToken += 1; console.log("ActivityManager: Post-finish activity loads blocked; pending loads invalidated."); },
 
-    start: async function (activityData, selectedDifficulty = null, resumeExisting = false) {
+    start: async function (activityData, selectedDifficulty = null, resumeExisting = false, requestToken = null) {
         const fullActivity = await this.loadActivityConfig(activityData, selectedDifficulty);
+        if (requestToken !== null && (requestToken !== this.loadRequestToken || (this.postFinishLoadBlocked && !this.allowActivityStartFromResult))) {
+            console.warn("ActivityManager: Stale activity start cancelled before engine startup.", activityData && activityData.id);
+            return null;
+        }
         if (!fullActivity) { console.error("ActivityManager: Full Activity Could Not Be Prepared"); return null; }
         if (typeof ActivitySessionManager !== "undefined") {
             const existing = typeof ActivitySessionManager.load === "function"
