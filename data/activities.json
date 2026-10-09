@@ -308,5 +308,17 @@
     "locked": false,
     "requires": null,
     "path": "content/grades/grade6/math/chapter1/spatialSymmetry"
+  },
+  {
+    "id": "multiStageAnimalJourney",
+    "title": "سفر در دنیای جانوران",
+    "grade": "grade6",
+    "subject": "science",
+    "chapter": "chapter1",
+    "type": "classification",
+    "engine": "classification",
+    "locked": false,
+    "requires": null,
+    "path": "content/grades/grade6/science/chapter1/multiStageAnimalJourney"
   }
 ]
