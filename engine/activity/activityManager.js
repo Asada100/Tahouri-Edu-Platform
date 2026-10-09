@@ -8,6 +8,7 @@ const ActivityManager = {
     currentActivity: null,
     allowActivityStartFromResult: false,
     postFinishLoadBlocked: false,
+    loadRequestToken: 0,
 
     getCurrent: function () {
         return this.currentActivity;
