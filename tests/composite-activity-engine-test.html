@@ -1,10 +1,15 @@
 <!doctype html>
 <html lang="fa" dir="rtl">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>آزمون موتور فعالیت ترکیبی</title></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>آزمون موتور فعالیت ترکیبی</title><link rel="stylesheet" href="../engine/ui/compositeActivity.css"></head>
 <body>
-<h1>آزمون قرارداد موتور فعالیت ترکیبی</h1><pre id="results">در حال اجرا...</pre>
+<h1>آزمون قرارداد موتور فعالیت ترکیبی</h1><pre id="results">در حال اجرا...</pre><div id="app"></div>
 <script src="../engine/question/compositeActivityProvider.js"></script>
 <script src="../engine/activity/compositeActivityEngine.js"></script>
+<script>
+ const eventListeners = {};
+ window.EventManager = { on(name, callback) { eventListeners[name] = callback; }, emit(name, payload) { if (eventListeners[name]) eventListeners[name](payload); } };
+</script>
+<script src="../engine/ui/compositeActivityScreen.js"></script>
 <script>
 (function(){
  const output=document.getElementById('results'), lines=[];
@@ -19,11 +24,15 @@
   const start=CompositeActivityEngine.start(activity);
   assert(start.totalStages===2,'دو مرحله از محتوای فعالیت بارگذاری می‌شود');
   assert(start.stage.prompt.type==='image','پرسش تصویری نرمال می‌شود');
+  EventManager.emit('activityReady',{engineName:'composite',activity:{id:activity.id,title:'آزمون فعالیت ترکیبی'},result:start});
+  assert(!!document.querySelector('.compositeActivityScreen img'),'رابط گزینه تصویری را نمایش می‌دهد');
   const first=CompositeActivityEngine.answer('right');
   assert(first.correct===true,'پاسخ درست ثبت می‌شود');
   assert(CompositeActivityEngine.answer('wrong')===null,'پاسخ دوم برای یک مرحله پذیرفته نمی‌شود');
   const second=CompositeActivityEngine.next();
   assert(second.currentStage===1 && second.stage.prompt.type==='audio','به مرحله صوتی منتقل می‌شود');
+  CompositeActivityScreen.state=second; CompositeActivityScreen.render();
+  assert(!!document.querySelector('.compositePromptAudio'),'رابط کنترل پخش صوت را نمایش می‌دهد');
   CompositeActivityEngine.answer('bird');
   CompositeActivityEngine.next();
   assert(finishCount===1 && lastResult.percentage===100,'پایان فعالیت فقط یک نتیجه ۱۰۰٪ تولید می‌کند');
