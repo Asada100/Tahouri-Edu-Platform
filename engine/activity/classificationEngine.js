@@ -276,30 +276,74 @@
 
                 if (mode === 'multiStage') {
                     const stages = this.content.stages || [];
-                    const stageIndex = Number.isInteger(state.currentStage) ? state.currentStage : 0;
-                    const stage = stages[stageIndex];
-                    if (!stage) return false;
-
-                    if (state.items.length !== stage.items.length ||
-                        state.categories.length !== stage.categories.length) {
+                    if (!Number.isInteger(state.currentStage) ||
+                        state.currentStage < 0 ||
+                        state.currentStage >= stages.length) {
                         return false;
+                    }
+
+                    const stageIndex = state.currentStage;
+                    const stage = stages[stageIndex];
+                    const sameIds = (saved, current) =>
+                        saved.length === current.length &&
+                        saved.every((entry, index) => String(entry.id) === String(current[index].id));
+
+                    if (!sameIds(state.items, stage.items) ||
+                        !sameIds(state.categories, stage.categories)) {
+                        return false;
+                    }
+
+                    const totalItems = stages.reduce((sum, s) => sum + s.items.length, 0);
+                    const numericFields = [
+                        'classifiedItems', 'totalClassifiedItems', 'correctAnswers',
+                        'wrongAnswers', 'moves', 'score', 'stageCompleted'
+                    ];
+                    for (const field of numericFields) {
+                        if (state[field] !== undefined &&
+                            (!Number.isFinite(Number(state[field])) || Number(state[field]) < 0)) {
+                            return false;
+                        }
+                    }
+
+                    const classifiedItems = Number(state.classifiedItems) || 0;
+                    const totalClassifiedItems = Number(state.totalClassifiedItems) || 0;
+                    const stageCompleted = Number(state.stageCompleted) || 0;
+                    if (classifiedItems > stage.items.length ||
+                        totalClassifiedItems > totalItems ||
+                        stageCompleted !== stageIndex ||
+                        totalClassifiedItems < stageCompleted * 0) {
+                        return false;
+                    }
+
+                    const savedClassifications = state.classifications || {};
+                    if (typeof savedClassifications !== 'object' || Array.isArray(savedClassifications)) {
+                        return false;
+                    }
+                    const allItemIds = new Set(stages.flatMap(s => s.items.map(item => String(item.id))));
+                    for (const [itemId, answer] of Object.entries(savedClassifications)) {
+                        if (!allItemIds.has(String(itemId)) || !answer ||
+                            typeof answer.correct !== 'boolean' ||
+                            !Number.isInteger(Number(answer.stage)) ||
+                            Number(answer.stage) < 0 || Number(answer.stage) >= stages.length) {
+                            return false;
+                        }
                     }
 
                     this.state = JSON.parse(JSON.stringify(state));
                     this.state.mode = 'multiStage';
-                    this.state.totalItems = stages.reduce((sum, s) => sum + s.items.length, 0);
+                    this.state.totalItems = totalItems;
                     this.state.totalStages = stages.length;
                     this.state.items = stage.items.slice();
                     this.state.categories = stage.categories.slice();
                     this.state.instruction = stage.instruction || this.content.instruction || '';
-                    this.state.classifications = this.state.classifications || {};
-                    this.state.classifiedItems = Number(this.state.classifiedItems) || 0;
-                    this.state.totalClassifiedItems = Number(this.state.totalClassifiedItems) || 0;
+                    this.state.classifications = savedClassifications;
+                    this.state.classifiedItems = classifiedItems;
+                    this.state.totalClassifiedItems = totalClassifiedItems;
                     this.state.correctAnswers = Number(this.state.correctAnswers) || 0;
                     this.state.wrongAnswers = Number(this.state.wrongAnswers) || 0;
                     this.state.moves = Number(this.state.moves) || 0;
                     this.state.score = Number(this.state.score) || 0;
-                    this.state.stageCompleted = Number(this.state.stageCompleted) || 0;
+                    this.state.stageCompleted = stageCompleted;
                     return true;
                 }
 
