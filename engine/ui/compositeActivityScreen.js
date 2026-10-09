@@ -87,7 +87,9 @@
             });
             const back = document.getElementById('compositeBackBtn');
             if (back) back.addEventListener('click', () => {
-                if (window.App && typeof window.App.showActivities === 'function') window.App.showActivities();
+                if (window.Screen && typeof window.Screen.showActivities === 'function' && this.activity) {
+                    window.Screen.showActivities(this.activity.grade, this.activity.subject, this.activity.chapter);
+                }
             });
         }
     };
