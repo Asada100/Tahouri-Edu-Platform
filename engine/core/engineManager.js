@@ -172,6 +172,13 @@ const EngineManager = {
         if(window.WordPuzzleEngine){ this.register("wordPuzzle", window.WordPuzzleEngine); }
 
         // =================================
+        // Composite Activity Engine
+        // =================================
+        if (window.CompositeActivityEngine) {
+            this.register("composite", window.CompositeActivityEngine);
+        }
+
+        // =================================
         // Dictation Engine
         // =================================
         if(
