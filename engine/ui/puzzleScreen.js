@@ -35,6 +35,8 @@ const PuzzleScreen = {
 
     spatialScreenActivatedAt: 0,
 
+    spatialUserInitiatedDragAt: 0,
+
 
     // =====================================
     // INIT
@@ -132,6 +134,11 @@ const PuzzleScreen = {
 
         }
 
+
+        if (payload.activity && payload.activity.id === "mathSpatialSymmetry") {
+            this.spatialScreenActivatedAt = 0;
+            this.spatialUserInitiatedDragAt = 0;
+        }
 
         console.log(
             "Puzzle Screen: Activity Ready Received",
@@ -4536,6 +4543,7 @@ PuzzleScreen.showSpatialSymmetry = function (state) {
         // Do not let the pointer gesture that launched the activity become
         // the first puzzle drag when the screen appears underneath it.
         if (Date.now() - PuzzleScreen.spatialScreenActivatedAt < 900) return;
+        PuzzleScreen.spatialUserInitiatedDragAt = Date.now();
 
         const ghost = document.createElement("div");
         ghost.className = "spatialDragGhost";
@@ -4609,7 +4617,9 @@ PuzzleScreen.showSpatialSymmetry = function (state) {
             const currentState = PuzzleEngine.getState();
             const currentPlacements = currentState.placements || {};
             const currentPieces = currentState.pieces || [];
-            if (Number(currentState.moves) <= 0 ||
+            if (!PuzzleScreen.spatialUserInitiatedDragAt ||
+                PuzzleScreen.spatialUserInitiatedDragAt < PuzzleScreen.spatialScreenActivatedAt ||
+                Number(currentState.moves) <= 0 ||
                 Object.keys(currentPlacements).length === 0 ||
                 currentPieces.length === 0) {
                 checkButton.disabled = true;
