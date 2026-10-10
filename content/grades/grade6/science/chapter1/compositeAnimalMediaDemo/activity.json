@@ -24,8 +24,20 @@
           "alt": "تصویر چمنزار"
         },
         "options": [
-          { "id": "meadow", "media": { "type": "text", "value": "چمنزار" } },
-          { "id": "ocean", "media": { "type": "text", "value": "اقیانوس" } }
+          {
+            "id": "meadow",
+            "media": {
+              "type": "text",
+              "value": "چمنزار"
+            }
+          },
+          {
+            "id": "ocean",
+            "media": {
+              "type": "text",
+              "value": "اقیانوس"
+            }
+          }
         ],
         "answerId": "meadow"
       },
@@ -39,10 +51,68 @@
           "value": "چمنزار"
         },
         "options": [
-          { "id": "plants", "media": { "type": "text", "value": "جایی پوشیده از چمن و گیاه" } },
-          { "id": "water", "media": { "type": "text", "value": "جایی پر از آب دریا" } }
+          {
+            "id": "plants",
+            "media": {
+              "type": "text",
+              "value": "جایی پوشیده از چمن و گیاه"
+            }
+          },
+          {
+            "id": "water",
+            "media": {
+              "type": "text",
+              "value": "جایی پر از آب دریا"
+            }
+          }
         ],
         "answerId": "plants"
+      },
+      {
+        "id": "animal-group-matching",
+        "title": "جانور را به گروهش وصل کن",
+        "interaction": "matching",
+        "instruction": "با کشیدن خط، هر جانور را به گروه درست وصل کن.",
+        "matching": {
+          "type": "matching",
+          "matchingType": "basic",
+          "instruction": "با کشیدن خط، هر جانور را به گروه درست وصل کن.",
+          "pairs": [
+            {
+              "id": "cat-mammal",
+              "left": {
+                "id": "cat",
+                "value": "گربه"
+              },
+              "right": {
+                "id": "mammal",
+                "value": "پستاندار"
+              }
+            },
+            {
+              "id": "frog-amphibian",
+              "left": {
+                "id": "frog",
+                "value": "قورباغه"
+              },
+              "right": {
+                "id": "amphibian",
+                "value": "دوزیست"
+              }
+            },
+            {
+              "id": "pigeon-bird",
+              "left": {
+                "id": "pigeon",
+                "value": "کبوتر"
+              },
+              "right": {
+                "id": "bird",
+                "value": "پرنده"
+              }
+            }
+          ]
+        }
       }
     ]
   }
