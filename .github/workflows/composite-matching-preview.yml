@@ -1,0 +1,53 @@
+name: Composite Matching Mobile Preview
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: ["master"]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy-preview:
+    if: github.event.pull_request.head.ref == 'feature/composite-matching-adapter-v1' && github.event.pull_request.head.repo.full_name == github.repository
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}preview/
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout production version
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          path: site
+
+      - name: Checkout proposed version for preview
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: preview-source
+
+      - name: Build isolated preview folder
+        run: |
+          mkdir -p site/preview
+          rsync -a --delete --exclude='.git' --exclude='.github' preview-source/ site/preview/
+          touch site/.nojekyll
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload site with production root and preview subpath
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy combined site
+        id: deployment
+        uses: actions/deploy-pages@v5
