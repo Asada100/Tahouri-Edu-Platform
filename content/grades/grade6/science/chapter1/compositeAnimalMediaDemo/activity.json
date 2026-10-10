@@ -1,7 +1,7 @@
 {
   "id": "compositeAnimalMediaDemo",
-  "title": "آزمایش رسانه‌های ترکیبی",
-  "description": "نمونهٔ داخل پلتفرم برای ترکیب پرسش تصویری و پاسخ واژگانی",
+  "title": "ماجراجویی جانوران",
+  "description": "یک بازی سه‌مرحله‌ای برای شناخت گروه‌های جانوران؛ تشخیص تصویری، انتخاب پاسخ و وصل‌کردن جانور به گروه درست.",
   "grade": "grade6",
   "subject": "science",
   "chapter": "chapter1",
@@ -11,63 +11,117 @@
   },
   "composite": {
     "mode": "composite",
-    "instruction": "به هر پرسش دقت کن و پاسخ مناسب را انتخاب کن.",
+    "instruction": "با دقت به جانورها نگاه کن، گروه درست را بشناس و در مرحلهٔ پایانی موارد مرتبط را به هم وصل کن.",
     "stages": [
       {
-        "id": "picture-to-word",
-        "title": "تصویر را به واژه وصل کن",
+        "id": "cat-group",
+        "title": "گربه در کدام گروه است؟",
         "interaction": "choice",
-        "instruction": "به تصویر نگاه کن و واژهٔ درست را انتخاب کن.",
+        "instruction": "به تصویر نگاه کن. گربه به کدام گروه جانوری تعلق دارد؟",
         "prompt": {
           "type": "image",
-          "src": "assets/images/spelling/meadow.svg",
-          "alt": "تصویر چمنزار"
+          "src": "assets/images/animals/composite-cat.svg",
+          "alt": "تصویر سادهٔ یک گربه"
         },
         "options": [
-          { "id": "meadow", "media": { "type": "text", "value": "چمنزار" } },
-          { "id": "ocean", "media": { "type": "text", "value": "اقیانوس" } }
+          {
+            "id": "cat-mammal",
+            "media": {
+              "type": "text",
+              "value": "پستاندار"
+            }
+          },
+          {
+            "id": "cat-bird",
+            "media": {
+              "type": "text",
+              "value": "پرنده"
+            }
+          }
         ],
-        "answerId": "meadow"
+        "answerId": "cat-mammal"
       },
       {
-        "id": "meaning-check",
-        "title": "معنی را انتخاب کن",
+        "id": "frog-group",
+        "title": "قورباغه را بشناس",
         "interaction": "choice",
-        "instruction": "کدام عبارت با چمنزار ارتباط دارد؟",
+        "instruction": "قورباغه در کدام گروه قرار می‌گیرد؟",
         "prompt": {
-          "type": "text",
-          "value": "چمنزار"
+          "type": "image",
+          "src": "assets/images/animals/composite-frog.svg",
+          "alt": "تصویر سادهٔ یک قورباغه"
         },
         "options": [
-          { "id": "plants", "media": { "type": "text", "value": "جایی پوشیده از چمن و گیاه" } },
-          { "id": "water", "media": { "type": "text", "value": "جایی پر از آب دریا" } }
+          {
+            "id": "frog-reptile",
+            "media": {
+              "type": "text",
+              "value": "خزنده"
+            }
+          },
+          {
+            "id": "frog-amphibian",
+            "media": {
+              "type": "text",
+              "value": "دوزیست"
+            }
+          }
         ],
-        "answerId": "plants"
+        "answerId": "frog-amphibian"
       },
       {
         "id": "animal-group-matching",
-        "title": "جانور را به گروهش وصل کن",
+        "title": "چالش پایانی: جانور را به گروهش وصل کن",
         "interaction": "matching",
-        "instruction": "با کشیدن خط، هر جانور را به گروه درست وصل کن.",
+        "instruction": "هر جانور را به گروه درست وصل کن.",
         "matching": {
           "type": "matching",
           "matchingType": "basic",
-          "instruction": "با کشیدن خط، هر جانور را به گروه درست وصل کن.",
+          "instruction": "هر جانور را به گروه درست وصل کن.",
           "pairs": [
             {
               "id": "cat-mammal",
-              "left": { "id": "cat", "value": "گربه" },
-              "right": { "id": "mammal", "value": "پستاندار" }
+              "left": {
+                "id": "cat",
+                "value": "گربه"
+              },
+              "right": {
+                "id": "mammal",
+                "value": "پستاندار"
+              }
             },
             {
               "id": "frog-amphibian",
-              "left": { "id": "frog", "value": "قورباغه" },
-              "right": { "id": "amphibian", "value": "دوزیست" }
+              "left": {
+                "id": "frog",
+                "value": "قورباغه"
+              },
+              "right": {
+                "id": "amphibian",
+                "value": "دوزیست"
+              }
             },
             {
               "id": "pigeon-bird",
-              "left": { "id": "pigeon", "value": "کبوتر" },
-              "right": { "id": "bird", "value": "پرنده" }
+              "left": {
+                "id": "pigeon",
+                "value": "کبوتر"
+              },
+              "right": {
+                "id": "bird",
+                "value": "پرنده"
+              }
+            },
+            {
+              "id": "trout-fish",
+              "left": {
+                "id": "trout",
+                "value": "قزل‌آلا"
+              },
+              "right": {
+                "id": "fish",
+                "value": "ماهی"
+              }
             }
           ]
         }
