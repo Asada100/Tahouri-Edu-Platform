@@ -133,10 +133,15 @@ check('wrong answer without retry counts toward stage completion and final perce
   const activity = makeActivity({ allowRetry: false });
   engine.start(activity);
 
-  const transition = engine.classifyItem('item-1', 'b');
-  assert.equal(transition.correct, false);
-  assert.equal(transition.stageCompleted, true);
+  const firstAnswer = engine.classifyItem('item-1', 'b');
+  assert.equal(firstAnswer.correct, false);
+  assert.equal(firstAnswer.stageCompleted, undefined);
   assert.equal(engine.getState().totalClassifiedItems, 1);
+  assert.equal(engine.getState().currentStage, 0);
+
+  const transition = engine.classifyItem('item-2', 'b');
+  assert.equal(transition.stageCompleted, true);
+  assert.equal(engine.getState().totalClassifiedItems, 2);
   assert.equal(engine.getState().currentStage, 1);
 
   engine.classifyItem('item-3', 'c');
