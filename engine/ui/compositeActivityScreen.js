@@ -1,4 +1,4 @@
-// Tahouri Edu Platform - Composite Activity Screen v1.0
+// Tahouri Edu Platform - Composite Activity Screen v1.1
 (function (window) {
     'use strict';
 
