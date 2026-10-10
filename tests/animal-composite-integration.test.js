@@ -48,7 +48,10 @@ assert.equal(state.totalStages, 3);
 assert.equal(state.stage.id, 'cat-group');
 
 // Complete the first choice stage correctly.
-let answer = context.CompositeActivityEngine.answer('cat-mammal');
+let answer = context.CompositeActivityEngine.answer('not-an-option');
+assert.equal(answer, null, 'unknown option IDs must be rejected');
+assert.equal(context.CompositeActivityEngine.getState().moves, 0, 'invalid choices must not count as moves');
+answer = context.CompositeActivityEngine.answer('cat-mammal');
 assert.equal(answer.correct, true);
 state = context.CompositeActivityEngine.next();
 assert.equal(state.stage.id, 'frog-group');
@@ -59,6 +62,12 @@ assert.equal(answer.correct, true);
 state = context.CompositeActivityEngine.next();
 assert.equal(state.stage.id, 'animal-group-matching');
 
+// The parent engine must reject a partial matching result and leave the stage pending.
+assert.equal(context.CompositeActivityEngine.completeMatchingStage({ percentage: 75, moves: 3, wrongAnswers: 1 }), null,
+  'an incomplete matching stage must not be accepted');
+assert.equal(context.CompositeActivityEngine.getState().answers[2], undefined,
+  'an incomplete matching stage must not mark the stage complete');
+
 // Run the actual matching engine against the activity's four configured pairs.
 const matchingActivity = {
   id: activity.id + '::animal-group-matching',
@@ -68,7 +77,13 @@ const matchingActivity = {
 };
 const matchingState = context.MatchingEngine.start(matchingActivity);
 assert.ok(matchingState && matchingState.started, 'matching stage must start');
-for (const pair of state.stage.matching.pairs) {
+const pairs = state.stage.matching.pairs;
+// A wrong attempt must be counted but must not lock the left item or finish the stage.
+context.MatchingEngine.select('left', pairs[0].left.id);
+const wrongAttempt = context.MatchingEngine.select('right', pairs[1].right.id);
+assert.equal(wrongAttempt.correct, false, 'a mismatched pair must be rejected');
+assert.equal(context.MatchingEngine.getState().finished, false, 'a wrong pair must not finish matching');
+for (const pair of pairs) {
   context.MatchingEngine.select('left', pair.left.id);
   context.MatchingEngine.select('right', pair.right.id);
 }
@@ -77,6 +92,8 @@ assert.ok(matchingFinished, 'matching stage must emit its internal completion ev
 assert.equal(events.filter(event => event.name === 'activityFinished').length, 0,
   'inner matching stage must not finish the parent activity');
 assert.equal(matchingFinished.payload.result.percentage, 100);
+assert.equal(matchingFinished.payload.result.wrongAnswers, 1, 'wrong matching attempts must be preserved in the result');
+assert.equal(matchingFinished.payload.result.moves, 5, 'the failed attempt must count toward moves');
 
 state = context.CompositeActivityEngine.completeMatchingStage(matchingFinished.payload.result);
 assert.ok(state && state.answers[2], 'composite engine must accept matching completion');
@@ -86,8 +103,20 @@ assert.equal(result.completed, true);
 assert.equal(result.percentage, 100);
 assert.equal(result.correctAnswers, 3);
 assert.equal(result.totalQuestions, 3);
+assert.equal(result.wrongAnswers, 1, 'the parent activity must preserve matching-stage mistakes');
 assert.equal(finalResult.activityId, activity.id);
 assert.equal(events.filter(event => event.name === 'activityFinished').length, 0,
   'composite engine should finish through ActivityManager, not emit a duplicate finish event');
+
+// A valid but incorrect choice is recorded once and cannot be answered repeatedly.
+context.CompositeActivityEngine.reset();
+context.CompositeActivityEngine.start(activity);
+answer = context.CompositeActivityEngine.answer('cat-bird');
+assert.equal(answer.correct, false, 'a valid wrong choice must be recorded as incorrect');
+assert.equal(context.CompositeActivityEngine.getState().wrongAnswers, 1);
+assert.equal(context.CompositeActivityEngine.answer('cat-mammal'), null,
+  'a stage must not accept a second answer after its first answer is recorded');
+assert.equal(context.CompositeActivityEngine.next().stage.id, 'frog-group',
+  'the learner must be able to continue after feedback on an incorrect answer');
 
 console.log('Full animal composite activity integration checks passed');
