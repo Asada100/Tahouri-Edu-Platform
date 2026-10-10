@@ -1,0 +1,53 @@
+name: Composite Matching Safety Checks
+
+on:
+  pull_request:
+    branches: ["master"]
+    paths:
+      - "engine/question/compositeActivityProvider.js"
+      - "engine/activity/matchingEngine.js"
+      - "engine/activity/compositeActivityEngine.js"
+      - "engine/ui/compositeActivityScreen.js"
+      - "content/grades/grade6/science/chapter1/compositeAnimalMediaDemo/activity.json"
+      - ".github/workflows/composite-matching-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static-and-wiring:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR code
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check JavaScript syntax
+        run: |
+          node --check engine/question/compositeActivityProvider.js
+          node --check engine/activity/matchingEngine.js
+          node --check engine/activity/compositeActivityEngine.js
+          node --check engine/ui/compositeActivityScreen.js
+      - name: Validate composite demo JSON
+        run: |
+          node -e "const fs=require('fs'); const p='content/grades/grade6/science/chapter1/compositeAnimalMediaDemo/activity.json'; const a=JSON.parse(fs.readFileSync(p,'utf8')); if (!Array.isArray(a.stages) || a.stages.length < 3) throw new Error('Expected at least three stages'); if (!a.stages.some(s => s.interaction === 'matching')) throw new Error('Matching stage missing'); console.log('Composite demo JSON OK');"
+      - name: Verify matching stage wiring
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const checks = [
+            ['engine/question/compositeActivityProvider.js', /interaction\s*===?\s*['"]matching['"]|interaction\s*:\s*['"]matching['"]/],
+            ['engine/activity/matchingEngine.js', /compositeMatchingFinished/],
+            ['engine/activity/compositeActivityEngine.js', /completeMatchingStage/],
+            ['engine/ui/compositeActivityScreen.js', /MatchingEngine/],
+            ['engine/ui/compositeActivityScreen.js', /MatchingScreen/],
+          ];
+          for (const [file, pattern] of checks) {
+            const source = fs.readFileSync(file, 'utf8');
+            if (!pattern.test(source)) throw new Error('Missing expected integration in ' + file);
+          }
+          console.log('Matching-stage wiring checks passed');
+          NODE
