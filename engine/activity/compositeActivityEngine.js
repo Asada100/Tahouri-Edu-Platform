@@ -1,4 +1,4 @@
-// Tahouri Edu Platform - Composite Activity Engine v1.0
+// Tahouri Edu Platform - Composite Activity Engine v1.1
 // Ordered choice and matching stages coordinated under one final activity result.
 (function (window) {
     'use strict';
@@ -57,6 +57,7 @@
             if (!result || Number(result.percentage) < 100) return null;
 
             this.state.moves += Number(result.moves) || 0;
+            this.state.wrongAnswers += Number(result.wrongAnswers) || 0;
             this.state.correctAnswers += 1;
             const settings = this.activity && this.activity.settings || {};
             const points = Number(settings.scorePerCorrect) > 0 ? Number(settings.scorePerCorrect) : 10;
