@@ -6,6 +6,7 @@
         connected: false,
         activity: null,
         state: null,
+        activeMatchingStageId: null,
 
         init() {
             if (this.connected || typeof EventManager === 'undefined') return;
@@ -13,7 +14,13 @@
                 if (!payload || payload.engineName !== 'composite' || !payload.result) return;
                 this.activity = payload.activity || {};
                 this.state = payload.result;
+                this.activeMatchingStageId = null;
                 this.render();
+            });
+            EventManager.on('compositeMatchingFinished', payload => {
+                // MatchingScreen also redraws its finished state in the same event turn.
+                // Defer parent rendering until that redraw is complete.
+                window.setTimeout(() => this.handleMatchingFinished(payload), 0);
             });
             this.connected = true;
             console.log('Composite Activity Screen v1.0 Ready');
@@ -35,11 +42,56 @@
             return '';
         },
 
+        startMatchingStage(stage) {
+            if (this.activeMatchingStageId === stage.id) return;
+            if (!window.MatchingEngine || !window.MatchingScreen) {
+                throw new Error('Composite matching stage requires MatchingEngine and MatchingScreen');
+            }
+            this.activeMatchingStageId = stage.id;
+            const matching = {
+                ...stage.matching,
+                instruction: stage.instruction || stage.matching.instruction || 'موارد مرتبط را با کشیدن خط به هم وصل کن.'
+            };
+            const stageActivity = {
+                id: String(this.activity && this.activity.id || 'composite') + '::' + stage.id,
+                title: stage.title,
+                type: 'matching',
+                engine: 'matching',
+                settings: { compositeStage: true },
+                matching
+            };
+            const matchingState = window.MatchingEngine.start(stageActivity);
+            if (!matchingState) {
+                this.activeMatchingStageId = null;
+                throw new Error('Could not start composite matching stage: ' + stage.id);
+            }
+            window.MatchingScreen.show(matchingState);
+        },
+
+        handleMatchingFinished(payload) {
+            if (!payload || !payload.result || !this.state || this.state.finished) return;
+            const stage = window.CompositeActivityEngine.getCurrentStage();
+            if (!stage || stage.interaction !== 'matching' || this.activeMatchingStageId !== stage.id) return;
+
+            const completed = window.CompositeActivityEngine.completeMatchingStage(payload.result);
+            if (!completed) return;
+            this.activeMatchingStageId = null;
+            const next = window.CompositeActivityEngine.next();
+            if (next && !next.activityId) {
+                this.state = next;
+                this.render();
+            }
+        },
+
         render() {
             const app = document.getElementById('app');
             const state = this.state;
             const stage = state && state.stage;
             if (!app || !state || !stage) return;
+            if (stage.interaction === 'matching') {
+                this.startMatchingStage(stage);
+                return;
+            }
             const answer = state.answers[state.currentStage];
             const options = stage.options.map(option => {
                 const selected = answer && answer.optionId === option.id;
