@@ -212,7 +212,22 @@ const MatchingEngine = {
         });
 
         if (typeof EventManager !== "undefined" && typeof EventManager.emit === "function") {
-            EventManager.emit("activityFinished", result);
+            const isCompositeStage = !!(
+                this.activity &&
+                this.activity.settings &&
+                this.activity.settings.compositeStage === true
+            );
+            if (isCompositeStage) {
+                // A matching stage belongs to the parent composite activity;
+                // never let it finish the platform activity on its own.
+                EventManager.emit("compositeMatchingFinished", {
+                    activityId: this.activity.id,
+                    result: result
+                });
+            } else {
+                // Preserve the existing lifecycle for standalone matching activities.
+                EventManager.emit("activityFinished", result);
+            }
         }
 
         return this.getState();
