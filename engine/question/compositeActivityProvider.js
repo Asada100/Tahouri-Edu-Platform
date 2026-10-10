@@ -1,5 +1,5 @@
-// Tahouri Edu Platform - Composite Activity Provider v1.0
-// Normalizes one-question-per-stage activities with independent prompt media.
+// Tahouri Edu Platform - Composite Activity Provider v1.1
+// Normalizes ordered choice and matching stages without duplicating MatchingProvider rules.
 (function (window) {
     'use strict';
 
@@ -20,8 +20,28 @@
                 const id = String(stage.id || 'stage-' + (index + 1));
                 if (stageIds.has(id)) throw new Error('Duplicate composite stage id: ' + id);
                 stageIds.add(id);
-                if (stage.interaction !== 'choice') {
-                    throw new Error('Unsupported composite interaction in stage ' + id + ': ' + stage.interaction);
+
+                const interaction = String(stage.interaction || 'choice').toLowerCase();
+                const common = {
+                    id,
+                    title: String(stage.title || 'مرحله ' + (index + 1)),
+                    instruction: String(stage.instruction || 'مرحله را با دقت انجام بده.'),
+                    interaction
+                };
+
+                if (interaction === 'matching') {
+                    if (!window.MatchingProvider || typeof window.MatchingProvider.getContent !== 'function') {
+                        throw new Error('MatchingProvider is not available for composite stage ' + id);
+                    }
+                    const matching = window.MatchingProvider.getContent({ matching: stage.matching });
+                    if (!matching || !Array.isArray(matching.pairs) || !matching.pairs.length) {
+                        throw new Error('Composite matching stage ' + id + ' needs valid matching pairs');
+                    }
+                    return { ...common, interaction, matching };
+                }
+
+                if (interaction !== 'choice') {
+                    throw new Error('Unsupported composite interaction in stage ' + id + ': ' + interaction);
                 }
 
                 const prompt = this.normalizeMedia(stage.prompt, PROMPT_MEDIA, 'prompt in ' + id);
@@ -39,9 +59,7 @@
                 const answerId = String(stage.answerId ?? '');
                 if (!optionIds.has(answerId)) throw new Error('answerId is not an option in ' + id);
                 return {
-                    id, title: String(stage.title || 'مرحله ' + (index + 1)),
-                    instruction: String(stage.instruction || 'پاسخ درست را انتخاب کن.'),
-                    interaction: 'choice', prompt, options, answerId
+                    ...common, interaction: 'choice', prompt, options, answerId
                 };
             });
             return { mode: 'composite', instruction: String(source.instruction || ''), stages };
@@ -66,5 +84,5 @@
     };
 
     window.CompositeActivityProvider = CompositeActivityProvider;
-    console.log('Composite Activity Provider v1.0 Ready');
+    console.log('Composite Activity Provider v1.1 Ready');
 })(window);
