@@ -9,6 +9,8 @@ on:
       - "engine/activity/compositeActivityEngine.js"
       - "engine/ui/compositeActivityScreen.js"
       - "content/grades/grade6/science/chapter1/compositeAnimalMediaDemo/activity.json"
+      - "data/activities.json"
+      - "assets/images/animals/**"
       - "tests/composite-matching-lifecycle.test.js"
       - ".github/workflows/composite-matching-check.yml"
   workflow_dispatch:
@@ -37,7 +39,7 @@ jobs:
         run: node tests/composite-matching-lifecycle.test.js
       - name: Validate composite demo JSON
         run: |
-          node -e "const fs=require('fs'); const p='content/grades/grade6/science/chapter1/compositeAnimalMediaDemo/activity.json'; const a=JSON.parse(fs.readFileSync(p,'utf8')); const stages = a.composite && a.composite.stages; if (!Array.isArray(stages) || stages.length < 3) throw new Error('Expected at least three composite stages'); if (!stages.some(s => s.interaction === 'matching')) throw new Error('Matching stage missing'); console.log('Composite demo JSON OK');"
+          node -e "const fs=require('fs'); const p='content/grades/grade6/science/chapter1/compositeAnimalMediaDemo/activity.json'; const a=JSON.parse(fs.readFileSync(p,'utf8')); const stages = a.composite && a.composite.stages; if (a.title !== 'ماجراجویی جانوران') throw new Error('Learner-facing activity title missing'); if (!Array.isArray(stages) || stages.length !== 3) throw new Error('Expected exactly three composite stages'); if (stages[0].prompt.src !== 'assets/images/animals/composite-cat.svg' || stages[1].prompt.src !== 'assets/images/animals/composite-frog.svg') throw new Error('Animal illustration references missing'); for (const stage of stages.filter(s => s.interaction === 'matching')) { if (!stage.matching || !Array.isArray(stage.matching.pairs) || stage.matching.pairs.length < 3) throw new Error('Matching stage is incomplete'); } for (const stage of stages) { if (stage.prompt && stage.prompt.type === 'image' && !fs.existsSync(stage.prompt.src)) throw new Error('Missing image asset: ' + stage.prompt.src); } const index=JSON.parse(fs.readFileSync('data/activities.json','utf8')); if (!index.some(item => item.id === a.id && item.title === a.title && item.path === p.replace(/\\/activity\\.json$/, ''))) throw new Error('Activity index entry missing or inconsistent'); console.log('Animal composite activity content and assets OK');"
       - name: Verify matching stage wiring
         run: |
           node <<'NODE'
