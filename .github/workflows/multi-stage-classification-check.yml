@@ -1,0 +1,38 @@
+name: Multi-stage Classification Regression
+
+on:
+  pull_request:
+    branches: ["master"]
+    paths:
+      - "engine/activity/classificationEngine.js"
+      - "engine/question/classificationProvider.js"
+      - "engine/activity/classificationTypes/classificationTypeRegistry.js"
+      - "engine/activity/classificationTypes/choiceClassification.js"
+      - "engine/activity/classificationTypes/multiStageClassification.js"
+      - "content/grades/grade6/science/chapter1/multiStageAnimalJourney/activity.json"
+      - "tests/multi-stage-classification.test.js"
+      - ".github/workflows/multi-stage-classification-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  runtime-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out platform source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check JavaScript syntax
+        run: |
+          node --check engine/activity/classificationEngine.js
+          node --check engine/question/classificationProvider.js
+          node --check engine/activity/classificationTypes/classificationTypeRegistry.js
+          node --check engine/activity/classificationTypes/choiceClassification.js
+          node --check engine/activity/classificationTypes/multiStageClassification.js
+      - name: Run in-platform activity runtime regressions
+        run: node tests/multi-stage-classification.test.js
