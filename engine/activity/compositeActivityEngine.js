@@ -1,6 +1,5 @@
 // Tahouri Edu Platform - Composite Activity Engine v1.0
-// First slice: ordered choice stages with text/image/audio prompts.
-// Interaction adapters beyond choice are deliberately rejected by the provider.
+// Ordered choice and matching stages coordinated under one final activity result.
 (function (window) {
     'use strict';
 
@@ -47,6 +46,28 @@
             }
             this.state.answers[this.state.currentStage] = { optionId: selectedId, correct };
             return { correct, state: this.getState() };
+        },
+
+        completeMatchingStage(matchingResult) {
+            if (!this.state || this.state.finished) return null;
+            const stage = this.getCurrentStage();
+            if (!stage || stage.interaction !== 'matching' || this.state.answers[this.state.currentStage]) return null;
+
+            const result = matchingResult && matchingResult.result ? matchingResult.result : matchingResult;
+            if (!result || Number(result.percentage) < 100) return null;
+
+            this.state.moves += Number(result.moves) || 0;
+            this.state.correctAnswers += 1;
+            const settings = this.activity && this.activity.settings || {};
+            const points = Number(settings.scorePerCorrect) > 0 ? Number(settings.scorePerCorrect) : 10;
+            this.state.score += points;
+            this.state.answers[this.state.currentStage] = {
+                correct: true,
+                interaction: 'matching',
+                percentage: Number(result.percentage),
+                moves: Number(result.moves) || 0
+            };
+            return this.getState();
         },
 
         next() {
