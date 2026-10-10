@@ -9,6 +9,7 @@ on:
       - "engine/activity/compositeActivityEngine.js"
       - "engine/ui/compositeActivityScreen.js"
       - "content/grades/grade6/science/chapter1/compositeAnimalMediaDemo/activity.json"
+      - "tests/composite-matching-lifecycle.test.js"
       - ".github/workflows/composite-matching-check.yml"
   workflow_dispatch:
 
@@ -31,6 +32,9 @@ jobs:
           node --check engine/activity/matchingEngine.js
           node --check engine/activity/compositeActivityEngine.js
           node --check engine/ui/compositeActivityScreen.js
+          node --check tests/composite-matching-lifecycle.test.js
+      - name: Test composite versus standalone completion events
+        run: node tests/composite-matching-lifecycle.test.js
       - name: Validate composite demo JSON
         run: |
           node -e "const fs=require('fs'); const p='content/grades/grade6/science/chapter1/compositeAnimalMediaDemo/activity.json'; const a=JSON.parse(fs.readFileSync(p,'utf8')); const stages = a.composite && a.composite.stages; if (!Array.isArray(stages) || stages.length < 3) throw new Error('Expected at least three composite stages'); if (!stages.some(s => s.interaction === 'matching')) throw new Error('Matching stage missing'); console.log('Composite demo JSON OK');"
