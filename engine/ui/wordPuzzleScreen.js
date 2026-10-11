@@ -54,11 +54,11 @@ this.feedback(x,"راهنمای بیشتری در دسترس نیست.",false);
 return;
 }
 if(result.type==="letter"){
-renderHint(result.value);
+renderHint(result.value,result.type);
 this.feedback(x,"یک راهنما نمایش داده شد؛ امتیاز این مرحله کمی کاهش می‌یابد.",false);
 }else if(result.type==="cell"){
 renderHint(result.value,result.type);
-this.feedback(x,"یک خانه از مسیر راهنما مشخص شد؛ حالا واژه را پیدا کن.",false);
+this.feedback(x,"خانه‌ای از مسیر راهنما مشخص شد؛ حالا واژه را پیدا کن.",false);
 }
 },
 
@@ -88,36 +88,108 @@ root.appendChild(box);
 box.querySelector("[data-finish]").onclick=()=>{if(typeof NavigationHistory!=="undefined")NavigationHistory.back();if(typeof Screen!=="undefined"&&typeof Screen.showActivities==="function"&&typeof AppState!=="undefined"){Screen.showActivities(AppState.grade,AppState.subject,AppState.chapter);return;}if(typeof Screen!=="undefined"&&typeof Screen.showHome==="function")Screen.showHome();};
 },
 
+createGrid(gridElement,gridData){
+gridElement.innerHTML="";
+gridElement.style.gridTemplateColumns="repeat("+gridData[0].length+",minmax(0,1fr))";
+gridData.forEach((row,r)=>row.forEach((letter,c)=>{
+const b=document.createElement("button");
+b.type="button";
+b.className="wp-cell";
+b.textContent=letter;
+b.setAttribute("aria-label",`ردیف ${r+1} ستون ${c+1}، حرف ${letter}`);
+b.dataset.r=r;b.dataset.c=c;
+gridElement.appendChild(b);
+}));
+},
+
+bindDragPath(gridElement,onUpdate){
+let path=[];
+let dragging=false;
+const cells=()=>Array.from(gridElement.querySelectorAll(".wp-cell"));
+const sync=()=>{
+const selected=new Set(path.map(([r,c])=>r+","+c));
+cells().forEach(cell=>cell.classList.toggle("sel",selected.has(cell.dataset.r+","+cell.dataset.c)));
+onUpdate(path.map(p=>[p[0],p[1]]));
+};
+const visit=cell=>{
+if(!cell||!gridElement.contains(cell))return;
+const point=[Number(cell.dataset.r),Number(cell.dataset.c)];
+const existing=path.findIndex(p=>p[0]===point[0]&&p[1]===point[1]);
+if(existing>=0){
+if(existing===path.length-1)return;
+path=path.slice(0,existing+1);sync();return;
+}
+if(path.length){
+const last=path[path.length-1];
+if(Math.max(Math.abs(point[0]-last[0]),Math.abs(point[1]-last[1]))!==1)return;
+}
+path.push(point);sync();
+};
+gridElement.addEventListener("pointerdown",event=>{
+const cell=event.target.closest?.(".wp-cell");
+if(!cell)return;
+event.preventDefault();
+dragging=true;
+try{gridElement.setPointerCapture(event.pointerId);}catch(_){}
+visit(cell);
+});
+gridElement.addEventListener("pointermove",event=>{
+if(!dragging)return;
+const cell=document.elementFromPoint(event.clientX,event.clientY)?.closest?.(".wp-cell");
+if(cell&&gridElement.contains(cell))visit(cell);
+});
+const stop=event=>{
+dragging=false;
+try{if(gridElement.hasPointerCapture(event.pointerId))gridElement.releasePointerCapture(event.pointerId);}catch(_){}
+};
+gridElement.addEventListener("pointerup",stop);
+gridElement.addEventListener("pointercancel",stop);
+gridElement.addEventListener("click",event=>{
+if(event.detail!==0)return;
+const cell=event.target.closest?.(".wp-cell");
+if(cell)visit(cell);
+});
+return{
+getPath:()=>path.map(p=>[p[0],p[1]]),
+clear:()=>{path=[];cells().forEach(cell=>cell.classList.remove("hint-cell"));sync();},
+highlight:point=>{
+if(!Array.isArray(point)||point.length!==2)return;
+const cell=gridElement.querySelector('[data-r="'+point[0]+'"][data-c="'+point[1]+'"]');
+if(cell)cell.classList.add("hint-cell");
+}
+};
+},
+
 builder(x,d){
-let selected=[];
 x.innerHTML=`
 <div class="wp-card">
 <div class="wp-clue">${d.instruction}</div>
 <div class="wp-hint" aria-live="polite"></div>
-<div class="wp-answer" aria-live="polite">پاسخ شما</div>
-<div class="wp-letters" role="group" aria-label="حروف واژه"></div>
+<div class="wp-answer" aria-live="polite">حروف را با کشیدن انگشت یا موس به هم وصل کن</div>
+<div class="wp-grid wp-builder-grid"></div>
 <div class="wp-actions">
-<button type="button" class="wp-btn wp-secondary" data-clear>پاک کردن</button>
+<button type="button" class="wp-btn wp-secondary" data-clear>پاک کردن مسیر</button>
 <button type="button" class="wp-btn wp-hint-btn" data-hint>راهنما 💡</button>
-<button type="button" class="wp-btn" data-check>بررسی</button>
+<button type="button" class="wp-btn" data-check>بررسی واژه</button>
 </div>
 </div>`;
-const answer=x.querySelector(".wp-answer"),q=x.querySelector(".wp-letters"),hintBox=x.querySelector(".wp-hint");
-const update=()=>{
-answer.textContent=selected.length?selected.map(i=>d.letters[i]).join(""):"پاسخ شما";
+const answer=x.querySelector(".wp-answer"),grid=x.querySelector(".wp-builder-grid"),hintBox=x.querySelector(".wp-hint");
+this.createGrid(grid,d.grid);
+const path=this.bindDragPath(grid,selected=>{
+const value=WordPuzzlePathEngine.read(d.grid,selected);
+answer.textContent=value||"حروف را با کشیدن انگشت یا موس به هم وصل کن";
 answer.classList.toggle("has-value",selected.length>0);
-};
-d.letters.forEach((letter,i)=>{
-const b=document.createElement("button");
-b.type="button";b.textContent=letter;b.className="wp-letter";b.setAttribute("aria-label","حرف "+letter);
-b.onclick=()=>{if(selected.includes(i))return;selected.push(i);b.classList.add("sel");update();};
-q.appendChild(b);
 });
-x.querySelector("[data-clear]").onclick=()=>{selected=[];q.querySelectorAll(".sel").forEach(b=>b.classList.remove("sel"));update();};
-x.querySelector("[data-hint]").onclick=()=>this.hint(x,v=>{hintBox.textContent="حرف راهنما: "+v;hintBox.classList.add("show");});
+x.querySelector("[data-clear]").onclick=()=>{path.clear();answer.textContent="حروف را با کشیدن انگشت یا موس به هم وصل کن";answer.classList.remove("has-value");};
+x.querySelector("[data-hint]").onclick=()=>this.hint(x,(value,type)=>{
+if(type==="cell"){path.highlight(value);hintBox.textContent="از خانه مشخص‌شده شروع کن."; }
+else hintBox.textContent="حرف راهنما: "+value;
+hintBox.classList.add("show");
+});
 x.querySelector("[data-check]").onclick=()=>{
-if(!selected.length){this.feedback(x,"ابتدا واژه را بساز.",false);return;}
-this.afterSubmit(x,WordPuzzleEngine.submitBuilder(selected.map(i=>d.letters[i]).join("")));
+const selected=path.getPath();
+if(selected.length<2){this.feedback(x,"برای ساخت واژه، حروف را با یک مسیر پیوسته وصل کن.",false);return;}
+this.afterSubmit(x,WordPuzzleEngine.submitBuilder(WordPuzzlePathEngine.read(d.grid,selected)));
 };
 },
 
@@ -141,12 +213,11 @@ b.type="button";b.className="wp-option";b.textContent=word;
 b.onclick=()=>{if(selected.has(i)){selected.delete(i);b.classList.remove("sel");}else{selected.add(i);b.classList.add("sel");}};
 options.appendChild(b);
 });
-x.querySelector("[data-hint]").onclick=()=>this.hint(x,v=>{hintBox.textContent="یکی از واژه‌های هم‌خانواده با «"+d.base+"» شروع می‌شود با: "+v;hintBox.classList.add("show");});
+x.querySelector("[data-hint]").onclick=()=>this.hint(x,v=>{hintBox.textContent="یکی از واژه‌های هم‌خانواده با «"+d.base+"» با این حرف آغاز می‌شود: "+v;hintBox.classList.add("show");});
 x.querySelector("[data-check]").onclick=()=>this.afterSubmit(x,WordPuzzleEngine.submitFamily([...selected].map(i=>d.options[i])));
 },
 
 search(x,d){
-let path=[];
 x.innerHTML=`
 <div class="wp-card">
 <div class="wp-target-list"></div>
@@ -160,31 +231,25 @@ x.innerHTML=`
 </div>
 </div>`;
 const list=x.querySelector(".wp-target-list"),grid=x.querySelector(".wp-grid"),hintBox=x.querySelector(".wp-hint");
-list.innerHTML=d.words.map(w=>`<span>${w}</span>`).join("");
-grid.style.gridTemplateColumns="repeat("+d.grid.length+",minmax(0,1fr))";
-const update=()=>x.querySelector(".wp-selection strong").textContent=WordPuzzlePathEngine.read(d.grid,path)||"—";
-d.grid.forEach((row,r)=>row.forEach((letter,c)=>{
-const b=document.createElement("button");b.type="button";b.className="wp-cell";b.textContent=letter;
-b.setAttribute("aria-label",`ردیف ${r+1} ستون ${c+1}`);
-b.dataset.r=r;b.dataset.c=c;
-b.onclick=()=>{
-const idx=path.findIndex(p=>p[0]===r&&p[1]===c);
-if(idx>=0){path.splice(idx,1);b.classList.remove("sel");update();return;}
-if(path.length){const last=path[path.length-1];if(Math.max(Math.abs(r-last[0]),Math.abs(c-last[1]))!==1){this.feedback(x,"حرف بعدی باید کنار حرف قبلی باشد.",false);return;}}
-path.push([r,c]);b.classList.add("sel");update();
-};
-grid.appendChild(b);
-}));
-x.querySelector("[data-clear]").onclick=()=>{path=[];grid.querySelectorAll(".sel").forEach(b=>b.classList.remove("sel"));update();};
-x.querySelector("[data-hint]").onclick=()=>this.hint(x,(value,type)=>{if(type==="cell"){const cell=grid.querySelector('[data-r="'+value[0]+'"][data-c="'+value[1]+'"]');if(cell)cell.classList.add("hint-cell");hintBox.textContent="یک خانه از واژه مشخص شد.";}else{hintBox.textContent="حرف راهنما: "+value;}hintBox.classList.add("show");});
+list.innerHTML=d.words.map(w=>"<span>"+w+"</span>").join("");
+this.createGrid(grid,d.grid);
+const path=this.bindDragPath(grid,selected=>{
+x.querySelector(".wp-selection strong").textContent=WordPuzzlePathEngine.read(d.grid,selected)||"—";
+});
+x.querySelector("[data-clear]").onclick=()=>{path.clear();x.querySelector(".wp-selection strong").textContent="—";};
+x.querySelector("[data-hint]").onclick=()=>this.hint(x,(value,type)=>{
+if(type==="cell"){path.highlight(value);hintBox.textContent="یک خانه از واژه مشخص شد.";}
+else hintBox.textContent="حرف راهنما: "+value;
+hintBox.classList.add("show");
+});
 x.querySelector("[data-check]").onclick=()=>{
-if(path.length<2){this.feedback(x,"یک واژه را کامل انتخاب کن.",false);return;}
-this.afterSubmit(x,WordPuzzleEngine.submitSearch(path));
+const selected=path.getPath();
+if(selected.length<2){this.feedback(x,"یک واژه را با کشیدن مسیر روی جدول انتخاب کن.",false);return;}
+this.afterSubmit(x,WordPuzzleEngine.submitSearch(selected));
 };
 },
 
 lpath(x,d){
-let path=[];
 x.innerHTML=`
 <div class="wp-card">
 <div class="wp-lpath-word">راهنما: <strong>${d.clue||"واژه را در مسیر L شکل پیدا کن."}</strong></div>
@@ -192,30 +257,26 @@ x.innerHTML=`
 <div class="wp-grid wp-l-grid"></div>
 <div class="wp-selection">مسیر انتخاب‌شده: <strong>—</strong></div>
 <div class="wp-actions">
-<button type="button" class="wp-btn wp-secondary" data-clear>پاک کردن</button>
+<button type="button" class="wp-btn wp-secondary" data-clear>پاک کردن مسیر</button>
 <button type="button" class="wp-btn wp-hint-btn" data-hint>راهنما 💡</button>
 <button type="button" class="wp-btn" data-check>بررسی مسیر</button>
 </div>
 </div>`;
 const grid=x.querySelector(".wp-grid"),hintBox=x.querySelector(".wp-hint");
-const update=()=>x.querySelector(".wp-selection strong").textContent=WordPuzzlePathEngine.read(d.grid,path)||"—";
-d.grid.forEach((row,r)=>row.forEach((letter,c)=>{
-const b=document.createElement("button");b.type="button";b.className="wp-cell";b.textContent=letter;
-b.setAttribute("aria-label",`ردیف ${r+1} ستون ${c+1}`);
-b.dataset.r=r;b.dataset.c=c;
-b.onclick=()=>{
-const idx=path.findIndex(p=>p[0]===r&&p[1]===c);
-if(idx>=0){path.splice(idx,1);b.classList.remove("sel");update();return;}
-if(path.length){const last=path[path.length-1];if(Math.max(Math.abs(r-last[0]),Math.abs(c-last[1]))!==1){this.feedback(x,"مسیر باید پیوسته باشد.",false);return;}}
-path.push([r,c]);b.classList.add("sel");update();
-};
-grid.appendChild(b);
-}));
-x.querySelector("[data-clear]").onclick=()=>{path=[];grid.querySelectorAll(".sel").forEach(b=>b.classList.remove("sel"));update();};
-x.querySelector("[data-hint]").onclick=()=>this.hint(x,(value,type)=>{if(type==="cell"){const cell=grid.querySelector('[data-r="'+value[0]+'"][data-c="'+value[1]+'"]');if(cell)cell.classList.add("hint-cell");hintBox.textContent="یک خانه از واژه مشخص شد.";}else{hintBox.textContent="حرف راهنما: "+value;}hintBox.classList.add("show");});
+this.createGrid(grid,d.grid);
+const path=this.bindDragPath(grid,selected=>{
+x.querySelector(".wp-selection strong").textContent=WordPuzzlePathEngine.read(d.grid,selected)||"—";
+});
+x.querySelector("[data-clear]").onclick=()=>{path.clear();x.querySelector(".wp-selection strong").textContent="—";};
+x.querySelector("[data-hint]").onclick=()=>this.hint(x,(value,type)=>{
+if(type==="cell"){path.highlight(value);hintBox.textContent="از خانه مشخص‌شده شروع کن.";}
+else hintBox.textContent="حرف راهنما: "+value;
+hintBox.classList.add("show");
+});
 x.querySelector("[data-check]").onclick=()=>{
-if(path.length<3){this.feedback(x,"مسیر L شکل را کامل انتخاب کن.",false);return;}
-this.afterSubmit(x,WordPuzzleEngine.submitL(path));
+const selected=path.getPath();
+if(selected.length<3){this.feedback(x,"مسیر L شکل را با کشیدن انگشت یا موس کامل کن.",false);return;}
+this.afterSubmit(x,WordPuzzleEngine.submitL(selected));
 };
 }
 };

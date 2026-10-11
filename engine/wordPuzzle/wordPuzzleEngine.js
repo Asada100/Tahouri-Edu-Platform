@@ -1,5 +1,5 @@
 const WordPuzzleEngine={
-version:"1.3",
+version:"1.4",
 activity:null,state:null,round:null,
 
 start(a){
@@ -25,7 +25,44 @@ return this.lpath();
 builder(){
 const words=WordPuzzleRepository.getWords(this.activity);
 const w=words[this.state.round%words.length]||{word:"دانش",clue:"واژه را بساز."};
-return{type:"wordBuilder",title:"کلمه‌ساز",instruction:w.clue||"با حروف زیر واژه را بساز.",word:w.word,letters:this.shuffle([...w.word])};
+const board=this.makeBuilderGrid(w.word);
+return{type:"wordBuilder",title:"کلمه‌ساز",instruction:w.clue||"با حرکت روی حروف، واژه را بساز.",word:w.word,letters:board.grid.flat(),grid:board.grid,path:board.path};
+},
+
+makeBuilderGrid(word){
+const chars=[...String(word||"دانش")];
+const size=chars.length<=5?4:5;
+const makeSnake=()=>{
+const cells=[];
+for(let r=0;r<size;r++){
+const cols=Array.from({length:size},(_,c)=>c);
+if(r%2)cols.reverse();
+for(const c of cols)cells.push([r,c]);
+}
+return cells.slice(0,chars.length);
+};
+let grid=null,path=null;
+for(let attempt=0;attempt<100&&!path;attempt++){
+const candidate=Array.from({length:size},()=>Array(size).fill(""));
+const route=[];
+let r=Math.floor(Math.random()*size),c=Math.floor(Math.random()*size),ok=true;
+for(let i=0;i<chars.length;i++){
+if(candidate[r][c]){ok=false;break;}
+candidate[r][c]=chars[i];route.push([r,c]);
+if(i===chars.length-1)break;
+const options=this.shuffle(WordPuzzlePathEngine.directions.map(d=>[r+d[0],c+d[1]]).filter(([nr,nc])=>nr>=0&&nr<size&&nc>=0&&nc<size&&!candidate[nr][nc]));
+if(!options.length){ok=false;break;}
+[r,c]=options[0];
+}
+if(ok){grid=candidate;path=route;}
+}
+if(!path){
+grid=Array.from({length:size},()=>Array(size).fill(""));
+path=makeSnake();
+path.forEach(([r,c],i)=>{grid[r][c]=chars[i];});
+}
+this.fill(grid);
+return{grid,path};
 },
 
 search(){
@@ -45,7 +82,7 @@ if(placements.length>best.words.length)best={words:placements.map(x=>x.word),gri
 if(placements.length===targetCount)break;
 }
 this.fill(best.grid);
-return{type:"wordSearch",title:"واژه‌یاب",instruction:"واژه‌ها را در جدول پیدا کن؛ افقی، عمودی و اریب.",grid:best.grid,words:best.words,placements:best.placements};
+return{type:"wordSearch",title:"واژه‌یاب",instruction:"حروف هر واژه را با کشیدن انگشت یا موس روی جدول به هم وصل کن؛ افقی، عمودی یا اریب.",grid:best.grid,words:best.words,placements:best.placements};
 },
 
 placeWord(grid,word){
@@ -85,7 +122,7 @@ if(i<horizontal)c++;else r++;
 if(r>=n&&i<w.word.length-1)break;
 }
 this.fill(grid);
-return{type:"lPath",title:"مسیر واژه",instruction:"حروف واژه را با یک مسیر L شکل پیدا کن.",grid,word:w.word,clue:w.clue||"واژه را در مسیر L شکل پیدا کن.",path};
+return{type:"lPath",title:"مسیر واژه",instruction:"حروف واژه را با کشیدن انگشت یا موس در مسیر L شکل وصل کن.",grid,word:w.word,clue:w.clue||"واژه را در مسیر L شکل پیدا کن.",path};
 },
 
 submit(ok){
@@ -112,20 +149,21 @@ submitFamily(values){return this.submit(WordPuzzleValidator.familySelection(valu
 submitSearch(path){
 if(!WordPuzzlePathEngine.valid(this.round.grid,path)||!WordPuzzlePathEngine.straight(path))return this.submit(false);
 const value=WordPuzzlePathEngine.read(this.round.grid,path),reverse=[...value].reverse().join("");
-return this.submit(this.round.words.some(w=>w===value||w===reverse));
+return this.submit(this.round.words.some(w=>WordPuzzleRepository.normalize(w)===WordPuzzleRepository.normalize(value)||WordPuzzleRepository.normalize(w)===WordPuzzleRepository.normalize(reverse)));
 },
 
 submitL(path){
 if(!WordPuzzlePathEngine.valid(this.round.grid,path)||!WordPuzzlePathEngine.isL(path))return this.submit(false);
 const value=WordPuzzlePathEngine.read(this.round.grid,path),reverse=[...value].reverse().join("");
-return this.submit(value===this.round.word||reverse===this.round.word);
+const target=WordPuzzleRepository.normalize(this.round.word);
+return this.submit(WordPuzzleRepository.normalize(value)===target||WordPuzzleRepository.normalize(reverse)===target);
 },
 
 hint(){
 if(this.state.finished)return null;
 this.state.hints++;
 const index=this.state.hints-1;
-if(this.round?.type==="wordBuilder")return{type:"letter",value:WordPuzzleHint.letter(this.round,index)||this.round?.word?.[0]||null};
+if(this.round?.type==="wordBuilder")return{type:"cell",value:this.round.path?.[0]||null};
 if(this.round?.type==="wordSearch"){
 const cell=this.round.placements?.[0]?.path?.[0];
 return cell?{type:"cell",value:cell}:null;
@@ -157,4 +195,4 @@ fill(grid){const letters="ابپتثجچحخدذرزژسشصضطظعغفقکگل
 shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 };
 window.WordPuzzleEngine=WordPuzzleEngine;
-console.log("Word Puzzle Engine v1.3 Ready");
+console.log("Word Puzzle Engine v1.4 Ready");
