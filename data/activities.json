@@ -277,7 +277,6 @@
     "chapter": "chapter1",
     "type": "wordPuzzle",
     "engine": "wordPuzzle",
-    "group": "wordPuzzle",
     "locked": false,
     "requires": null,
     "lesson": "chapter1",
