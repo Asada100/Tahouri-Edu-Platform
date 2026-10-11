@@ -138,6 +138,7 @@ const StatisticsManager = {
                 };
             }
 
+            this.migrateCompositeBestScore();
             this.rebuildChapters();
             this.rebuildOverallFromActivities();
             this.save();
@@ -308,6 +309,32 @@ const StatisticsManager = {
         activity.averageScore = activity.totalActivities > 0
             ? Math.round(activity.totalScore / activity.totalActivities)
             : 0;
+    },
+
+    // The animal composite changed from a 30-point legacy scale to 60 points.
+    // Migrate only the historical best score when a stored perfect percentage
+    // proves that the old best result was 100%. Aggregate totals are preserved:
+    // per-attempt scores are not stored, so safely recalculating them is impossible.
+    migrateCompositeBestScore: function () {
+        const activities = this.statistics.activities || {};
+        let migrated = false;
+
+        Object.keys(activities).forEach(function (key) {
+            const activity = activities[key];
+            if (!activity || typeof activity !== "object") return;
+
+            const activityId = activity.activityId || String(key).split(":").pop();
+            if (activityId !== "compositeAnimalMediaDemo") return;
+            if (Number(activity.bestPercentage) !== 100) return;
+            if (Number(activity.bestScore) >= 60) return;
+
+            activity.bestScore = 60;
+            migrated = true;
+        });
+
+        if (migrated) {
+            console.log("Statistics: Migrated legacy animal composite best score to 60-point scale");
+        }
     },
 
     rebuildOverallFromActivities: function () {
