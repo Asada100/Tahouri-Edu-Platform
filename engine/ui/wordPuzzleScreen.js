@@ -272,6 +272,7 @@ const result=WordPuzzleEngine.submitSearch(selected);
 if(result.correct&&result.foundWord){
 foundWords=result.state?.foundWords||WordPuzzleEngine.state.foundWords;
 paintWords();
+const progress=x.closest(".wp-shell")?.querySelector(".wp-progress strong");if(progress)progress.textContent=foundWords.length+" از "+WordPuzzleEngine.state.total;
 this.feedback(x,"آفرین! «"+result.foundWord+"» پیدا شد. واژه‌های باقی‌مانده را هم پیدا کن.",true);
 path.clear();x.querySelector(".wp-selection strong").textContent="—";
 if(result.finished)return;
