@@ -13,9 +13,15 @@ root.innerHTML="";
 const box=document.createElement("main");
 box.className="wp-shell";
 box.dir="rtl";
+if(s.data?.type==="modeSelect"){
+box.innerHTML=`<h1>واژه‌خانه 🧩</h1><p class="wp-instruction">نوع بازی را انتخاب کن. هر بار فقط همین بازی اجرا می‌شود.</p><div id="wp"></div>`;
+root.appendChild(box);
+this.modeSelect(box.querySelector("#wp"),s.data);
+return;
+}
 box.innerHTML=`
 <section class="wp-header">
-<div class="wp-progress">مرحله <strong>${s.round+1}</strong> از ${s.total}</div>
+<div class="wp-progress">${s.data?.type==="wordSearch"?"واژه‌های پیدا‌شده": "بازی مستقل"} <strong>${s.data?.type==="wordSearch"?s.foundWords.length+" از "+s.total:""}</strong></div>
 <div class="wp-score">⭐ <strong>${s.score}</strong></div>
 </section>
 <h1>${s.data?.title||"واژه‌خانه"}</h1>
@@ -25,9 +31,22 @@ box.innerHTML=`
 root.appendChild(box);
 const x=box.querySelector("#wp");
 if(s.data?.type==="wordBuilder")this.builder(x,s.data);
-else if(s.data?.type==="wordSearch")this.search(x,s.data);
+else if(s.data?.type==="wordSearch")this.search(x,s.data,s.foundWords||[]);
 else if(s.data?.type==="wordFamily")this.family(x,s.data);
 else this.lpath(x,s.data);
+},
+
+modeSelect(x,d){
+const labels={wordBuilder:["🔤","کلمه‌ساز","حروف را با کشیدن مسیر به هم وصل کن."],wordSearch:["🔎","واژه‌یاب","همه واژه‌های پنهان جدول را پیدا کن."],wordFamily:["🌱","خانواده واژه‌ها","واژه‌های هم‌خانواده را انتخاب کن."],lPath:["↪️","مسیر L","واژه را در مسیر L شکل پیدا کن."]};
+x.innerHTML='<div class="wp-mode-list"></div>';
+const list=x.querySelector(".wp-mode-list");
+(d.modes||Object.keys(labels)).forEach(mode=>{
+const item=labels[mode];if(!item)return;
+const b=document.createElement("button");b.type="button";b.className="wp-mode-card";
+b.innerHTML='<span class="wp-mode-icon">'+item[0]+'</span><strong>'+item[1]+'</strong><span>'+item[2]+'</span>';
+b.onclick=()=>WordPuzzleEngine.selectMode(mode);
+list.appendChild(b);
+});
 },
 
 feedback(x,message,good){
@@ -219,7 +238,8 @@ x.querySelector("[data-hint]").onclick=()=>this.hint(x,v=>{hintBox.textContent="
 x.querySelector("[data-check]").onclick=()=>this.afterSubmit(x,WordPuzzleEngine.submitFamily([...selected].map(i=>d.options[i])));
 },
 
-search(x,d){
+search(x,d,foundWords=[]){
+const normalize=w=>WordPuzzleRepository.normalize(w);
 x.innerHTML=`
 <div class="wp-card">
 <div class="wp-target-list"></div>
@@ -233,7 +253,8 @@ x.innerHTML=`
 </div>
 </div>`;
 const list=x.querySelector(".wp-target-list"),grid=x.querySelector(".wp-grid"),hintBox=x.querySelector(".wp-hint");
-list.innerHTML=d.words.map(w=>"<span>"+w+"</span>").join("");
+const paintWords=()=>{list.innerHTML="";d.words.forEach(w=>{const span=document.createElement("span");span.textContent=foundWords.includes(normalize(w))?"✓ "+w:w;span.classList.toggle("wp-found",foundWords.includes(normalize(w)));list.appendChild(span);});};
+paintWords();
 this.createGrid(grid,d.grid);
 const path=this.bindDragPath(grid,selected=>{
 x.querySelector(".wp-selection strong").textContent=WordPuzzlePathEngine.read(d.grid,selected)||"—";
@@ -247,7 +268,19 @@ hintBox.classList.add("show");
 x.querySelector("[data-check]").onclick=()=>{
 const selected=path.getPath();
 if(selected.length<2){this.feedback(x,"یک واژه را با کشیدن مسیر روی جدول انتخاب کن.",false);return;}
-this.afterSubmit(x,WordPuzzleEngine.submitSearch(selected));
+const result=WordPuzzleEngine.submitSearch(selected);
+if(result.correct&&result.foundWord){
+foundWords=result.state?.foundWords||WordPuzzleEngine.state.foundWords;
+paintWords();
+const progress=x.closest(".wp-shell")?.querySelector(".wp-progress strong");if(progress)progress.textContent=foundWords.length+" از "+WordPuzzleEngine.state.total;
+this.feedback(x,"آفرین! «"+result.foundWord+"» پیدا شد. واژه‌های باقی‌مانده را هم پیدا کن.",true);
+path.clear();x.querySelector(".wp-selection strong").textContent="—";
+if(result.finished)return;
+return;
+}
+if(result.duplicate)this.feedback(x,"این واژه را قبلاً پیدا کرده‌ای؛ واژه دیگری را امتحان کن.",false);
+else this.feedback(x,"این مسیر واژهٔ تازه‌ای از فهرست نیست؛ دوباره تلاش کن.",false);
+path.clear();x.querySelector(".wp-selection strong").textContent="—";
 };
 },
 
