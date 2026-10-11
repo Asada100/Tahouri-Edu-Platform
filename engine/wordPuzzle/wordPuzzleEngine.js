@@ -4,15 +4,25 @@ activity:null,state:null,round:null,
 
 start(a){
 this.activity=a||{};
-const total=Math.max(1,Number(a?.settings?.rounds)||5);
-this.state={started:true,finished:false,round:0,total,correct:0,wrong:0,score:0,hints:0};
-this.next(); return this.getState();
+this.state={started:true,finished:false,round:0,total:1,correct:0,wrong:0,score:0,hints:0,foundWords:[]};
+this.round={type:"modeSelect",title:"واژه‌خانه",instruction:"یک نوع بازی را انتخاب کن؛ حالت‌ها پشت سر هم اجرا نمی‌شوند.",modes:this.activity?.settings?.modes||["wordBuilder","wordSearch","wordFamily","lPath"]};
+this.state.mode=null;
+this.emitReady(); return this.getState();
+},
+
+selectMode(mode){
+const allowed=this.activity?.settings?.modes||["wordBuilder","wordSearch","wordFamily","lPath"];
+if(!allowed.includes(mode)||this.state?.finished)return this.getState();
+this.state.mode=mode;this.state.round=0;this.state.correct=0;this.state.wrong=0;this.state.score=0;this.state.hints=0;this.state.foundWords=[];
+this.round=this.build(mode);
+this.state.total=mode==="wordSearch"?this.round.words.length:1;
+this.state.started=true;
+this.emitReady();
+return this.getState();
 },
 
 next(){
-const modes=(this.activity?.settings?.modes||["wordBuilder","wordSearch","wordFamily","lPath"]).filter(Boolean);
-const mode=modes[this.state.round%modes.length]||"wordBuilder";
-this.state.hints=0; this.round=this.build(mode); this.state.mode=mode; this.emitReady();
+return this.getState();
 },
 
 build(mode){
@@ -128,15 +138,10 @@ return{type:"lPath",title:"مسیر واژه",instruction:"حروف واژه ر�
 submit(ok){
 if(!this.state?.started||this.state.finished)return{correct:false,finished:true};
 const correct=!!ok;
-if(correct){this.state.correct++;this.state.score+=WordPuzzleScore.correct(10,this.state.hints);}
-else this.state.wrong++;
-this.state.round++;
-if(this.state.round>=this.state.total){
+if(!correct){this.state.wrong++;return{correct:false,finished:false,state:this.getState()};}
+this.state.correct=1;this.state.score+=WordPuzzleScore.correct(10,this.state.hints);
 const result=this.finish();
-return{correct,finished:true,...result};
-}
-this.next();
-return{correct,finished:false,state:this.getState()};
+return{correct:true,finished:true,...result};
 },
 
 submitBuilder(value){
@@ -147,9 +152,24 @@ return this.submit(!!target&&answer===target);
 submitFamily(values){return this.submit(WordPuzzleValidator.familySelection(values,this.round));},
 
 submitSearch(path){
-if(!WordPuzzlePathEngine.valid(this.round.grid,path)||!WordPuzzlePathEngine.straight(path))return this.submit(false);
+if(!this.state||this.state.finished)return{correct:false,finished:this.state?.finished};
+if(!WordPuzzlePathEngine.valid(this.round.grid,path)||!WordPuzzlePathEngine.straight(path)){
+this.state.wrong++;return{correct:false,finished:false,keepBoard:true,state:this.getState()};
+}
 const value=WordPuzzlePathEngine.read(this.round.grid,path),reverse=[...value].reverse().join("");
-return this.submit(this.round.words.some(w=>WordPuzzleRepository.normalize(w)===WordPuzzleRepository.normalize(value)||WordPuzzleRepository.normalize(w)===WordPuzzleRepository.normalize(reverse)));
+const normalize=WordPuzzleRepository.normalize;
+const matched=this.round.words.find(w=>normalize(w)===normalize(value)||normalize(w)===normalize(reverse));
+if(!matched){this.state.wrong++;return{correct:false,finished:false,keepBoard:true,state:this.getState()};}
+const key=normalize(matched);
+if(this.state.foundWords.includes(key))return{correct:false,duplicate:true,finished:false,keepBoard:true,state:this.getState()};
+this.state.foundWords.push(key);
+this.state.correct=this.state.foundWords.length;
+this.state.score+=WordPuzzleScore.correct(10,this.state.hints);
+if(this.state.foundWords.length>=this.state.total){
+const result=this.finish();
+return{correct:true,foundWord:matched,finished:true,...result};
+}
+return{correct:true,foundWord:matched,finished:false,keepBoard:true,state:this.getState()};
 },
 
 submitL(path){
@@ -181,7 +201,7 @@ return null;
 
 finish(){
 this.state.finished=true;
-const percentage=Math.round(this.state.correct/this.state.total*100);
+const percentage=Math.round(this.state.correct/Math.max(1,this.state.total)*100);
 const result=typeof ActivityResult!=="undefined"&&ActivityResult.create
 ?ActivityResult.create({activityId:this.activity?.id||"persianWordPuzzle",score:this.state.score,percentage,totalQuestions:this.state.total,correctAnswers:this.state.correct,wrongAnswers:this.state.wrong,message:"🎉 آفرین! بازی واژه‌ها را کامل کردی."})
 :{activityId:this.activity?.id||"persianWordPuzzle",score:this.state.score,percentage,totalQuestions:this.state.total,correctAnswers:this.state.correct,wrongAnswers:this.state.wrong,message:"🎉 آفرین! بازی واژه‌ها را کامل کردی."};
