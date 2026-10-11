@@ -1,4 +1,4 @@
-// Tahouri Edu Platform - Composite Activity Screen v1.1
+// Tahouri Edu Platform - Composite Activity Screen v1.2
 (function (window) {
     'use strict';
 
@@ -7,6 +7,7 @@
         activity: null,
         state: null,
         activeMatchingStageId: null,
+        selectedOptionId: null,
 
         init() {
             if (this.connected || typeof EventManager === 'undefined') return;
@@ -15,6 +16,7 @@
                 this.activity = payload.activity || {};
                 this.state = payload.result;
                 this.activeMatchingStageId = null;
+                this.selectedOptionId = null;
                 this.render();
             });
             EventManager.on('compositeMatchingFinished', payload => {
@@ -23,7 +25,7 @@
                 window.setTimeout(() => this.handleMatchingFinished(payload), 0);
             });
             this.connected = true;
-            console.log('Composite Activity Screen v1.0 Ready');
+            console.log('Composite Activity Screen v1.2 Ready');
         },
 
         escape(value) {
@@ -76,6 +78,7 @@
             const completed = window.CompositeActivityEngine.completeMatchingStage(payload.result);
             if (!completed) return;
             this.activeMatchingStageId = null;
+            this.selectedOptionId = null;
             const next = window.CompositeActivityEngine.next();
             if (next && !next.activityId) {
                 this.state = next;
@@ -94,8 +97,11 @@
             }
             const answer = state.answers[state.currentStage];
             const options = stage.options.map(option => {
-                const selected = answer && answer.optionId === option.id;
-                const status = selected ? (answer.correct ? ' is-correct' : ' is-wrong') : '';
+                const answeredOption = answer && answer.optionId === option.id;
+                const pendingSelection = !answer && this.selectedOptionId === option.id;
+                const status = answeredOption
+                    ? (answer.correct ? ' is-correct' : ' is-wrong')
+                    : (pendingSelection ? ' is-selected' : '');
                 return '<button type="button" class="compositeOption' + status + '" data-composite-option="' +
                     this.escape(option.id) + '"' + (answer ? ' disabled' : '') + '>' +
                     this.renderMedia(option.media, false) + '</button>';
@@ -112,7 +118,9 @@
                 (stage.title ? '<h2>' + this.escape(stage.title) + '</h2>' : '') +
                 '<p class="compositeInstruction">' + this.escape(stage.instruction) + '</p>' +
                 '<div class="compositePrompt">' + this.renderMedia(stage.prompt, true) + '</div>' +
-                '<div class="compositeOptions">' + options + '</div>' + feedback +
+                '<div class="compositeOptions">' + options + '</div>' +
+                (!answer && this.selectedOptionId ? '<button type="button" id="compositeConfirmBtn" class="compositeNextBtn">ثبت پاسخ</button>' : '') +
+                feedback +
                 (answer ? '<button type="button" id="compositeNextBtn" class="compositeNextBtn">' + nextLabel + '</button>' : '') +
                 '<button type="button" id="compositeBackBtn" class="compositeBackBtn">بازگشت به فعالیت‌ها</button>' +
                 '</section>';
@@ -123,17 +131,26 @@
             });
             app.querySelectorAll('[data-composite-option]').forEach(button => {
                 button.addEventListener('click', () => {
-                    const result = window.CompositeActivityEngine.answer(button.getAttribute('data-composite-option'));
-                    if (!result) return;
-                    this.state = result.state;
+                    if (this.state.answers[this.state.currentStage]) return;
+                    this.selectedOptionId = button.getAttribute('data-composite-option');
                     this.render();
                 });
+            });
+            const confirm = document.getElementById('compositeConfirmBtn');
+            if (confirm) confirm.addEventListener('click', () => {
+                if (!this.selectedOptionId || this.state.answers[this.state.currentStage]) return;
+                const result = window.CompositeActivityEngine.answer(this.selectedOptionId);
+                if (!result) return;
+                this.state = result.state;
+                this.selectedOptionId = null;
+                this.render();
             });
             const next = document.getElementById('compositeNextBtn');
             if (next) next.addEventListener('click', () => {
                 const result = window.CompositeActivityEngine.next();
                 if (result && !result.activityId) {
                     this.state = result;
+                    this.selectedOptionId = null;
                     this.render();
                 }
             });
