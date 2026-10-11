@@ -114,7 +114,7 @@ jobs:
           from pathlib import Path
           p = Path('site/preview/index.html')
           source = p.read_text(encoding='utf-8')
-          tag = '<script src="preview-storage-isolation.js"></script>\\n'
+          tag = '<script src="preview-storage-isolation.js"></script>\n'
           if tag not in source:
               position = source.find('<script')
               if position < 0:
