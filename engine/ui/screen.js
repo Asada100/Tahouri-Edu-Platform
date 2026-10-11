@@ -1618,8 +1618,15 @@ const Screen = {
         }
 
 
+        // App.activities is the authoritative activity index loaded at startup.
+        // Prefer it over the legacy global alias, which may be stale in an already-open session.
+        const allActivities =
+            typeof App !== "undefined" && Array.isArray(App.activities)
+                ? App.activities
+                : activities;
+
         const chapterActivities =
-            activities.filter(
+            allActivities.filter(
                 function (activity) {
 
                     return (
