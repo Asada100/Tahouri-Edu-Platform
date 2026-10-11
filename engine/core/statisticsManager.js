@@ -325,7 +325,7 @@ const StatisticsManager = {
 
             const activityId = activity.activityId || String(key).split(":").pop();
             if (activityId !== "compositeAnimalMediaDemo") return;
-            if (Number(activity.bestPercentage) < 100) return;
+            if (Number(activity.bestPercentage) !== 100) return;
             if (Number(activity.bestScore) >= 60) return;
 
             activity.bestScore = 60;
