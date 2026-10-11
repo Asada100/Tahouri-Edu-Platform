@@ -1,10 +1,8 @@
 name: Composite Matching Mobile Preview
 
 on:
-  push:
-    branches: ["master"]
-    paths:
-      - ".github/workflows/composite-matching-preview.yml"
+  # Deploy preview only after the production Pages build finishes.
+  # A simultaneous push-triggered deployment can overwrite the combined preview artifact.
   workflow_run:
     workflows: ["pages build and deployment"]
     types: [completed]
