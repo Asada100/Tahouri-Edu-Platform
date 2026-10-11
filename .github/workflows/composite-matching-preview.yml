@@ -1,9 +1,11 @@
 name: Composite Matching Mobile Preview
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
+  workflow_run:
+    workflows: ["Deploy static content to Pages"]
+    types: [completed]
     branches: ["master"]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -11,12 +13,12 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "pages"
+  group: "pages-preview"
   cancel-in-progress: false
 
 jobs:
   deploy-preview:
-    if: github.event.pull_request.head.ref == 'feature/composite-matching-adapter-v1' && github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}preview/
@@ -31,7 +33,7 @@ jobs:
       - name: Checkout proposed version for preview
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: feature/composite-matching-adapter-v1
           path: preview-source
 
       - name: Build isolated preview folder
