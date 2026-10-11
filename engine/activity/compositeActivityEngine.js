@@ -1,4 +1,4 @@
-// Tahouri Edu Platform - Composite Activity Engine v1.1
+// Tahouri Edu Platform - Composite Activity Engine v1.2
 // Ordered choice and matching stages coordinated under one final activity result.
 (function (window) {
     'use strict';
@@ -131,5 +131,5 @@
     };
 
     window.CompositeActivityEngine = CompositeActivityEngine;
-    console.log('Composite Activity Engine v1.0 Ready');
+    console.log('Composite Activity Engine v1.2 Ready');
 })(window);
