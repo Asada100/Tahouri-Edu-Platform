@@ -92,7 +92,7 @@ assert.equal(finalResult.percentage, 100);
 assert.equal(finalResult.score, 40);
 assert.equal(finalResult.correctAnswers, 4);
 assert.equal(finalResult.wrongAnswers, 1);
-assert.equal(finalResult.totalQuestions, 4);
+assert.equal(finalResult.stats.totalQuestions, 4);
 assert.equal(finished.length, 1, 'final result must be emitted exactly once');
 assert.equal(engine.classifyItem('glass', 'artificial'), null);
 assert.equal(finished.length, 1, 'completed activity must not emit a second result');
