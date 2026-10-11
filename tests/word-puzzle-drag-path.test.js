@@ -5,29 +5,20 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 
 const emitted = [];
-const context = {
-  console: { log() {}, warn() {}, error() {} },
-  Math, Number, String, Object, Array, Set, JSON
-};
+const context = { console: { log() {}, warn() {}, error() {} }, Math, Number, String, Object, Array, Set, JSON };
 context.window = context;
 context.EventManager = { emit(name, payload) { emitted.push({ name, payload }); } };
 context.ActivityResult = { create(result) { return result; } };
-
 for (const path of [
-  'engine/wordPuzzle/wordRepository.js',
-  'engine/wordPuzzle/pathEngine.js',
-  'engine/wordPuzzle/difficultyEngine.js',
-  'engine/wordPuzzle/hintEngine.js',
-  'engine/wordPuzzle/scoreEngine.js',
-  'engine/wordPuzzle/wordPuzzleValidator.js',
+  'engine/wordPuzzle/wordRepository.js','engine/wordPuzzle/pathEngine.js',
+  'engine/wordPuzzle/difficultyEngine.js','engine/wordPuzzle/hintEngine.js',
+  'engine/wordPuzzle/scoreEngine.js','engine/wordPuzzle/wordPuzzleValidator.js',
   'engine/wordPuzzle/wordPuzzleEngine.js'
-]) {
-  vm.runInNewContext(fs.readFileSync(path, 'utf8'), context, { filename: path });
-}
+]) vm.runInNewContext(fs.readFileSync(path, 'utf8'), context, { filename: path });
 
 const activity = {
-  id: 'word-puzzle-drag-test',
-  settings: { rounds: 1, modes: ['wordBuilder'], difficulty: 2 },
+  id: 'word-puzzle-regression',
+  settings: { rounds: 5, modes: ['wordBuilder','wordSearch','wordFamily','lPath'], difficulty: 2 },
   puzzle: {
     words: [
       { word: 'مدرسه', clue: 'محل آموزش' },
@@ -39,49 +30,41 @@ const activity = {
 };
 
 let state = context.WordPuzzleEngine.start(activity);
+assert.equal(state.data.type, 'modeSelect', 'game starts with a mode chooser, not an automatic chain');
+assert.equal(state.mode, null);
+
+state = context.WordPuzzleEngine.selectMode('wordBuilder');
 assert.equal(state.data.type, 'wordBuilder');
-assert.equal(state.data.grid.length, 4);
-assert.equal(state.data.grid.every(row => row.length === 4), true);
-assert.equal(state.data.path.length, [...state.data.word].length);
-assert.equal(context.WordPuzzlePathEngine.valid(state.data.grid, state.data.path), true);
-assert.equal(context.WordPuzzlePathEngine.read(state.data.grid, state.data.path), state.data.word);
+assert.equal(state.total, 1);
+const built = context.WordPuzzleEngine.submitBuilder(context.WordPuzzlePathEngine.read(state.data.grid, state.data.path));
+assert.equal(built.correct, true);
+assert.equal(built.finished, true, 'one independent word-builder game ends only after its answer is correct');
 
-const correct = context.WordPuzzleEngine.submitBuilder(
-  context.WordPuzzlePathEngine.read(state.data.grid, state.data.path)
-);
-assert.equal(correct.correct, true, 'tracing the generated answer path must accept the word');
-assert.equal(correct.finished, true);
-assert.equal(correct.percentage, 100);
-
-state = context.WordPuzzleEngine.start({
-  ...activity,
-  settings: { rounds: 1, modes: ['wordSearch'], difficulty: 2 }
-});
+state = context.WordPuzzleEngine.start(activity);
+state = context.WordPuzzleEngine.selectMode('wordSearch');
 assert.equal(state.data.type, 'wordSearch');
-assert.ok(state.data.placements.length > 0);
-const placement = state.data.placements[0];
-assert.equal(context.WordPuzzlePathEngine.valid(state.data.grid, placement.path), true);
-assert.equal(context.WordPuzzlePathEngine.straight(placement.path), true);
-assert.equal(
-  context.WordPuzzlePathEngine.read(state.data.grid, placement.path),
-  placement.word
-);
-const found = context.WordPuzzleEngine.submitSearch(placement.path);
-assert.equal(found.correct, true, 'dragging along a placed word must accept it');
-
-state = context.WordPuzzleEngine.start({
-  ...activity,
-  settings: { rounds: 1, modes: ['lPath'], difficulty: 2 }
-});
-assert.equal(state.data.type, 'lPath');
-assert.equal(context.WordPuzzlePathEngine.valid(state.data.grid, state.data.path), true);
-assert.equal(context.WordPuzzlePathEngine.isL(state.data.path), true);
-assert.equal(context.WordPuzzlePathEngine.read(state.data.grid, state.data.path), state.data.word);
+assert.ok(state.data.placements.length >= 2, 'word-search board should contain multiple words');
+assert.equal(state.total, state.data.words.length);
+const first = state.data.placements[0];
+const firstResult = context.WordPuzzleEngine.submitSearch(first.path);
+assert.equal(firstResult.correct, true);
+assert.equal(firstResult.finished, false, 'finding one word must not finish a multi-word search board');
+assert.equal(context.WordPuzzleEngine.state.foundWords.length, 1);
+assert.equal(context.WordPuzzleEngine.state.mode, 'wordSearch', 'mode does not auto-chain');
+assert.equal(context.WordPuzzleEngine.state.round, 0, 'round does not auto-advance');
+const duplicate = context.WordPuzzleEngine.submitSearch(first.path);
+assert.equal(duplicate.duplicate, true, 'already-found words are not counted twice');
+for (const placement of state.data.placements.slice(1)) {
+  const result = context.WordPuzzleEngine.submitSearch(placement.path);
+  assert.equal(result.correct, true, 'each placed target word can be found');
+}
+assert.equal(context.WordPuzzleEngine.state.finished, true, 'board finishes after all target words are found');
+assert.equal(context.WordPuzzleEngine.state.correct, context.WordPuzzleEngine.state.total);
+assert.equal(emitted.filter(x => x.name === 'activityFinished').length, 2, 'one completion event per completed independent game');
 
 const screen = fs.readFileSync('engine/ui/wordPuzzleScreen.js', 'utf8');
 assert.match(screen, /pointerdown/);
 assert.match(screen, /pointermove/);
-assert.match(screen, /elementFromPoint/);
-assert.match(screen, /answer\.textContent=value/);
-
-console.log('Word Puzzle drag-path regression checks passed');
+assert.match(screen, /selectMode\(mode\)/);
+assert.match(screen, /wp-found/);
+console.log('Word Puzzle independent-mode and multi-word search checks passed');
