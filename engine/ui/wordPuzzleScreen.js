@@ -41,8 +41,10 @@ afterSubmit(x,result){
 const good=!!result?.correct;
 this.feedback(x,good?"آفرین! پاسخ درست بود.":"این پاسخ درست نبود؛ مرحله بعد را با دقت بیشتری حل کن.",good);
 if(result?.finished){
-setTimeout(()=>this.finish(result),900);
-return;
+    // The engine has already emitted activityFinished. ActivityLifecycle
+    // owns result presentation and progress recording; do not replace the
+    // platform result screen with a second, engine-specific finish screen.
+    return;
 }
 setTimeout(()=>this.render(result.state),900);
 },
