@@ -42,6 +42,87 @@ jobs:
           rsync -a --delete --exclude='.git' --exclude='.github' preview-source/ site/preview/
           touch site/.nojekyll
 
+      - name: Isolate preview storage from production
+        run: |
+          cat > site/preview/preview-storage-isolation.js <<'JS'
+          (() => {
+            const store = window.localStorage;
+            const prefix = '__tahouri_preview__:';
+            const native = {
+              getItem: store.getItem.bind(store),
+              setItem: store.setItem.bind(store),
+              removeItem: store.removeItem.bind(store),
+              clear: store.clear.bind(store),
+              key: store.key.bind(store),
+              length: Object.getOwnPropertyDescriptor(Storage.prototype, 'length').get.bind(store)
+            };
+
+            // Start from a copy of current platform data so the existing profile can be used,
+            // then keep all preview changes under a separate key prefix.
+            const originalKeys = [];
+            for (let i = 0; i < native.length(); i++) {
+              const key = native.key(i);
+              if (key && !key.startsWith(prefix)) originalKeys.push(key);
+            }
+            for (const key of originalKeys) {
+              if (native.getItem(prefix + key) === null) {
+                native.setItem(prefix + key, native.getItem(key));
+              }
+            }
+
+            Object.defineProperties(store, {
+              getItem: { configurable: true, value: key => native.getItem(prefix + String(key)) },
+              setItem: { configurable: true, value: (key, value) => native.setItem(prefix + String(key), String(value)) },
+              removeItem: { configurable: true, value: key => native.removeItem(prefix + String(key)) },
+              clear: {
+                configurable: true,
+                value: () => {
+                  const keys = [];
+                  for (let i = 0; i < native.length(); i++) {
+                    const key = native.key(i);
+                    if (key && key.startsWith(prefix)) keys.push(key);
+                  }
+                  keys.forEach(key => native.removeItem(key));
+                }
+              },
+              key: {
+                configurable: true,
+                value: index => {
+                  const keys = [];
+                  for (let i = 0; i < native.length(); i++) {
+                    const key = native.key(i);
+                    if (key && key.startsWith(prefix)) keys.push(key.slice(prefix.length));
+                  }
+                  return keys[Number(index)] ?? null;
+                }
+              },
+              length: {
+                configurable: true,
+                get: () => {
+                  let count = 0;
+                  for (let i = 0; i < native.length(); i++) {
+                    const key = native.key(i);
+                    if (key && key.startsWith(prefix)) count++;
+                  }
+                  return count;
+                }
+              }
+            });
+          })();
+          JS
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('site/preview/index.html')
+          source = p.read_text(encoding='utf-8')
+          tag = '<script src="preview-storage-isolation.js"></script>\\n'
+          if tag not in source:
+              position = source.find('<script')
+              if position < 0:
+                  raise SystemExit('Could not find script insertion point in preview index.html')
+              source = source[:position] + tag + source[position:]
+              p.write_text(source, encoding='utf-8')
+          PY
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
