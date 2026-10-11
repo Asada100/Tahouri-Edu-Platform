@@ -27,6 +27,18 @@ savedData.set(key, {
       bestPercentage: 100,
       totalCorrect: 29,
       totalWrong: 6
+    },
+    'grade5:science:chapter1:compositeAnimalMediaDemo': {
+      activityId: 'compositeAnimalMediaDemo',
+      subjectId: 'science',
+      gradeId: 'grade5',
+      chapterId: 'chapter1',
+      totalActivities: 1,
+      totalScore: 40,
+      averageScore: 40,
+      bestScore: 40,
+      totalCorrect: 4,
+      totalWrong: 2
     }
   }
 });
@@ -68,5 +80,7 @@ assert.equal(activity.totalCorrect, 29);
 assert.equal(activity.totalWrong, 6);
 assert.equal(context.StatisticsManager.get().bestScore, 60,
   'overall best score must be rebuilt from migrated activity statistics');
+assert.equal(stats['grade5:science:chapter1:compositeAnimalMediaDemo'].bestScore, 40,
+  'records without a confirmed perfect percentage must not be migrated');
 
 console.log('Composite report best-score migration checks passed');
