@@ -101,12 +101,44 @@ const result = context.CompositeActivityEngine.next();
 assert.equal(result.activityId, activity.id);
 assert.equal(result.completed, true);
 assert.equal(result.percentage, 100);
-assert.equal(result.correctAnswers, 3);
-assert.equal(result.totalQuestions, 3);
+assert.equal(result.correctAnswers, 6);
+assert.equal(result.totalQuestions, 6);
 assert.equal(result.wrongAnswers, 1, 'the parent activity must preserve matching-stage mistakes');
+assert.equal(result.score, 60, 'each of the six correct learning units must earn points');
 assert.equal(finalResult.activityId, activity.id);
 assert.equal(events.filter(event => event.name === 'activityFinished').length, 0,
   'composite engine should finish through ActivityManager, not emit a duplicate finish event');
+
+// Two wrong choices plus four correct matches must score four of six units.
+context.CompositeActivityEngine.reset();
+events.length = 0;
+state = context.CompositeActivityEngine.start(activity);
+answer = context.CompositeActivityEngine.answer('cat-bird');
+assert.equal(answer.correct, false);
+context.CompositeActivityEngine.next();
+answer = context.CompositeActivityEngine.answer('frog-reptile');
+assert.equal(answer.correct, false);
+state = context.CompositeActivityEngine.next();
+const retryMatchingActivity = {
+  id: activity.id + '::animal-group-matching',
+  type: 'matching',
+  settings: { compositeStage: true },
+  matching: state.stage.matching
+};
+context.MatchingEngine.start(retryMatchingActivity);
+for (const pair of state.stage.matching.pairs) {
+  context.MatchingEngine.select('left', pair.left.id);
+  context.MatchingEngine.select('right', pair.right.id);
+}
+const retryFinished = events.find(event => event.name === 'compositeMatchingFinished');
+assert.ok(retryFinished, 'retry matching stage must finish');
+context.CompositeActivityEngine.completeMatchingStage(retryFinished.payload.result);
+const retryResult = context.CompositeActivityEngine.next();
+assert.equal(retryResult.correctAnswers, 4, 'four matching pairs count as four correct units');
+assert.equal(retryResult.totalQuestions, 6, 'two choices plus four pairs make six units');
+assert.equal(retryResult.percentage, 67, 'two wrong choices and four correct pairs must yield 67 percent');
+assert.equal(retryResult.score, 40, 'four correct units must earn forty points');
+assert.equal(retryResult.wrongAnswers, 2, 'both incorrect choices must be preserved');
 
 // A valid but incorrect choice is recorded once and cannot be answered repeatedly.
 context.CompositeActivityEngine.reset();
