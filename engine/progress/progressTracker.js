@@ -232,7 +232,10 @@ const ProgressTracker = {
                 bestScore: 0,
                 stars: 0,
                 percentage: 0,
+                bestPercentage: 0,
+                bestStars: 0,
                 completed: false,
+                successful: false,
                 lastPlayed: null
             };
 
@@ -288,22 +291,39 @@ const ProgressTracker = {
             return;
         }
 
-        item.played = true;
-        item.completed = true;
-        item.lastPlayed = Date.now();
-        item.percentage =
-            this.calculatePercentage(result);
+        const previousPercentage = Number(item.percentage) || 0;
+        const previousStars = Number(item.stars) || 0;
+        const percentage = Math.max(0, Math.min(100, Number(this.calculatePercentage(result)) || 0));
+        const stars = Math.max(0, Math.min(5, Math.round(percentage / 20)));
+        const score = Number(result.score) || 0;
 
-        item.stars = Math.round(
-            item.percentage / 20
-        );
-
-        if (
-            result.score !== undefined &&
-            result.score > item.bestScore
-        ) {
-            item.bestScore = result.score;
+        // Migrate the old three-stage animal game's perfect 30-point score
+        // to the new six-unit scale (60 points) before comparing new attempts.
+        if (activityId === "compositeAnimalMediaDemo" && typeof item.bestPercentage !== "number") {
+            if (Number(item.bestScore) >= 30) {
+                item.bestScore = Math.max(Number(item.bestScore) || 0, 60);
+                item.bestPercentage = 100;
+                item.bestStars = 5;
+            }
         }
+
+        if (typeof item.bestPercentage !== "number") {
+            item.bestPercentage = previousPercentage;
+        }
+        if (typeof item.bestStars !== "number") {
+            item.bestStars = previousStars;
+        }
+
+        item.played = true;
+        item.completed = result.completed !== false;
+        item.lastPlayed = Date.now();
+        item.percentage = percentage;
+        item.stars = stars;
+        item.successful = item.completed && percentage >= 80;
+
+        item.bestPercentage = Math.max(Number(item.bestPercentage) || 0, percentage);
+        item.bestStars = Math.max(Number(item.bestStars) || 0, stars);
+        item.bestScore = Math.max(Number(item.bestScore) || 0, score);
 
         this.save();
 

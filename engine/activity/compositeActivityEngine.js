@@ -1,4 +1,4 @@
-// Tahouri Edu Platform - Composite Activity Engine v1.1
+// Tahouri Edu Platform - Composite Activity Engine v1.2
 // Ordered choice and matching stages coordinated under one final activity result.
 (function (window) {
     'use strict';
@@ -56,16 +56,23 @@
             const result = matchingResult && matchingResult.result ? matchingResult.result : matchingResult;
             if (!result || Number(result.percentage) < 100) return null;
 
+            const pairs = Array.isArray(stage.matching && stage.matching.pairs) ? stage.matching.pairs.length : 0;
+            const correctPairs = Number(result.correctAnswers ?? result.pairs ?? result.totalPairs) || pairs;
+            const totalPairs = Number(result.totalPairs) || pairs;
+            if (!totalPairs || correctPairs < totalPairs) return null;
+
             this.state.moves += Number(result.moves) || 0;
             this.state.wrongAnswers += Number(result.wrongAnswers) || 0;
-            this.state.correctAnswers += 1;
+            this.state.correctAnswers += correctPairs;
             const settings = this.activity && this.activity.settings || {};
             const points = Number(settings.scorePerCorrect) > 0 ? Number(settings.scorePerCorrect) : 10;
-            this.state.score += points;
+            this.state.score += correctPairs * points;
             this.state.answers[this.state.currentStage] = {
                 correct: true,
                 interaction: 'matching',
                 percentage: Number(result.percentage),
+                correctAnswers: correctPairs,
+                totalQuestions: totalPairs,
                 moves: Number(result.moves) || 0
             };
             return this.getState();
@@ -83,15 +90,23 @@
         finish() {
             if (!this.state || this.state.finished) return this.state && this.state.result;
             this.state.finished = true;
-            const percentage = this.state.totalStages
-                ? Math.round(this.state.correctAnswers / this.state.totalStages * 100) : 0;
+            const totalQuestions = this.content.stages.reduce((total, stage) => {
+                if (stage && stage.interaction === 'matching') {
+                    return total + (Array.isArray(stage.matching && stage.matching.pairs) ? stage.matching.pairs.length : 0);
+                }
+                return total + 1;
+            }, 0);
+            const correctAnswers = Math.min(this.state.correctAnswers, totalQuestions);
+            const percentage = totalQuestions
+                ? Math.round(correctAnswers / totalQuestions * 100) : 0;
             const payload = {
                 activityId: this.activity && this.activity.id,
                 score: this.state.score, percentage,
-                correctAnswers: this.state.correctAnswers,
+                correctAnswers,
                 wrongAnswers: this.state.wrongAnswers,
-                totalQuestions: this.state.totalStages, moves: this.state.moves,
-                completed: true
+                totalQuestions, moves: this.state.moves,
+                completed: true,
+                successful: percentage >= 80
             };
             const result = window.ActivityResult && typeof window.ActivityResult.create === 'function'
                 ? window.ActivityResult.create(payload) : payload;
@@ -116,5 +131,5 @@
     };
 
     window.CompositeActivityEngine = CompositeActivityEngine;
-    console.log('Composite Activity Engine v1.0 Ready');
+    console.log('Composite Activity Engine v1.2 Ready');
 })(window);
