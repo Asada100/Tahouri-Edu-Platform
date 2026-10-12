@@ -341,7 +341,6 @@ if(!resultShowing)liveWord.classList.remove("good","bad");
 onStart:()=>{clearFeedback();if(path)path.clear();},
 onRelease:selected=>{
 if(selected.length<2){if(path)path.clear();return;}
-const value=WordPuzzlePathEngine.read(d.grid,selected);
 const result=WordPuzzleEngine.submitSearch(selected);
 if(result.correct&&result.foundWord){
 foundWords=WordPuzzleEngine.state.foundWords.slice();
