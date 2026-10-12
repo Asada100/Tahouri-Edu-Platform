@@ -296,48 +296,96 @@ x.querySelector("[data-check]").onclick=()=>this.afterSubmit(x,WordPuzzleEngine.
 
 search(x,d,foundWords=[]){
 const normalize=w=>WordPuzzleRepository.normalize(w);
+let feedbackTimer=null,resultShowing=false;
 x.innerHTML=`
-<div class="wp-card">
+<div class="wp-card wp-search-card">
 <div class="wp-target-list"></div>
 <div class="wp-hint" aria-live="polite"></div>
+<div class="wp-selection wp-live-word" aria-live="polite">واژه ساخته‌شده: <strong>—</strong></div>
 <div class="wp-grid wp-search-grid"></div>
-<div class="wp-selection">حروف انتخاب‌شده: <strong>—</strong></div>
-<div class="wp-actions">
-<button type="button" class="wp-btn wp-secondary" data-clear>پاک کردن مسیر</button>
-<button type="button" class="wp-btn wp-hint-btn" data-hint>راهنما 💡</button>
-<button type="button" class="wp-btn" data-check>ثبت واژه</button>
-</div>
 </div>`;
 const list=x.querySelector(".wp-target-list"),grid=x.querySelector(".wp-grid"),hintBox=x.querySelector(".wp-hint");
-const paintWords=()=>{list.innerHTML="";d.words.forEach(w=>{const span=document.createElement("span");span.textContent=foundWords.includes(normalize(w))?"✓ "+w:w;span.classList.toggle("wp-found",foundWords.includes(normalize(w)));list.appendChild(span);});};
+const selection=x.querySelector(".wp-selection strong");
+const status=x.closest(".wp-shell")?.querySelector(".wp-status");
+const clearFeedback=()=>{
+if(feedbackTimer){clearTimeout(feedbackTimer);feedbackTimer=null;}
+resultShowing=false;
+if(status){status.textContent="";status.className="wp-status";}
+selection.textContent="—";
+selection.parentElement.classList.remove("good","bad");
+hintBox.classList.remove("show");
+};
+const paintWords=()=>{
+list.innerHTML="";
+d.words.forEach(w=>{
+const span=document.createElement("span");
+span.textContent=foundWords.includes(normalize(w))?"✓ "+w:w;
+span.classList.toggle("wp-found",foundWords.includes(normalize(w)));
+list.appendChild(span);
+});
+};
+const updateProgress=()=>{
+const progress=x.closest(".wp-shell")?.querySelector(".wp-progress strong");
+if(progress)progress.textContent=foundWords.length+" از "+WordPuzzleEngine.state.total;
+const score=x.closest(".wp-shell")?.querySelector(".wp-score strong");
+if(score)score.textContent=WordPuzzleEngine.state.score;
+};
 paintWords();
 this.createGrid(grid,d.grid);
 const path=this.bindDragPath(grid,selected=>{
-x.querySelector(".wp-selection strong").textContent=WordPuzzlePathEngine.read(d.grid,selected)||"—";
-});
-x.querySelector("[data-clear]").onclick=()=>{path.clear();x.querySelector(".wp-selection strong").textContent="—";};
-x.querySelector("[data-hint]").onclick=()=>this.hint(x,(value,type)=>{
-if(type==="cell"){path.highlight(value);hintBox.textContent="یک خانه از واژه مشخص شد.";}
-else hintBox.textContent="حرف راهنما: "+value;
-hintBox.classList.add("show");
-});
-x.querySelector("[data-check]").onclick=()=>{
-const selected=path.getPath();
-if(selected.length<2){this.feedback(x,"یک واژه را با کشیدن مسیر روی جدول انتخاب کن.",false);return;}
+if(selected.length){
+selection.textContent=WordPuzzlePathEngine.read(d.grid,selected)||"—";
+if(!resultShowing)selection.parentElement.classList.remove("good","bad");
+}else if(!resultShowing)selection.textContent="—";
+},{straightOnly:true,
+onStart:()=>{clearFeedback();if(path)path.clear();},
+onRelease:selected=>{
+if(selected.length<2){if(path)path.clear();return;}
+const value=WordPuzzlePathEngine.read(d.grid,selected);
 const result=WordPuzzleEngine.submitSearch(selected);
 if(result.correct&&result.foundWord){
-foundWords=result.state?.foundWords||WordPuzzleEngine.state.foundWords;
-paintWords();
-const progress=x.closest(".wp-shell")?.querySelector(".wp-progress strong");if(progress)progress.textContent=foundWords.length+" از "+WordPuzzleEngine.state.total;
-this.feedback(x,"آفرین! «"+result.foundWord+"» پیدا شد. واژه‌های باقی‌مانده را هم پیدا کن.",true);
-path.clear();x.querySelector(".wp-selection strong").textContent="—";
-if(result.finished)return;
+foundWords=WordPuzzleEngine.state.foundWords.slice();
+path.markFound();
+resultShowing=true;
+selection.textContent=result.foundWord;
+selection.parentElement.classList.add("good");
+selection.parentElement.classList.remove("bad");
+paintWords();updateProgress();
+if(status){status.textContent="آفرین! «"+result.foundWord+"» پیدا شد.";status.className="wp-status good";}
+feedbackTimer=setTimeout(()=>{resultShowing=false;selection.textContent="—";selection.parentElement.classList.remove("good","bad");if(status){status.textContent="";status.className="wp-status";}feedbackTimer=null;},1200);
 return;
 }
-if(result.duplicate)this.feedback(x,"این واژه را قبلاً پیدا کرده‌ای؛ واژه دیگری را امتحان کن.",false);
-else this.feedback(x,"این مسیر واژهٔ تازه‌ای از فهرست نیست؛ دوباره تلاش کن.",false);
-path.clear();x.querySelector(".wp-selection strong").textContent="—";
+resultShowing=true;
+selection.textContent=value||"—";
+selection.parentElement.classList.add("bad");
+selection.parentElement.classList.remove("good");
+path.showError();
+if(status){status.textContent=result.duplicate?"این واژه را قبلاً پیدا کرده‌ای؛ واژه دیگری را امتحان کن.":"این مسیر واژه‌ای از فهرست نیست؛ دوباره تلاش کن.";status.className="wp-status bad";}
+feedbackTimer=setTimeout(()=>{resultShowing=false;path.clear();selection.textContent="—";selection.parentElement.classList.remove("good","bad");if(status){status.textContent="";status.className="wp-status";}feedbackTimer=null;},1200);
+}
+});
+x.querySelector("[data-hint]")?.remove();
+const hintButton=document.createElement("button");
+hintButton.type="button";hintButton.className="wp-btn wp-hint-btn wp-search-hint";hintButton.textContent="راهنما 💡";
+x.querySelector(".wp-card").appendChild(hintButton);
+hintButton.onclick=()=>{
+clearFeedback();
+const result=WordPuzzleEngine.hint();
+if(!result){hintBox.textContent="همه واژه‌ها پیدا شده‌اند.";hintBox.classList.add("show");return;}
+if(result.type==="path"){
+path.highlight(result.value);
+const target=list.querySelectorAll("span");
+target.forEach(span=>{if(normalize(span.textContent.replace(/^✓\s*/, ""))===normalize(result.word))span.classList.add("wp-hint-target");});
+hintBox.textContent="راهنما: واژه «"+result.word+"» را پیدا کن؛ خانه‌های روشن‌شده مسیر آغازین را نشان می‌دهند. ۲ امتیاز کسر شد.";
+hintBox.classList.add("show");
+updateProgress();
+}else if(result.type==="cell"){
+path.highlight(result.value);
+hintBox.textContent="از خانه مشخص‌شده شروع کن.";
+hintBox.classList.add("show");
+}
 };
+}
 },
 
 lpath(x,d){
