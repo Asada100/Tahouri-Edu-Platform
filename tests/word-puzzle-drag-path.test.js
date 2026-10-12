@@ -104,3 +104,7 @@ assert.doesNotMatch(screen.slice(screen.indexOf('search(x,d,foundWords=[])'), sc
 assert.match(screen, /wp-path-found/);
 
 console.log('Word Puzzle independent modes, straight tracing, and auto-check checks passed');
+
+assert.match(screen, /wp-search-tools-toggle/);
+assert.match(screen, /wp-search-tools\.open/);
+assert.match(screen, /const steps=Math\.max\(Math\.abs\(dr\),Math\.abs\(dc\)\)/);
