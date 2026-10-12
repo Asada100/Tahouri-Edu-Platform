@@ -364,7 +364,6 @@ if(status){status.textContent=result.duplicate?"این واژه را قبلاً 
 feedbackTimer=setTimeout(()=>{resultShowing=false;path.clear();selection.textContent="—";selection.parentElement.classList.remove("good","bad");if(status){status.textContent="";status.className="wp-status";}feedbackTimer=null;},1200);
 }
 });
-x.querySelector("[data-hint]")?.remove();
 const hintButton=document.createElement("button");
 hintButton.type="button";hintButton.className="wp-btn wp-hint-btn wp-search-hint";hintButton.textContent="راهنما 💡";
 x.querySelector(".wp-card").appendChild(hintButton);
@@ -385,7 +384,6 @@ hintBox.textContent="از خانه مشخص‌شده شروع کن.";
 hintBox.classList.add("show");
 }
 };
-}
 },
 
 lpath(x,d){
