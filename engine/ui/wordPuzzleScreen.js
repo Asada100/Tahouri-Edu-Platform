@@ -25,7 +25,7 @@ ${s.data?.type==="wordSearch"?"":`<section class="wp-header">
 <div class="wp-score">⭐ <strong>${s.score}</strong></div>
 </section>`}
 <h1>${s.data?.title||"واژه‌خانه"}</h1>
-<p class="wp-instruction">${s.data?.instruction||""}</p>
+${s.data?.type==="wordSearch"?`<div class="wp-instruction wp-instruction-with-hint"><span>${s.data?.instruction||""}</span><button type="button" class="wp-btn wp-hint-btn wp-search-hint">راهنما 💡</button></div>`:`<p class="wp-instruction">${s.data?.instruction||""}</p>`}
 <div class="wp-status" aria-live="polite"></div>
 <div id="wp"></div>`;
 root.appendChild(box);
@@ -319,7 +319,6 @@ x.innerHTML=`
 <div class="wp-card wp-search-card">
 <div class="wp-target-list"></div>
 <div class="wp-hint" aria-live="polite"></div>
-<button type="button" class="wp-btn wp-hint-btn wp-search-hint">راهنما 💡</button>
 <div class="wp-selection wp-live-word" aria-live="polite" role="status"><strong>—</strong></div>
 <div class="wp-grid wp-search-grid"></div>
 </div>`;
@@ -380,7 +379,7 @@ path.showError();
 feedbackTimer=setTimeout(()=>{resultShowing=false;path.clear();selection.textContent="—";liveWord.classList.remove("visible","good","bad");feedbackTimer=null;},1800);
 }
 });
-const hintButton=x.querySelector(".wp-search-hint");
+const hintButton=x.closest(".wp-shell")?.querySelector(".wp-search-hint");
 hintButton.onclick=()=>{
 clearFeedback();
 const result=WordPuzzleEngine.hint();

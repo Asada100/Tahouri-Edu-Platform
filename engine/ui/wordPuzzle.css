@@ -114,3 +114,10 @@ transform:translateX(-50%) translateY(0);
   border:2px solid #d99a00;box-shadow:0 3px 12px rgba(90,60,0,.12);
   line-height:1.7;
 }
+
+
+/* Word Search: keep the hint beside the instruction, outside the board card. */
+.wp-instruction-with-hint{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;text-align:center;}
+.wp-instruction-with-hint>span{min-width:0;}
+.wp-instruction-with-hint .wp-search-hint{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;margin:0;padding:7px 13px;min-height:38px;font-size:14px;border-radius:10px;}
+@media(max-width:600px){.wp-instruction-with-hint{gap:7px;line-height:1.8}.wp-instruction-with-hint .wp-search-hint{padding:6px 10px;min-height:34px;font-size:13px}}
