@@ -314,7 +314,7 @@ x.querySelector("[data-check]").onclick=()=>this.afterSubmit(x,WordPuzzleEngine.
 
 search(x,d,foundWords=[]){
 const normalize=w=>WordPuzzleRepository.normalize(w);
-let feedbackTimer=null,resultShowing=false;
+let feedbackTimer=null,hintTimer=null,resultShowing=false;
 x.innerHTML=`
 <div class="wp-card wp-search-card">
 <div class="wp-target-list"></div>
@@ -327,6 +327,7 @@ const selection=x.querySelector(".wp-selection strong");
 const liveWord=selection.parentElement;
 const clearFeedback=()=>{
 if(feedbackTimer){clearTimeout(feedbackTimer);feedbackTimer=null;}
+if(hintTimer){clearTimeout(hintTimer);hintTimer=null;}
 resultShowing=false;
 selection.textContent="—";
 liveWord.classList.remove("good","bad","visible");
@@ -383,10 +384,14 @@ const hintButton=x.closest(".wp-shell")?.querySelector(".wp-search-hint");
 hintButton.onclick=()=>{
 clearFeedback();
 const result=WordPuzzleEngine.hint();
-if(!result){hintBox.textContent="همه واژه‌ها پیدا شده‌اند.";hintBox.classList.add("show");return;}
+if(!result){hintBox.textContent="همه واژه‌ها پیدا شده‌اند.";hintBox.classList.add("show");
+if(hintTimer)clearTimeout(hintTimer);
+hintTimer=setTimeout(()=>{hintBox.classList.remove("show");hintTimer=null;},2600);return;}
 if(result.type==="limit"){
 hintBox.textContent="برای واژه «"+result.word+"» هر دو حرف راهنما نمایش داده شده‌اند. واژه بعدی را پیدا کن.";
 hintBox.classList.add("show");
+if(hintTimer)clearTimeout(hintTimer);
+hintTimer=setTimeout(()=>{hintBox.classList.remove("show");hintTimer=null;},2600);
 return;
 }
 if(result.type==="path"){
@@ -395,11 +400,15 @@ const target=list.querySelectorAll("span");
 target.forEach(span=>{if(normalize(span.textContent.replace(/^✓\s*/, ""))===normalize(result.word))span.classList.add("wp-hint-target");});
 hintBox.textContent="راهنما: واژه «"+result.word+"» را پیدا کن؛ خانه‌های روشن‌شده مسیر آغازین را نشان می‌دهند. ۲ امتیاز کسر شد.";
 hintBox.classList.add("show");
+if(hintTimer)clearTimeout(hintTimer);
+hintTimer=setTimeout(()=>{hintBox.classList.remove("show");hintTimer=null;},2600);
 updateProgress();
 }else if(result.type==="cell"){
 path.highlight(result.value);
 hintBox.textContent="از خانه مشخص‌شده شروع کن.";
 hintBox.classList.add("show");
+if(hintTimer)clearTimeout(hintTimer);
+hintTimer=setTimeout(()=>{hintBox.classList.remove("show");hintTimer=null;},2600);
 }
 };
 },
