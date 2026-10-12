@@ -106,5 +106,6 @@ assert.match(screen, /wp-path-found/);
 console.log('Word Puzzle independent modes, straight tracing, and auto-check checks passed');
 
 assert.match(screen, /wp-search-tools-toggle/);
-assert.match(screen, /wp-search-tools\.open/);
+const styles = fs.readFileSync('engine/ui/wordPuzzle.css', 'utf8');
+assert.match(styles, /wp-search-tools\.open/);
 assert.match(screen, /const steps=Math\.max\(Math\.abs\(dr\),Math\.abs\(dc\)\)/);
