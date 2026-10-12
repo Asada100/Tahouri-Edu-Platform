@@ -4,7 +4,7 @@ activity:null,state:null,round:null,
 
 start(a){
 this.activity=a||{};
-this.state={started:true,finished:false,round:0,total:1,correct:0,wrong:0,score:0,hints:0,foundWords:[]};
+this.state={started:true,finished:false,round:0,total:1,correct:0,wrong:0,score:0,hints:0,hintPenalty:0,foundWords:[]};
 this.round={type:"modeSelect",title:"واژه‌خانه",instruction:"یک نوع بازی را انتخاب کن؛ حالت‌ها پشت سر هم اجرا نمی‌شوند.",modes:this.activity?.settings?.modes||["wordBuilder","wordSearch","wordFamily","lPath"]};
 this.state.mode=null;
 this.emitReady(); return this.getState();
@@ -13,7 +13,7 @@ this.emitReady(); return this.getState();
 selectMode(mode){
 const allowed=this.activity?.settings?.modes||["wordBuilder","wordSearch","wordFamily","lPath"];
 if(!allowed.includes(mode)||this.state?.finished)return this.getState();
-this.state.mode=mode;this.state.round=0;this.state.correct=0;this.state.wrong=0;this.state.score=0;this.state.hints=0;this.state.foundWords=[];
+this.state.mode=mode;this.state.round=0;this.state.correct=0;this.state.wrong=0;this.state.score=0;this.state.hints=0;this.state.hintPenalty=0;this.state.foundWords=[];
 this.round=this.build(mode);
 this.state.total=mode==="wordSearch"?this.round.words.length:1;
 this.state.started=true;
@@ -182,7 +182,7 @@ return this.submit(WordPuzzleRepository.normalize(value)===target||WordPuzzleRep
 hint(){
 if(this.state.finished)return null;
 this.state.hints++;
-if(this.state.mode==="wordSearch")this.state.score=Math.max(0,this.state.score-2);
+if(this.state.mode==="wordSearch")this.state.hintPenalty=(this.state.hintPenalty||0)+2;
 const index=this.state.hints-1;
 if(this.round?.type==="wordBuilder")return{type:"cell",value:this.round.path?.[0]||null};
 if(this.round?.type==="wordSearch"){
@@ -207,7 +207,7 @@ finish(){
 this.state.finished=true;
 const percentage=Math.round(this.state.correct/Math.max(1,this.state.total)*100);
 const result=typeof ActivityResult!=="undefined"&&ActivityResult.create
-?ActivityResult.create({activityId:this.activity?.id||"persianWordPuzzle",score:this.state.score,percentage,totalQuestions:this.state.total,correctAnswers:this.state.correct,wrongAnswers:this.state.wrong,message:"🎉 آفرین! بازی واژه‌ها را کامل کردی."})
+?ActivityResult.create({activityId:this.activity?.id||"persianWordPuzzle",score:Math.max(0,this.state.score-(this.state.hintPenalty||0)),percentage,totalQuestions:this.state.total,correctAnswers:this.state.correct,wrongAnswers:this.state.wrong,message:"🎉 آفرین! بازی واژه‌ها را کامل کردی."})
 :{activityId:this.activity?.id||"persianWordPuzzle",score:this.state.score,percentage,totalQuestions:this.state.total,correctAnswers:this.state.correct,wrongAnswers:this.state.wrong,message:"🎉 آفرین! بازی واژه‌ها را کامل کردی."};
 if(typeof EventManager!=="undefined")EventManager.emit("activityFinished",result);
 return result;
