@@ -230,6 +230,7 @@ return{
 getPath:()=>path.map(p=>[p[0],p[1]]),
 clear:()=>{path=[];cells().forEach(cell=>cell.classList.remove("hint-cell","sel","wp-error-cell"));drawOverlay();onUpdate([]);},
 highlight:points=>{
+cells().forEach(cell=>cell.classList.remove("hint-cell"));
 const list=Array.isArray(points?.[0])?points:[points];
 list.forEach(point=>{
 if(!Array.isArray(point)||point.length!==2)return;
