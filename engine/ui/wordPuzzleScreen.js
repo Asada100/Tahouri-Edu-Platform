@@ -371,6 +371,11 @@ hintButton.onclick=()=>{
 clearFeedback();
 const result=WordPuzzleEngine.hint();
 if(!result){hintBox.textContent="همه واژه‌ها پیدا شده‌اند.";hintBox.classList.add("show");return;}
+if(result.type==="limit"){
+hintBox.textContent="برای واژه «"+result.word+"» هر دو حرف راهنما نمایش داده شده‌اند. واژه بعدی را پیدا کن.";
+hintBox.classList.add("show");
+return;
+}
 if(result.type==="path"){
 path.highlight(result.value);
 const target=list.querySelectorAll("span");

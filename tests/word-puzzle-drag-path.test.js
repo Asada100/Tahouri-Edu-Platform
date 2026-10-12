@@ -76,6 +76,22 @@ assert.equal(hint.type, 'path');
 assert.ok(hint.value.length >= 1);
 assert.ok(hint.word);
 assert.equal(context.WordPuzzleEngine.state.hintPenalty, 2);
+assert.equal(hint.value.length, 1, 'first word-search hint reveals only the first letter');
+const secondHint = context.WordPuzzleEngine.hint();
+assert.equal(secondHint.type, 'path');
+assert.equal(secondHint.word, hint.word, 'second hint continues on the same unfound word');
+assert.equal(secondHint.value.length, 2, 'second hint reveals only the first two letters');
+assert.equal(context.WordPuzzleEngine.state.hintPenalty, 4);
+const limitedHint = context.WordPuzzleEngine.hint();
+assert.equal(limitedHint.type, 'limit', 'further hints for the same word reveal nothing more');
+assert.equal(context.WordPuzzleEngine.state.hintPenalty, 4, 'a hint at the cap does not deduct more points');
+const hintedPlacement = state.data.placements.find(p => p.word === hint.word);
+assert.ok(hintedPlacement);
+context.WordPuzzleEngine.submitSearch(hintedPlacement.path);
+const nextWordHint = context.WordPuzzleEngine.hint();
+assert.equal(nextWordHint.type, 'path');
+assert.notEqual(nextWordHint.word, hint.word, 'after finding a word, hints move to the next unfound word');
+assert.equal(nextWordHint.value.length, 1, 'the next word starts again with its first letter');
 
 // Straight-line movement contract for word search (no turns).
 assert.equal(context.WordPuzzlePathEngine.straight([[0,0],[0,1],[0,2]]), true);
