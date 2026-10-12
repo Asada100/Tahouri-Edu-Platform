@@ -313,7 +313,7 @@ resultShowing=false;
 if(status){status.textContent="";status.className="wp-status";}
 selection.textContent="—";
 selection.parentElement.classList.remove("good","bad");
-hintBox.classList.remove("show");
+hintBox.classList.remove("show");list.querySelectorAll(".wp-hint-target").forEach(span=>span.classList.remove("wp-hint-target"));
 };
 const paintWords=()=>{
 list.innerHTML="";
@@ -328,7 +328,7 @@ const updateProgress=()=>{
 const progress=x.closest(".wp-shell")?.querySelector(".wp-progress strong");
 if(progress)progress.textContent=foundWords.length+" از "+WordPuzzleEngine.state.total;
 const score=x.closest(".wp-shell")?.querySelector(".wp-score strong");
-if(score)score.textContent=WordPuzzleEngine.state.score;
+if(score)score.textContent=Math.max(0,WordPuzzleEngine.state.score-(WordPuzzleEngine.state.hintPenalty||0));
 };
 paintWords();
 this.createGrid(grid,d.grid);
