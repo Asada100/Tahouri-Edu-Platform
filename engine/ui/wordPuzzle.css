@@ -42,3 +42,31 @@
 .wp-score{flex:0 0 auto}
 .wp-live-word{font-size:16px}
 }
+
+
+/* Word Search: floating feedback stays out of document flow and never blocks tracing */
+.wp-shell:has(.wp-search-card)>.wp-status{display:none}
+.wp-search-card .wp-live-word{
+position:fixed;
+left:50%;
+bottom:16px;
+z-index:10000;
+width:min(500px,calc(100vw - 28px));
+min-height:0;
+margin:0;
+padding:10px 16px;
+transform:translateX(-50%) translateY(8px);
+opacity:0;
+visibility:hidden;
+pointer-events:none;
+box-shadow:0 8px 28px rgba(20,32,55,.18);
+transition:opacity .16s ease,transform .16s ease,visibility .16s ease;
+}
+.wp-search-card .wp-live-word.visible{
+opacity:1;
+visibility:visible;
+transform:translateX(-50%) translateY(0);
+}
+@media(prefers-reduced-motion:reduce){
+.wp-search-card .wp-live-word{transition:none}
+}
