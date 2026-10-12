@@ -192,6 +192,7 @@ gridElement.addEventListener("pointerdown",event=>{
 const cell=event.target.closest?.(".wp-cell");
 if(!cell)return;
 event.preventDefault();
+if(typeof options.onStart==="function")options.onStart();
 dragging=true;
 try{gridElement.setPointerCapture(event.pointerId);}catch(_){}
 visit(cell);
