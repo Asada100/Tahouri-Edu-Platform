@@ -68,6 +68,15 @@ assert.match(screen, /pointermove/);
 assert.match(screen, /selectMode\(mode\)/);
 assert.match(screen, /wp-found/);
 
+// Hints target an unfound word and charge a two-point penalty.
+state = context.WordPuzzleEngine.start(activity);
+state = context.WordPuzzleEngine.selectMode('wordSearch');
+const hint = context.WordPuzzleEngine.hint();
+assert.equal(hint.type, 'path');
+assert.ok(hint.value.length >= 1);
+assert.ok(hint.word);
+assert.equal(context.WordPuzzleEngine.state.hintPenalty, 2);
+
 // Straight-line movement contract for word search (no turns).
 assert.equal(context.WordPuzzlePathEngine.straight([[0,0],[0,1],[0,2]]), true);
 assert.equal(context.WordPuzzlePathEngine.straight([[0,0],[1,1],[2,2]]), true);
