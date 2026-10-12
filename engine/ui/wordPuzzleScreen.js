@@ -123,13 +123,45 @@ gridElement.appendChild(b);
 }));
 },
 
-bindDragPath(gridElement,onUpdate){
+bindDragPath(gridElement,onUpdate,options={}){
 let path=[];
 let dragging=false;
+const straightOnly=!!options.straightOnly;
 const cells=()=>Array.from(gridElement.querySelectorAll(".wp-cell"));
+gridElement.style.position="relative";
+const svgNS="http://www.w3.org/2000/svg";
+let overlay=gridElement.querySelector(".wp-path-overlay");
+if(!overlay){
+overlay=document.createElementNS(svgNS,"svg");
+overlay.setAttribute("viewBox","0 0 1000 1000");
+overlay.setAttribute("preserveAspectRatio","none");
+overlay.setAttribute("aria-hidden","true");
+overlay.classList.add("wp-path-overlay");
+gridElement.appendChild(overlay);
+}
+const foundPaths=gridElement.__wpFoundPaths||[];
+gridElement.__wpFoundPaths=foundPaths;
+const pointsFor=points=>points.map(([r,c])=>{
+const cell=gridElement.querySelector('[data-r="'+r+'"][data-c="'+c+'"]');
+return cell?((cell.offsetLeft+cell.offsetWidth/2)/Math.max(1,gridElement.clientWidth)*1000)+","+((cell.offsetTop+cell.offsetHeight/2)/Math.max(1,gridElement.clientHeight)*1000):null;
+}).filter(Boolean).join(" ");
+const drawOverlay=()=>{
+overlay.innerHTML="";
+foundPaths.forEach(points=>{
+const line=document.createElementNS(svgNS,"polyline");
+line.setAttribute("points",pointsFor(points));line.setAttribute("class","wp-path-line wp-path-found");
+overlay.appendChild(line);
+});
+if(path.length>1){
+const line=document.createElementNS(svgNS,"polyline");
+line.setAttribute("points",pointsFor(path));line.setAttribute("class","wp-path-line wp-path-active");
+overlay.appendChild(line);
+}
+};
 const sync=()=>{
 const selected=new Set(path.map(([r,c])=>r+","+c));
 cells().forEach(cell=>cell.classList.toggle("sel",selected.has(cell.dataset.r+","+cell.dataset.c)));
+drawOverlay();
 onUpdate(path.map(p=>[p[0],p[1]]));
 };
 const visit=cell=>{
@@ -141,10 +173,20 @@ if(existing===path.length-1)return;
 path=path.slice(0,existing+1);sync();return;
 }
 if(path.length){
-const last=path[path.length-1];
-if(Math.max(Math.abs(point[0]-last[0]),Math.abs(point[1]-last[1]))!==1)return;
+const last=path[path.length-1],dr=point[0]-last[0],dc=point[1]-last[1];
+if(Math.max(Math.abs(dr),Math.abs(dc))!==1)return;
+if(straightOnly&&path.length>=2){
+const baseR=path[1][0]-path[0][0],baseC=path[1][1]-path[0][1];
+if(dr!==baseR||dc!==baseC)return;
+}
 }
 path.push(point);sync();
+};
+const stop=event=>{
+if(!dragging)return;
+dragging=false;
+try{if(gridElement.hasPointerCapture(event.pointerId))gridElement.releasePointerCapture(event.pointerId);}catch(_){}
+if(typeof options.onRelease==="function")options.onRelease(path.map(p=>[p[0],p[1]]));
 };
 gridElement.addEventListener("pointerdown",event=>{
 const cell=event.target.closest?.(".wp-cell");
@@ -159,10 +201,6 @@ if(!dragging)return;
 const cell=document.elementFromPoint(event.clientX,event.clientY)?.closest?.(".wp-cell");
 if(cell&&gridElement.contains(cell))visit(cell);
 });
-const stop=event=>{
-dragging=false;
-try{if(gridElement.hasPointerCapture(event.pointerId))gridElement.releasePointerCapture(event.pointerId);}catch(_){}
-};
 gridElement.addEventListener("pointerup",stop);
 gridElement.addEventListener("pointercancel",stop);
 gridElement.addEventListener("click",event=>{
@@ -172,13 +210,31 @@ if(cell)visit(cell);
 });
 return{
 getPath:()=>path.map(p=>[p[0],p[1]]),
-clear:()=>{path=[];cells().forEach(cell=>cell.classList.remove("hint-cell"));sync();},
-highlight:point=>{
+clear:()=>{path=[];cells().forEach(cell=>cell.classList.remove("hint-cell","sel","wp-error-cell"));drawOverlay();onUpdate([]);},
+highlight:points=>{
+const list=Array.isArray(points?.[0])?points:[points];
+list.forEach(point=>{
 if(!Array.isArray(point)||point.length!==2)return;
 const cell=gridElement.querySelector('[data-r="'+point[0]+'"][data-c="'+point[1]+'"]');
 if(cell)cell.classList.add("hint-cell");
+});
+},
+markFound:()=>{
+if(path.length>1)foundPaths.push(path.map(p=>[p[0],p[1]]));
+path.forEach(([r,c])=>{
+const cell=gridElement.querySelector('[data-r="'+r+'"][data-c="'+c+'"]');
+if(cell){cell.classList.remove("sel","hint-cell");cell.classList.add("wp-found-cell");}
+});
+path=[];drawOverlay();onUpdate([]);
+},
+showError:()=>{
+path.forEach(([r,c])=>{
+const cell=gridElement.querySelector('[data-r="'+r+'"][data-c="'+c+'"]');
+if(cell)cell.classList.add("wp-error-cell");
+});
 }
 };
+}
 },
 
 builder(x,d){
