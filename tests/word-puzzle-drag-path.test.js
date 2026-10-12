@@ -51,7 +51,7 @@ state = context.WordPuzzleEngine.start(activity);
 state = context.WordPuzzleEngine.selectMode('wordSearch');
 assert.equal(state.data.type, 'wordSearch');
 assert.equal(state.data.words.length, 10, 'word search shows ten target words when the activity provides ten');
-assert.ok(state.data.grid.length >= 11, 'ten-word search uses a board large enough for longer targets');
+assert.ok(state.data.grid.length <= 9, 'ten-word search keeps the board compact enough to avoid unnecessary scrolling');
 assert.ok(state.data.placements.length >= 2, 'word-search board should contain multiple words');
 assert.equal(state.total, state.data.words.length);
 const first = state.data.placements[0];
@@ -72,6 +72,7 @@ assert.equal(context.WordPuzzleEngine.state.correct, context.WordPuzzleEngine.st
 assert.equal(emitted.filter(x => x.name === 'activityFinished').length, 2, 'one completion event per completed independent game');
 
 const screen = fs.readFileSync('engine/ui/wordPuzzleScreen.js', 'utf8');
+const styles = fs.readFileSync('engine/ui/wordPuzzle.css', 'utf8');
 assert.match(screen, /pointerdown/);
 assert.match(screen, /pointermove/);
 assert.match(screen, /selectMode\(mode\)/);
@@ -118,3 +119,7 @@ assert.match(screen, /wp-search-tools-toggle/);
 const styles = fs.readFileSync('engine/ui/wordPuzzle.css', 'utf8');
 assert.match(styles, /wp-search-tools\.open/);
 assert.match(screen, /const steps=Math\.max\(Math\.abs\(dr\),Math\.abs\(dc\)\)/);
+
+assert.doesNotMatch(screen, /wp-search-tools-toggle/);
+assert.match(screen, /wp-search-hint/);
+assert.doesNotMatch(styles, /wp-search-tools-toggle/);
