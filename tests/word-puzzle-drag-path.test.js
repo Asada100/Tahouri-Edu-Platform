@@ -21,9 +21,16 @@ const activity = {
   settings: { rounds: 5, modes: ['wordBuilder','wordSearch','wordFamily','lPath'], difficulty: 2 },
   puzzle: {
     words: [
-      { word: 'مدرسه', clue: 'محل آموزش' },
+      { word: 'چراغ', clue: 'وسیله‌ای که نور می‌دهد' },
+      { word: 'فروغ', clue: 'روشنایی و تابش' },
+      { word: 'جهان', clue: 'همه عالم و هستی' },
+      { word: 'تجلی', clue: 'آشکار شدن' },
+      { word: 'تعالی', clue: 'بلندی و کمال' },
       { word: 'کتاب', clue: 'چیزی برای خواندن' },
-      { word: 'دانش', clue: 'آگاهی' }
+      { word: 'مدرسه', clue: 'محل آموزش' },
+      { word: 'دانش', clue: 'آگاهی' },
+      { word: 'روشنایی', clue: 'تابش نور' },
+      { word: 'تابان', clue: 'درخشان' }
     ],
     families: [{ base: 'علم', members: ['عالم', 'علوم'] }]
   }
@@ -43,6 +50,8 @@ assert.equal(built.finished, true, 'one independent word-builder game ends only 
 state = context.WordPuzzleEngine.start(activity);
 state = context.WordPuzzleEngine.selectMode('wordSearch');
 assert.equal(state.data.type, 'wordSearch');
+assert.equal(state.data.words.length, 10, 'word search shows ten target words when the activity provides ten');
+assert.ok(state.data.grid.length >= 11, 'ten-word search uses a board large enough for longer targets');
 assert.ok(state.data.placements.length >= 2, 'word-search board should contain multiple words');
 assert.equal(state.total, state.data.words.length);
 const first = state.data.placements[0];
@@ -104,3 +113,8 @@ assert.doesNotMatch(screen.slice(screen.indexOf('search(x,d,foundWords=[])'), sc
 assert.match(screen, /wp-path-found/);
 
 console.log('Word Puzzle independent modes, straight tracing, and auto-check checks passed');
+
+assert.match(screen, /wp-search-tools-toggle/);
+const styles = fs.readFileSync('engine/ui/wordPuzzle.css', 'utf8');
+assert.match(styles, /wp-search-tools\.open/);
+assert.match(screen, /const steps=Math\.max\(Math\.abs\(dr\),Math\.abs\(dc\)\)/);

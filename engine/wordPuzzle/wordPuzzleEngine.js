@@ -78,10 +78,11 @@ return{grid,path};
 search(){
 const difficulty=WordPuzzleDifficulty.settings(this.activity?.settings?.difficulty||2);
 const source=this.shuffle(WordPuzzleRepository.getWords(this.activity).slice());
-const targetCount=Math.min(difficulty.words,source.length);
+const targetCount=Math.min(10,source.length);
+const gridSize=Math.max(difficulty.grid,11);
 let best={words:[],grid:[],placements:[]};
-for(let retry=0;retry<20;retry++){
-const grid=Array.from({length:difficulty.grid},()=>Array(difficulty.grid).fill(""));
+for(let retry=0;retry<40;retry++){
+const grid=Array.from({length:gridSize},()=>Array(gridSize).fill(""));
 const placements=[];
 for(const candidate of source){
 if(placements.length>=targetCount)break;

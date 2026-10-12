@@ -200,7 +200,24 @@ visit(cell);
 gridElement.addEventListener("pointermove",event=>{
 if(!dragging)return;
 const cell=document.elementFromPoint(event.clientX,event.clientY)?.closest?.(".wp-cell");
-if(cell&&gridElement.contains(cell))visit(cell);
+if(!cell||!gridElement.contains(cell))return;
+const target=[Number(cell.dataset.r),Number(cell.dataset.c)];
+const last=path[path.length-1];
+if(!last){visit(cell);return;}
+const dr=target[0]-last[0],dc=target[1]-last[1];
+if(dr===0&&dc===0)return;
+const steps=Math.max(Math.abs(dr),Math.abs(dc));
+if(steps<=1){visit(cell);return;}
+if(!(dr===0||dc===0||Math.abs(dr)===Math.abs(dc)))return;
+const stepR=dr===0?0:dr/steps,stepC=dc===0?0:dc/steps;
+if(straightOnly&&path.length>=2){
+const baseR=path[1][0]-path[0][0],baseC=path[1][1]-path[0][1];
+if(stepR!==baseR||stepC!==baseC)return;
+}
+for(let i=1;i<=steps;i++){
+const next=gridElement.querySelector('[data-r="'+(last[0]+stepR*i)+'"][data-c="'+(last[1]+stepC*i)+'"]');
+if(next)visit(next);
+}
 });
 gridElement.addEventListener("pointerup",stop);
 gridElement.addEventListener("pointercancel",stop);
@@ -300,7 +317,11 @@ let feedbackTimer=null,resultShowing=false;
 x.innerHTML=`
 <div class="wp-card wp-search-card">
 <div class="wp-target-list"></div>
+<button type="button" class="wp-btn wp-search-tools-toggle" aria-expanded="false">راهنما و ابزارها ▾</button>
+<div class="wp-search-tools">
 <div class="wp-hint" aria-live="polite"></div>
+<button type="button" class="wp-btn wp-hint-btn wp-search-hint">راهنما 💡</button>
+</div>
 <div class="wp-selection wp-live-word" aria-live="polite" role="status"><strong>—</strong></div>
 <div class="wp-grid wp-search-grid"></div>
 </div>`;
@@ -361,9 +382,14 @@ path.showError();
 feedbackTimer=setTimeout(()=>{resultShowing=false;path.clear();selection.textContent="—";liveWord.classList.remove("visible","good","bad");feedbackTimer=null;},1800);
 }
 });
-const hintButton=document.createElement("button");
-hintButton.type="button";hintButton.className="wp-btn wp-hint-btn wp-search-hint";hintButton.textContent="راهنما 💡";
-x.querySelector(".wp-card").appendChild(hintButton);
+const toolsToggle=x.querySelector(".wp-search-tools-toggle");
+const toolsPanel=x.querySelector(".wp-search-tools");
+toolsToggle.onclick=()=>{
+const open=toolsPanel.classList.toggle("open");
+toolsToggle.setAttribute("aria-expanded",String(open));
+toolsToggle.textContent=open?"بستن ابزارها ▴":"راهنما و ابزارها ▾";
+};
+const hintButton=x.querySelector(".wp-search-hint");
 hintButton.onclick=()=>{
 clearFeedback();
 const result=WordPuzzleEngine.hint();
