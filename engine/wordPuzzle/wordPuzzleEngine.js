@@ -13,7 +13,7 @@ this.emitReady(); return this.getState();
 selectMode(mode){
 const allowed=this.activity?.settings?.modes||["wordBuilder","wordSearch","wordFamily","lPath"];
 if(!allowed.includes(mode)||this.state?.finished)return this.getState();
-this.state.mode=mode;this.state.round=0;this.state.correct=0;this.state.wrong=0;this.state.score=0;this.state.hints=0;this.state.hintPenalty=0;this.state.foundWords=[];
+this.state.mode=mode;this.state.round=0;this.state.correct=0;this.state.wrong=0;this.state.score=0;this.state.hints=0;this.state.hintPenalty=0;this.state.foundWords=[];this.state.searchHintCounts={};
 this.round=this.build(mode);
 this.state.total=mode==="wordSearch"?this.round.words.length:1;
 this.state.started=true;
@@ -181,17 +181,23 @@ return this.submit(WordPuzzleRepository.normalize(value)===target||WordPuzzleRep
 
 hint(){
 if(this.state.finished)return null;
-this.state.hints++;
-if(this.state.mode==="wordSearch")this.state.hintPenalty=(this.state.hintPenalty||0)+2;
-const index=this.state.hints-1;
-if(this.round?.type==="wordBuilder")return{type:"cell",value:this.round.path?.[0]||null};
 if(this.round?.type==="wordSearch"){
 const normalize=WordPuzzleRepository.normalize;
 const placement=(this.round.placements||[]).find(item=>!this.state.foundWords.includes(normalize(item.word)));
 if(!placement)return null;
-const cells=(placement.path||[]).slice(0,Math.min(3,placement.path.length));
+this.state.searchHintCounts=this.state.searchHintCounts||{};
+const key=normalize(placement.word);
+const shown=this.state.searchHintCounts[key]||0;
+if(shown>=2)return{type:"limit",word:placement.word};
+this.state.searchHintCounts[key]=shown+1;
+this.state.hints++;
+this.state.hintPenalty=(this.state.hintPenalty||0)+2;
+const cells=(placement.path||[]).slice(0,shown+1);
 return cells.length?{type:"path",value:cells,word:placement.word}:null;
 }
+this.state.hints++;
+const index=this.state.hints-1;
+if(this.round?.type==="wordBuilder")return{type:"cell",value:this.round.path?.[0]||null};
 if(this.round?.type==="lPath"){
 const cell=this.round.path?.[0];
 return cell?{type:"cell",value:cell}:null;
@@ -202,7 +208,6 @@ return{type:"letter",value:answer?.[0]||null};
 }
 return null;
 },
-
 finish(){
 this.state.finished=true;
 const percentage=Math.round(this.state.correct/Math.max(1,this.state.total)*100);
