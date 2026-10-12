@@ -67,4 +67,24 @@ assert.match(screen, /pointerdown/);
 assert.match(screen, /pointermove/);
 assert.match(screen, /selectMode\(mode\)/);
 assert.match(screen, /wp-found/);
-console.log('Word Puzzle independent-mode and multi-word search checks passed');
+
+// Hints target an unfound word and charge a two-point penalty.
+state = context.WordPuzzleEngine.start(activity);
+state = context.WordPuzzleEngine.selectMode('wordSearch');
+const hint = context.WordPuzzleEngine.hint();
+assert.equal(hint.type, 'path');
+assert.ok(hint.value.length >= 1);
+assert.ok(hint.word);
+assert.equal(context.WordPuzzleEngine.state.hintPenalty, 2);
+
+// Straight-line movement contract for word search (no turns).
+assert.equal(context.WordPuzzlePathEngine.straight([[0,0],[0,1],[0,2]]), true);
+assert.equal(context.WordPuzzlePathEngine.straight([[0,0],[1,1],[2,2]]), true);
+assert.equal(context.WordPuzzlePathEngine.straight([[0,0],[0,1],[1,1]]), false);
+assert.match(screen, /straightOnly:true/);
+assert.match(screen, /onRelease:selected/);
+assert.match(screen, /wp-live-word/);
+assert.doesNotMatch(screen.slice(screen.indexOf('search(x,d,foundWords=[])'), screen.indexOf('lpath(x,d){')), /data-check|data-clear/);
+assert.match(screen, /wp-path-found/);
+
+console.log('Word Puzzle independent modes, straight tracing, and auto-check checks passed');
