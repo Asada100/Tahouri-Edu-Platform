@@ -121,3 +121,8 @@ transform:translateX(-50%) translateY(0);
 .wp-instruction-with-hint>span{min-width:0;}
 .wp-instruction-with-hint .wp-search-hint{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;margin:0;padding:7px 13px;min-height:38px;font-size:14px;border-radius:10px;}
 @media(max-width:600px){.wp-instruction-with-hint{gap:7px;line-height:1.8}.wp-instruction-with-hint .wp-search-hint{padding:6px 10px;min-height:34px;font-size:13px}}
+
+/* Stable Word Search hint toast; never shift or animate grid cells. */
+.wp-search-card .wp-hint.show{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom, 0px));z-index:10001;display:block;width:min(560px,calc(100vw - 28px));max-height:35vh;overflow:auto;box-sizing:border-box;margin:0;padding:11px 16px;transform:translateX(-50%);pointer-events:none;box-shadow:0 8px 28px rgba(20,32,55,.22);}
+.wp-search-grid .wp-cell,.wp-search-grid .wp-cell:hover,.wp-search-grid .wp-cell:focus{transform:none!important;transition:none!important;}
+.wp-search-grid .wp-cell.hint-cell{animation:none!important;transform:none!important;}
