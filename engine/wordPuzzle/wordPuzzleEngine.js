@@ -208,7 +208,7 @@ this.state.finished=true;
 const percentage=Math.round(this.state.correct/Math.max(1,this.state.total)*100);
 const result=typeof ActivityResult!=="undefined"&&ActivityResult.create
 ?ActivityResult.create({activityId:this.activity?.id||"persianWordPuzzle",score:Math.max(0,this.state.score-(this.state.hintPenalty||0)),percentage,totalQuestions:this.state.total,correctAnswers:this.state.correct,wrongAnswers:this.state.wrong,message:"🎉 آفرین! بازی واژه‌ها را کامل کردی."})
-:{activityId:this.activity?.id||"persianWordPuzzle",score:this.state.score,percentage,totalQuestions:this.state.total,correctAnswers:this.state.correct,wrongAnswers:this.state.wrong,message:"🎉 آفرین! بازی واژه‌ها را کامل کردی."};
+ :{activityId:this.activity?.id||"persianWordPuzzle",score:Math.max(0,this.state.score-(this.state.hintPenalty||0)),percentage,totalQuestions:this.state.total,correctAnswers:this.state.correct,wrongAnswers:this.state.wrong,message:"🎉 آفرین! بازی واژه‌ها را کامل کردی."};
 if(typeof EventManager!=="undefined")EventManager.emit("activityFinished",result);
 return result;
 },
