@@ -234,7 +234,6 @@ if(cell)cell.classList.add("wp-error-cell");
 });
 }
 };
-}
 },
 
 builder(x,d){
