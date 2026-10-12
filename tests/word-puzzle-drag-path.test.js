@@ -67,4 +67,15 @@ assert.match(screen, /pointerdown/);
 assert.match(screen, /pointermove/);
 assert.match(screen, /selectMode\(mode\)/);
 assert.match(screen, /wp-found/);
-console.log('Word Puzzle independent-mode and multi-word search checks passed');
+
+// Straight-line movement contract for word search (no turns).
+assert.equal(context.WordPuzzlePathEngine.straight([[0,0],[0,1],[0,2]]), true);
+assert.equal(context.WordPuzzlePathEngine.straight([[0,0],[1,1],[2,2]]), true);
+assert.equal(context.WordPuzzlePathEngine.straight([[0,0],[0,1],[1,1]]), false);
+assert.match(screen, /straightOnly:true/);
+assert.match(screen, /onRelease:selected/);
+assert.match(screen, /wp-live-word/);
+assert.doesNotMatch(screen.slice(screen.indexOf('search(x,d,foundWords=[])'), screen.indexOf('lpath(x,d){')), /data-check|data-clear/);
+assert.match(screen, /wp-path-found/);
+
+console.log('Word Puzzle independent modes, straight tracing, and auto-check checks passed');
