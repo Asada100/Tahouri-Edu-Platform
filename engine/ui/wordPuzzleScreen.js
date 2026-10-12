@@ -301,18 +301,17 @@ x.innerHTML=`
 <div class="wp-card wp-search-card">
 <div class="wp-target-list"></div>
 <div class="wp-hint" aria-live="polite"></div>
-<div class="wp-selection wp-live-word" aria-live="polite">واژه ساخته‌شده: <strong>—</strong></div>
+<div class="wp-selection wp-live-word" aria-live="polite" role="status"><strong>—</strong></div>
 <div class="wp-grid wp-search-grid"></div>
 </div>`;
 const list=x.querySelector(".wp-target-list"),grid=x.querySelector(".wp-grid"),hintBox=x.querySelector(".wp-hint");
 const selection=x.querySelector(".wp-selection strong");
-const status=x.closest(".wp-shell")?.querySelector(".wp-status");
+const liveWord=selection.parentElement;
 const clearFeedback=()=>{
 if(feedbackTimer){clearTimeout(feedbackTimer);feedbackTimer=null;}
 resultShowing=false;
-if(status){status.textContent="";status.className="wp-status";}
 selection.textContent="—";
-selection.parentElement.classList.remove("good","bad");
+liveWord.classList.remove("good","bad","visible");
 hintBox.classList.remove("show");list.querySelectorAll(".wp-hint-target").forEach(span=>span.classList.remove("wp-hint-target"));
 };
 const paintWords=()=>{
@@ -335,8 +334,9 @@ this.createGrid(grid,d.grid);
 const path=this.bindDragPath(grid,selected=>{
 if(selected.length){
 selection.textContent=WordPuzzlePathEngine.read(d.grid,selected)||"—";
-if(!resultShowing)selection.parentElement.classList.remove("good","bad");
-}else if(!resultShowing)selection.textContent="—";
+liveWord.classList.add("visible");
+if(!resultShowing)liveWord.classList.remove("good","bad");
+}else if(!resultShowing){selection.textContent="—";liveWord.classList.remove("visible");}
 },{straightOnly:true,
 onStart:()=>{clearFeedback();if(path)path.clear();},
 onRelease:selected=>{
@@ -347,21 +347,19 @@ if(result.correct&&result.foundWord){
 foundWords=WordPuzzleEngine.state.foundWords.slice();
 path.markFound();
 resultShowing=true;
-selection.textContent=result.foundWord;
-selection.parentElement.classList.add("good");
-selection.parentElement.classList.remove("bad");
+selection.textContent="آفرین! «"+result.foundWord+"» پیدا شد.";
+liveWord.classList.add("visible","good");
+liveWord.classList.remove("bad");
 paintWords();updateProgress();
-if(status){status.textContent="آفرین! «"+result.foundWord+"» پیدا شد.";status.className="wp-status good";}
-feedbackTimer=setTimeout(()=>{resultShowing=false;selection.textContent="—";selection.parentElement.classList.remove("good","bad");if(status){status.textContent="";status.className="wp-status";}feedbackTimer=null;},1200);
+feedbackTimer=setTimeout(()=>{resultShowing=false;selection.textContent="—";liveWord.classList.remove("visible","good","bad");feedbackTimer=null;},1800);
 return;
 }
 resultShowing=true;
-selection.textContent=value||"—";
-selection.parentElement.classList.add("bad");
-selection.parentElement.classList.remove("good");
+selection.textContent=result.duplicate?"این واژه قبلاً پیدا شده است.":"این واژه در فهرست نیست.";
+liveWord.classList.add("visible","bad");
+liveWord.classList.remove("good");
 path.showError();
-if(status){status.textContent=result.duplicate?"این واژه را قبلاً پیدا کرده‌ای؛ واژه دیگری را امتحان کن.":"این مسیر واژه‌ای از فهرست نیست؛ دوباره تلاش کن.";status.className="wp-status bad";}
-feedbackTimer=setTimeout(()=>{resultShowing=false;path.clear();selection.textContent="—";selection.parentElement.classList.remove("good","bad");if(status){status.textContent="";status.className="wp-status";}feedbackTimer=null;},1200);
+feedbackTimer=setTimeout(()=>{resultShowing=false;path.clear();selection.textContent="—";liveWord.classList.remove("visible","good","bad");feedbackTimer=null;},1800);
 }
 });
 const hintButton=document.createElement("button");
