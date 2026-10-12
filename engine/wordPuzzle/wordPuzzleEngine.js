@@ -164,7 +164,7 @@ const key=normalize(matched);
 if(this.state.foundWords.includes(key))return{correct:false,duplicate:true,finished:false,keepBoard:true,state:this.getState()};
 this.state.foundWords.push(key);
 this.state.correct=this.state.foundWords.length;
-this.state.score+=WordPuzzleScore.correct(10,this.state.hints);
+this.state.score+=WordPuzzleScore.correct(10,this.state.mode==="wordSearch"?0:this.state.hints);
 if(this.state.foundWords.length>=this.state.total){
 const result=this.finish();
 return{correct:true,foundWord:matched,finished:true,...result};
@@ -182,11 +182,15 @@ return this.submit(WordPuzzleRepository.normalize(value)===target||WordPuzzleRep
 hint(){
 if(this.state.finished)return null;
 this.state.hints++;
+if(this.state.mode==="wordSearch")this.state.score=Math.max(0,this.state.score-2);
 const index=this.state.hints-1;
 if(this.round?.type==="wordBuilder")return{type:"cell",value:this.round.path?.[0]||null};
 if(this.round?.type==="wordSearch"){
-const cell=this.round.placements?.[0]?.path?.[0];
-return cell?{type:"cell",value:cell}:null;
+const normalize=WordPuzzleRepository.normalize;
+const placement=(this.round.placements||[]).find(item=>!this.state.foundWords.includes(normalize(item.word)));
+if(!placement)return null;
+const cells=(placement.path||[]).slice(0,Math.min(3,placement.path.length));
+return cells.length?{type:"path",value:cells,word:placement.word}:null;
 }
 if(this.round?.type==="lPath"){
 const cell=this.round.path?.[0];
