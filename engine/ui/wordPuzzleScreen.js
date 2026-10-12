@@ -20,10 +20,10 @@ this.modeSelect(box.querySelector("#wp"),s.data);
 return;
 }
 box.innerHTML=`
-<section class="wp-header">
-<div class="wp-progress">${s.data?.type==="wordSearch"?"واژه‌های پیدا‌شده": "بازی مستقل"} <strong>${s.data?.type==="wordSearch"?s.foundWords.length+" از "+s.total:""}</strong></div>
+${s.data?.type==="wordSearch"?"":`<section class="wp-header">
+<div class="wp-progress">بازی مستقل</div>
 <div class="wp-score">⭐ <strong>${s.score}</strong></div>
-</section>
+</section>`}
 <h1>${s.data?.title||"واژه‌خانه"}</h1>
 <p class="wp-instruction">${s.data?.instruction||""}</p>
 <div class="wp-status" aria-live="polite"></div>
