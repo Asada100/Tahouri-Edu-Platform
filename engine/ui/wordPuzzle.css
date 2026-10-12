@@ -84,3 +84,33 @@ transform:translateX(-50%) translateY(0);
 .wp-target-list span{padding:6px 8px}
 .wp-search-hint{margin:6px auto 8px}
 }
+
+
+/* Mobile word-search fit: keep every column inside the viewport. */
+.wp-shell:has(.wp-search-card){width:100%;max-width:100%;min-width:0;box-sizing:border-box;overflow-x:clip}
+.wp-search-card{width:100%;max-width:100%;min-width:0;box-sizing:border-box}
+.wp-search-grid{width:min(100%,500px);max-width:100%;min-width:0;box-sizing:border-box}
+.wp-search-grid .wp-cell{width:100%;min-width:0;max-width:100%;box-sizing:border-box;line-height:1.1}
+@media(max-width:600px){
+  .wp-shell:has(.wp-search-card){padding-left:6px;padding-right:6px}
+  .wp-search-card{padding:6px}
+  .wp-search-grid{width:100%;max-width:100%;gap:2px;margin:8px auto}
+  .wp-search-grid .wp-cell{font-size:clamp(12px,3.8vw,17px);border-radius:4px}
+}
+/* Make the exact hinted cells unmistakable, even on a small phone screen. */
+.wp-search-grid .wp-cell.hint-cell{
+  position:relative;z-index:4;
+  background:#ffcf4a!important;color:#382600!important;
+  border:2px solid #a86700!important;
+  box-shadow:inset 0 0 0 2px #fff4bf,0 0 0 2px rgba(255,190,30,.45)!important;
+  animation:wp-hint-pulse .8s ease-in-out 3;
+}
+@keyframes wp-hint-pulse{
+  0%,100%{filter:brightness(1);transform:scale(1)}
+  50%{filter:brightness(1.15);transform:scale(1.06)}
+}
+.wp-hint.show{
+  display:block;background:#fff1c2;color:#5b3b00;
+  border:2px solid #d99a00;box-shadow:0 3px 12px rgba(90,60,0,.12);
+  line-height:1.7;
+}
