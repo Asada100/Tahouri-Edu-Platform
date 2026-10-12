@@ -79,9 +79,10 @@ search(){
 const difficulty=WordPuzzleDifficulty.settings(this.activity?.settings?.difficulty||2);
 const source=this.shuffle(WordPuzzleRepository.getWords(this.activity).slice());
 const targetCount=Math.min(10,source.length);
-const gridSize=Math.max(difficulty.grid,11);
+const longestWord=Math.max(1,...source.slice(0,targetCount).map(item=>[...String(item.word||"")].length));
+const gridSize=Math.max(difficulty.grid,longestWord);
 let best={words:[],grid:[],placements:[]};
-for(let retry=0;retry<40;retry++){
+for(let retry=0;retry<80;retry++){
 const grid=Array.from({length:gridSize},()=>Array(gridSize).fill(""));
 const placements=[];
 for(const candidate of source){
