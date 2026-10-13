@@ -323,7 +323,6 @@ x.innerHTML=`
 <div class="wp-grid wp-search-grid"></div>
 </div>`;
 const list=x.querySelector(".wp-target-list"),grid=x.querySelector(".wp-grid"),hintBox=x.querySelector(".wp-hint");
-grid.appendChild(hintBox);
 const selection=x.querySelector(".wp-selection strong");
 const liveWord=selection.parentElement;
 const clearFeedback=()=>{
@@ -351,6 +350,8 @@ if(score)score.textContent=Math.max(0,WordPuzzleEngine.state.score-(WordPuzzleEn
 };
 paintWords();
 this.createGrid(grid,d.grid);
+// createGrid clears the grid contents, so attach the hint overlay after it renders.
+grid.appendChild(hintBox);
 const path=this.bindDragPath(grid,selected=>{
 if(selected.length){
 selection.textContent=WordPuzzlePathEngine.read(d.grid,selected)||"—";
