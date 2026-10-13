@@ -436,6 +436,8 @@ const path=this.bindDragPath(grid,selected=>{
 selection.textContent=WordPuzzlePathEngine.read(d.grid,selected)||"—";
 liveWord.classList.remove("good","bad");
 },{onStart:()=>{
+path.clear();
+selection.textContent="—";
 hintBox.classList.remove("show");
 liveWord.classList.remove("good","bad");
 },onRelease:selected=>{
