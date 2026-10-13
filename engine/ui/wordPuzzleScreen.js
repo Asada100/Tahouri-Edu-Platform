@@ -323,7 +323,7 @@ x.innerHTML=`
 <div class="wp-grid wp-search-grid"></div>
 </div>`;
 const list=x.querySelector(".wp-target-list"),grid=x.querySelector(".wp-grid"),hintBox=x.querySelector(".wp-hint");
-grid.after(hintBox);
+grid.appendChild(hintBox);
 const selection=x.querySelector(".wp-selection strong");
 const liveWord=selection.parentElement;
 const clearFeedback=()=>{
