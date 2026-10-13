@@ -87,7 +87,7 @@ transform:translateX(-50%) translateY(0);
 
 
 /* Mobile word-search fit: keep every column inside the viewport. */
-.wp-shell:has(.wp-search-card){width:100%;max-width:100%;min-width:0;box-sizing:border-box;overflow-x:clip}
+.wp-shell:has(.wp-search-card){width:100%;max-width:920px;min-width:0;box-sizing:border-box;overflow-x:clip}
 .wp-search-card{width:100%;max-width:100%;min-width:0;box-sizing:border-box}
 .wp-search-grid{width:min(100%,500px);max-width:100%;min-width:0;box-sizing:border-box}
 .wp-search-grid .wp-cell{width:100%;min-width:0;max-width:100%;box-sizing:border-box;line-height:1.1}
