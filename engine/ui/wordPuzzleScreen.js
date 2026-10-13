@@ -417,11 +417,11 @@ hintTimer=setTimeout(()=>{hintBox.classList.remove("show");hintTimer=null;},2600
 
 lpath(x,d){
 x.innerHTML=`
-<div class="wp-card">
+<div class="wp-card wp-lpath-card">
 <div class="wp-lpath-word">راهنما: <strong>${d.clue||"واژه را در مسیر L شکل پیدا کن."}</strong></div>
-<div class="wp-hint" aria-live="polite"></div>
 <div class="wp-grid wp-l-grid"></div>
-<div class="wp-selection">مسیر انتخاب‌شده: <strong>—</strong></div>
+<div class="wp-hint" aria-live="polite"></div>
+<div class="wp-selection wp-live-word" aria-live="polite" role="status">مسیر انتخاب‌شده: <strong>—</strong></div>
 <div class="wp-actions">
 <button type="button" class="wp-btn wp-secondary" data-clear>پاک کردن مسیر</button>
 <button type="button" class="wp-btn wp-hint-btn" data-hint>راهنما 💡</button>
@@ -429,19 +429,50 @@ x.innerHTML=`
 </div>
 </div>`;
 const grid=x.querySelector(".wp-grid"),hintBox=x.querySelector(".wp-hint");
+const liveWord=x.querySelector(".wp-selection"),selection=liveWord.querySelector("strong");
 this.createGrid(grid,d.grid);
+grid.appendChild(hintBox);
 const path=this.bindDragPath(grid,selected=>{
-x.querySelector(".wp-selection strong").textContent=WordPuzzlePathEngine.read(d.grid,selected)||"—";
-});
-x.querySelector("[data-clear]").onclick=()=>{path.clear();x.querySelector(".wp-selection strong").textContent="—";};
+selection.textContent=WordPuzzlePathEngine.read(d.grid,selected)||"—";
+liveWord.classList.remove("good","bad");
+},{onStart:()=>{
+hintBox.classList.remove("show");
+liveWord.classList.remove("good","bad");
+},onRelease:selected=>{
+if(selected.length<3){if(selected.length) this.feedback(x,"مسیر را با کشیدن انگشت یا موس کامل کن.",false);return;}
+if(!WordPuzzlePathEngine.isL(selected)){
+liveWord.classList.add("bad");
+this.feedback(x,"این مسیر هنوز شکل L ندارد؛ فقط یک بار جهت حرکت را عوض کن.",false);
+path.showError();
+return;
+}
+const value=WordPuzzlePathEngine.read(d.grid,selected);
+const normalize=w=>WordPuzzleRepository.normalize(w);
+if(normalize(value)!==normalize(d.word)&&normalize([...value].reverse().join(""))!==normalize(d.word)){
+liveWord.classList.add("bad");
+this.feedback(x,"این مسیر L شکل است، اما واژهٔ هدف را نمی‌سازد. دوباره تلاش کن.",false);
+path.showError();
+return;
+}
+liveWord.classList.add("good");
+this.afterSubmit(x,WordPuzzleEngine.submitL(selected));
+}});
+x.querySelector("[data-clear]").onclick=()=>{
+path.clear();selection.textContent="—";liveWord.classList.remove("good","bad");hintBox.classList.remove("show");
+};
 x.querySelector("[data-hint]").onclick=()=>this.hint(x,(value,type)=>{
-if(type==="cell"){path.highlight(value);hintBox.textContent="از خانه مشخص‌شده شروع کن.";}
+if(type==="cell"){path.highlight(value);hintBox.textContent="راهنما: از خانهٔ روشن‌شده شروع کن و واژه را با یک پیچ ۹۰ درجه‌ای به شکل L کامل کن.";}
 else hintBox.textContent="حرف راهنما: "+value;
 hintBox.classList.add("show");
 });
 x.querySelector("[data-check]").onclick=()=>{
 const selected=path.getPath();
 if(selected.length<3){this.feedback(x,"مسیر L شکل را با کشیدن انگشت یا موس کامل کن.",false);return;}
+if(!WordPuzzlePathEngine.isL(selected)){this.feedback(x,"مسیر باید دقیقاً یک پیچ داشته باشد و شکل L بسازد.",false);path.showError();return;}
+const value=WordPuzzlePathEngine.read(d.grid,selected),normalize=w=>WordPuzzleRepository.normalize(w);
+if(normalize(value)!==normalize(d.word)&&normalize([...value].reverse().join(""))!==normalize(d.word)){
+this.feedback(x,"واژه درست نیست؛ مسیر را پاک کن و دوباره تلاش کن.",false);path.showError();return;
+}
 this.afterSubmit(x,WordPuzzleEngine.submitL(selected));
 };
 }
