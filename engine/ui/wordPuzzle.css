@@ -126,3 +126,38 @@ transform:translateX(-50%) translateY(0);
 .wp-search-card .wp-hint.show{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom, 0px));z-index:10001;display:block;width:min(560px,calc(100vw - 28px));max-height:35vh;overflow:auto;box-sizing:border-box;margin:0;padding:11px 16px;transform:translateX(-50%);pointer-events:none;box-shadow:0 8px 28px rgba(20,32,55,.22);}
 .wp-search-grid .wp-cell,.wp-search-grid .wp-cell:hover,.wp-search-grid .wp-cell:focus{transform:none!important;transition:none!important;}
 .wp-search-grid .wp-cell.hint-cell{animation:none!important;transform:none!important;}
+
+
+/* Word Search hint: opaque, high-contrast message placed below the board. */
+.wp-search-card .wp-hint{
+  position:static;
+  left:auto;
+  bottom:auto;
+  z-index:auto;
+  display:none;
+  width:min(560px,100%);
+  max-height:none;
+  overflow:visible;
+  box-sizing:border-box;
+  margin:12px auto 0;
+  padding:12px 16px;
+  transform:none;
+  background:#fff!important;
+  color:#172033!important;
+  border:2px solid #b77900!important;
+  border-radius:12px;
+  box-shadow:0 4px 14px rgba(23,32,51,.16);
+  line-height:1.8;
+  font-weight:800;
+  opacity:1;
+  visibility:visible;
+  pointer-events:auto;
+}
+.wp-search-card .wp-hint.show{
+  position:static;
+  display:block;
+  transform:none;
+  background:#fff!important;
+  color:#172033!important;
+  border:2px solid #b77900!important;
+}
