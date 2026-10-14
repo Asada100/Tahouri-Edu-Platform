@@ -33,14 +33,14 @@ const x=box.querySelector("#wp");
 if(s.data?.type==="wordBuilder")this.builder(x,s.data);
 else if(s.data?.type==="wordSearch")this.search(x,s.data,s.foundWords||[]);
 else if(s.data?.type==="wordFamily")this.family(x,s.data);
-else this.lpath(x,s.data);
+else this.search(x,s.data,s.foundWords||[]);
 },
 
 modeSelect(x,d){
 const labels={wordBuilder:["🔤","کلمه‌ساز","حروف را با کشیدن مسیر به هم وصل کن."],wordSearch:["🔎","واژه‌یاب","همه واژه‌های پنهان جدول را پیدا کن."],wordFamily:["🌱","خانواده واژه‌ها","واژه‌های هم‌خانواده را انتخاب کن."],lPath:["↪️","مسیر L","واژه را در مسیر L شکل پیدا کن."]};
 x.innerHTML='<div class="wp-mode-list"></div>';
 const list=x.querySelector(".wp-mode-list");
-(d.modes||Object.keys(labels)).forEach(mode=>{
+(d.modes||Object.keys(labels)).filter(mode=>mode!=="lPath").forEach(mode=>{
 const item=labels[mode];if(!item)return;
 const b=document.createElement("button");b.type="button";b.className="wp-mode-card";
 b.innerHTML='<span class="wp-mode-icon">'+item[0]+'</span><strong>'+item[1]+'</strong><span>'+item[2]+'</span>';
@@ -358,7 +358,7 @@ selection.textContent=WordPuzzlePathEngine.read(d.grid,selected)||"—";
 liveWord.classList.add("visible");
 if(!resultShowing)liveWord.classList.remove("good","bad");
 }else if(!resultShowing){selection.textContent="—";liveWord.classList.remove("visible");}
-},{straightOnly:true,
+},{straightOnly:false,
 onStart:()=>{clearFeedback();if(path)path.clear();},
 onRelease:selected=>{
 if(selected.length<2){if(path)path.clear();return;}

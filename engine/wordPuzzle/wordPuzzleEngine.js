@@ -12,6 +12,7 @@ this.emitReady(); return this.getState();
 
 selectMode(mode){
 const allowed=this.activity?.settings?.modes||["wordBuilder","wordSearch","wordFamily","lPath"];
+if(mode==="lPath")mode="wordSearch";
 if(!allowed.includes(mode)||this.state?.finished)return this.getState();
 this.state.mode=mode;this.state.round=0;this.state.correct=0;this.state.wrong=0;this.state.score=0;this.state.hints=0;this.state.hintPenalty=0;this.state.foundWords=[];this.state.searchHintCounts={};
 this.round=this.build(mode);
@@ -77,10 +78,9 @@ return{grid,path};
 
 search(){
 const difficulty=WordPuzzleDifficulty.settings(this.activity?.settings?.difficulty||2);
-const source=this.shuffle(WordPuzzleRepository.getWords(this.activity).slice());
+const source=this.shuffle(WordPuzzleRepository.getWords(this.activity).slice()).sort((a,b)=>[...String(b.word||"")].length-[...String(a.word||"")].length);
 const targetCount=Math.min(10,source.length);
-const longestWord=Math.max(1,...source.slice(0,targetCount).map(item=>[...String(item.word||"")].length));
-const gridSize=Math.max(difficulty.grid,longestWord);
+const gridSize=8;
 let best={words:[],grid:[],placements:[]};
 for(let retry=0;retry<80;retry++){
 const grid=Array.from({length:gridSize},()=>Array(gridSize).fill(""));
@@ -88,26 +88,41 @@ const placements=[];
 for(const candidate of source){
 if(placements.length>=targetCount)break;
 const path=this.placeWord(grid,candidate.word);
-if(path)placements.push({word:candidate.word,path});
+if(path)placements.push({word:candidate.word,path,pathType:WordPuzzlePathEngine.isL(path)?"L":"straight"});
 }
 if(placements.length>best.words.length)best={words:placements.map(x=>x.word),grid,placements};
 if(placements.length===targetCount)break;
 }
 this.fill(best.grid);
-return{type:"wordSearch",title:"واژه‌یاب",instruction:"حروف هر واژه را با کشیدن انگشت یا موس روی جدول به هم وصل کن؛ افقی، عمودی یا اریب.",grid:best.grid,words:best.words,placements:best.placements};
+return{type:"wordSearch",title:"واژه‌یاب",instruction:"واژه‌های پنهان را با کشیدن انگشت یا موس پیدا کن؛ مسیر می‌تواند مستقیم، مورب یا دارای یک پیچ L باشد.",grid:best.grid,words:best.words,placements:best.placements};
 },
 
 placeWord(grid,word){
-const dirs=WordPuzzlePathEngine.directions;
-for(let attempt=0;attempt<600;attempt++){
-const d=dirs[Math.floor(Math.random()*dirs.length)],r=Math.floor(Math.random()*grid.length),c=Math.floor(Math.random()*grid.length);
-const endR=r+d[0]*(word.length-1),endC=c+d[1]*(word.length-1);
-if(endR<0||endR>=grid.length||endC<0||endC>=grid.length)continue;
+const dirs=WordPuzzlePathEngine.directions,n=grid.length,chars=[...String(word||"")];
+if(!chars.length||chars.length>2*n-1)return false;
+for(let attempt=0;attempt<1200;attempt++){
+const useL=chars.length>n||Math.random()<0.4;
+let path=[];
+if(useL){
+const firstEdges=1+Math.floor(Math.random()*(chars.length-2));
+const firstOptions=[[0,1],[0,-1],[1,0],[-1,0]];
+const d1=firstOptions[Math.floor(Math.random()*firstOptions.length)];
+const secondOptions=d1[0]===0?[[1,0],[-1,0]]:[[0,1],[0,-1]];
+const d2=secondOptions[Math.floor(Math.random()*secondOptions.length)];
+const r=Math.floor(Math.random()*n),c=Math.floor(Math.random()*n);
+for(let i=0;i<chars.length;i++){
+const step=i<=firstEdges?i:firstEdges,extra=i<=firstEdges?0:i-firstEdges;
+path.push([r+d1[0]*step+d2[0]*extra,c+d1[1]*step+d2[1]*extra]);
+}
+}else{
+const d=dirs[Math.floor(Math.random()*dirs.length)],r=Math.floor(Math.random()*n),c=Math.floor(Math.random()*n);
+path=chars.map((_,i)=>[r+d[0]*i,c+d[1]*i]);
+}
+if(path.some(([r,c])=>r<0||r>=n||c<0||c>=n))continue;
 let ok=true;
-for(let i=0;i<word.length;i++){const cell=grid[r+d[0]*i][c+d[1]*i];if(cell&&cell!==word[i]){ok=false;break;}}
+for(let i=0;i<path.length;i++){const [r,c]=path[i],cell=grid[r][c];if(cell&&cell!==chars[i]){ok=false;break;}}
 if(!ok)continue;
-const path=[];
-for(let i=0;i<word.length;i++){grid[r+d[0]*i][c+d[1]*i]=word[i];path.push([r+d[0]*i,c+d[1]*i]);}
+path.forEach(([r,c],i)=>{grid[r][c]=chars[i];});
 return path;
 }
 return false;
@@ -155,7 +170,7 @@ submitFamily(values){return this.submit(WordPuzzleValidator.familySelection(valu
 
 submitSearch(path){
 if(!this.state||this.state.finished)return{correct:false,finished:this.state?.finished};
-if(!WordPuzzlePathEngine.valid(this.round.grid,path)||!WordPuzzlePathEngine.straight(path)){
+if(!WordPuzzlePathEngine.valid(this.round.grid,path)||(!WordPuzzlePathEngine.straight(path)&&!WordPuzzlePathEngine.isL(path))){
 this.state.wrong++;return{correct:false,finished:false,keepBoard:true,state:this.getState()};
 }
 const value=WordPuzzlePathEngine.read(this.round.grid,path),reverse=[...value].reverse().join("");
