@@ -219,8 +219,19 @@ const ActivitySessionManager = {
 
         EventManager.emit("activityExited", this.currentSession);
 
-        if (typeof DashboardController !== "undefined" && typeof DashboardController.open === "function") {
+        // Return to the activity list, matching the platform's standard
+        // exit path instead of unexpectedly redirecting to the dashboard.
+        if (
+            typeof Screen !== "undefined" &&
+            typeof Screen.showActivities === "function" &&
+            typeof AppState !== "undefined" &&
+            AppState.grade && AppState.subject && AppState.chapter
+        ) {
+            Screen.showActivities(AppState.grade, AppState.subject, AppState.chapter);
+        } else if (typeof DashboardController !== "undefined" && typeof DashboardController.open === "function") {
             DashboardController.open();
+        } else if (typeof Screen !== "undefined" && typeof Screen.showHome === "function") {
+            Screen.showHome();
         } else if (typeof App !== "undefined" && typeof App.goHome === "function") {
             App.goHome();
         }
@@ -477,7 +488,7 @@ const ActivitySessionManager = {
     },
 
     showOverlay() {
-        this.capture("resumable");
+        const saved = this.capture("resumable");
         this.hideOverlay();
 
         const overlay = document.createElement("div");
@@ -486,7 +497,7 @@ const ActivitySessionManager = {
 
         const box = document.createElement("div");
         box.className = "activityRuntimeModal";
-        box.innerHTML = '<h2>فعالیت متوقف شد</h2><p>وضعیت فعلی ذخیره شده است.</p><div class="activityRuntimeActions"><button id="activitySessionResumeBtn" type="button">ادامه فعالیت</button><button id="activitySessionExitBtn" type="button">خروج و ذخیره</button></div>';
+        box.innerHTML = '<h2>فعالیت متوقف شد</h2><p>' + (saved ? 'وضعیت فعلی ذخیره شد.' : 'ذخیره خودکار این بازی در دسترس نیست؛ می‌توانید به فعالیت‌ها برگردید.') + '</p><div class="activityRuntimeActions"><button id="activitySessionResumeBtn" type="button">ادامه فعالیت</button><button id="activitySessionExitBtn" type="button">' + (saved ? 'خروج و ذخیره' : 'خروج') + '</button></div>';
 
         overlay.appendChild(box);
         document.body.appendChild(overlay);
