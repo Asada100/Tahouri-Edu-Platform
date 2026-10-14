@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Header Manager
-// Version 2.8
+// Version 2.9
 // =====================================
 
 const HeaderManager = {
@@ -151,6 +151,17 @@ const HeaderManager = {
             const menuButton = header.querySelector(".tahouri-header-menu");
             if (menuButton) menuButton.onclick = function () { HeaderManager.toggleMenu(header, screen); };
         }
+        // Rebind after every render because activity screens may replace their DOM.
+        const activeMenuButton = header.querySelector(".tahouri-header-menu");
+        if (activeMenuButton) {
+            activeMenuButton.onclick = function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                console.log("Header Menu: Open requested");
+                HeaderManager.toggleMenu(header, screen);
+            };
+        }
+
         this.cleanHomeActions(screen);
         this.updateSectionTitle(header, screen);
         this.ensureBackButton(header, screen);
@@ -175,6 +186,7 @@ const HeaderManager = {
         document.body.appendChild(panel);
 
         panel.querySelector('[data-menu-action="exit"]').onclick = function () {
+            console.log("Header Menu: Exit requested", { grade: typeof AppState !== "undefined" ? AppState.grade : null, subject: typeof AppState !== "undefined" ? AppState.subject : null, chapter: typeof AppState !== "undefined" ? AppState.chapter : null });
             panel.remove();
             // Use the same active grade/subject/chapter state that the platform
             // uses to return from the Even/Odd activity to its activity list.
@@ -242,4 +254,4 @@ function headerInsertAfter(element, screen) {
 window.HeaderManager = HeaderManager;
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", function () { HeaderManager.init(); });
 else HeaderManager.init();
-console.log("Header Manager v2.8 Ready");
+console.log("Header Manager v2.9 Ready");
