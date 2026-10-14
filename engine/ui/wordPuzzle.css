@@ -382,3 +382,25 @@ transform:translateX(-50%) translateY(0);
 .wp-shell .wp-search-card .wp-live-word.visible.bad strong{color:#fff!important;}
 .wp-shell .wp-search-card .wp-live-word.visible.good{background:#087f5b!important;border-color:#065f46!important;}
 .wp-shell .wp-search-card .wp-live-word.visible.bad{background:#9f1239!important;border-color:#881337!important;}
+
+
+/* Word Builder: uncluttered, large touch targets and explicit staged progress. */
+.wp-builder-card{max-width:620px;margin-inline:auto}
+.wp-builder-meta{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:0 auto 14px}
+.wp-builder-stage{display:inline-flex;align-items:center;padding:8px 13px;border-radius:12px;background:#edf3ff;color:#233f78;font-size:16px}
+.wp-builder-step{font-size:14px;font-weight:800;color:#586174}
+.wp-builder-card .wp-clue{font-size:clamp(17px,4vw,21px);line-height:1.9;font-weight:750;max-width:540px;margin:0 auto 14px}
+.wp-builder-grid{width:min(100%,390px);max-width:390px;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:16px auto}
+.wp-builder-grid .wp-cell{width:100%;min-width:0;box-sizing:border-box;aspect-ratio:1;font-size:clamp(22px,6vw,30px);line-height:1;border-radius:13px;border:2px solid #dce3ed;background:#fff;box-shadow:0 2px 5px rgba(20,32,55,.05)}
+.wp-builder-grid .wp-cell.sel{background:#dce8ff;border-color:#6588d9;box-shadow:inset 0 0 0 2px rgba(65,105,190,.12)}
+.wp-builder-card .wp-answer{max-width:390px;margin:10px auto;padding:10px 12px;border-radius:12px;background:#f6f8fb;font-size:clamp(18px,4.5vw,23px);font-weight:800;min-height:48px;box-sizing:border-box}
+.wp-builder-card .wp-answer.has-value{background:#edf3ff;color:#233f78}
+@media(max-width:600px){
+ .wp-builder-card{padding:13px 10px}
+ .wp-builder-meta{margin-bottom:9px}
+ .wp-builder-stage{font-size:14px;padding:7px 10px}
+ .wp-builder-step{font-size:12px}
+ .wp-builder-grid{width:min(100%,350px);max-width:350px;gap:6px;margin:12px auto}
+ .wp-builder-grid .wp-cell{font-size:clamp(21px,7vw,28px);border-radius:10px}
+ .wp-builder-card .wp-clue{font-size:17px;line-height:1.8}
+}
