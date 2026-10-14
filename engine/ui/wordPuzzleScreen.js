@@ -25,7 +25,7 @@ ${s.data?.type==="wordSearch"?"":`<section class="wp-header">
 <div class="wp-score">⭐ <strong>${s.score}</strong></div>
 </section>`}
 <h1>${s.data?.title||"واژه‌خانه"}</h1>
-${s.data?.type==="wordSearch"?`<div class="wp-instruction wp-instruction-with-hint"><span>با کشیدن انگشت یا موس، واژه‌ها را مستقیم، مورب یا L پیدا کن.</span><button type="button" class="wp-btn wp-hint-btn wp-search-hint">راهنما 💡</button></div>`:`<p class="wp-instruction">${s.data?.instruction||""}</p>`}
+${s.data?.type==="wordSearch"?`<div class="wp-instruction wp-instruction-with-hint"><span>واژه‌های پنهان را با کشیدن انگشت یا موس پیدا کن؛ مسیر می‌تواند مستقیم، مورب یا دارای یک پیچ L باشد.</span><button type="button" class="wp-btn wp-hint-btn wp-search-hint" aria-label="راهنما" title="راهنما">💡</button></div>`:`<p class="wp-instruction">${s.data?.instruction||""}</p>`}
 <div class="wp-status" aria-live="polite"></div>
 <div id="wp"></div>`;
 root.appendChild(box);
@@ -354,7 +354,10 @@ this.createGrid(grid,d.grid);
 grid.appendChild(hintBox);
 const path=this.bindDragPath(grid,selected=>{
 if(selected.length){
-selection.textContent=WordPuzzlePathEngine.read(d.grid,selected)||"—";
+const raw=WordPuzzlePathEngine.read(d.grid,selected)||"—";
+const reversed=[...raw].reverse().join("");
+const canonical=d.words.find(word=>normalize(word)===normalize(raw)||normalize(word)===normalize(reversed));
+selection.textContent=canonical||raw;
 liveWord.classList.add("visible");
 if(!resultShowing)liveWord.classList.remove("good","bad");
 }else if(!resultShowing){selection.textContent="—";liveWord.classList.remove("visible");}
