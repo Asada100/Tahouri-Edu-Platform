@@ -1,5 +1,5 @@
 const WordPuzzleEngine={
-version:"1.7",
+version:"1.8",
 activity:null,state:null,round:null,
 
 start(a){
@@ -15,8 +15,15 @@ const allowed=this.activity?.settings?.modes||["wordBuilder","wordSearch","wordF
 if(mode==="lPath")mode="wordSearch";
 if(!allowed.includes(mode)||this.state?.finished)return this.getState();
 this.state.mode=mode;this.state.round=0;this.state.correct=0;this.state.wrong=0;this.state.score=0;this.state.hints=0;this.state.hintPenalty=0;this.state.foundWords=[];this.state.searchHintCounts={};
+if(mode==="wordBuilder"){
+const stages=this.activity?.puzzle?.builderStages||[];
+this.state.builderTargets=stages.flatMap(stage=>{
+const eligible=(stage.words||[]).filter(item=>item&&item.word&&item.meaning&&[...String(item.word)].length<=Number(this.activity?.settings?.builderMaxWordLength||8));
+return this.shuffle(eligible.slice()).slice(0,Math.max(1,Number(stage.targetCount||3))).map(item=>({...item,stageId:stage.id,stageTitle:stage.title,stageLetters:stage.letters||[],stageLesson:stage.lesson||""}));
+});
+}
 this.round=this.build(mode);
-this.state.total=mode==="wordSearch"?this.round.words.length:1;
+this.state.total=mode==="wordSearch"?this.round.words.length:mode==="wordBuilder"?(this.state.builderTargets?.length||1):1;
 this.state.started=true;
 this.emitReady();
 return this.getState();
@@ -34,8 +41,19 @@ return this.lpath();
 },
 
 builder(){
+const targets=this.state?.builderTargets||[];
+const target=targets[this.state.round];
+if(target){
+const board=this.makeBuilderGrid(target.word);
+const letters=(target.stageLetters||[]).join("، ");
+return{type:"wordBuilder",title:"کلمه‌ساز — مرحله "+(this.state.round+1)+" از "+targets.length,
+instruction:"از حروفِ «"+letters+"» واژه‌ای بساز که معنی آن: «"+target.meaning+"» است.",
+word:target.word,meaning:target.meaning,stageId:target.stageId,stageTitle:target.stageTitle,
+stageLetters:target.stageLetters,stageLesson:target.stageLesson,letters:board.grid.flat(),grid:board.grid,path:board.path,
+builderProgress:{current:this.state.round+1,total:targets.length,stage:target.stageTitle}};
+}
 const words=WordPuzzleRepository.getWords(this.activity);
-const w=words[this.state.round%words.length]||{word:"دانش",clue:"واژه را بساز."};
+const w=words[this.state.round%Math.max(1,words.length)]||{word:"دانش",clue:"واژه را بساز."};
 const board=this.makeBuilderGrid(w.word);
 return{type:"wordBuilder",title:"کلمه‌ساز",instruction:w.clue||"با حرکت روی حروف، واژه را بساز.",word:w.word,letters:board.grid.flat(),grid:board.grid,path:board.path};
 },
@@ -162,8 +180,22 @@ return{correct:true,finished:true,...result};
 },
 
 submitBuilder(value){
+if(!this.state?.started||this.state.finished)return{correct:false,finished:true};
 const target=WordPuzzleRepository.normalize(this.round?.word),answer=WordPuzzleRepository.normalize(value);
-return this.submit(!!target&&answer===target);
+if(!target||answer!==target){this.state.wrong++;return{correct:false,finished:false,state:this.getState()};}
+this.state.correct++;
+this.state.foundWords=this.state.foundWords||[];
+this.state.foundWords.push(target);
+this.state.score+=WordPuzzleScore.correct(10,this.state.hints);
+if(this.state.correct>=this.state.total){
+const result=this.finish();
+return{correct:true,foundWord:this.round.word,finished:true,...result};
+}
+this.state.round=this.state.correct;
+this.round=this.builder();
+const result={correct:true,foundWord:this.state.foundWords[this.state.foundWords.length-1],finished:false,state:this.getState()};
+this.emitReady();
+return result;
 },
 
 submitFamily(values){return this.submit(WordPuzzleValidator.familySelection(values,this.round));},
