@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 2.7
+// Version 2.8
 // Divisibility Group Screen
 // =====================================
 
@@ -96,8 +96,21 @@ const DivisibilityScreen = {
                     Navigation.selectActivity(activityId);
                 }
 
-                // DifficultyModal is only for Jigsaw puzzles. Quiz activities,
-                // including divisibility, must launch directly through App.
+                // Divisibility quizzes require a difficulty choice before launch.
+                if (String(activity.group || "").toLowerCase() === "divisibility" &&
+                    typeof DifficultyModal !== "undefined" &&
+                    typeof DifficultyModal.open === "function") {
+                    DifficultyModal.open(activity, function (selectedActivity) {
+                        if (typeof App !== "undefined" && typeof App.startActivity === "function") {
+                            App.startActivity(selectedActivity);
+                        } else {
+                            console.error("Activity Entry System Not Available");
+                        }
+                    });
+                    return;
+                }
+
+                // Other quiz activities launch directly; Jigsaw puzzles keep their own level selector.
                 const isJigsaw =
                     String(activity.type || "").toLowerCase() === "puzzle" &&
                     String(activity.engine || "").toLowerCase() === "puzzle";
@@ -135,4 +148,4 @@ Screen.showDivisibility = function (gradeId, subjectId, chapterId) {
     }
 };
 
-console.log("Divisibility Screen v2.7 Ready");
+console.log("Divisibility Screen v2.8 Ready");
