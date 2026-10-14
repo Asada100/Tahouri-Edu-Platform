@@ -11,6 +11,7 @@ normalize(w){
 return String(w||"")
 .replace(/[يى]/g,"ی")
 .replace(/[ك]/g,"ک")
+.replace(/[اآأإٱ]/g,"ا")
 .replace(/[ۀة]/g,"ه")
 .replace(/[\u200c\u200d\s]/g,"");
 },
