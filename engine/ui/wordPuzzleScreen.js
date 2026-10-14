@@ -149,7 +149,7 @@ overlay.setAttribute("aria-hidden","true");
 overlay.classList.add("wp-path-overlay");
 gridElement.appendChild(overlay);
 }
-const foundPaths=gridElement.__wpFoundPaths||[];
+const foundPaths=gridElement.__wpFoundPaths||(Array.isArray(options.foundPaths)?options.foundPaths.map(points=>points.map(p=>[p[0],p[1]])):[]);
 gridElement.__wpFoundPaths=foundPaths;
 const pointsFor=points=>points.map(([r,c])=>{
 const cell=gridElement.querySelector('[data-r="'+r+'"][data-c="'+c+'"]');
@@ -370,6 +370,7 @@ liveWord.classList.add("visible");
 if(!resultShowing)liveWord.classList.remove("good","bad");
 }else if(!resultShowing){selection.textContent="—";liveWord.classList.remove("visible");}
 },{straightOnly:false,
+foundPaths:(d.placements||[]).filter(item=>foundWords.includes(normalize(item.word))).map(item=>item.path).filter(Array.isArray),
 onStart:()=>{clearFeedback();if(path)path.clear();},
 onRelease:selected=>{
 if(selected.length<2){if(path)path.clear();return;}
