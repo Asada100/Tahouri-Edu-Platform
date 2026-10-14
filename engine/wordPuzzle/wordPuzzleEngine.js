@@ -1,5 +1,5 @@
 const WordPuzzleEngine={
-version:"1.6",
+version:"1.7",
 activity:null,state:null,round:null,
 
 start(a){
@@ -235,10 +235,22 @@ if(typeof EventManager!=="undefined")EventManager.emit("activityFinished",result
 return result;
 },
 
-emitReady(){if(typeof EventManager!=="undefined")EventManager.emit("activityReady",{engineName:"WordPuzzleEngine",engine:this,result:this.getState()});},
+getSessionState(){
+if(!this.activity||!this.state||!this.round)return null;
+return {kind:"wordPuzzle",activity:JSON.parse(JSON.stringify(this.activity)),state:JSON.parse(JSON.stringify(this.state)),round:JSON.parse(JSON.stringify(this.round))};
+},
+restoreSession(saved){
+if(!saved||saved.kind!=="wordPuzzle"||!saved.state||!saved.round)return false;
+this.activity=saved.activity||this.activity;
+this.state=JSON.parse(JSON.stringify(saved.state));
+this.round=JSON.parse(JSON.stringify(saved.round));
+this.emitReady();
+return true;
+},
+emitReady(){if(typeof EventManager!=="undefined")EventManager.emit("activityReady",{engineName:"WordPuzzleEngine",engine:this,activity:this.activity,result:this.getState()});},
 getState(){return{...this.state,data:this.round};},
 fill(grid){const letters="ابپتثجچحخدذرزژسشصضطظعغفقکگلمنوهی";if(!Array.isArray(grid))return grid;for(let r=0;r<grid.length;r++){if(!Array.isArray(grid[r]))grid[r]=[];for(let c=0;c<grid[r].length;c++)if(typeof grid[r][c]!=="string"||!grid[r][c].trim())grid[r][c]=letters[Math.floor(Math.random()*letters.length)];}return grid;},
 shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 };
 window.WordPuzzleEngine=WordPuzzleEngine;
-console.log("Word Puzzle Engine v1.6 Ready");
+console.log("Word Puzzle Engine v1.7 Ready");
