@@ -3,7 +3,7 @@
 // Completion cleanup is performed by ActivityLifecycle after completion data is processed.
 const ActivitySessionManager = {
     BASE_KEY: "Tahouri_ActivitySession",
-    VERSION: "1.8",
+    VERSION: "1.9",
     currentSession: null,
     exitControlId: "activitySessionControl",
     overlayId: "activitySessionOverlay",
@@ -219,15 +219,10 @@ const ActivitySessionManager = {
 
         EventManager.emit("activityExited", this.currentSession);
 
-        // Return to the activity list, matching the platform's standard
-        // exit path instead of unexpectedly redirecting to the dashboard.
-        if (
-            typeof Screen !== "undefined" &&
-            typeof Screen.showActivities === "function" &&
-            typeof AppState !== "undefined" &&
-            AppState.grade && AppState.subject && AppState.chapter
-        ) {
-            Screen.showActivities(AppState.grade, AppState.subject, AppState.chapter);
+        // Return directly to the dashboard through the platform navigation
+        // controller so the dashboard history and active navigation stay in sync.
+        if (typeof Navigation !== "undefined" && typeof Navigation.openDashboard === "function") {
+            Navigation.openDashboard();
         } else if (typeof DashboardController !== "undefined" && typeof DashboardController.open === "function") {
             DashboardController.open();
         } else if (typeof Screen !== "undefined" && typeof Screen.showHome === "function") {
@@ -545,7 +540,7 @@ const ActivitySessionManager = {
             if (this.gameplayActive) this.capture("resumable");
         });
 
-        console.log("Activity Session Manager v1.8 Ready");
+        console.log("Activity Session Manager v1.9 Ready");
     }
 };
 
