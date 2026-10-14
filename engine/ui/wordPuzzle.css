@@ -350,15 +350,17 @@ transform:translateX(-50%) translateY(0);
 }
 
 
-/* Live word: compact to its text, grow naturally, stay visible above the board. */
+/* Live word: true shrink-to-fit sizing, with width growing only as text grows. */
 .wp-shell .wp-search-card .wp-live-word.visible{
   position:fixed!important;
   top:calc(72px + env(safe-area-inset-top, 0px))!important;
+  right:auto!important;
   bottom:auto!important;
   left:50%!important;
-  width:max-content!important;
-  max-width:calc(100vw - 24px)!important;
+  display:table!important;
+  width:auto!important;
   min-width:0!important;
+  max-width:calc(100vw - 24px)!important;
   min-height:0!important;
   box-sizing:border-box!important;
   margin:0!important;
@@ -377,12 +379,6 @@ transform:translateX(-50%) translateY(0);
 }
 .wp-shell .wp-search-card .wp-live-word.visible strong,
 .wp-shell .wp-search-card .wp-live-word.visible.good strong,
-.wp-shell .wp-search-card .wp-live-word.visible.bad strong{
-  color:#fff!important;
-}
-.wp-shell .wp-search-card .wp-live-word.visible.good{
-  background:#087f5b!important;border-color:#065f46!important;
-}
-.wp-shell .wp-search-card .wp-live-word.visible.bad{
-  background:#9f1239!important;border-color:#881337!important;
-}
+.wp-shell .wp-search-card .wp-live-word.visible.bad strong{color:#fff!important;}
+.wp-shell .wp-search-card .wp-live-word.visible.good{background:#087f5b!important;border-color:#065f46!important;}
+.wp-shell .wp-search-card .wp-live-word.visible.bad{background:#9f1239!important;border-color:#881337!important;}
