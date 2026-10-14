@@ -1,5 +1,5 @@
 const WordPuzzleEngine={
-version:"1.8",
+version:"1.9",
 activity:null,state:null,round:null,
 
 start(a){
@@ -17,13 +17,17 @@ if(!allowed.includes(mode)||this.state?.finished)return this.getState();
 this.state.mode=mode;this.state.round=0;this.state.correct=0;this.state.wrong=0;this.state.score=0;this.state.hints=0;this.state.hintPenalty=0;this.state.foundWords=[];this.state.searchHintCounts={};
 if(mode==="wordBuilder"){
 const stages=this.activity?.puzzle?.builderStages||[];
-this.state.builderTargets=stages.flatMap(stage=>{
+this.state.builderStages=stages.map(stage=>{
 const eligible=(stage.words||[]).filter(item=>item&&item.word&&item.meaning&&[...String(item.word)].length<=Number(this.activity?.settings?.builderMaxWordLength||8));
-return this.shuffle(eligible.slice()).slice(0,Math.max(1,Number(stage.targetCount||3))).map(item=>({...item,stageId:stage.id,stageTitle:stage.title,stageLetters:stage.letters||[],stageLesson:stage.lesson||""}));
-});
+return{...stage,words:this.shuffle(eligible.slice()).slice(0,Math.max(1,Number(stage.targetCount||3)))};
+}).filter(stage=>stage.words.length>0);
+this.state.builderStageIndex=0;
+this.state.builderSolvedWords=[];
+this.state.builderStageBoard=null;
 }
+
 this.round=this.build(mode);
-this.state.total=mode==="wordSearch"?this.round.words.length:mode==="wordBuilder"?(this.state.builderTargets?.length||1):1;
+this.state.total=mode==="wordSearch"?this.round.words.length:mode==="wordBuilder"?(this.state.builderStages||[]).reduce((sum,stage)=>sum+stage.words.length,0):1;
 this.state.started=true;
 this.emitReady();
 return this.getState();
@@ -41,57 +45,37 @@ return this.lpath();
 },
 
 builder(){
-const targets=this.state?.builderTargets||[];
-const target=targets[this.state.round];
-if(target){
-const board=this.makeBuilderGrid(target.word);
-const letters=(target.stageLetters||[]).join("، ");
-return{type:"wordBuilder",title:"کلمه‌ساز — مرحله "+(this.state.round+1)+" از "+targets.length,
-instruction:"از حروفِ «"+letters+"» واژه‌ای بساز که معنی آن: «"+target.meaning+"» است.",
-word:target.word,meaning:target.meaning,stageId:target.stageId,stageTitle:target.stageTitle,
-stageLetters:target.stageLetters,stageLesson:target.stageLesson,letters:board.grid.flat(),grid:board.grid,path:board.path,
-builderProgress:{current:this.state.round+1,total:targets.length,stage:target.stageTitle}};
+const stages=this.state?.builderStages||[];
+const stageIndex=Number(this.state?.builderStageIndex||0);
+const stage=stages[stageIndex];
+if(!stage)return{type:"wordBuilder",title:"کلمه‌ساز",instruction:"همهٔ واژه‌ها ساخته شدند.",grid:[[]],targetWords:[],solvedWords:[],builderProgress:{current:this.state?.correct||0,total:this.state?.total||0}};
+if(!this.state.builderStageBoard||this.state.builderStageBoard.stageId!==stage.id){
+this.state.builderStageBoard={stageId:stage.id,grid:this.makeBuilderCircle(stage.words.map(item=>item.word))};
+this.state.builderSolvedWords=[];
 }
-const words=WordPuzzleRepository.getWords(this.activity);
-const w=words[this.state.round%Math.max(1,words.length)]||{word:"دانش",clue:"واژه را بساز."};
-const board=this.makeBuilderGrid(w.word);
-return{type:"wordBuilder",title:"کلمه‌ساز",instruction:w.clue||"با حرکت روی حروف، واژه را بساز.",word:w.word,letters:board.grid.flat(),grid:board.grid,path:board.path};
+const solved=this.state.builderSolvedWords||[];
+const letters=(stage.letters||[]).join("، ");
+const clues=stage.words.map((item,index)=>({word:item.word,meaning:item.meaning,solved:solved.includes(WordPuzzleRepository.normalize(item.word)),number:index+1}));
+return{type:"wordBuilder",title:"کلمه‌ساز — مرحله "+(stageIndex+1)+" از "+stages.length,
+instruction:"حروف را آزادانه روی دایره به هم وصل کن و هر سه واژهٔ معنادار را بساز.",
+stageTitle:stage.title,stageId:stage.id,stageLetters:stage.letters||[],stageLesson:stage.lesson||"",
+targetWords:clues,solvedWords:solved,grid:this.state.builderStageBoard.grid,
+builderProgress:{current:this.state.correct||0,total:this.state.total||0,stage:stage.title,stageIndex:stageIndex+1,stageCount:stages.length,stageSolved:solved.length,stageTarget:stage.words.length,baseLetters:letters}};
 },
 
-makeBuilderGrid(word){
-const chars=[...String(word||"دانش")];
-const size=chars.length<=5?4:5;
-const makeSnake=()=>{
-const cells=[];
-for(let r=0;r<size;r++){
-const cols=Array.from({length:size},(_,c)=>c);
-if(r%2)cols.reverse();
-for(const c of cols)cells.push([r,c]);
+makeBuilderCircle(words){
+const normalized=(words||[]).map(word=>[...String(word||"")].filter(ch=>!/[\\s\\u200c\\u200d]/.test(ch)));
+const maxCounts=new Map();
+for(const chars of normalized){
+const counts=new Map();
+chars.forEach(ch=>counts.set(ch,(counts.get(ch)||0)+1));
+counts.forEach((count,ch)=>maxCounts.set(ch,Math.max(maxCounts.get(ch)||0,count)));
 }
-return cells.slice(0,chars.length);
-};
-let grid=null,path=null;
-for(let attempt=0;attempt<100&&!path;attempt++){
-const candidate=Array.from({length:size},()=>Array(size).fill(""));
-const route=[];
-let r=Math.floor(Math.random()*size),c=Math.floor(Math.random()*size),ok=true;
-for(let i=0;i<chars.length;i++){
-if(candidate[r][c]){ok=false;break;}
-candidate[r][c]=chars[i];route.push([r,c]);
-if(i===chars.length-1)break;
-const options=this.shuffle(WordPuzzlePathEngine.directions.map(d=>[r+d[0],c+d[1]]).filter(([nr,nc])=>nr>=0&&nr<size&&nc>=0&&nc<size&&!candidate[nr][nc]));
-if(!options.length){ok=false;break;}
-[r,c]=options[0];
-}
-if(ok){grid=candidate;path=route;}
-}
-if(!path){
-grid=Array.from({length:size},()=>Array(size).fill(""));
-path=makeSnake();
-path.forEach(([r,c],i)=>{grid[r][c]=chars[i];});
-}
-this.fill(grid);
-return{grid,path};
+let pool=[];
+maxCounts.forEach((count,ch)=>{for(let i=0;i<count;i++)pool.push(ch);});
+if(!pool.length)pool=[..."دانش"];
+this.shuffle(pool);
+return[pool];
 },
 
 search(){
@@ -181,19 +165,32 @@ return{correct:true,finished:true,...result};
 
 submitBuilder(value){
 if(!this.state?.started||this.state.finished)return{correct:false,finished:true};
-const target=WordPuzzleRepository.normalize(this.round?.word),answer=WordPuzzleRepository.normalize(value);
-if(!target||answer!==target){this.state.wrong++;return{correct:false,finished:false,state:this.getState()};}
-this.state.correct++;
+const stages=this.state.builderStages||[],stage=stages[this.state.builderStageIndex||0];
+const answer=WordPuzzleRepository.normalize(value);
+if(!stage||!answer){this.state.wrong++;return{correct:false,finished:false,state:this.getState()};}
+const target=stage.words.find(item=>WordPuzzleRepository.normalize(item.word)===answer);
+if(!target){this.state.wrong++;return{correct:false,finished:false,state:this.getState()};}
+const normalized=WordPuzzleRepository.normalize(target.word);
+if((this.state.builderSolvedWords||[]).includes(normalized))return{correct:false,duplicate:true,finished:false,state:this.getState()};
+this.state.builderSolvedWords=this.state.builderSolvedWords||[];
+this.state.builderSolvedWords.push(normalized);
 this.state.foundWords=this.state.foundWords||[];
-this.state.foundWords.push(target);
+this.state.foundWords.push(normalized);
+this.state.correct++;
 this.state.score+=WordPuzzleScore.correct(10,this.state.hints);
+const stageComplete=this.state.builderSolvedWords.length>=stage.words.length;
+if(stageComplete){
+this.state.builderStageIndex++;
+this.state.builderStageBoard=null;
+this.state.builderSolvedWords=[];
 if(this.state.correct>=this.state.total){
 const result=this.finish();
-return{correct:true,foundWord:this.round.word,finished:true,...result};
+return{correct:true,foundWord:target.word,stageComplete:true,finished:true,...result};
 }
-this.state.round=this.state.correct;
+}
+this.state.round=this.state.builderStageIndex;
 this.round=this.builder();
-const result={correct:true,foundWord:this.state.foundWords[this.state.foundWords.length-1],finished:false,state:this.getState()};
+const result={correct:true,foundWord:target.word,stageComplete,finished:false,state:this.getState()};
 this.emitReady();
 return result;
 },
@@ -285,4 +282,4 @@ fill(grid){const letters="ابپتثجچحخدذرزژسشصضطظعغفقکگل
 shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 };
 window.WordPuzzleEngine=WordPuzzleEngine;
-console.log("Word Puzzle Engine v1.8 Ready");
+console.log("Word Puzzle Engine v1.9 Ready");
