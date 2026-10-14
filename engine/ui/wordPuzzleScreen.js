@@ -281,7 +281,8 @@ if(cell)cell.classList.add("wp-error-cell");
 
 builder(x,d){
 x.innerHTML=`
-<div class="wp-card">
+<div class="wp-card wp-builder-card">
+<div class="wp-builder-meta"><strong class="wp-builder-stage">${d.stageTitle||"کلمه‌ساز"}</strong><span class="wp-builder-step">${d.builderProgress?"واژه "+d.builderProgress.current+" از "+d.builderProgress.total:""}</span></div>
 <div class="wp-clue">${d.instruction}</div>
 <div class="wp-hint" aria-live="polite"></div>
 <div class="wp-answer" aria-live="polite">حروف را با کشیدن انگشت یا موس به هم وصل کن</div>
