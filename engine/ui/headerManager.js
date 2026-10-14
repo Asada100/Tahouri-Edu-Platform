@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Header Manager
-// Version 2.5
+// Version 2.7
 // =====================================
 
 const HeaderManager = {
@@ -132,8 +132,8 @@ const HeaderManager = {
     enhance: function () {
         const app = document.getElementById("app");
         if (!app) return;
-        const screen = app.querySelector(":scope > .screen");
-        if (!screen || this.isActivityScreen(screen)) return;
+        const screen = app.firstElementChild;
+        if (!screen) return;
         if (this.isNotificationScreen(screen)) return;
         const homeScreen = this.isHomeScreen(screen);
         let header = screen.querySelector(":scope > .tahouri-app-header");
@@ -242,4 +242,4 @@ function headerInsertAfter(element, screen) {
 window.HeaderManager = HeaderManager;
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", function () { HeaderManager.init(); });
 else HeaderManager.init();
-console.log("Header Manager v2.6 Ready");
+console.log("Header Manager v2.7 Ready");
