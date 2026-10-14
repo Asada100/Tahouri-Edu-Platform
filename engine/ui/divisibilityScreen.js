@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 2.6
+// Version 2.7
 // Divisibility Group Screen
 // =====================================
 
@@ -67,6 +67,7 @@ const DivisibilityScreen = {
                 const activity = activityList.find(function (item) {
                     return item.id === activityId;
                 });
+
                 if (!activity) {
                     console.error("Divisibility Activity Not Found:", activityId);
                     return;
@@ -76,7 +77,7 @@ const DivisibilityScreen = {
                     !ContentLockManager.canOpen(activityId)) {
                     const prerequisiteId = activity.requires;
                     const prerequisite = prerequisiteId
-                        ? activityList.find(function (item) {
+                        ? activities.find(function (item) {
                             return item.id === prerequisiteId;
                         })
                         : null;
@@ -95,7 +96,14 @@ const DivisibilityScreen = {
                     Navigation.selectActivity(activityId);
                 }
 
-                if (typeof DifficultyModal !== "undefined" &&
+                // DifficultyModal is only for Jigsaw puzzles. Quiz activities,
+                // including divisibility, must launch directly through App.
+                const isJigsaw =
+                    String(activity.type || "").toLowerCase() === "puzzle" &&
+                    String(activity.engine || "").toLowerCase() === "puzzle";
+
+                if (isJigsaw &&
+                    typeof DifficultyModal !== "undefined" &&
                     typeof DifficultyModal.open === "function") {
                     DifficultyModal.open(activity, function (selectedActivity) {
                         if (typeof App !== "undefined" && typeof App.startActivity === "function") {
@@ -127,4 +135,4 @@ Screen.showDivisibility = function (gradeId, subjectId, chapterId) {
     }
 };
 
-console.log("Divisibility Screen v2.6 Ready");
+console.log("Divisibility Screen v2.7 Ready");
