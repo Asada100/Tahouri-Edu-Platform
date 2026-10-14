@@ -1,9 +1,9 @@
-// Activity Session Manager v1.7
+// Activity Session Manager v1.8
 // Stable session lifecycle and engine-level restore.
 // Completion cleanup is performed by ActivityLifecycle after completion data is processed.
 const ActivitySessionManager = {
     BASE_KEY: "Tahouri_ActivitySession",
-    VERSION: "1.7",
+    VERSION: "1.8",
     currentSession: null,
     exitControlId: "activitySessionControl",
     overlayId: "activitySessionOverlay",
@@ -545,7 +545,7 @@ const ActivitySessionManager = {
             if (this.gameplayActive) this.capture("resumable");
         });
 
-        console.log("Activity Session Manager v1.7 Ready");
+        console.log("Activity Session Manager v1.8 Ready");
     }
 };
 
