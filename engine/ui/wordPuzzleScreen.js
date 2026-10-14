@@ -355,9 +355,8 @@ grid.after(hintBox);
 const path=this.bindDragPath(grid,selected=>{
 if(selected.length){
 const raw=WordPuzzlePathEngine.read(d.grid,selected)||"—";
-const reversed=[...raw].reverse().join("");
-const canonical=d.words.find(word=>normalize(word)===normalize(raw)||normalize(word)===normalize(reversed));
-selection.textContent=canonical||raw;
+// Show only the letters the learner selected; do not reveal a target word mid-drag.
+selection.textContent=raw;
 liveWord.classList.add("visible");
 if(!resultShowing)liveWord.classList.remove("good","bad");
 }else if(!resultShowing){selection.textContent="—";liveWord.classList.remove("visible");}
@@ -401,8 +400,7 @@ return;
 }
 if(result.type==="path"){
 path.highlight(result.value);
-const target=list.querySelectorAll("span");
-target.forEach(span=>{if(normalize(span.textContent.replace(/^✓\s*/, ""))===normalize(result.word))span.classList.add("wp-hint-target");});
+// Keep the hint neutral: highlight path cells only, never the matching target label.
 hintBox.textContent="راهنما: خانه‌های روشن‌شده بخشی از مسیر یک واژه را نشان می‌دهند. ۲ امتیاز کسر شد.";
 hintBox.classList.add("show");
 if(hintTimer)clearTimeout(hintTimer);
