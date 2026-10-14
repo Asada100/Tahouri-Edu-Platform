@@ -149,7 +149,7 @@ const HeaderManager = {
             const notificationButton = header.querySelector(".tahouri-header-notification");
             if (notificationButton) notificationButton.onclick = function () { if (typeof NotificationScreen !== "undefined" && typeof NotificationScreen.open === "function") NotificationScreen.open(); };
             const menuButton = header.querySelector(".tahouri-header-menu");
-            if (menuButton) menuButton.onclick = function () { if (typeof ToastManager !== "undefined") ToastManager.info("منوی برنامه در حال آماده‌سازی است."); };
+            if (menuButton) menuButton.onclick = function () { HeaderManager.toggleMenu(header, screen); };
         }
         this.cleanHomeActions(screen);
         this.updateSectionTitle(header, screen);
@@ -157,6 +157,55 @@ const HeaderManager = {
         if (homeScreen) this.injectHomeBanner(screen);
         this.updateBell();
         if (typeof BottomNavigation !== "undefined" && typeof BottomNavigation.updateActive === "function") BottomNavigation.updateActive();
+    },
+
+    toggleMenu: function (header, screen) {
+        const existing = document.getElementById("tahouri-header-menu-panel");
+        if (existing) {
+            existing.remove();
+            return;
+        }
+
+        const panel = document.createElement("div");
+        panel.id = "tahouri-header-menu-panel";
+        panel.dir = "rtl";
+        panel.setAttribute("role", "menu");
+        panel.style.cssText = "position:fixed;z-index:10050;top:calc(58px + env(safe-area-inset-top, 0px));right:12px;min-width:190px;max-width:calc(100vw - 24px);padding:8px;background:var(--card-bg,#fff);color:var(--text-color,#222);border:1px solid rgba(100,100,100,.22);border-radius:14px;box-shadow:0 8px 28px rgba(0,0,0,.2);display:grid;gap:6px;";
+        panel.innerHTML = '<button type="button" role="menuitem" data-menu-action="exit" style="padding:12px;border:0;border-radius:9px;text-align:right;background:transparent;color:inherit;font:inherit;">↩️ خروج از بازی و بازگشت به فعالیت‌ها</button><button type="button" role="menuitem" data-menu-action="home" style="padding:12px;border:0;border-radius:9px;text-align:right;background:transparent;color:inherit;font:inherit;">🏠 بازگشت به خانه</button><button type="button" role="menuitem" data-menu-action="close" style="padding:10px;border:0;border-radius:9px;text-align:center;background:transparent;color:inherit;font:inherit;">بستن منو</button>';
+        document.body.appendChild(panel);
+
+        panel.querySelector('[data-menu-action="exit"]').onclick = function () {
+            panel.remove();
+            // Use the same active grade/subject/chapter state that the platform
+            // uses to return from the Even/Odd activity to its activity list.
+            if (typeof AppState !== "undefined" && AppState.grade && AppState.subject && AppState.chapter &&
+                typeof Screen !== "undefined" && typeof Screen.showActivities === "function") {
+                Screen.showActivities(AppState.grade, AppState.subject, AppState.chapter);
+                return;
+            }
+            if (typeof NavigationHistory !== "undefined" && typeof NavigationHistory.back === "function") {
+                NavigationHistory.back();
+            } else if (typeof Screen !== "undefined" && typeof Screen.showHome === "function") {
+                Screen.showHome();
+            }
+        };
+
+        panel.querySelector('[data-menu-action="home"]').onclick = function () {
+            panel.remove();
+            if (typeof Screen !== "undefined" && typeof Screen.showHome === "function") Screen.showHome();
+        };
+        panel.querySelector('[data-menu-action="close"]').onclick = function () { panel.remove(); };
+
+        const closeOnOutside = function (event) {
+            if (!panel.contains(event.target) && !header.contains(event.target)) {
+                panel.remove();
+                document.removeEventListener("pointerdown", closeOnOutside, true);
+            }
+        };
+        document.addEventListener("pointerdown", closeOnOutside, true);
+        panel.querySelector('[data-menu-action="close"]').addEventListener("click", function () {
+            document.removeEventListener("pointerdown", closeOnOutside, true);
+        });
     },
 
     injectHomeBanner: function (screen) {
@@ -193,4 +242,4 @@ function headerInsertAfter(element, screen) {
 window.HeaderManager = HeaderManager;
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", function () { HeaderManager.init(); });
 else HeaderManager.init();
-console.log("Header Manager v2.5 Ready");
+console.log("Header Manager v2.6 Ready");
