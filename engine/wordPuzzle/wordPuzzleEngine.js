@@ -237,7 +237,7 @@ return result;
 
 emitReady(){if(typeof EventManager!=="undefined")EventManager.emit("activityReady",{engineName:"WordPuzzleEngine",engine:this,result:this.getState()});},
 getState(){return{...this.state,data:this.round};},
-fill(grid){const letters="ابپتثجچحخدذرزژسشصضطظعغفقکگلمنوهی";for(let r=0;r<grid.length;r++)for(let c=0;c<grid[r].length;c++)if(!grid[r][c])grid[r][c]=letters[Math.floor(Math.random()*letters.length)];},
+fill(grid){const letters="ابپتثجچحخدذرزژسشصضطظعغفقکگلمنوهی";if(!Array.isArray(grid))return grid;for(let r=0;r<grid.length;r++){if(!Array.isArray(grid[r]))grid[r]=[];for(let c=0;c<grid[r].length;c++)if(typeof grid[r][c]!=="string"||!grid[r][c].trim())grid[r][c]=letters[Math.floor(Math.random()*letters.length)];}return grid;},
 shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 };
 window.WordPuzzleEngine=WordPuzzleEngine;

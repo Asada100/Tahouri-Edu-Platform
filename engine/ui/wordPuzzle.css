@@ -225,3 +225,11 @@ transform:translateX(-50%) translateY(0);
 }
 .wp-lpath-card .wp-l-grid .wp-hint.show{display:block!important;}
 .wp-lpath-card .wp-l-grid .wp-cell{touch-action:none;min-width:0;}
+
+
+/* Word search: keep the instruction and hint on one compact line on phones. */
+.wp-shell:has(.wp-search-card)>h1{margin:4px 0;font-size:clamp(21px,5vw,30px);}
+.wp-shell:has(.wp-search-card)>.wp-instruction-with-hint{display:flex;flex-wrap:nowrap;align-items:center;justify-content:space-between;gap:5px;width:100%;max-width:100%;margin:0 auto 8px;line-height:1.2;white-space:nowrap;text-align:right;}
+.wp-shell:has(.wp-search-card)>.wp-instruction-with-hint>span{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:clamp(10px,2.8vw,13px);}
+.wp-shell:has(.wp-search-card)>.wp-instruction-with-hint .wp-search-hint{flex:0 0 auto;margin:0;padding:5px 8px;min-height:30px;font-size:11px;line-height:1.1;}
+@media(max-width:380px){.wp-shell:has(.wp-search-card)>.wp-instruction-with-hint{gap:3px}.wp-shell:has(.wp-search-card)>.wp-instruction-with-hint>span{font-size:10px}.wp-shell:has(.wp-search-card)>.wp-instruction-with-hint .wp-search-hint{padding:5px 6px;font-size:10px}}

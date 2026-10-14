@@ -25,7 +25,7 @@ ${s.data?.type==="wordSearch"?"":`<section class="wp-header">
 <div class="wp-score">⭐ <strong>${s.score}</strong></div>
 </section>`}
 <h1>${s.data?.title||"واژه‌خانه"}</h1>
-${s.data?.type==="wordSearch"?`<div class="wp-instruction wp-instruction-with-hint"><span>${s.data?.instruction||""}</span><button type="button" class="wp-btn wp-hint-btn wp-search-hint">راهنما 💡</button></div>`:`<p class="wp-instruction">${s.data?.instruction||""}</p>`}
+${s.data?.type==="wordSearch"?`<div class="wp-instruction wp-instruction-with-hint"><span>با کشیدن انگشت یا موس، واژه‌ها را مستقیم، مورب یا L پیدا کن.</span><button type="button" class="wp-btn wp-hint-btn wp-search-hint">راهنما 💡</button></div>`:`<p class="wp-instruction">${s.data?.instruction||""}</p>`}
 <div class="wp-status" aria-live="polite"></div>
 <div id="wp"></div>`;
 root.appendChild(box);
