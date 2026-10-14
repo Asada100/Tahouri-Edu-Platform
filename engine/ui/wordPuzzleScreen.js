@@ -49,11 +49,21 @@ list.appendChild(b);
 });
 },
 
+showToast(message,good=false){
+const previous=document.getElementById("wp-feedback-toast");
+if(previous)previous.remove();
+const toast=document.createElement("div");
+toast.id="wp-feedback-toast";
+toast.className="wp-feedback-toast "+(good?"good":"bad");
+toast.setAttribute("role","status");
+toast.setAttribute("aria-live","polite");
+toast.dir="rtl";
+toast.textContent=message;
+document.body.appendChild(toast);
+toast.addEventListener("animationend",()=>toast.remove(),{once:true});
+},
 feedback(x,message,good){
-const status=x.closest(".wp-shell")?.querySelector(".wp-status");
-if(!status)return;
-status.textContent=message;
-status.className="wp-status "+(good?"good":"bad");
+this.showToast(message,good);
 },
 
 afterSubmit(x,result){
@@ -277,9 +287,8 @@ answer.classList.toggle("has-value",selected.length>0);
 });
 x.querySelector("[data-clear]").onclick=()=>{path.clear();answer.textContent="حروف را با کشیدن انگشت یا موس به هم وصل کن";answer.classList.remove("has-value");};
 x.querySelector("[data-hint]").onclick=()=>this.hint(x,(value,type)=>{
-if(type==="cell"){path.highlight(value);hintBox.textContent="از خانه مشخص‌شده شروع کن."; }
-else hintBox.textContent="حرف راهنما: "+value;
-hintBox.classList.add("show");
+if(type==="cell"){path.highlight(value);this.showToast("از خانه مشخص‌شده شروع کن.",false);}
+else this.showToast("حرف راهنما: "+value,false);
 });
 x.querySelector("[data-check]").onclick=()=>{
 const selected=path.getPath();
@@ -308,7 +317,7 @@ b.type="button";b.className="wp-option";b.textContent=word;
 b.onclick=()=>{if(selected.has(i)){selected.delete(i);b.classList.remove("sel");}else{selected.add(i);b.classList.add("sel");}};
 options.appendChild(b);
 });
-x.querySelector("[data-hint]").onclick=()=>this.hint(x,v=>{hintBox.textContent="یکی از واژه‌های هم‌خانواده با «"+d.base+"» با این حرف آغاز می‌شود: "+v;hintBox.classList.add("show");});
+x.querySelector("[data-hint]").onclick=()=>this.hint(x,v=>{this.showToast("یکی از واژه‌های هم‌خانواده با «"+d.base+"» با این حرف آغاز می‌شود: "+v,false);});
 x.querySelector("[data-check]").onclick=()=>this.afterSubmit(x,WordPuzzleEngine.submitFamily([...selected].map(i=>d.options[i])));
 },
 
@@ -388,30 +397,19 @@ const hintButton=x.closest(".wp-shell")?.querySelector(".wp-search-hint");
 hintButton.onclick=()=>{
 clearFeedback();
 const result=WordPuzzleEngine.hint();
-if(!result){hintBox.textContent="همه واژه‌ها پیدا شده‌اند.";hintBox.classList.add("show");
-if(hintTimer)clearTimeout(hintTimer);
-hintTimer=setTimeout(()=>{hintBox.classList.remove("show");hintTimer=null;},2600);return;}
+if(!result){this.showToast("همه واژه‌ها پیدا شده‌اند.",true);return;}
 if(result.type==="limit"){
-hintBox.textContent="برای این واژه، دو بخش از مسیر راهنما نمایش داده شده‌اند. واژه بعدی را پیدا کن.";
-hintBox.classList.add("show");
-if(hintTimer)clearTimeout(hintTimer);
-hintTimer=setTimeout(()=>{hintBox.classList.remove("show");hintTimer=null;},2600);
+this.showToast("برای این واژه، دو بخش از مسیر راهنما نمایش داده شده‌اند. واژه بعدی را پیدا کن.",false);
 return;
 }
 if(result.type==="path"){
 path.highlight(result.value);
 // Keep the hint neutral: highlight path cells only, never the matching target label.
-hintBox.textContent="راهنما: خانه‌های روشن‌شده بخشی از مسیر یک واژه را نشان می‌دهند. ۲ امتیاز کسر شد.";
-hintBox.classList.add("show");
-if(hintTimer)clearTimeout(hintTimer);
-hintTimer=setTimeout(()=>{hintBox.classList.remove("show");hintTimer=null;},2600);
+this.showToast("راهنما: خانه‌های روشن‌شده بخشی از مسیر یک واژه را نشان می‌دهند. ۲ امتیاز کسر شد.",false);
 updateProgress();
 }else if(result.type==="cell"){
 path.highlight(result.value);
-hintBox.textContent="از خانه مشخص‌شده شروع کن.";
-hintBox.classList.add("show");
-if(hintTimer)clearTimeout(hintTimer);
-hintTimer=setTimeout(()=>{hintBox.classList.remove("show");hintTimer=null;},2600);
+this.showToast("از خانه مشخص‌شده شروع کن.",false);
 }
 };
 },
@@ -464,9 +462,8 @@ x.querySelector("[data-clear]").onclick=()=>{
 path.clear();selection.textContent="—";liveWord.classList.remove("good","bad");hintBox.classList.remove("show");
 };
 x.querySelector("[data-hint]").onclick=()=>this.hint(x,(value,type)=>{
-if(type==="cell"){path.highlight(value);hintBox.textContent="راهنما: از خانهٔ روشن‌شده شروع کن و واژه را با یک پیچ ۹۰ درجه‌ای به شکل L کامل کن.";}
-else hintBox.textContent="حرف راهنما: "+value;
-hintBox.classList.add("show");
+if(type==="cell"){path.highlight(value);this.showToast("راهنما: از خانهٔ روشن‌شده شروع کن و واژه را با یک پیچ ۹۰ درجه‌ای به شکل L کامل کن.",false);}
+else this.showToast("حرف راهنما: "+value,false);
 });
 x.querySelector("[data-check]").onclick=()=>{
 const selected=path.getPath();
