@@ -98,17 +98,17 @@ return{type:"wordSearch",title:"واژه‌یاب",instruction:"واژه‌ها�
 },
 
 placeWord(grid,word){
-const dirs=WordPuzzlePathEngine.directions,n=grid.length,chars=[...String(word||"")];
+const dirs=WordPuzzlePathEngine.directions,n=grid.length,chars=[...WordPuzzleRepository.normalize(word||"")];
 if(!chars.length||chars.length>2*n-1)return false;
-for(let attempt=0;attempt<1200;attempt++){
-const useL=chars.length>n||Math.random()<0.4;
+for(let attempt=0;attempt<1600;attempt++){
+const useTurn=chars.length>n||Math.random()<0.55;
 let path=[];
-if(useL){
+if(useTurn){
 const firstEdges=1+Math.floor(Math.random()*(chars.length-2));
-const firstOptions=[[0,1],[0,-1],[1,0],[-1,0]];
-const d1=firstOptions[Math.floor(Math.random()*firstOptions.length)];
-const secondOptions=d1[0]===0?[[1,0],[-1,0]]:[[0,1],[0,-1]];
-const d2=secondOptions[Math.floor(Math.random()*secondOptions.length)];
+const d1=dirs[Math.floor(Math.random()*dirs.length)];
+const turns=[1,2,3,5,6,7];
+const delta=turns[Math.floor(Math.random()*turns.length)];
+const d2=dirs[(dirs.findIndex(d=>d[0]===d1[0]&&d[1]===d1[1])+delta)%dirs.length];
 const r=Math.floor(Math.random()*n),c=Math.floor(Math.random()*n);
 for(let i=0;i<chars.length;i++){
 const step=i<=firstEdges?i:firstEdges,extra=i<=firstEdges?0:i-firstEdges;
@@ -170,7 +170,7 @@ submitFamily(values){return this.submit(WordPuzzleValidator.familySelection(valu
 
 submitSearch(path){
 if(!this.state||this.state.finished)return{correct:false,finished:this.state?.finished};
-if(!WordPuzzlePathEngine.valid(this.round.grid,path)||(!WordPuzzlePathEngine.straight(path)&&!WordPuzzlePathEngine.isL(path))){
+if(!WordPuzzlePathEngine.valid(this.round.grid,path)){
 this.state.wrong++;return{correct:false,finished:false,keepBoard:true,state:this.getState()};
 }
 const value=WordPuzzlePathEngine.read(this.round.grid,path),reverse=[...value].reverse().join("");

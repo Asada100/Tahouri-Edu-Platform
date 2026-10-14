@@ -14,6 +14,7 @@ used.add(key);
 if(i){
 const dr=r-path[i-1][0],dc=c-path[i-1][1];
 if(Math.max(Math.abs(dr),Math.abs(dc))!==1)return false;
+if(dr===0&&dc===0)return false;
 }
 }
 return true;
