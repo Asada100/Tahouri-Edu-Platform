@@ -1,4 +1,12 @@
 window.WordPuzzleRepository={
+formatDisplay(w){
+return String(w||"")
+.replace(/\s+/g," ")
+.replace(/(^|\s)(می|نمی)\s+/g,"$1$2‌")
+.replace(/\s+(ها|های|هایی)(?=$|[،.!؟])/g,"‌$1")
+.replace(/\s+(ام|ای|ایم|اید|اند)(?=$|[،.!؟])/g,"‌$1")
+.trim();
+},
 normalize(w){
 return String(w||"")
 .replace(/[يى]/g,"ی")
