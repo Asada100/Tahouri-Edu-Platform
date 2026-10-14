@@ -123,8 +123,9 @@ createGrid(gridElement,gridData){
 gridElement.innerHTML="";
 gridElement.style.gridTemplateColumns="repeat("+gridData[0].length+",minmax(0,1fr))";
 gridData.forEach((row,r)=>row.forEach((letter,c)=>{
-const b=document.createElement("button");
-b.type="button";
+const isBuilder=gridElement.classList.contains("wp-builder-grid");
+const b=document.createElement(isBuilder?"span":"button");
+if(isBuilder){b.setAttribute("role","button");b.tabIndex=0;}else b.type="button";
 b.className="wp-cell";
 b.textContent=letter;
 b.setAttribute("aria-label",`ردیف ${r+1} ستون ${c+1}، حرف ${letter}`);
@@ -137,6 +138,7 @@ bindDragPath(gridElement,onUpdate,options={}){
 let path=[];
 let dragging=false;
 const straightOnly=!!options.straightOnly;
+const freePath=!!options.freePath;
 const cells=()=>Array.from(gridElement.querySelectorAll(".wp-cell"));
 gridElement.style.position="relative";
 const svgNS="http://www.w3.org/2000/svg";
@@ -196,7 +198,7 @@ if(existing>=0){
 if(existing===path.length-1)return;
 path=path.slice(0,existing+1);sync();return;
 }
-if(path.length){
+if(path.length&&!freePath){
 const last=path[path.length-1],dr=point[0]-last[0],dc=point[1]-last[1];
 if(Math.max(Math.abs(dr),Math.abs(dc))!==1)return;
 if(straightOnly&&path.length>=2){
@@ -225,6 +227,7 @@ gridElement.addEventListener("pointermove",event=>{
 if(!dragging)return;
 const cell=document.elementFromPoint(event.clientX,event.clientY)?.closest?.(".wp-cell");
 if(!cell||!gridElement.contains(cell))return;
+if(freePath){visit(cell);return;}
 const target=[Number(cell.dataset.r),Number(cell.dataset.c)];
 const last=path[path.length-1];
 if(!last){visit(cell);return;}
@@ -280,38 +283,45 @@ if(cell)cell.classList.add("wp-error-cell");
 },
 
 builder(x,d){
+const clues=(d.targetWords||[]).map(item=>`
+<div class="wp-builder-clue ${item.solved?"is-solved":""}">
+<span class="wp-builder-clue-number">${item.number}</span>
+<span class="wp-builder-clue-meaning">${item.meaning}</span>
+<strong class="wp-builder-clue-answer">${item.solved?item.word:"واژهٔ "+item.number}</strong>
+</div>`).join("");
 x.innerHTML=`
 <div class="wp-card wp-builder-card">
-<div class="wp-builder-meta"><strong class="wp-builder-stage">${d.stageTitle||"کلمه‌ساز"}</strong><span class="wp-builder-step">${d.builderProgress?"واژه "+d.builderProgress.current+" از "+d.builderProgress.total:""}</span></div>
+<div class="wp-builder-meta"><strong class="wp-builder-stage">${d.stageTitle||"کلمه‌ساز"}</strong><span class="wp-builder-step">${d.builderProgress?"مرحله "+d.builderProgress.stageIndex+" از "+d.builderProgress.stageCount+" · "+d.builderProgress.stageSolved+" از "+d.builderProgress.stageTarget+" واژه":""}</span></div>
 <div class="wp-clue">${d.instruction}</div>
+<div class="wp-builder-clues">${clues}</div>
 <div class="wp-hint" aria-live="polite"></div>
-<div class="wp-answer" aria-live="polite">حروف را با کشیدن انگشت یا موس به هم وصل کن</div>
-<div class="wp-grid wp-builder-grid"></div>
-<div class="wp-actions">
-<button type="button" class="wp-btn wp-secondary" data-clear>پاک کردن مسیر</button>
-<button type="button" class="wp-btn wp-hint-btn" data-hint>راهنما 💡</button>
-<button type="button" class="wp-btn" data-check>بررسی واژه</button>
-</div>
+<div class="wp-answer" aria-live="polite">برای ساخت واژه، روی یک حرف بزن و مسیر را از روی حروف دیگر بکش.</div>
+<div class="wp-grid wp-builder-grid" aria-label="حروف قابل اتصال"></div>
+<div class="wp-actions"><button type="button" class="wp-btn wp-secondary" data-clear>پاک کردن مسیر</button></div>
 </div>`;
-const answer=x.querySelector(".wp-answer"),grid=x.querySelector(".wp-builder-grid"),hintBox=x.querySelector(".wp-hint");
+const answer=x.querySelector(".wp-answer"),grid=x.querySelector(".wp-builder-grid");
 this.createGrid(grid,d.grid);
+const cells=Array.from(grid.querySelectorAll(".wp-cell"));
+cells.forEach((cell,index)=>{
+const angle=(-Math.PI/2)+(2*Math.PI*index/Math.max(1,cells.length));
+cell.style.left=(50+Math.cos(angle)*37)+"%";
+cell.style.top=(50+Math.sin(angle)*37)+"%";
+});
+let submitting=false;
 const path=this.bindDragPath(grid,selected=>{
 const value=WordPuzzlePathEngine.read(d.grid,selected);
-answer.textContent=value||"حروف را با کشیدن انگشت یا موس به هم وصل کن";
+answer.textContent=value||"برای ساخت واژه، روی یک حرف بزن و مسیر را از روی حروف دیگر بکش.";
 answer.classList.toggle("has-value",selected.length>0);
-});
-x.querySelector("[data-clear]").onclick=()=>{path.clear();answer.textContent="حروف را با کشیدن انگشت یا موس به هم وصل کن";answer.classList.remove("has-value");};
-x.querySelector("[data-hint]").onclick=()=>this.hint(x,(value,type)=>{
-if(type==="cell"){path.highlight(value);this.showToast("از خانه مشخص‌شده شروع کن.",false);}
-else this.showToast("حرف راهنما: "+value,false);
-});
-x.querySelector("[data-check]").onclick=()=>{
-const selected=path.getPath();
-if(selected.length<2){this.feedback(x,"برای ساخت واژه، حروف را با یک مسیر پیوسته وصل کن.",false);return;}
-this.afterSubmit(x,WordPuzzleEngine.submitBuilder(WordPuzzlePathEngine.read(d.grid,selected)));
-};
+},{freePath:true,onRelease:selected=>{
+if(submitting||selected.length<2)return;
+const value=WordPuzzlePathEngine.read(d.grid,selected);
+if(!value)return;
+submitting=true;
+this.afterSubmit(x,WordPuzzleEngine.submitBuilder(value));
+setTimeout(()=>{submitting=false;},1000);
+}});
+x.querySelector("[data-clear]").onclick=()=>{path.clear();answer.textContent="برای ساخت واژه، روی یک حرف بزن و مسیر را از روی حروف دیگر بکش.";answer.classList.remove("has-value");};
 },
-
 family(x,d){
 let selected=new Set();
 x.innerHTML=`
