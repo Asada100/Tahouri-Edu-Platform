@@ -379,7 +379,7 @@ const path=this.bindDragPath(grid,selected=>{
 if(selected.length){
 const raw=WordPuzzlePathEngine.read(d.grid,selected)||"—";
 // Show only the letters the learner selected; do not reveal a target word mid-drag.
-selection.textContent=raw;
+selection.textContent=WordPuzzleRepository.formatDisplay(raw);
 liveWord.classList.add("visible");
 if(!resultShowing)liveWord.classList.remove("good","bad");
 }else if(!resultShowing){selection.textContent="—";liveWord.classList.remove("visible");}
