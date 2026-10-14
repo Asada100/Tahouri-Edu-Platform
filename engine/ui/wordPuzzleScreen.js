@@ -158,16 +158,30 @@ return cell?((cell.offsetLeft+cell.offsetWidth/2)/Math.max(1,gridElement.clientW
 const drawOverlay=()=>{
 overlay.innerHTML="";
 foundPaths.forEach(points=>{
+const coordinates=pointsFor(points);
+if(!coordinates)return;
 const line=document.createElementNS(svgNS,"polyline");
-line.setAttribute("points",pointsFor(points));line.setAttribute("class","wp-path-line wp-path-found");
+line.setAttribute("points",coordinates);line.setAttribute("class","wp-path-line wp-path-found");
 overlay.appendChild(line);
 });
 if(path.length>1){
+const coordinates=pointsFor(path);
+if(coordinates){
 const line=document.createElementNS(svgNS,"polyline");
-line.setAttribute("points",pointsFor(path));line.setAttribute("class","wp-path-line wp-path-active");
+line.setAttribute("points",coordinates);line.setAttribute("class","wp-path-line wp-path-active");
 overlay.appendChild(line);
 }
+}
 };
+// Restore paths after the grid receives its final layout dimensions.
+const redrawAfterLayout=()=>window.requestAnimationFrame(drawOverlay);
+redrawAfterLayout();
+if(typeof ResizeObserver!=="undefined"){
+const observer=new ResizeObserver(redrawAfterLayout);
+observer.observe(gridElement);
+gridElement.__wpPathResizeObserver=observer;
+}
+window.addEventListener("resize",redrawAfterLayout,{passive:true});
 const sync=()=>{
 const selected=new Set(path.map(([r,c])=>r+","+c));
 cells().forEach(cell=>cell.classList.toggle("sel",selected.has(cell.dataset.r+","+cell.dataset.c)));
