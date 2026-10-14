@@ -98,7 +98,7 @@ return{type:"wordSearch",title:"واژه‌یاب",instruction:"واژه‌ها�
 },
 
 placeWord(grid,word){
-const dirs=WordPuzzlePathEngine.directions,n=grid.length,chars=[...WordPuzzleRepository.normalize(word||"")];
+const dirs=[[0,1],[1,1],[1,0],[1,-1],[0,-1],[-1,-1],[-1,0],[-1,1]],n=grid.length,chars=[...WordPuzzleRepository.normalize(word||"")];
 if(!chars.length||chars.length>2*n-1)return false;
 for(let attempt=0;attempt<1600;attempt++){
 const useTurn=chars.length>n||Math.random()<0.55;
