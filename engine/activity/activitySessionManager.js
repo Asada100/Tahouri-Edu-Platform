@@ -1,9 +1,9 @@
-// Activity Session Manager v1.6
+// Activity Session Manager v1.7
 // Stable session lifecycle and engine-level restore.
 // Completion cleanup is performed by ActivityLifecycle after completion data is processed.
 const ActivitySessionManager = {
     BASE_KEY: "Tahouri_ActivitySession",
-    VERSION: "1.6",
+    VERSION: "1.7",
     currentSession: null,
     exitControlId: "activitySessionControl",
     overlayId: "activitySessionOverlay",
@@ -322,6 +322,16 @@ const ActivitySessionManager = {
             return true;
         }
 
+        if (data.kind === "wordPuzzle" && (engineName === "WordPuzzleEngine" || engineName === "wordPuzzle")) {
+            if (typeof engine.restoreSession !== "function") return false;
+            if (!engine.restoreSession(data)) return false;
+            ActivityManager.currentActivity = activity;
+            ActivityState.set("started");
+            ActivityState.set("playing");
+            document.body.classList.add("activity-playing");
+            return true;
+        }
+
         if (data.kind === "quiz" && (engineName === "QuizEngine" || engineName === "quiz")) {
             engine.activity = data.activity || activity;
             engine.questions = Array.isArray(data.questions) ? JSON.parse(JSON.stringify(data.questions)) : [];
@@ -524,7 +534,7 @@ const ActivitySessionManager = {
             if (this.gameplayActive) this.capture("resumable");
         });
 
-        console.log("Activity Session Manager v1.5 Ready");
+        console.log("Activity Session Manager v1.7 Ready");
     }
 };
 
