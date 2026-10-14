@@ -18,6 +18,59 @@ const DifficultyModal = {
             return;
         }
 
+        // Divisibility quizzes use the same level-selection modal as puzzles,
+        // but must not pass through the Jigsaw-only validation below.
+        const activitySettings = activityData.settings || {};
+        const isDivisibilityQuiz =
+            String(activityData.group || "").toLowerCase() === "divisibility" ||
+            String(activitySettings.mode || "").toLowerCase() === "divisibility";
+
+        if (isDivisibilityQuiz) {
+            if (this.isOpen) return;
+            this.isOpen = true;
+
+            const overlay = document.createElement("div");
+            overlay.id = "difficultyModalOverlay";
+            overlay.innerHTML = `
+                <div class="difficultyModal" role="dialog" aria-modal="true">
+                    <h2>انتخاب سطح سؤال</h2>
+                    <p>${activityData.title || "بخش‌پذیری"}</p>
+                    <div class="difficultyOptions">
+                        <button class="difficultyOption" data-difficulty="easy" type="button">🟢 ساده <small>اعداد کوچک‌تر</small></button>
+                        <button class="difficultyOption" data-difficulty="medium" type="button">🟡 معمولی <small>اعداد متوسط</small></button>
+                        <button class="difficultyOption" data-difficulty="hard" type="button">🔴 سخت <small>اعداد بزرگ‌تر</small></button>
+                    </div>
+                    <button id="difficultyCancelBtn" type="button">انصراف</button>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+
+            overlay.querySelectorAll(".difficultyOption").forEach(function (button) {
+                button.onclick = function () {
+                    const selectedActivity = {
+                        ...activityData,
+                        settings: {
+                            ...(activityData.settings || {}),
+                            difficulty: this.dataset.difficulty
+                        }
+                    };
+                    DifficultyModal.close();
+                    if (typeof onSelect === "function") onSelect(selectedActivity);
+                };
+            });
+
+            const cancelButton = overlay.querySelector("#difficultyCancelBtn");
+            if (cancelButton) cancelButton.onclick = function () { DifficultyModal.close(); };
+            overlay.onclick = function (event) {
+                if (event.target === overlay) DifficultyModal.close();
+            };
+            this.escapeHandler = function (event) {
+                if (event.key === "Escape") DifficultyModal.close();
+            };
+            document.addEventListener("keydown", this.escapeHandler);
+            return;
+        }
+
         let puzzle = activityData.puzzle || {};
         let mode = activityData.jigsawMode ||
             (puzzle.image ? "image" :
