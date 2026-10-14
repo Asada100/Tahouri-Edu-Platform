@@ -337,7 +337,7 @@ const paintWords=()=>{
 list.innerHTML="";
 d.words.forEach(w=>{
 const span=document.createElement("span");
-span.textContent=foundWords.includes(normalize(w))?"✓ "+w:w;
+span.textContent=foundWords.includes(normalize(w))?"✓ "+WordPuzzleRepository.formatDisplay(w):WordPuzzleRepository.formatDisplay(w);
 span.classList.toggle("wp-found",foundWords.includes(normalize(w)));
 list.appendChild(span);
 });
@@ -351,7 +351,7 @@ if(score)score.textContent=Math.max(0,WordPuzzleEngine.state.score-(WordPuzzleEn
 paintWords();
 this.createGrid(grid,d.grid);
 // createGrid clears the grid contents, so attach the hint overlay after it renders.
-grid.appendChild(hintBox);
+grid.after(hintBox);
 const path=this.bindDragPath(grid,selected=>{
 if(selected.length){
 const raw=WordPuzzlePathEngine.read(d.grid,selected)||"—";
@@ -370,7 +370,7 @@ if(result.correct&&result.foundWord){
 foundWords=WordPuzzleEngine.state.foundWords.slice();
 path.markFound();
 resultShowing=true;
-selection.textContent="آفرین! «"+result.foundWord+"» پیدا شد.";
+selection.textContent="آفرین! «"+WordPuzzleRepository.formatDisplay(result.foundWord)+"» پیدا شد.";
 liveWord.classList.add("visible","good");
 liveWord.classList.remove("bad");
 paintWords();updateProgress();
@@ -393,7 +393,7 @@ if(!result){hintBox.textContent="همه واژه‌ها پیدا شده‌اند
 if(hintTimer)clearTimeout(hintTimer);
 hintTimer=setTimeout(()=>{hintBox.classList.remove("show");hintTimer=null;},2600);return;}
 if(result.type==="limit"){
-hintBox.textContent="برای واژه «"+result.word+"» هر دو حرف راهنما نمایش داده شده‌اند. واژه بعدی را پیدا کن.";
+hintBox.textContent="برای این واژه، دو بخش از مسیر راهنما نمایش داده شده‌اند. واژه بعدی را پیدا کن.";
 hintBox.classList.add("show");
 if(hintTimer)clearTimeout(hintTimer);
 hintTimer=setTimeout(()=>{hintBox.classList.remove("show");hintTimer=null;},2600);
@@ -403,7 +403,7 @@ if(result.type==="path"){
 path.highlight(result.value);
 const target=list.querySelectorAll("span");
 target.forEach(span=>{if(normalize(span.textContent.replace(/^✓\s*/, ""))===normalize(result.word))span.classList.add("wp-hint-target");});
-hintBox.textContent="راهنما: واژه «"+result.word+"» را پیدا کن؛ خانه‌های روشن‌شده مسیر آغازین را نشان می‌دهند. ۲ امتیاز کسر شد.";
+hintBox.textContent="راهنما: خانه‌های روشن‌شده بخشی از مسیر یک واژه را نشان می‌دهند. ۲ امتیاز کسر شد.";
 hintBox.classList.add("show");
 if(hintTimer)clearTimeout(hintTimer);
 hintTimer=setTimeout(()=>{hintBox.classList.remove("show");hintTimer=null;},2600);
@@ -434,7 +434,7 @@ x.innerHTML=`
 const grid=x.querySelector(".wp-grid"),hintBox=x.querySelector(".wp-hint");
 const liveWord=x.querySelector(".wp-selection"),selection=liveWord.querySelector("strong");
 this.createGrid(grid,d.grid);
-grid.appendChild(hintBox);
+grid.after(hintBox);
 const path=this.bindDragPath(grid,selected=>{
 selection.textContent=WordPuzzlePathEngine.read(d.grid,selected)||"—";
 liveWord.classList.remove("good","bad");
