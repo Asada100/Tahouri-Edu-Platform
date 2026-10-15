@@ -471,3 +471,8 @@ transform:translateX(-50%) translateY(0);
 
 /* Word Builder: hide the empty status strip directly below the instruction. */
 .wp-shell:has(.wp-builder-card)>.wp-status{display:none!important;}
+
+/* Word-builder drag feedback: a live connector follows the finger between letters. */
+.wp-builder-grid .wp-path-follow{stroke:#7c3aed;stroke-width:8;stroke-opacity:.42;stroke-dasharray:5 5;}
+.wp-builder-grid .wp-path-active{stroke-width:9;stroke-linecap:round;stroke-linejoin:round;}
+.wp-builder-grid .wp-cell.sel{transition:color .08s ease,background .08s ease,scale .08s ease;}
