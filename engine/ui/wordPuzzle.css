@@ -526,3 +526,13 @@ transform:translateX(-50%) translateY(0);
 
 /* Builder answer grows with the word instead of keeping a fixed-width box. */
 .wp-builder-card .wp-answer{display:flex;width:fit-content;min-width:58px;max-width:100%;padding:6px 12px;box-sizing:border-box;white-space:nowrap;}
+
+/* Keep each circular letter centered on its calculated percentage coordinate. */
+.wp-builder-grid .wp-cell,
+.wp-builder-grid .wp-cell:hover,
+.wp-builder-grid .wp-cell:focus,
+.wp-builder-grid .wp-cell.sel,
+.wp-builder-grid.wp-tracing .wp-cell.sel,
+.wp-builder-grid.wp-tracing .wp-cell.sel:hover{
+  transform:translate(-50%,-50%) !important;
+}
