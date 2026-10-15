@@ -20,6 +20,11 @@ const activity = {
   id: 'word-puzzle-regression',
   settings: { rounds: 5, modes: ['wordBuilder','wordSearch','wordFamily','lPath'], difficulty: 2 },
   puzzle: {
+    builderStages: [{
+      id: 'test-stage', title: 'مرحله آزمایشی', targetCount: 1,
+      letters: ['چ','ر','ا','غ'],
+      words: [{ word: 'چراغ', meaning: 'وسیله‌ای که نور می‌دهد' }]
+    }],
     words: [
       { word: 'چراغ', clue: 'وسیله‌ای که نور می‌دهد' },
       { word: 'فروغ', clue: 'روشنایی و تابش' },
@@ -43,7 +48,7 @@ assert.equal(state.mode, null);
 state = context.WordPuzzleEngine.selectMode('wordBuilder');
 assert.equal(state.data.type, 'wordBuilder');
 assert.equal(state.total, 1);
-const built = context.WordPuzzleEngine.submitBuilder(context.WordPuzzlePathEngine.read(state.data.grid, state.data.path));
+const built = context.WordPuzzleEngine.submitBuilder('چراغ');
 assert.equal(built.correct, true);
 assert.equal(built.finished, true, 'one independent word-builder game ends only after its answer is correct');
 
