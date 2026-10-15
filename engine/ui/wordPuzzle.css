@@ -693,3 +693,46 @@ transform:translateX(-50%) translateY(0);
   stroke-linejoin:round;
   filter:drop-shadow(0 1px 3px rgba(13,148,136,.22));
 }
+
+
+/* Word Builder: richer lagoon card and a more intricate Persian-inspired arabesque. */
+.wp-shell:has(.wp-builder-card) .wp-builder-card{
+  position:relative;
+  overflow:hidden;
+  isolation:isolate;
+  background-color:#e6fbf8!important;
+  background-image:
+    radial-gradient(ellipse at 0% 0%,rgba(45,212,191,.42),transparent 42%),
+    radial-gradient(ellipse at 100% 0%,rgba(167,139,250,.34),transparent 40%),
+    radial-gradient(ellipse at 100% 100%,rgba(96,165,250,.27),transparent 43%),
+    radial-gradient(ellipse at 0% 100%,rgba(251,191,36,.18),transparent 35%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 240' fill='none' stroke='%230f766e' stroke-width='1.15'%3E%3Cdefs%3E%3Cpattern id='p' width='120' height='120' patternUnits='userSpaceOnUse'%3E%3Cpath d='M60 2 C70 22 86 28 108 24 C104 46 110 52 118 60 C110 68 104 74 108 96 C86 92 70 98 60 118 C50 98 34 92 12 96 C16 74 10 68 2 60 C10 52 16 46 12 24 C34 28 50 22 60 2Z'/%3E%3Cpath d='M60 18 C68 36 82 42 98 38 C94 54 100 60 102 60 C100 60 94 66 98 82 C82 78 68 84 60 102 C52 84 38 78 22 82 C26 66 20 60 18 60 C20 60 26 54 22 38 C38 42 52 36 60 18Z'/%3E%3Cpath d='M60 0V120M0 60H120M18 18L102 102M102 18L18 102' stroke-width='.65'/%3E%3Ccircle cx='60' cy='60' r='11'/%3E%3Cpath d='M60 45 C66 53 66 57 60 60 C54 57 54 53 60 45Z M75 60 C67 66 63 66 60 60 C63 54 67 54 75 60Z M60 75 C54 67 54 63 60 60 C66 63 66 67 60 75Z M45 60 C53 54 57 54 60 60 C57 66 53 66 45 60Z'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='240' height='240' fill='url(%23p)'/%3E%3C/svg%3E"),
+    linear-gradient(135deg,#d8fbf5 0%,#e9e7ff 48%,#dceeff 100%)!important;
+  background-size:auto,auto,auto,auto,120px 120px,auto!important;
+  background-position:center!important;
+  background-blend-mode:normal,normal,normal,normal,multiply,normal!important;
+  border:1px solid rgba(45,130,139,.3)!important;
+  box-shadow:0 14px 34px rgba(41,91,130,.16),inset 0 1px 0 rgba(255,255,255,.8)!important;
+}
+.wp-shell:has(.wp-builder-card) .wp-builder-card .wp-builder-clue{
+  background:linear-gradient(145deg,rgba(255,255,255,.94),rgba(231,248,255,.94))!important;
+  border-color:rgba(91,132,190,.32)!important;
+  box-shadow:0 3px 9px rgba(50,84,140,.08)!important;
+}
+.wp-shell:has(.wp-builder-card) .wp-builder-card .wp-builder-clue.is-solved{
+  background:linear-gradient(145deg,#eafff2,#bdf4d7)!important;
+  border-color:#5ac99a!important;
+}
+.wp-shell:has(.wp-builder-card) .wp-builder-card .wp-answer{
+  background:linear-gradient(110deg,rgba(255,255,255,.95),rgba(220,252,250,.96))!important;
+  border-color:#7dd3c7!important;
+  box-shadow:0 2px 8px rgba(13,148,136,.09)!important;
+}
+.wp-shell:has(.wp-builder-card) .wp-builder-card .wp-builder-stage{
+  background:linear-gradient(120deg,#bff7ec,#d7dcff)!important;
+  border-color:rgba(13,148,136,.28)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.75);
+}
+@media(max-width:600px){
+  .wp-shell:has(.wp-builder-card) .wp-builder-card{border-radius:18px!important;}
+}
