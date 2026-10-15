@@ -467,7 +467,7 @@ transform:translateX(-50%) translateY(0);
 
 
 /* Word Builder: remove the unnecessary white container while preserving game layout. */
-.wp-builder-card{background:transparent!important;border:0!important;box-shadow:none!important;border-radius:0!important;}
+.wp-builder-card{background:linear-gradient(155deg,#ffffff 0%,#f5f9ff 100%)!important;border:1px solid #d9e6f8!important;box-shadow:0 4px 16px rgba(20,32,55,.06)!important;border-radius:22px!important;}
 
 /* Word Builder: hide the empty status strip directly below the instruction. */
 .wp-shell:has(.wp-builder-card)>.wp-status{display:none!important;}
