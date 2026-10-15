@@ -112,7 +112,7 @@ assert.equal(nextWordHint.value.length, 1, 'the next word starts again with its 
 assert.equal(context.WordPuzzlePathEngine.straight([[0,0],[0,1],[0,2]]), true);
 assert.equal(context.WordPuzzlePathEngine.straight([[0,0],[1,1],[2,2]]), true);
 assert.equal(context.WordPuzzlePathEngine.straight([[0,0],[0,1],[1,1]]), false);
-assert.match(screen, /straightOnly:true/);
+assert.match(screen, /straightOnly:false/);
 assert.match(screen, /onRelease:selected/);
 assert.match(screen, /wp-live-word/);
 assert.doesNotMatch(screen.slice(screen.indexOf('search(x,d,foundWords=[])'), screen.indexOf('lpath(x,d){')), /data-check|data-clear/);
