@@ -232,6 +232,7 @@ if(!dragging)return;
 dragging=false;
 livePoint=null;
 freehandTrace=[];
+gridElement.classList.remove("wp-tracing");
 drawOverlay();
 try{if(gridElement.hasPointerCapture(event.pointerId))gridElement.releasePointerCapture(event.pointerId);}catch(_){}
 if(typeof options.onRelease==="function")options.onRelease(path.map(p=>[p[0],p[1]]));
@@ -246,6 +247,7 @@ if(Math.hypot(event.clientX-(r.left+r.width/2),event.clientY-(r.top+r.height/2))
 event.preventDefault();
 if(typeof options.onStart==="function")options.onStart();
 dragging=true;
+if(freePath)gridElement.classList.add("wp-tracing");
 const rect=gridElement.getBoundingClientRect();
 livePoint={x:Math.max(0,Math.min(rect.width,event.clientX-rect.left)),y:Math.max(0,Math.min(rect.height,event.clientY-rect.top))};
 freehandTrace=freePath?[{x:(cell.getBoundingClientRect().left+cell.getBoundingClientRect().width/2)-rect.left,y:(cell.getBoundingClientRect().top+cell.getBoundingClientRect().height/2)-rect.top}]:[];
