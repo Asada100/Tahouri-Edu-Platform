@@ -300,7 +300,16 @@ return;
 const rect=gridElement.getBoundingClientRect();
 livePoint={x:Math.max(0,Math.min(rect.width,event.clientX-rect.left)),y:Math.max(0,Math.min(rect.height,event.clientY-rect.top))};
 drawOverlay();
-cell=document.elementFromPoint(event.clientX,event.clientY)?.closest?.(".wp-cell");
+// Wider nearest-cell snapping makes diagonal tracing more forgiving on touchscreens
+// and prevents tiny gaps between cells from interrupting a drag.
+let nearestCell=null,nearestDistance=Infinity;
+cells().forEach(candidate=>{
+const bounds=candidate.getBoundingClientRect();
+const distance=Math.hypot(event.clientX-(bounds.left+bounds.width/2),event.clientY-(bounds.top+bounds.height/2));
+const snapRadius=Math.min(bounds.width,bounds.height)*0.62;
+if(distance<=snapRadius&&distance<nearestDistance){nearestCell=candidate;nearestDistance=distance;}
+});
+cell=nearestCell;
 if(!cell||!gridElement.contains(cell))return;
 const target=[Number(cell.dataset.r),Number(cell.dataset.c)];
 const last=path[path.length-1];
