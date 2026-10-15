@@ -255,9 +255,6 @@ if(freePath)drawOverlay();
 });
 gridElement.addEventListener("pointermove",event=>{
 if(!dragging)return;
-const rect=gridElement.getBoundingClientRect();
-livePoint={x:event.clientX-rect.left,y:event.clientY-rect.top};
-drawOverlay();
 let cell;
 if(freePath){
 const rect=gridElement.getBoundingClientRect();
@@ -288,6 +285,9 @@ freehandTrace.push({x:r.left+r.width/2-rect.left,y:r.top+r.height/2-rect.top});
 drawOverlay();
 return;
 }
+const rect=gridElement.getBoundingClientRect();
+livePoint={x:Math.max(0,Math.min(rect.width,event.clientX-rect.left)),y:Math.max(0,Math.min(rect.height,event.clientY-rect.top))};
+drawOverlay();
 cell=document.elementFromPoint(event.clientX,event.clientY)?.closest?.(".wp-cell");
 if(!cell||!gridElement.contains(cell))return;
 const target=[Number(cell.dataset.r),Number(cell.dataset.c)];
