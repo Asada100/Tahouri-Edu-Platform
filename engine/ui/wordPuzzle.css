@@ -468,3 +468,6 @@ transform:translateX(-50%) translateY(0);
 
 /* Word Builder: remove the unnecessary white container while preserving game layout. */
 .wp-builder-card{background:transparent!important;border:0!important;box-shadow:none!important;border-radius:0!important;}
+
+/* Word Builder: hide the empty status strip directly below the instruction. */
+.wp-shell:has(.wp-builder-card)>.wp-status{display:none!important;}
