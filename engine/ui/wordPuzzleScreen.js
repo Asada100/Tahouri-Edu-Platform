@@ -20,7 +20,7 @@ this.modeSelect(box.querySelector("#wp"),s.data);
 return;
 }
 box.innerHTML=`
-${s.data?.type==="wordSearch"?"":`<section class="wp-header">
+${(s.data?.type==="wordSearch"||s.data?.type==="wordBuilder")?"":`<section class="wp-header">
 <div class="wp-progress">بازی مستقل</div>
 <div class="wp-score">⭐ <strong>${s.score}</strong></div>
 </section>`}
