@@ -801,3 +801,25 @@ transform:translateX(-50%) translateY(0);
   transform:none!important;
   text-shadow:0 0 10px rgba(249,115,22,.24)!important;
 }
+
+
+/* Mobile Word Search: larger readable letters and reclaim card padding without overflow. */
+@media(max-width:600px){
+  .wp-shell:has(.wp-search-card){
+    padding-left:2px;
+    padding-right:2px;
+  }
+  .wp-search-card{
+    padding:2px;
+  }
+  .wp-search-grid{
+    width:100%;
+    max-width:100%;
+    gap:2px;
+  }
+  .wp-search-grid .wp-cell{
+    font-size:clamp(16px,4.7vw,21px);
+    line-height:1;
+    border-radius:5px;
+  }
+}
