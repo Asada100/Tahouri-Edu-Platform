@@ -476,3 +476,16 @@ transform:translateX(-50%) translateY(0);
 .wp-builder-grid .wp-path-follow{stroke:#7c3aed;stroke-width:8;stroke-opacity:.42;stroke-dasharray:5 5;}
 .wp-builder-grid .wp-path-active{stroke-width:9;stroke-linecap:round;stroke-linejoin:round;}
 .wp-builder-grid .wp-cell.sel{transition:color .08s ease,background .08s ease,scale .08s ease;}
+
+
+/* Word builder: neutral pointer and subtle letter-only feedback while tracing. */
+.wp-builder-grid,
+.wp-builder-grid .wp-cell,
+.wp-builder-grid .wp-cell:hover,
+.wp-builder-grid .wp-cell:focus,
+.wp-builder-grid .wp-cell[role="button"]{cursor:default!important;}
+.wp-builder-grid .wp-cell{border-color:transparent!important;background:transparent!important;box-shadow:none!important;transition:transform .14s ease!important;}
+.wp-builder-grid .wp-cell:hover,
+.wp-builder-grid .wp-cell:focus{transform:none!important;box-shadow:none!important;outline:none!important;}
+.wp-builder-grid.wp-tracing .wp-cell.sel,
+.wp-builder-grid.wp-tracing .wp-cell.sel:hover{transform:scale(1.12)!important;border-color:transparent!important;background:transparent!important;box-shadow:none!important;}
