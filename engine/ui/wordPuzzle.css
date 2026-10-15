@@ -489,3 +489,30 @@ transform:translateX(-50%) translateY(0);
 .wp-builder-grid .wp-cell:focus{transform:none!important;box-shadow:none!important;outline:none!important;}
 .wp-builder-grid.wp-tracing .wp-cell.sel,
 .wp-builder-grid.wp-tracing .wp-cell.sel:hover{transform:scale(1.12)!important;border-color:transparent!important;background:transparent!important;box-shadow:none!important;}
+
+
+/* Final Word Builder fix: stable letter positions and readable selection. */
+.wp-builder-grid .wp-cell,
+.wp-builder-grid .wp-cell:hover,
+.wp-builder-grid .wp-cell:focus {
+  transform: none !important;
+  scale: none !important;
+  transition: color .1s ease, font-size .1s ease !important;
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  color: #243b70 !important;
+  outline: none !important;
+}
+.wp-builder-grid.wp-tracing .wp-cell.sel,
+.wp-builder-grid.wp-tracing .wp-cell.sel:hover,
+.wp-builder-grid .wp-cell.sel {
+  transform: none !important;
+  scale: none !important;
+  font-size: clamp(29px, 7.6vw, 38px) !important;
+  color: #1d4ed8 !important;
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  text-shadow: 0 1px 0 rgba(255,255,255,.8);
+}
