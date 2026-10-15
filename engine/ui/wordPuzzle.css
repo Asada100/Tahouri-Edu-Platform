@@ -439,7 +439,7 @@ transform:translateX(-50%) translateY(0);
 .wp-builder-card .wp-builder-clue-answer{font-size:12px;color:#64748b;}
 .wp-builder-card .wp-builder-clue.is-solved{background:#dcfce7;border-color:#86efac;}
 .wp-builder-card .wp-answer{min-height:34px;height:auto;margin:4px auto 0;padding:4px 10px;border:1px solid #bfdbfe;border-radius:10px;background:#eff6ff;font-size:clamp(17px,4vw,21px);line-height:1.4;color:#1d4ed8;}
-.wp-builder-card .wp-answer:not(.has-value){height:0;min-height:0;margin:0 auto;padding:0;border:0;background:transparent;overflow:hidden;}
+
 .wp-builder-grid{width:min(86vw,330px)!important;max-width:330px!important;margin:5px auto 8px!important;aspect-ratio:1/1;}
 .wp-builder-grid .wp-cell{width:clamp(38px,10vw,48px);height:clamp(38px,10vw,48px);font-size:clamp(27px,7vw,36px)!important;color:#243b70;transition:color .12s ease,background .12s ease,scale .12s ease;}
 .wp-builder-grid .wp-cell.sel{color:#fff!important;background:linear-gradient(135deg,#2563eb,#7c3aed)!important;box-shadow:0 0 0 3px rgba(99,102,241,.20),0 5px 14px rgba(79,70,229,.25)!important;scale:1.04;}
