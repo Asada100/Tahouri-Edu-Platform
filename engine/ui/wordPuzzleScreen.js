@@ -292,35 +292,52 @@ const clues=(d.targetWords||[]).map(item=>`
 x.innerHTML=`
 <div class="wp-card wp-builder-card">
 <div class="wp-builder-meta"><strong class="wp-builder-stage">${d.stageTitle||"کلمه‌ساز"}</strong><span class="wp-builder-step">${d.builderProgress?"مرحله "+d.builderProgress.stageIndex+" از "+d.builderProgress.stageCount+" · "+d.builderProgress.stageSolved+" از "+d.builderProgress.stageTarget+" واژه":""}</span></div>
-<div class="wp-clue">${d.instruction}</div>
 <div class="wp-builder-clues">${clues}</div>
-<div class="wp-hint" aria-live="polite"></div>
-<div class="wp-answer" aria-live="polite">برای ساخت واژه، روی یک حرف بزن و مسیر را از روی حروف دیگر بکش.</div>
+<div class="wp-answer" aria-live="polite" aria-label="واژه در حال ساخت"></div>
 <div class="wp-grid wp-builder-grid" aria-label="حروف قابل اتصال"></div>
-<div class="wp-actions"><button type="button" class="wp-btn wp-secondary" data-clear>پاک کردن مسیر</button></div>
+<div class="wp-actions wp-builder-actions">
+<button type="button" class="wp-btn wp-secondary" data-shuffle aria-label="جابجایی حروف" title="جابجایی حروف">🔀 جابه‌جایی حروف</button>
+<button type="button" class="wp-btn wp-secondary" data-clear>پاک‌کردن مسیر</button>
+</div>
 </div>`;
 const answer=x.querySelector(".wp-answer"),grid=x.querySelector(".wp-builder-grid");
-this.createGrid(grid,d.grid);
+const visualGrid=d.grid.map(row=>row.slice());
+this.createGrid(grid,visualGrid);
 const cells=Array.from(grid.querySelectorAll(".wp-cell"));
+const placeLetters=()=>{
 cells.forEach((cell,index)=>{
 const angle=(-Math.PI/2)+(2*Math.PI*index/Math.max(1,cells.length));
 cell.style.left=(50+Math.cos(angle)*37)+"%";
 cell.style.top=(50+Math.sin(angle)*37)+"%";
+cell.dataset.r="0";cell.dataset.c=String(index);
+cell.textContent=visualGrid[0][index];
 });
+};
+placeLetters();
 let submitting=false;
 const path=this.bindDragPath(grid,selected=>{
-const value=WordPuzzlePathEngine.read(d.grid,selected);
-answer.textContent=value||"برای ساخت واژه، روی یک حرف بزن و مسیر را از روی حروف دیگر بکش.";
+const value=WordPuzzlePathEngine.read(visualGrid,selected);
+answer.textContent=value||"";
 answer.classList.toggle("has-value",selected.length>0);
 },{freePath:true,onRelease:selected=>{
 if(submitting||selected.length<2)return;
-const value=WordPuzzlePathEngine.read(d.grid,selected);
+const value=WordPuzzlePathEngine.read(visualGrid,selected);
 if(!value)return;
 submitting=true;
 this.afterSubmit(x,WordPuzzleEngine.submitBuilder(value));
 setTimeout(()=>{submitting=false;},1000);
 }});
-x.querySelector("[data-clear]").onclick=()=>{path.clear();answer.textContent="برای ساخت واژه، روی یک حرف بزن و مسیر را از روی حروف دیگر بکش.";answer.classList.remove("has-value");};
+x.querySelector("[data-clear]").onclick=()=>{path.clear();answer.textContent="";answer.classList.remove("has-value");};
+x.querySelector("[data-shuffle]").onclick=()=>{
+if(submitting)return;
+const letters=visualGrid[0].slice();
+for(let i=letters.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[letters[i],letters[j]]=[letters[j],letters[i]];}
+if(letters.every((letter,index)=>letter===visualGrid[0][index])&&letters.length>1){[letters[0],letters[1]]=[letters[1],letters[0]];}
+visualGrid[0]=letters;
+path.clear();
+placeLetters();
+answer.textContent="";answer.classList.remove("has-value");
+};
 },
 family(x,d){
 let selected=new Set();
