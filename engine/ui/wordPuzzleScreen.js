@@ -25,7 +25,7 @@ ${(s.data?.type==="wordSearch"||s.data?.type==="wordBuilder")?"":`<section class
 <div class="wp-score">⭐ <strong>${s.score}</strong></div>
 </section>`}
 <h1>${s.data?.title||"واژه‌خانه"}</h1>
-${s.data?.type==="wordBuilder"?"":s.data?.type==="wordSearch"?`<div class="wp-instruction wp-instruction-with-hint"><span>واژه‌های پنهان را با کشیدن انگشت یا موس در یک خط مستقیم افقی، عمودی یا مورب پیدا کن.</span><button type="button" class="wp-btn wp-hint-btn wp-search-hint" aria-label="راهنما" title="راهنما">💡</button></div>`:`<p class="wp-instruction">${s.data?.instruction||""}</p>`}
+${s.data?.type==="wordBuilder"?"":s.data?.type==="wordSearch"?`<div class="wp-instruction wp-instruction-with-hint"><span>واژه‌های پنهان را با کشیدن انگشت یا موس پیدا کن؛ مسیر می‌تواند مستقیم، مورب یا دارای یک پیچ L باشد.</span><button type="button" class="wp-btn wp-hint-btn wp-search-hint" aria-label="راهنما" title="راهنما">💡</button></div>`:`<p class="wp-instruction">${s.data?.instruction||""}</p>`}
 <div class="wp-status" aria-live="polite"></div>
 <div id="wp"></div>`;
 root.appendChild(box);
@@ -486,7 +486,7 @@ selection.textContent=WordPuzzleRepository.formatDisplay(raw);
 liveWord.classList.add("visible");
 if(!resultShowing)liveWord.classList.remove("good","bad");
 }else if(!resultShowing){selection.textContent="—";liveWord.classList.remove("visible");}
-},{straightOnly:true,
+},{straightOnly:false,
 foundPaths:(d.placements||[]).filter(item=>foundWords.includes(normalize(item.word))).map(item=>item.path).filter(Array.isArray),
 onStart:()=>{clearFeedback();if(path)path.clear();},
 onRelease:selected=>{
