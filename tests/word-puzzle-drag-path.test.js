@@ -120,7 +120,8 @@ assert.match(screen, /wp-path-found/);
 
 console.log('Word Puzzle independent modes, straight tracing, and auto-check checks passed');
 
-assert.match(screen, /const steps=Math\.max\(Math\.abs\(dr\),Math\.abs\(dc\)\)/);
+assert.match(screen, /const crossed=\\[\\]/, 'drag tracking follows the swept pointer segment between events');
+assert.match(screen, /const corridor=Math\\.min\\(bounds\\.width,bounds\\.height\\)\\*0\\.34/);
 assert.doesNotMatch(screen, /wp-search-tools-toggle/);
 assert.match(screen, /wp-search-hint/);
 assert.doesNotMatch(styles, /wp-search-tools-toggle/);
