@@ -215,7 +215,17 @@ const point=[Number(cell.dataset.r),Number(cell.dataset.c)];
 const existing=path.findIndex(p=>p[0]===point[0]&&p[1]===point[1]);
 if(existing>=0){
 if(existing===path.length-1)return;
-path=path.slice(0,existing+1);sync();return;
+path=path.slice(0,existing+1);
+if(freePath&&options.clearTraceOnBacktrack){
+const rect=gridElement.getBoundingClientRect();
+freehandTrace=path.map(([r,c])=>{
+const selectedCell=gridElement.querySelector('[data-r="'+r+'"][data-c="'+c+'"]');
+if(!selectedCell)return null;
+const bounds=selectedCell.getBoundingClientRect();
+return {x:bounds.left+bounds.width/2-rect.left,y:bounds.top+bounds.height/2-rect.top};
+}).filter(Boolean);
+}
+sync();return;
 }
 if(path.length&&!freePath){
 const last=path[path.length-1],dr=point[0]-last[0],dc=point[1]-last[1];
@@ -385,7 +395,7 @@ const path=this.bindDragPath(grid,selected=>{
 const value=WordPuzzlePathEngine.read(visualGrid,selected);
 answer.textContent=value||"";
 answer.classList.toggle("has-value",selected.length>0);
-},{freePath:true,onRelease:selected=>{
+},{freePath:true,clearTraceOnBacktrack:true,onRelease:selected=>{
 if(submitting||selected.length<2)return;
 const value=WordPuzzlePathEngine.read(visualGrid,selected);
 if(!value)return;
