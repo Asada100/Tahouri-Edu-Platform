@@ -798,6 +798,6 @@ transform:translateX(-50%) translateY(0);
   border-color:transparent!important;
   border-radius:0!important;
   scale:1!important;
-  transform:translate(-50%,-50%)!important;
+  transform:none!important;
   text-shadow:0 0 10px rgba(249,115,22,.24)!important;
 }
