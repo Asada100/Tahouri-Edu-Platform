@@ -428,3 +428,39 @@ transform:translateX(-50%) translateY(0);
  .wp-builder-grid{width:min(88vw,340px)!important;max-width:340px!important;margin:8px auto 14px!important}
  .wp-builder-grid .wp-cell{font-size:clamp(24px,7.5vw,32px)!important}
 }
+
+
+/* Word Builder polish: compact clues, vivid tracing, and less wasted space. */
+.wp-builder-card{max-width:560px;padding:14px 16px 16px;border-radius:22px;background:linear-gradient(155deg,#ffffff 0%,#f5f9ff 100%);}
+.wp-builder-card .wp-builder-clues{gap:7px;margin:8px auto 4px;}
+.wp-builder-card .wp-builder-clue{align-items:center;gap:4px;padding:7px 5px;border:1px solid #d9e6f8;border-radius:12px;background:#f0f7ff;text-align:center;box-shadow:0 2px 0 rgba(45,91,160,.04);}
+.wp-builder-card .wp-builder-clue-number{width:21px;height:21px;background:#dbeafe;color:#1d4ed8;font-size:12px;}
+.wp-builder-card .wp-builder-clue-meaning{font-size:clamp(11px,2.8vw,14px);line-height:1.45;font-weight:700;color:#334155;}
+.wp-builder-card .wp-builder-clue-answer{font-size:12px;color:#64748b;}
+.wp-builder-card .wp-builder-clue.is-solved{background:#dcfce7;border-color:#86efac;}
+.wp-builder-card .wp-answer{min-height:34px;height:auto;margin:4px auto 0;padding:4px 10px;border:1px solid #bfdbfe;border-radius:10px;background:#eff6ff;font-size:clamp(17px,4vw,21px);line-height:1.4;color:#1d4ed8;}
+.wp-builder-card .wp-answer:not(.has-value){height:0;min-height:0;margin:0 auto;padding:0;border:0;background:transparent;overflow:hidden;}
+.wp-builder-grid{width:min(86vw,330px)!important;max-width:330px!important;margin:5px auto 8px!important;aspect-ratio:1/1;}
+.wp-builder-grid .wp-cell{width:clamp(38px,10vw,48px);height:clamp(38px,10vw,48px);font-size:clamp(27px,7vw,36px)!important;color:#243b70;transition:color .12s ease,background .12s ease,scale .12s ease;}
+.wp-builder-grid .wp-cell.sel{color:#fff!important;background:linear-gradient(135deg,#2563eb,#7c3aed)!important;box-shadow:0 0 0 3px rgba(99,102,241,.20),0 5px 14px rgba(79,70,229,.25)!important;scale:1.04;}
+.wp-builder-grid .wp-path-overlay{z-index:1;}
+.wp-builder-grid .wp-path-active{stroke:#7c3aed;stroke-width:9;filter:drop-shadow(0 1px 3px rgba(79,70,229,.38));}
+.wp-builder-grid .wp-cell{z-index:2;}
+.wp-builder-grid .wp-path-found{stroke:#10b981;stroke-width:8;opacity:.7;}
+.wp-builder-actions{gap:8px;margin-top:4px;}
+.wp-builder-actions .wp-btn{min-height:38px;padding:8px 13px;border:0;border-radius:12px;font-size:14px;background:linear-gradient(135deg,#2563eb,#4f46e5);box-shadow:0 3px 8px rgba(79,70,229,.18);}
+.wp-builder-actions .wp-btn.wp-secondary{background:#e8f1ff;color:#24458c;box-shadow:none;border:1px solid #c8dcff;}
+.wp-builder-actions [data-shuffle]{background:linear-gradient(135deg,#0d9488,#059669);color:#fff;}
+.wp-builder-meta{margin-bottom:5px;}
+.wp-builder-stage{padding:6px 10px;background:#e0f2fe;color:#075985;border-radius:10px;}
+.wp-builder-step{font-size:12px;color:#64748b;}
+@media(max-width:600px){
+ .wp-builder-card{padding:10px 8px 12px;}
+ .wp-builder-card .wp-builder-clues{gap:4px;margin:6px auto 2px;}
+ .wp-builder-card .wp-builder-clue{padding:6px 3px;gap:3px;}
+ .wp-builder-card .wp-builder-clue-meaning{font-size:11px;line-height:1.4;}
+ .wp-builder-card .wp-builder-clue-answer{font-size:10px;}
+ .wp-builder-grid{width:min(84vw,300px)!important;max-width:300px!important;margin:3px auto 5px!important;}
+ .wp-builder-grid .wp-cell{font-size:clamp(26px,8vw,34px)!important;}
+ .wp-builder-actions .wp-btn{font-size:13px;padding:7px 10px;}
+}
