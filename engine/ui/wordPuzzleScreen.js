@@ -293,8 +293,8 @@ x.innerHTML=`
 <div class="wp-card wp-builder-card">
 <div class="wp-builder-meta"><strong class="wp-builder-stage">${d.stageTitle||"کلمه‌ساز"}</strong><span class="wp-builder-step">${d.builderProgress?"مرحله "+d.builderProgress.stageIndex+" از "+d.builderProgress.stageCount+" · "+d.builderProgress.stageSolved+" از "+d.builderProgress.stageTarget+" واژه":""}</span></div>
 <div class="wp-builder-clues">${clues}</div>
-<div class="wp-answer" aria-live="polite" aria-label="واژه در حال ساخت"></div>
 <div class="wp-grid wp-builder-grid" aria-label="حروف قابل اتصال"></div>
+<div class="wp-answer" aria-live="polite" aria-label="واژه در حال ساخت"></div>
 <div class="wp-actions wp-builder-actions">
 <button type="button" class="wp-btn wp-secondary" data-shuffle aria-label="جابجایی حروف" title="جابجایی حروف">🔀 جابه‌جایی حروف</button>
 <button type="button" class="wp-btn wp-secondary" data-clear>پاک‌کردن مسیر</button>
