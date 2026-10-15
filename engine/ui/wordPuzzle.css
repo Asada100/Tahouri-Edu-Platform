@@ -746,7 +746,7 @@ transform:translateX(-50%) translateY(0);
     radial-gradient(ellipse at 100% 0%,rgba(167,139,250,.34),transparent 40%),
     radial-gradient(ellipse at 100% 100%,rgba(96,165,250,.27),transparent 43%),
     radial-gradient(ellipse at 0% 100%,rgba(251,191,36,.18),transparent 35%),
-    linear-gradient(135deg,#d8fbf5 0%,#e9e7ff 48%,#dceeff 100%)!important;
+    linear-gradient(180deg,#d8fbf5 0%,#e9e7ff 52%,#dceeff 100%)!important;
   background-size:auto,auto,auto,auto,auto!important;
   background-position:center!important;
   background-blend-mode:normal,normal,normal,normal,normal!important;
