@@ -25,7 +25,7 @@ ${(s.data?.type==="wordSearch"||s.data?.type==="wordBuilder")?"":`<section class
 <div class="wp-score">⭐ <strong>${s.score}</strong></div>
 </section>`}
 <h1>${s.data?.title||"واژه‌خانه"}</h1>
-${s.data?.type==="wordSearch"?`<div class="wp-instruction wp-instruction-with-hint"><span>واژه‌های پنهان را با کشیدن انگشت یا موس پیدا کن؛ مسیر می‌تواند مستقیم، مورب یا دارای یک پیچ L باشد.</span><button type="button" class="wp-btn wp-hint-btn wp-search-hint" aria-label="راهنما" title="راهنما">💡</button></div>`:`<p class="wp-instruction">${s.data?.instruction||""}</p>`}
+${s.data?.type==="wordBuilder"?"":s.data?.type==="wordSearch"?`<div class="wp-instruction wp-instruction-with-hint"><span>واژه‌های پنهان را با کشیدن انگشت یا موس پیدا کن؛ مسیر می‌تواند مستقیم، مورب یا دارای یک پیچ L باشد.</span><button type="button" class="wp-btn wp-hint-btn wp-search-hint" aria-label="راهنما" title="راهنما">💡</button></div>`:`<p class="wp-instruction">${s.data?.instruction||""}</p>`}
 <div class="wp-status" aria-live="polite"></div>
 <div id="wp"></div>`;
 root.appendChild(box);
@@ -290,7 +290,7 @@ ${item.solved?`<strong class="wp-builder-clue-answer">${item.word}</strong>`:""}
 </div>`).join("");
 x.innerHTML=`
 <div class="wp-card wp-builder-card">
-<div class="wp-builder-meta"><strong class="wp-builder-stage">${d.stageTitle||"کلمه‌ساز"}</strong><span class="wp-builder-step">${d.builderProgress?"مرحله "+d.builderProgress.stageIndex+" از "+d.builderProgress.stageCount+" · "+d.builderProgress.stageSolved+" از "+d.builderProgress.stageTarget+" واژه":""}</span></div>
+<div class="wp-builder-meta"><span class="wp-builder-step">${d.builderProgress?d.builderProgress.stageSolved+" از "+d.builderProgress.stageTarget+" واژه":""}</span></div>
 <div class="wp-builder-clues">${clues}</div>
 <div class="wp-answer" aria-live="polite" aria-label="واژه در حال ساخت"></div>
 <div class="wp-grid wp-builder-grid" aria-label="حروف قابل اتصال"></div>
