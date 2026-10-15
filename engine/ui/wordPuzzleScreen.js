@@ -347,11 +347,15 @@ if(cell)cell.classList.add("wp-error-cell");
 },
 
 builder(x,d){
-const clues=(d.targetWords||[]).map(item=>`
+const clues=(d.targetWords||[]).map((item,index)=>{
+const letters=Array.from(item.word||"");
+const slots=letters.map((letter,letterIndex)=>`<span class="wp-builder-answer-slot">${item.solved?letter:""}</span>`).join("");
+return `
 <div class="wp-builder-clue ${item.solved?"is-solved":""}">
 <span class="wp-builder-clue-meaning">${item.meaning}</span>
-${item.solved?`<strong class="wp-builder-clue-answer">${item.word}</strong>`:""}
-</div>`).join("");
+<div class="wp-builder-answer-slots" dir="rtl" aria-label="${letters.length} حرف">${slots}</div>
+</div>`;
+}).join("");
 x.innerHTML=`
 <div class="wp-card wp-builder-card">
 <div class="wp-builder-meta"><span class="wp-builder-step">${d.builderProgress?d.builderProgress.stageSolved+" از "+d.builderProgress.stageTarget+" واژه":""}</span></div>
