@@ -597,10 +597,16 @@ transform:translateX(-50%) translateY(0);
   position:absolute;
   inset:5%;
   border-radius:50%;
-  background:radial-gradient(circle,rgba(255,255,255,.94) 0%,rgba(224,231,255,.64) 62%,rgba(153,246,228,.22) 100%);
-  border:1px solid rgba(129,140,248,.18);
-  box-shadow:inset 0 0 34px rgba(99,102,241,.08),0 8px 24px rgba(79,70,229,.06);
+  background-color:rgba(240,253,250,.22);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 300' fill='none' stroke='%230d9488' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='150' cy='150' r='104'/%3E%3Ccircle cx='150' cy='150' r='78' stroke-width='1.4'/%3E%3Cpath d='M150 35 C171 65 171 85 150 105 C129 85 129 65 150 35Z M150 195 C171 215 171 235 150 265 C129 235 129 215 150 195Z M35 150 C65 129 85 129 105 150 C85 171 65 171 35 150Z M195 150 C215 129 235 129 265 150 C235 171 215 171 195 150Z'/%3E%3Cpath d='M75 75 C106 78 124 96 125 125 C96 124 78 106 75 75Z M225 75 C222 106 204 124 175 125 C176 96 194 78 225 75Z M75 225 C78 194 96 176 125 175 C124 204 106 222 75 225Z M225 225 C194 222 176 204 175 175 C204 176 222 194 225 225Z'/%3E%3Cpath d='M150 72 C165 92 165 108 150 120 C135 108 135 92 150 72Z M150 180 C165 192 165 208 150 228 C135 208 135 192 150 180Z M72 150 C92 135 108 135 120 150 C108 165 92 165 72 150Z M180 150 C192 135 208 135 228 150 C208 165 192 165 180 150Z'/%3E%3Ccircle cx='150' cy='150' r='15'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;
+  background-position:center;
+  background-size:94% 94%;
+  border:0;
+  box-shadow:none;
+  opacity:.27;
   pointer-events:none;
+  z-index:0;
 }
 .wp-shell:has(.wp-builder-card) .wp-builder-grid .wp-cell{
   color:#3346a8!important;
@@ -653,4 +659,37 @@ transform:translateX(-50%) translateY(0);
 @media(prefers-reduced-motion:reduce){
   .wp-shell:has(.wp-builder-card) .wp-builder-clue,
   .wp-shell:has(.wp-builder-card) .wp-builder-actions .wp-btn{transition:none;}
+}
+
+
+/* Word Builder visual polish: fixed orange letters, calm center motif, clear connector. */
+.wp-shell:has(.wp-builder-card) .wp-builder-grid .wp-cell,
+.wp-shell:has(.wp-builder-card) .wp-builder-grid .wp-cell:hover,
+.wp-shell:has(.wp-builder-card) .wp-builder-grid .wp-cell:focus,
+.wp-shell:has(.wp-builder-card) .wp-builder-grid .wp-cell.sel,
+.wp-shell:has(.wp-builder-card) .wp-builder-grid.wp-tracing .wp-cell.sel,
+.wp-shell:has(.wp-builder-card) .wp-builder-grid .wp-cell.wp-error-cell,
+.wp-shell:has(.wp-builder-card) .wp-builder-grid .wp-cell.hint-cell{
+  color:#f07818!important;
+  -webkit-text-fill-color:#f07818!important;
+  text-shadow:0 1px 0 rgba(255,255,255,.9),0 1px 3px rgba(180,83,9,.12)!important;
+}
+.wp-shell:has(.wp-builder-card) .wp-builder-grid .wp-cell.sel,
+.wp-shell:has(.wp-builder-card) .wp-builder-grid.wp-tracing .wp-cell.sel{
+  background:rgba(251,146,60,.12)!important;
+  box-shadow:0 0 0 2px rgba(249,115,22,.28)!important;
+}
+.wp-shell:has(.wp-builder-card) .wp-builder-grid .wp-path-active{
+  stroke:#7c3aed!important;
+  stroke-width:7!important;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  filter:drop-shadow(0 1px 3px rgba(124,58,237,.32));
+}
+.wp-shell:has(.wp-builder-card) .wp-builder-grid .wp-path-found{
+  stroke:#0d9488!important;
+  stroke-width:7!important;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  filter:drop-shadow(0 1px 3px rgba(13,148,136,.22));
 }
