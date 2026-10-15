@@ -101,30 +101,15 @@ return{type:"wordSearch",title:"واژه‌یاب",instruction:"واژه‌ها�
 
 placeWord(grid,word){
 const dirs=[[0,1],[1,1],[1,0],[1,-1],[0,-1],[-1,-1],[-1,0],[-1,1]],n=grid.length,chars=[...WordPuzzleRepository.normalize(word||"")];
-if(!chars.length||chars.length>2*n-1)return false;
-for(let attempt=0;attempt<1600;attempt++){
-const useTurn=chars.length>n||Math.random()<0.55;
-let path=[];
-if(useTurn){
-const firstEdges=1+Math.floor(Math.random()*(chars.length-2));
-const d1=dirs[Math.floor(Math.random()*dirs.length)];
-const turns=[1,2,3,5,6,7];
-const delta=turns[Math.floor(Math.random()*turns.length)];
-const d2=dirs[(dirs.findIndex(d=>d[0]===d1[0]&&d[1]===d1[1])+delta)%dirs.length];
-const r=Math.floor(Math.random()*n),c=Math.floor(Math.random()*n);
-for(let i=0;i<chars.length;i++){
-const step=i<=firstEdges?i:firstEdges,extra=i<=firstEdges?0:i-firstEdges;
-path.push([r+d1[0]*step+d2[0]*extra,c+d1[1]*step+d2[1]*extra]);
-}
-}else{
+if(!chars.length||chars.length>n)return false;
+for(let attempt=0;attempt<2400;attempt++){
 const d=dirs[Math.floor(Math.random()*dirs.length)],r=Math.floor(Math.random()*n),c=Math.floor(Math.random()*n);
-path=chars.map((_,i)=>[r+d[0]*i,c+d[1]*i]);
-}
-if(path.some(([r,c])=>r<0||r>=n||c<0||c>=n))continue;
+const path=chars.map((_,i)=>[r+d[0]*i,c+d[1]*i]);
+if(path.some(([row,col])=>row<0||row>=n||col<0||col>=n))continue;
 let ok=true;
-for(let i=0;i<path.length;i++){const [r,c]=path[i],cell=grid[r][c];if(cell&&cell!==chars[i]){ok=false;break;}}
+for(let i=0;i<path.length;i++){const [row,col]=path[i],cell=grid[row][col];if(cell&&cell!==chars[i]){ok=false;break;}}
 if(!ok)continue;
-path.forEach(([r,c],i)=>{grid[r][c]=chars[i];});
+path.forEach(([row,col],i)=>{grid[row][col]=chars[i];});
 return path;
 }
 return false;
@@ -199,7 +184,7 @@ submitFamily(values){return this.submit(WordPuzzleValidator.familySelection(valu
 
 submitSearch(path){
 if(!this.state||this.state.finished)return{correct:false,finished:this.state?.finished};
-if(!WordPuzzlePathEngine.valid(this.round.grid,path)){
+if(!WordPuzzlePathEngine.valid(this.round.grid,path)||!WordPuzzlePathEngine.straight(path)){
 this.state.wrong++;return{correct:false,finished:false,keepBoard:true,state:this.getState()};
 }
 const value=WordPuzzlePathEngine.read(this.round.grid,path),reverse=[...value].reverse().join("");
