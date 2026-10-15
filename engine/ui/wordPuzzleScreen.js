@@ -138,6 +138,7 @@ bindDragPath(gridElement,onUpdate,options={}){
 let path=[];
 let dragging=false;
 let livePoint=null;
+let freehandTrace=[];
 const straightOnly=!!options.straightOnly;
 const freePath=!!options.freePath;
 const cells=()=>Array.from(gridElement.querySelectorAll(".wp-cell"));
@@ -167,7 +168,12 @@ const line=document.createElementNS(svgNS,"polyline");
 line.setAttribute("points",coordinates);line.setAttribute("class","wp-path-line wp-path-found");
 overlay.appendChild(line);
 });
-if(path.length>1){
+if(freePath&&dragging&&freehandTrace.length>1){
+const coordinates=freehandTrace.map(point=>(point.x/Math.max(1,gridElement.clientWidth)*1000)+","+(point.y/Math.max(1,gridElement.clientHeight)*1000)).join(" ");
+const line=document.createElementNS(svgNS,"polyline");
+line.setAttribute("points",coordinates);line.setAttribute("class","wp-path-line wp-path-active");
+overlay.appendChild(line);
+}else if(path.length>1){
 const coordinates=pointsFor(path);
 if(coordinates){
 const line=document.createElementNS(svgNS,"polyline");
@@ -175,7 +181,7 @@ line.setAttribute("points",coordinates);line.setAttribute("class","wp-path-line 
 overlay.appendChild(line);
 }
 }
-if(dragging&&path.length&&livePoint){
+if(!freePath&&dragging&&path.length&&livePoint){
 const last=pointsFor([path[path.length-1]]);
 if(last){
 const center=last.split(",");
@@ -225,6 +231,7 @@ const stop=event=>{
 if(!dragging)return;
 dragging=false;
 livePoint=null;
+freehandTrace=[];
 drawOverlay();
 try{if(gridElement.hasPointerCapture(event.pointerId))gridElement.releasePointerCapture(event.pointerId);}catch(_){}
 if(typeof options.onRelease==="function")options.onRelease(path.map(p=>[p[0],p[1]]));
@@ -241,8 +248,10 @@ if(typeof options.onStart==="function")options.onStart();
 dragging=true;
 const rect=gridElement.getBoundingClientRect();
 livePoint={x:Math.max(0,Math.min(rect.width,event.clientX-rect.left)),y:Math.max(0,Math.min(rect.height,event.clientY-rect.top))};
+freehandTrace=freePath?[{x:(cell.getBoundingClientRect().left+cell.getBoundingClientRect().width/2)-rect.left,y:(cell.getBoundingClientRect().top+cell.getBoundingClientRect().height/2)-rect.top}]:[];
 try{gridElement.setPointerCapture(event.pointerId);}catch(_){}
 visit(cell);
+if(freePath)drawOverlay();
 });
 gridElement.addEventListener("pointermove",event=>{
 if(!dragging)return;
@@ -255,7 +264,11 @@ const rect=gridElement.getBoundingClientRect();
 const x=Math.max(0,Math.min(rect.width,event.clientX-rect.left));
 const y=Math.max(0,Math.min(rect.height,event.clientY-rect.top));
 livePoint={x,y};
-drawOverlay();
+if(!freehandTrace.length&&path.length){
+const lastCell=gridElement.querySelector('[data-r="'+path[path.length-1][0]+'"][data-c="'+path[path.length-1][1]+'"]');
+if(lastCell){const cr=lastCell.getBoundingClientRect();freehandTrace.push({x:cr.left+cr.width/2-rect.left,y:cr.top+cr.height/2-rect.top});}
+}
+freehandTrace.push({x,y});
 let nearest=null,nearestDistance=Infinity;
 cells().forEach(candidate=>{
 const r=candidate.getBoundingClientRect();
@@ -264,7 +277,15 @@ const distance=Math.hypot(event.clientX-cx,event.clientY-cy);
 const snapRadius=Math.min(r.width,r.height)*0.43;
 if(distance<=snapRadius&&distance<nearestDistance){nearest=candidate;nearestDistance=distance;}
 });
-if(nearest)visit(nearest);
+if(nearest){
+const before=path.length;
+visit(nearest);
+if(path.length!==before){
+const r=nearest.getBoundingClientRect();
+freehandTrace.push({x:r.left+r.width/2-rect.left,y:r.top+r.height/2-rect.top});
+}
+}
+drawOverlay();
 return;
 }
 cell=document.elementFromPoint(event.clientX,event.clientY)?.closest?.(".wp-cell");
