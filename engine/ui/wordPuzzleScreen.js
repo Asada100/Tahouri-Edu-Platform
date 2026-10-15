@@ -139,6 +139,7 @@ let path=[];
 let dragging=false;
 let livePoint=null;
 let freehandTrace=[];
+let previousPointer=null;
 const straightOnly=!!options.straightOnly;
 const freePath=!!options.freePath;
 const cells=()=>Array.from(gridElement.querySelectorAll(".wp-cell"));
@@ -260,6 +261,7 @@ dragging=true;
 if(freePath)gridElement.classList.add("wp-tracing");
 const rect=gridElement.getBoundingClientRect();
 livePoint={x:Math.max(0,Math.min(rect.width,event.clientX-rect.left)),y:Math.max(0,Math.min(rect.height,event.clientY-rect.top))};
+previousPointer={x:event.clientX,y:event.clientY};
 freehandTrace=freePath?[{x:(cell.getBoundingClientRect().left+cell.getBoundingClientRect().width/2)-rect.left,y:(cell.getBoundingClientRect().top+cell.getBoundingClientRect().height/2)-rect.top}]:[];
 try{gridElement.setPointerCapture(event.pointerId);}catch(_){}
 visit(cell);
@@ -300,18 +302,38 @@ return;
 const rect=gridElement.getBoundingClientRect();
 livePoint={x:Math.max(0,Math.min(rect.width,event.clientX-rect.left)),y:Math.max(0,Math.min(rect.height,event.clientY-rect.top))};
 drawOverlay();
-// Wider nearest-cell snapping makes diagonal tracing more forgiving on touchscreens
-// and prevents tiny gaps between cells from interrupting a drag.
+// Follow the pointer's swept segment, rather than switching cells from
+// endpoint proximity alone. This reduces diagonal gaps and accidental turns
+// on both touchscreens and desktop, while keeping intentional L-shaped paths.
+const pointerNow={x:event.clientX,y:event.clientY};
+const pointerFrom=previousPointer||pointerNow;
+previousPointer=pointerNow;
+const vx=pointerNow.x-pointerFrom.x,vy=pointerNow.y-pointerFrom.y;
+const lengthSquared=vx*vx+vy*vy;
+const crossed=[];
+cells().forEach(candidate=>{
+const bounds=candidate.getBoundingClientRect();
+const cx=bounds.left+bounds.width/2,cy=bounds.top+bounds.height/2;
+const t=lengthSquared?Math.max(0,Math.min(1,((cx-pointerFrom.x)*vx+(cy-pointerFrom.y)*vy)/lengthSquared)):1;
+const px=pointerFrom.x+t*vx,py=pointerFrom.y+t*vy;
+const distance=Math.hypot(cx-px,cy-py);
+const corridor=Math.min(bounds.width,bounds.height)*0.34;
+if(distance<=corridor&&t>0.015)crossed.push({cell:candidate,t,distance});
+});
+crossed.sort((a,b)=>a.t-b.t||a.distance-b.distance);
+if(crossed.length){
+crossed.forEach(item=>visit(item.cell));
+}else{
 let nearestCell=null,nearestDistance=Infinity;
 cells().forEach(candidate=>{
 const bounds=candidate.getBoundingClientRect();
 const distance=Math.hypot(event.clientX-(bounds.left+bounds.width/2),event.clientY-(bounds.top+bounds.height/2));
-const snapRadius=Math.min(bounds.width,bounds.height)*0.62;
+const snapRadius=Math.min(bounds.width,bounds.height)*0.52;
 if(distance<=snapRadius&&distance<nearestDistance){nearestCell=candidate;nearestDistance=distance;}
 });
-cell=nearestCell;
-if(!cell||!gridElement.contains(cell))return;
-const target=[Number(cell.dataset.r),Number(cell.dataset.c)];
+if(nearestCell)visit(nearestCell);
+}
+return;
 const last=path[path.length-1];
 if(!last){visit(cell);return;}
 const dr=target[0]-last[0],dc=target[1]-last[1];
