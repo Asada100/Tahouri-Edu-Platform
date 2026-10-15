@@ -285,9 +285,8 @@ if(cell)cell.classList.add("wp-error-cell");
 builder(x,d){
 const clues=(d.targetWords||[]).map(item=>`
 <div class="wp-builder-clue ${item.solved?"is-solved":""}">
-<span class="wp-builder-clue-number">${item.number}</span>
 <span class="wp-builder-clue-meaning">${item.meaning}</span>
-<strong class="wp-builder-clue-answer">${item.solved?item.word:"واژهٔ "+item.number}</strong>
+${item.solved?`<strong class="wp-builder-clue-answer">${item.word}</strong>`:""}
 </div>`).join("");
 x.innerHTML=`
 <div class="wp-card wp-builder-card">
