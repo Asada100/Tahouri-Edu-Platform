@@ -293,14 +293,13 @@ x.innerHTML=`
 <div class="wp-card wp-builder-card">
 <div class="wp-builder-meta"><strong class="wp-builder-stage">${d.stageTitle||"کلمه‌ساز"}</strong><span class="wp-builder-step">${d.builderProgress?"مرحله "+d.builderProgress.stageIndex+" از "+d.builderProgress.stageCount+" · "+d.builderProgress.stageSolved+" از "+d.builderProgress.stageTarget+" واژه":""}</span></div>
 <div class="wp-builder-clues">${clues}</div>
-<div class="wp-answer" aria-live="polite" aria-label="واژه در حال ساخت"></div>
 <div class="wp-grid wp-builder-grid" aria-label="حروف قابل اتصال"></div>
 <div class="wp-actions wp-builder-actions">
 <button type="button" class="wp-btn wp-secondary" data-shuffle aria-label="جابجایی حروف" title="جابجایی حروف">🔀 جابه‌جایی حروف</button>
 <button type="button" class="wp-btn wp-secondary" data-clear>پاک‌کردن مسیر</button>
 </div>
 </div>`;
-const answer=x.querySelector(".wp-answer"),grid=x.querySelector(".wp-builder-grid");
+const grid=x.querySelector(".wp-builder-grid");
 const visualGrid=d.grid.map(row=>row.slice());
 this.createGrid(grid,visualGrid);
 const cells=Array.from(grid.querySelectorAll(".wp-cell"));
@@ -317,8 +316,7 @@ placeLetters();
 let submitting=false;
 const path=this.bindDragPath(grid,selected=>{
 const value=WordPuzzlePathEngine.read(visualGrid,selected);
-answer.textContent=value||"";
-answer.classList.toggle("has-value",selected.length>0);
+
 },{freePath:true,onRelease:selected=>{
 if(submitting||selected.length<2)return;
 const value=WordPuzzlePathEngine.read(visualGrid,selected);
@@ -327,7 +325,7 @@ submitting=true;
 this.afterSubmit(x,WordPuzzleEngine.submitBuilder(value));
 setTimeout(()=>{submitting=false;},1000);
 }});
-x.querySelector("[data-clear]").onclick=()=>{path.clear();answer.textContent="";answer.classList.remove("has-value");};
+x.querySelector("[data-clear]").onclick=()=>{path.clear();};
 x.querySelector("[data-shuffle]").onclick=()=>{
 if(submitting)return;
 const letters=visualGrid[0].slice();
@@ -336,7 +334,7 @@ if(letters.every((letter,index)=>letter===visualGrid[0][index])&&letters.length>
 visualGrid[0]=letters;
 path.clear();
 placeLetters();
-answer.textContent="";answer.classList.remove("has-value");
+
 };
 },
 family(x,d){
