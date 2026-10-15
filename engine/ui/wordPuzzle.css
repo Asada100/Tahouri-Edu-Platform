@@ -464,3 +464,7 @@ transform:translateX(-50%) translateY(0);
  .wp-builder-grid .wp-cell{font-size:clamp(26px,8vw,34px)!important;}
  .wp-builder-actions .wp-btn{font-size:13px;padding:7px 10px;}
 }
+
+
+/* Word Builder: remove the unnecessary white container while preserving game layout. */
+.wp-builder-card{background:transparent!important;border:0!important;box-shadow:none!important;border-radius:0!important;}
