@@ -242,6 +242,7 @@ const stop=event=>{
 if(!dragging)return;
 dragging=false;
 livePoint=null;
+previousPointer=null;
 freehandTrace=[];
 gridElement.classList.remove("wp-tracing");
 drawOverlay();
@@ -334,22 +335,6 @@ if(distance<=snapRadius&&distance<nearestDistance){nearestCell=candidate;nearest
 if(nearestCell)visit(nearestCell);
 }
 return;
-const last=path[path.length-1];
-if(!last){visit(cell);return;}
-const dr=target[0]-last[0],dc=target[1]-last[1];
-if(dr===0&&dc===0)return;
-const steps=Math.max(Math.abs(dr),Math.abs(dc));
-if(steps<=1){visit(cell);return;}
-if(!(dr===0||dc===0||Math.abs(dr)===Math.abs(dc)))return;
-const stepR=dr===0?0:dr/steps,stepC=dc===0?0:dc/steps;
-if(straightOnly&&path.length>=2){
-const baseR=path[1][0]-path[0][0],baseC=path[1][1]-path[0][1];
-if(stepR!==baseR||stepC!==baseC)return;
-}
-for(let i=1;i<=steps;i++){
-const next=gridElement.querySelector('[data-r="'+(last[0]+stepR*i)+'"][data-c="'+(last[1]+stepC*i)+'"]');
-if(next)visit(next);
-}
 });
 gridElement.addEventListener("pointerup",stop);
 gridElement.addEventListener("pointercancel",stop);
