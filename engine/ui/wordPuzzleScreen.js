@@ -296,7 +296,6 @@ x.innerHTML=`
 <div class="wp-grid wp-builder-grid" aria-label="حروف قابل اتصال"></div>
 <div class="wp-actions wp-builder-actions">
 <button type="button" class="wp-btn wp-secondary" data-shuffle aria-label="جابجایی حروف" title="جابجایی حروف">🔀 جابه‌جایی حروف</button>
-<button type="button" class="wp-btn wp-secondary" data-clear>پاک‌کردن مسیر</button>
 </div>
 </div>`;
 const answer=x.querySelector(".wp-answer"),grid=x.querySelector(".wp-builder-grid");
@@ -326,7 +325,6 @@ submitting=true;
 this.afterSubmit(x,WordPuzzleEngine.submitBuilder(value));
 setTimeout(()=>{submitting=false;},1000);
 }});
-x.querySelector("[data-clear]").onclick=()=>{path.clear();answer.textContent="";answer.classList.remove("has-value");};
 x.querySelector("[data-shuffle]").onclick=()=>{
 if(submitting)return;
 const letters=visualGrid[0].slice();
