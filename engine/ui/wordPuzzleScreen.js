@@ -137,6 +137,7 @@ gridElement.appendChild(b);
 bindDragPath(gridElement,onUpdate,options={}){
 let path=[];
 let dragging=false;
+let livePoint=null;
 const straightOnly=!!options.straightOnly;
 const freePath=!!options.freePath;
 const cells=()=>Array.from(gridElement.querySelectorAll(".wp-cell"));
@@ -171,6 +172,18 @@ const coordinates=pointsFor(path);
 if(coordinates){
 const line=document.createElementNS(svgNS,"polyline");
 line.setAttribute("points",coordinates);line.setAttribute("class","wp-path-line wp-path-active");
+overlay.appendChild(line);
+}
+}
+if(dragging&&path.length&&livePoint){
+const last=pointsFor([path[path.length-1]]);
+if(last){
+const center=last.split(",");
+const line=document.createElementNS(svgNS,"line");
+line.setAttribute("x1",center[0]);line.setAttribute("y1",center[1]);
+line.setAttribute("x2",livePoint.x/Math.max(1,gridElement.clientWidth)*1000);
+line.setAttribute("y2",livePoint.y/Math.max(1,gridElement.clientHeight)*1000);
+line.setAttribute("class","wp-path-line wp-path-follow");
 overlay.appendChild(line);
 }
 }
@@ -211,6 +224,8 @@ path.push(point);sync();
 const stop=event=>{
 if(!dragging)return;
 dragging=false;
+livePoint=null;
+drawOverlay();
 try{if(gridElement.hasPointerCapture(event.pointerId))gridElement.releasePointerCapture(event.pointerId);}catch(_){}
 if(typeof options.onRelease==="function")options.onRelease(path.map(p=>[p[0],p[1]]));
 };
@@ -220,11 +235,16 @@ if(!cell)return;
 event.preventDefault();
 if(typeof options.onStart==="function")options.onStart();
 dragging=true;
+const rect=gridElement.getBoundingClientRect();
+livePoint={x:event.clientX-rect.left,y:event.clientY-rect.top};
 try{gridElement.setPointerCapture(event.pointerId);}catch(_){}
 visit(cell);
 });
 gridElement.addEventListener("pointermove",event=>{
 if(!dragging)return;
+const rect=gridElement.getBoundingClientRect();
+livePoint={x:event.clientX-rect.left,y:event.clientY-rect.top};
+drawOverlay();
 const cell=document.elementFromPoint(event.clientX,event.clientY)?.closest?.(".wp-cell");
 if(!cell||!gridElement.contains(cell))return;
 if(freePath){visit(cell);return;}
