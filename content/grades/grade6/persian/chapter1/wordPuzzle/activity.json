@@ -13,9 +13,9 @@
   "settings": {
     "rounds": 5,
     "modes": [
+      "wordFamily",
       "wordBuilder",
-      "wordSearch",
-      "wordFamily"
+      "wordSearch"
     ],
     "difficulty": 2,
     "builderMaxWordLength": 8,
@@ -57,10 +57,10 @@
     ],
     "families": [
       {
-        "id": "علم",
-        "base": "علم",
+        "id": "family-alam",
+        "base": "عالم",
         "members": [
-          "عالم",
+          "علم",
           "علوم",
           "معلوم",
           "تعلیم",
@@ -68,13 +68,43 @@
         ]
       },
       {
-        "id": "دان",
-        "base": "دان",
+        "id": "family-fekrat",
+        "base": "فکرت",
         "members": [
-          "دانش",
-          "دانشمند",
-          "دانا",
-          "دانایی"
+          "فکر",
+          "افکار",
+          "تفکر",
+          "متفکر"
+        ]
+      },
+      {
+        "id": "family-fazl",
+        "base": "فضل",
+        "members": [
+          "فاضل",
+          "فضیلت",
+          "افضل",
+          "تفضیل"
+        ]
+      },
+      {
+        "id": "family-haq",
+        "base": "حق",
+        "members": [
+          "حقوق",
+          "حقیقت",
+          "محقق",
+          "تحقیق"
+        ]
+      },
+      {
+        "id": "family-noor",
+        "base": "نور",
+        "members": [
+          "انوار",
+          "نورانی",
+          "منیر",
+          "تنویر"
         ]
       }
     ],

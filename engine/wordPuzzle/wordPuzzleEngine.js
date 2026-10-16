@@ -15,6 +15,10 @@ const allowed=this.activity?.settings?.modes||["wordBuilder","wordSearch","wordF
 if(mode==="lPath")mode="wordSearch";
 if(!allowed.includes(mode)||this.state?.finished)return this.getState();
 this.state.mode=mode;this.state.round=0;this.state.correct=0;this.state.wrong=0;this.state.score=0;this.state.hints=0;this.state.hintPenalty=0;this.state.foundWords=[];this.state.searchHintCounts={};
+if(mode==="wordFamily"){
+const families=this.shuffle((this.activity?.puzzle?.families||[]).slice());
+this.state.familyOrder=families.slice(0,Math.min(4,families.length)).map(f=>f.id);
+}
 if(mode==="wordBuilder"){
 const stages=this.activity?.puzzle?.builderStages||[];
 this.state.builderStages=stages.map(stage=>{
@@ -27,7 +31,7 @@ this.state.builderStageBoard=null;
 }
 
 this.round=this.build(mode);
-this.state.total=mode==="wordSearch"?this.round.words.length:mode==="wordBuilder"?(this.state.builderStages||[]).reduce((sum,stage)=>sum+stage.words.length,0):1;
+this.state.total=mode==="wordSearch"?this.round.words.length:mode==="wordBuilder"?(this.state.builderStages||[]).reduce((sum,stage)=>sum+stage.words.length,0):mode==="wordFamily"?(this.state.familyOrder||[]).length:1;
 this.state.started=true;
 this.emitReady();
 return this.getState();
@@ -132,11 +136,12 @@ return false;
 
 family(){
 const families=WordPuzzleRepository.getFamilies(this.activity);
-const family=families[this.state.round%families.length]||{base:"",members:[]};
+const order=this.state.familyOrder||families.map(f=>f.id);
+const family=families.find(f=>f.id===order[this.state.round])||{base:"",members:[]};
 const correct=[...family.members];
 const allMembers=WordPuzzleRepository.getAllFamilyMembers(this.activity);
 const decoys=this.shuffle(allMembers.filter(w=>!correct.some(c=>WordPuzzleRepository.normalize(c)===WordPuzzleRepository.normalize(w)))).slice(0,4);
-return{type:"wordFamily",title:"خانواده واژه‌ها",instruction:"همه واژه‌های هم‌خانواده را انتخاب کن.",base:family.base,options:this.shuffle([...correct,...decoys]),answers:correct};
+return{type:"wordFamily",title:"خانواده واژه‌ها — مرحله "+(this.state.round+1)+" از "+order.length,instruction:"واژه‌های هم‌خانواده با واژهٔ درس «"+family.base+"» را انتخاب کن.",base:family.base,options:this.shuffle([...correct,...decoys]),answers:correct};
 },
 
 lpath(){
@@ -195,7 +200,17 @@ this.emitReady();
 return result;
 },
 
-submitFamily(values){return this.submit(WordPuzzleValidator.familySelection(values,this.round));},
+submitFamily(values){
+if(!this.state?.started||this.state.finished)return{correct:false,finished:true};
+const ok=WordPuzzleValidator.familySelection(values,this.round);
+if(!ok){this.state.wrong++;return{correct:false,finished:false,state:this.getState()};}
+this.state.correct++;
+this.state.score+=WordPuzzleScore.correct(10,this.state.hints);
+if(this.state.correct>=this.state.total){const result=this.finish();return{correct:true,finished:true,...result};}
+this.state.round++;
+this.round=this.family();
+return{correct:true,finished:false,state:this.getState()};
+},
 
 submitSearch(path){
 if(!this.state||this.state.finished)return{correct:false,finished:this.state?.finished};
