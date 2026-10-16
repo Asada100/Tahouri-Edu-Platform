@@ -9,9 +9,11 @@ if(p?.engineName==="WordPuzzleEngine")this.render(p.result);
 render(s){
 const root=document.getElementById("app");
 if(!root)return;
+const isModeSelect=s.data?.type==="modeSelect";
+document.body.classList.toggle("word-puzzle-mode-select",isModeSelect);
 root.innerHTML="";
 const box=document.createElement("main");
-box.className="wp-shell";
+box.className=isModeSelect?"screen wp-shell":"wp-shell";
 box.dir="rtl";
 if(s.data?.type==="modeSelect"){
 box.innerHTML=`<h1>واژه‌خانه 🧩</h1><p class="wp-instruction">نوع بازی را انتخاب کن. هر بار فقط همین بازی اجرا می‌شود.</p><div id="wp"></div>`;
@@ -97,6 +99,7 @@ this.feedback(x,"خانه‌ای از مسیر راهنما مشخص شد؛ حا
 finish(result){
 const root=document.getElementById("app");
 if(!root)return;
+document.body.classList.remove("word-puzzle-mode-select");
 const percentage=result.percentage??Math.round((result.correctAnswers/result.totalQuestions)*100);
 const stars=WordPuzzleScore.stars(percentage);
 const box=document.createElement("main");
