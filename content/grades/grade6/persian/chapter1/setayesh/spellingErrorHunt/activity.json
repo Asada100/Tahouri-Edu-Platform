@@ -49,11 +49,11 @@
     {
       "id": "setayesh-hunt-05",
       "mode": "error-hunt",
-      "verseText": "ز فضلش هر دو عالم گشت روشن\nز فیظش خاک آدم گشت گلشن",
-      "wrongWord": "فیظش",
-      "answer": "فیضش",
-      "spellingRule": "ض/ظ",
-      "explanation": "واژهٔ درست «فیضش» است؛ «فیض» به معنی بخشش و برکت است."
+      "verseText": "به نام آن که جان را فکرت آموخت\nچراغ دل به نوز جان برافروخت",
+      "wrongWord": "نوز",
+      "answer": "نور",
+      "spellingRule": "ر/ز",
+      "explanation": "واژهٔ درست «نور» است؛ در پایان آن «ر» نوشته می‌شود."
     },
     {
       "id": "setayesh-hunt-06",
