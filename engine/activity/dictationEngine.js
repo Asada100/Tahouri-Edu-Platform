@@ -78,7 +78,7 @@
                 characterErrors: 0, currentQuestionCharacterErrors: 0, currentTargetCharacterErrors: 0, answers: [], targetAnswers: [], currentInput: "", inputBlockedAfterWrong: false, currentWrongChar: "",
                 missingSlots: [], currentSlotIndex: 0, currentCharIndex: 0,
                 currentTargetIndex: 0, contextTargetAnswers: [],
-                questionCompleted: false, transitioning: false, showGuide: false, errorWordSelected: false, selectedErrorWord: "", errorFeedback: ""
+                questionCompleted: false, transitioning: false, showGuide: false, errorWordSelected: false, selectedErrorWord: "", errorFeedback: "", correctedErrorIndexes: [], currentErrorIndex: -1, hintErrorIndex: -1, hintUses: 0
             };
             this.prepareCurrentQuestion();
             EventManager.emit("activityStarted", this.activity);
@@ -113,6 +113,10 @@
             this.state.errorWordSelected = false;
             this.state.selectedErrorWord = "";
             this.state.errorFeedback = "";
+            this.state.correctedErrorIndexes = [];
+            this.state.currentErrorIndex = -1;
+            this.state.hintErrorIndex = -1;
+            this.state.hintUses = 0;
             this.state.missingSlots = this.buildMissingSlots(this.getCurrentTarget());
         },
 
@@ -130,11 +134,20 @@
         getCurrentTarget: function () {
             const q = this.getCurrentQuestion();
             if (!q) return null;
-            if (this.getMode() !== "context") return q;
-            if (Array.isArray(q.targets) && q.targets.length) {
-                return q.targets[this.state.currentTargetIndex] || null;
+            if (this.getMode() === "error-hunt") {
+                const errors = Array.isArray(q.errors) && q.errors.length ? q.errors : [q];
+                return this.state && this.state.currentErrorIndex >= 0 ? (errors[this.state.currentErrorIndex] || q) : q;
             }
+            if (this.getMode() !== "context") return q;
+            if (Array.isArray(q.targets) && q.targets.length) return q.targets[this.state.currentTargetIndex] || null;
             return q;
+        },
+
+        getErrorTargets: function () {
+            const q = this.getCurrentQuestion();
+            if (!q) return [];
+            if (Array.isArray(q.errors) && q.errors.length) return q.errors;
+            return q.wrongWord ? [q] : [];
         },
 
         getContextTargets: function () {
@@ -320,6 +333,25 @@
             }
 
             const complete = this.isCurrentQuestionComplete();
+            if (this.getMode() === "error-hunt" && complete) {
+                const completedErrorIndex = this.state.currentErrorIndex;
+                if (completedErrorIndex >= 0 && !this.state.correctedErrorIndexes.includes(completedErrorIndex)) this.state.correctedErrorIndexes.push(completedErrorIndex);
+                const errors = this.getErrorTargets();
+                this.state.errorWordSelected = false;
+                this.state.selectedErrorWord = "";
+                this.state.currentErrorIndex = -1;
+                this.state.currentInput = "";
+                this.state.currentCharIndex = 0;
+                this.state.currentWrongChar = "";
+                this.state.showGuide = false;
+                if (this.state.correctedErrorIndexes.length >= errors.length) {
+                    const completedState = this.completeCurrentQuestion();
+                    return { ...completedState, correct: true, complete: true, questionIndex: this.state.currentIndex };
+                }
+                this.state.errorFeedback = "آفرین! این واژه اصلاح شد؛ هنوز " + (errors.length - this.state.correctedErrorIndexes.length) + " اشتباه باقی مانده است.";
+                EventManager.emit("dictationQuestionChanged", this.getState());
+                return { correct: true, complete: false, wordComplete: true, questionIndex: this.state.currentIndex };
+            }
             const result = { correct: true, character: char, expected: expected, questionIndex: this.state.currentIndex, complete: complete };
             EventManager.emit("answer:correct", result);
             if (complete) {
@@ -357,27 +389,44 @@
             return this.inputChar(SPACE);
         },
 
-        selectErrorWord: function (word) {
+        selectErrorWord: function (word, errorIndex) {
             if (!this.state || this.getMode() !== "error-hunt" || this.state.questionCompleted || this.state.isFinished || this.state.errorWordSelected) return false;
-            const q = this.getCurrentQuestion();
             const selected = this.normalize(String(word || "").replace(/[،؛.!؟,:]+$/g, ""));
-            const target = this.normalize(q && q.wrongWord || "");
-            if (!selected || !target) return false;
+            const errors = this.getErrorTargets();
+            if (!selected || !errors.length) return false;
             this.state.attempts += 1;
-            if (selected !== target) {
-                this.state.errorFeedback = "این واژه درست نوشته شده؛ دوباره با دقت بخوان.";
+            let index = Number.isInteger(Number(errorIndex)) ? Number(errorIndex) : -1;
+            if (index < 0 || index >= errors.length || this.normalize(errors[index].wrongWord || "") !== selected) {
+                index = errors.findIndex((item, i) => !this.state.correctedErrorIndexes.includes(i) && this.normalize(item.wrongWord || "") === selected);
+            }
+            if (index < 0 || this.state.correctedErrorIndexes.includes(index)) {
+                this.state.errorFeedback = "این واژه درست نوشته شده؛ حروف میانی را هم با دقت بررسی کن.";
                 EventManager.emit("answer:wrong", { correct: false, selectedWord: word, questionIndex: this.state.currentIndex, mode: "error-hunt" });
                 return { correct: false, state: this.getState() };
             }
+            this.state.currentErrorIndex = index;
             this.state.errorWordSelected = true;
             this.state.selectedErrorWord = String(word || "").replace(/[،؛.!؟,:]+$/g, "");
-            this.state.errorFeedback = "آفرین! واژهٔ نادرست را پیدا کردی؛ حالا شکل درستش را بنویس.";
+            this.state.errorFeedback = "واژه را انتخاب کردی؛ حالا شکل درستش را بنویس.";
             this.state.currentInput = "";
             this.state.currentCharIndex = 0;
             this.state.currentWrongChar = "";
             this.state.showGuide = false;
             EventManager.emit("dictationQuestionChanged", this.getState());
             return { correct: true, state: this.getState() };
+        },
+
+        showErrorHuntHint: function () {
+            if (!this.state || this.getMode() !== "error-hunt" || this.state.questionCompleted || this.state.isFinished) return false;
+            const errors = this.getErrorTargets();
+            const unresolved = errors.map((item, index) => index).filter(index => !this.state.correctedErrorIndexes.includes(index));
+            if (!unresolved.length) return false;
+            const next = unresolved.find(index => index !== this.state.hintErrorIndex);
+            this.state.hintErrorIndex = next === undefined ? unresolved[0] : next;
+            this.state.hintUses += 1;
+            this.state.errorFeedback = "راهنما: به واژهٔ مشخص‌شده دقت کن؛ پاسخ را خودت بنویس.";
+            EventManager.emit("dictationQuestionChanged", this.getState());
+            return true;
         },
 
         backspace: function () {
@@ -439,7 +488,8 @@
                 return this.state.currentSlotIndex >= this.state.missingSlots.length;
             }
             const q = this.getCurrentQuestion();
-            return this.state.currentCharIndex >= Array.from(q.answer || "").length;
+            const target = mode === "error-hunt" ? this.getCurrentTarget() : q;
+            return this.state.currentCharIndex >= Array.from((target && target.answer) || "").length;
         },
 
         completeContextTarget: function () {
