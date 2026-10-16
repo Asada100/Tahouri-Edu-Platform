@@ -15,7 +15,7 @@
 
 const QuestionPerformanceManager = {
 
-    VERSION: "2.1",
+    VERSION: "2.2",
 
     STORAGE_KEY: "Tahouri_QuestionPerformance",
 
@@ -30,7 +30,8 @@ const QuestionPerformanceManager = {
             "persianSpellingGuided",
             "persianSpellingContext",
             "persianSpellingGenerated",
-            "persianSetayeshSpelling"
+            "persianSetayeshSpelling",
+            "persianSetayeshSpellingErrorHunt"
         ].indexOf(id) !== -1;
     },
 
