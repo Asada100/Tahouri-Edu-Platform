@@ -13,8 +13,13 @@
     {
       "id": "setayesh-verse-01",
       "mode": "error-hunt",
-      "verseText": "به نام آن که جان را فکرت آموغت\nچراق دل به نوز جان برافروخد",
+      "verseText": "به نام آن که جان را فرتک آموغت\nچراق دل به نوز جان برافروخد",
       "errors": [
+        {
+          "wrongWord": "فرتک",
+          "answer": "فکرت",
+          "spellingRule": "جابه‌جایی حروف میانی"
+        },
         {
           "wrongWord": "آموغت",
           "answer": "آموخت",
