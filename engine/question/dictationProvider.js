@@ -59,7 +59,8 @@
             const questions = orderedQuestions
                 .filter(function (item) {
                     return item && ((typeof item.answer === "string" && item.answer.trim() !== "") ||
-                        (item.mode === "context" && Array.isArray(item.targets) && item.targets.length > 0));
+                        (item.mode === "context" && Array.isArray(item.targets) && item.targets.length > 0) ||
+                        ((item.mode === "error-hunt" || source.mode === "error-hunt") && Array.isArray(item.errors) && item.errors.length > 0));
                 })
                 .map(function (item, index) {
                     const missing = Array.isArray(item.missing)
@@ -93,6 +94,15 @@
                         context: item.context || null,
                         verseText: item.verseText || null,
                         wrongWord: item.wrongWord || null,
+                        errors: Array.isArray(item.errors) ? item.errors.map(function (error) {
+                            return {
+                                wrongWord: String(error.wrongWord || ""),
+                                answer: String(error.answer || "").trim(),
+                                spellingRule: error.spellingRule || item.spellingRule || null
+                            };
+                        }).filter(function (error) {
+                            return error.wrongWord && error.answer && error.wrongWord !== error.answer;
+                        }) : [],
                         explanation: item.explanation || null,
                         contextTemplate: item.contextTemplate || item.context || null,
                         masked: item.masked || null,
