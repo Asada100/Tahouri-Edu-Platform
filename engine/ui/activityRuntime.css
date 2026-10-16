@@ -233,9 +233,11 @@ body.activity-playing { padding-bottom: 0; }
 
 
 /* Word Puzzle mode chooser is still inside an activity session, but uses the platform shell. */
-body.activity-playing.word-puzzle-mode-select .tahouri-app-header,
-body.activity-playing.word-puzzle-mode-select #tahouri-bottom-navigation {
+body.activity-playing.word-puzzle-mode-select .tahouri-app-header {
     display: flex !important;
+}
+body.activity-playing.word-puzzle-mode-select #tahouri-bottom-navigation {
+    display: grid !important;
 }
 body.activity-playing.word-puzzle-mode-select #activitySessionControl {
     display: none !important;
