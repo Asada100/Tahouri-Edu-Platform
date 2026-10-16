@@ -46,7 +46,8 @@
             const isGuided = mode === "guided-word";
             const isDictation = mode === "dictation";
             const isContext = mode === "context";
-            const activityTitle = isDictation ? "املای شنیداری" : isGuided ? "املای هدایت‌شده" : isContext ? "املای عبارت" : "کشف املای درست";
+            const isErrorHunt = mode === "error-hunt";
+            const activityTitle = isErrorHunt ? "شکار اشتباه املایی" : isDictation ? "املای شنیداری" : isGuided ? "املای هدایت‌شده" : isContext ? "املای عبارت" : "کشف املای درست";
             const engineRows = (isDictation || isContext)
                 && window.DictationEngine
                 && typeof window.DictationEngine.getKeyboardRows === "function"
@@ -71,14 +72,15 @@
                         <div class="dictationQuestionTitle">${activityTitle}</div>
                         <p class="dictationInstruction">${this.escape(rule.title)}</p>
                         <div class="dictationRuleGuide">${this.escape(rule.guide)}</div>
-                        ${q.context ? `<div class="dictationContext">${this.escape(q.context)}</div>` : ""}
+                        ${isErrorHunt ? `<div class="spellingErrorVerse" id="spellingErrorVerse">${this.renderErrorHuntVerse(q, state)}</div>` : q.context ? `<div class="dictationContext">${this.escape(q.context)}</div>` : ""}
                         ${this.renderMedia(q)}
                         ${(isDictation || isGuided || isContext) ? this.renderAudio(q, isContext) : ""}
 
                         <div class="dictationAnswer${state.questionCompleted ? " is-complete" : ""}" id="dictationAnswer" aria-live="polite">
-                            ${this.renderAnswer(state, isGuided, isDictation, isContext)}
+                            ${isErrorHunt ? this.renderErrorHuntAnswer(state) : this.renderAnswer(state, isGuided, isDictation, isContext)}
                         </div>
 
+                        ${isErrorHunt && state.questionCompleted ? `<div class="spellingErrorExplanation">${this.escape(q.explanation || "آفرین! واژه را درست کردی.")}</div>` : ""}
                         <div class="dictationFeedback" id="dictationFeedback" aria-live="polite"></div>
 
                         <div class="dictationKeyboard" id="dictationKeyboard">
@@ -90,7 +92,7 @@
                                 return `<button type="button" class="${cls}" data-key="${this.escape(key.key)}" data-variants="${this.escape((key.variants || []).join("|"))}" ${disabledAttr}${activeStyle}>${this.escape(key.key)}</button>`;
                             }).join("")}</div>`).join("")}
                             <div class="dictationUtilityRow">
-                                <button type="button" class="dictationUtility dictationSpace" id="dictationSpace" aria-label="کلید فاصله"></button>
+                                ${isErrorHunt ? "" : `<button type="button" class="dictationUtility dictationSpace" id="dictationSpace" aria-label="کلید فاصله"></button>`}
                                 ${isContext ? `<button type="button" class="dictationUtility dictationPunctuation" id="dictationPeriod" aria-label="نقطه">.</button>` : ""}
                                 <button type="button" class="dictationUtility" id="dictationBackspace" aria-label="حذف">⌫</button>
                             </div>
@@ -175,6 +177,26 @@
                 }).join("");
                 return '<span class="dictationContextTarget is-current">' + DictationScreen.escape(visible) + '</span>';
             });
+        },
+
+        renderErrorHuntVerse: function (question, state) {
+            const verse = String(question && question.verseText || "");
+            const wrongWord = String(question && question.wrongWord || "");
+            const index = wrongWord ? verse.indexOf(wrongWord) : -1;
+            if (index < 0) return this.escape(verse).replace(/\n/g, "<br>");
+            const before = this.escape(verse.slice(0, index)).replace(/\n/g, "<br>");
+            const after = this.escape(verse.slice(index + wrongWord.length)).replace(/\n/g, "<br>");
+            const selected = !!state.errorWordSelected;
+            const disabled = state.questionCompleted ? "disabled" : "";
+            return before + '<button type="button" class="spellingErrorWord' + (selected ? " is-selected" : "") + '" data-error-word="true" ' + disabled + '>' + this.escape(wrongWord) + '</button>' + after;
+        },
+
+        renderErrorHuntAnswer: function (state) {
+            const q = state.currentQuestion || {};
+            if (!state.errorWordSelected) return '<span class="spellingErrorAnswerHint">اول واژهٔ اشتباه را در بیت پیدا کن.</span>';
+            const typed = String(state.currentInput || "");
+            const remaining = Math.max(0, Array.from(q.answer || "").length - Array.from(typed).length);
+            return '<span class="dictationTyped">' + this.escape(typed) + '</span><span class="spellingErrorPlaceholders">' + "ـ ".repeat(remaining) + '</span>' + (state.currentWrongChar ? '<span class="dictationGuidedWrong">' + this.escape(state.currentWrongChar) + '</span>' : "");
         },
 
         renderAnswer: function (state, isGuided, isDictation, isContext) {
@@ -280,6 +302,10 @@
                 }
             });
 
+            const errorWord = document.querySelector("[data-error-word]");
+            if (errorWord) errorWord.onclick = function () {
+                if (window.DictationEngine && window.DictationEngine.selectErrorWord()) DictationScreen.render(window.DictationEngine.getState());
+            };
             const space = document.getElementById("dictationSpace");
             if (space) space.onclick = function () { self.handleInput(" "); };
             const period = document.getElementById("dictationPeriod");
@@ -380,6 +406,7 @@
         },
 
         getRuleGuide: function (question, mode) {
+            if (mode === "error-hunt") return { title: "واژهٔ نادرست را در بیت پیدا کن.", guide: "روی واژهٔ اشتباه بزن؛ سپس شکل درستش را با صفحه‌کلید بنویس." };
             if (mode === "guided-word") return { title: "کلمه را کامل و با دقت بنویس.", guide: "حرف‌ها را به ترتیب انتخاب کن." };
             const rule = question && question.spellingRule ? question.spellingRule : "";
             const guides = {
