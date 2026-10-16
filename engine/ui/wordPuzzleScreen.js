@@ -26,8 +26,8 @@ ${(s.data?.type==="wordSearch"||s.data?.type==="wordBuilder"||s.data?.type==="tr
 <div class="wp-progress">بازی مستقل</div>
 <div class="wp-score">⭐ <strong>${s.score}</strong></div>
 </section>`}
-<h1>${s.data?.title||"واژه‌خانه"}</h1>
-${s.data?.type==="wordBuilder"?"":s.data?.type==="wordSearch"?`<div class="wp-instruction wp-instruction-with-hint"><span>واژه‌های پنهان را با کشیدن انگشت یا موس پیدا کن؛ مسیر می‌تواند مستقیم، مورب یا دارای یک پیچ L باشد.</span><button type="button" class="wp-btn wp-hint-btn wp-search-hint" aria-label="راهنما" title="راهنما">💡</button></div>`:`<p class="wp-instruction">${s.data?.instruction||""}</p>`}
+${s.data?.type==="treeFamily"?"":`<h1>${s.data?.title||"واژه‌خانه"}</h1>`}
+${s.data?.type==="treeFamily"||s.data?.type==="wordBuilder"?"":s.data?.type==="wordSearch"?`<div class="wp-instruction wp-instruction-with-hint"><span>واژه‌های پنهان را با کشیدن انگشت یا موس پیدا کن؛ مسیر می‌تواند مستقیم، مورب یا دارای یک پیچ L باشد.</span><button type="button" class="wp-btn wp-hint-btn wp-search-hint" aria-label="راهنما" title="راهنما">💡</button></div>`:`<p class="wp-instruction">${s.data?.instruction||""}</p>`}
 ${s.data?.type==="treeFamily"?"":'<div class="wp-status" aria-live="polite"></div>'}
 <div id="wp"></div>`;
 root.appendChild(box);
