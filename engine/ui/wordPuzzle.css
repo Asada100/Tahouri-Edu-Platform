@@ -829,7 +829,7 @@ transform:translateX(-50%) translateY(0);
 .wp-tree-stage{position:relative}.wp-tree-stage-label{display:inline-block;background:#e5f5df;color:#28643b;border-radius:999px;padding:6px 13px;font-weight:800}
 .wp-tree-root-word{margin:12px auto 0;font-size:20px;font-weight:700}.wp-tree-root-word strong{color:#236d3b;font-size:26px}
 .wp-tree-illustration{height:350px;max-width:510px;margin:0 auto;position:relative;isolation:isolate}
-.wp-tree-canopy{position:absolute;inset:8% 9% 15%;border-radius:48% 52% 42% 45%;background:radial-gradient(circle at 35% 28%,#c9f3a7,#79c96a 52%,#4b9a4c);box-shadow:inset 0 0 0 7px #ffffff29,0 10px 20px #357a3220}
+.wp-tree-canopy{position:absolute;inset:8% 9% 15%;border-radius:48% 52% 42% 45%;background:radial-gradient(circle at 35% 28%,#c9f3a7,#79c96a 52%,#4b9a4c);box-shadow:0 10px 20px #357a3220}
 .wp-tree-trunk{position:absolute;z-index:-1;left:43%;top:57%;width:14%;height:35%;border-radius:35% 35% 15% 15%;background:linear-gradient(90deg,#87522d,#b77a43,#8b542e)}
 .wp-tree-roots{position:absolute;z-index:-1;left:28%;right:28%;bottom:0;height:26px;background:#a46c3b;clip-path:polygon(43% 0,57% 0,100% 100%,72% 100%,50% 38%,28% 100%,0 100%)}
 .wp-tree-leaves{position:absolute;inset:9% 9% 17%}
