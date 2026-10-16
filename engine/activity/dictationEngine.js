@@ -78,7 +78,7 @@
                 characterErrors: 0, currentQuestionCharacterErrors: 0, currentTargetCharacterErrors: 0, answers: [], targetAnswers: [], currentInput: "", inputBlockedAfterWrong: false, currentWrongChar: "",
                 missingSlots: [], currentSlotIndex: 0, currentCharIndex: 0,
                 currentTargetIndex: 0, contextTargetAnswers: [],
-                questionCompleted: false, transitioning: false, showGuide: false, errorWordSelected: false
+                questionCompleted: false, transitioning: false, showGuide: false, errorWordSelected: false, selectedErrorWord: "", errorFeedback: ""
             };
             this.prepareCurrentQuestion();
             EventManager.emit("activityStarted", this.activity);
@@ -111,6 +111,8 @@
             this.state.transitioning = false;
             this.state.showGuide = false;
             this.state.errorWordSelected = false;
+            this.state.selectedErrorWord = "";
+            this.state.errorFeedback = "";
             this.state.missingSlots = this.buildMissingSlots(this.getCurrentTarget());
         },
 
@@ -355,15 +357,27 @@
             return this.inputChar(SPACE);
         },
 
-        selectErrorWord: function () {
+        selectErrorWord: function (word) {
             if (!this.state || this.getMode() !== "error-hunt" || this.state.questionCompleted || this.state.isFinished || this.state.errorWordSelected) return false;
+            const q = this.getCurrentQuestion();
+            const selected = this.normalize(String(word || "").replace(/[،؛.!؟,:]+$/g, ""));
+            const target = this.normalize(q && q.wrongWord || "");
+            if (!selected || !target) return false;
+            this.state.attempts += 1;
+            if (selected !== target) {
+                this.state.errorFeedback = "این واژه درست نوشته شده؛ دوباره با دقت بخوان.";
+                EventManager.emit("answer:wrong", { correct: false, selectedWord: word, questionIndex: this.state.currentIndex, mode: "error-hunt" });
+                return { correct: false, state: this.getState() };
+            }
             this.state.errorWordSelected = true;
+            this.state.selectedErrorWord = String(word || "").replace(/[،؛.!؟,:]+$/g, "");
+            this.state.errorFeedback = "آفرین! واژهٔ نادرست را پیدا کردی؛ حالا شکل درستش را بنویس.";
             this.state.currentInput = "";
             this.state.currentCharIndex = 0;
             this.state.currentWrongChar = "";
             this.state.showGuide = false;
             EventManager.emit("dictationQuestionChanged", this.getState());
-            return true;
+            return { correct: true, state: this.getState() };
         },
 
         backspace: function () {
