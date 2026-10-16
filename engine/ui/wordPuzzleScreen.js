@@ -26,8 +26,8 @@ ${(s.data?.type==="wordSearch"||s.data?.type==="wordBuilder"||s.data?.type==="tr
 <div class="wp-progress">بازی مستقل</div>
 <div class="wp-score">⭐ <strong>${s.score}</strong></div>
 </section>`}
-${s.data?.type==="treeFamily"?"":`<h1>${s.data?.title||"واژه‌خانه"}</h1>`}
-${s.data?.type==="treeFamily"||s.data?.type==="wordBuilder"?"":s.data?.type==="wordSearch"?`<div class="wp-instruction wp-instruction-with-hint"><span>واژه‌های پنهان را با کشیدن انگشت یا موس پیدا کن؛ مسیر می‌تواند مستقیم، مورب یا دارای یک پیچ L باشد.</span><button type="button" class="wp-btn wp-hint-btn wp-search-hint" aria-label="راهنما" title="راهنما">💡</button></div>`:`<p class="wp-instruction">${s.data?.instruction||""}</p>`}
+${s.data?.type==="treeFamily"?`<div class="wp-tree-heading"><h1>${s.data?.title||"درخت خانوادهٔ واژه‌ها"}</h1><span class="wp-tree-heading-stage">مرحله ${s.data?.stage} از ${s.data?.totalStages}</span></div>`:`<h1>${s.data?.title||"واژه‌خانه"}</h1>`}
+${s.data?.type==="wordBuilder"?"":s.data?.type==="wordSearch"?`<div class="wp-instruction wp-instruction-with-hint"><span>واژه‌های پنهان را با کشیدن انگشت یا موس پیدا کن؛ مسیر می‌تواند مستقیم، مورب یا دارای یک پیچ L باشد.</span><button type="button" class="wp-btn wp-hint-btn wp-search-hint" aria-label="راهنما" title="راهنما">💡</button></div>`:s.data?.type==="treeFamily"?`<p class="wp-instruction wp-tree-top-instruction">برگ‌های هم‌خانواده را سبز کن و برگ‌های نامرتبط را زرد کن؛ بعد بررسی را بزن.</p>`:`<p class="wp-instruction">${s.data?.instruction||""}</p>`}
 ${s.data?.type==="treeFamily"?"":'<div class="wp-status" aria-live="polite"></div>'}
 <div id="wp"></div>`;
 root.appendChild(box);
@@ -439,7 +439,7 @@ treeFamily(x,d){
 const classifications=new Map();
 x.innerHTML=`
 <div class="wp-card wp-tree-card">
-<div class="wp-tree-stage"><span class="wp-tree-stage-label">مرحلهٔ ${d.stage} از ${d.totalStages}</span>
+<div class="wp-tree-stage">
 <div class="wp-tree-root-word">ریشه: <strong>${d.base}</strong></div>
 <div class="wp-tree-illustration">
 <div class="wp-tree-canopy"></div><div class="wp-tree-trunk"></div><div class="wp-tree-roots"></div>
