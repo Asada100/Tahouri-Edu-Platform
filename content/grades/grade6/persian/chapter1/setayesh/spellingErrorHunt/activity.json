@@ -13,7 +13,7 @@
     {
       "id": "setayesh-verse-01",
       "mode": "error-hunt",
-      "verseText": "به نام آن که جان را فرتک آموغت\nچراق دل به نوز جان برافروخد",
+      "verseText": "به نام آن که جان را فرتک آموغت\nچراق دل به نور جان برافروخت",
       "errors": [
         {
           "wrongWord": "فرتک",
@@ -29,16 +29,6 @@
           "wrongWord": "چراق",
           "answer": "چراغ",
           "spellingRule": "ق/غ"
-        },
-        {
-          "wrongWord": "نوز",
-          "answer": "نور",
-          "spellingRule": "ر/ز"
-        },
-        {
-          "wrongWord": "برافروخد",
-          "answer": "برافروخت",
-          "spellingRule": "د/ت"
         }
       ],
       "explanation": "بیت درست: به نام آن که جان را فکرت آموخت / چراغ دل به نور جان برافروخت"
@@ -46,7 +36,7 @@
     {
       "id": "setayesh-verse-02",
       "mode": "error-hunt",
-      "verseText": "ز فزلش هر دو آلم گشت روشن\nز فیضش حاک آدم گشت کلشن",
+      "verseText": "ز فزلش هر دو آلم گشت روشن\nز فیضش خاک آدم گشت کلشن",
       "errors": [
         {
           "wrongWord": "فزلش",
@@ -57,16 +47,6 @@
           "wrongWord": "آلم",
           "answer": "عالم",
           "spellingRule": "ع/آ"
-        },
-        {
-          "wrongWord": "حاک",
-          "answer": "خاک",
-          "spellingRule": "خ/ح"
-        },
-        {
-          "wrongWord": "کلشن",
-          "answer": "گلشن",
-          "spellingRule": "گ/ک"
         }
       ],
       "explanation": "بیت درست: ز فضلش هر دو عالم گشت روشن / ز فیضش خاک آدم گشت گلشن"
@@ -92,7 +72,7 @@
     {
       "id": "setayesh-verse-04",
       "mode": "error-hunt",
-      "verseText": "خورد را نیست طاب نور آن روی\nبرو از بحر او چشم دکر جوی",
+      "verseText": "خورد را نیست طاب نور آن روی\nبرو از بهر او چشم دکر جوی",
       "errors": [
         {
           "wrongWord": "خورد",
@@ -110,7 +90,7 @@
           "spellingRule": "گ/ک"
         }
       ],
-      "explanation": "بیت درست: خرد را نیست تاب نور آن روی / برو از بحر او چشم دگر جوی"
+      "explanation": "بیت درست: خرد را نیست تاب نور آن روی / برو از بهر او چشم دگر جوی"
     }
   ]
 }
