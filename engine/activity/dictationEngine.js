@@ -78,7 +78,7 @@
                 characterErrors: 0, currentQuestionCharacterErrors: 0, currentTargetCharacterErrors: 0, answers: [], targetAnswers: [], currentInput: "", inputBlockedAfterWrong: false, currentWrongChar: "",
                 missingSlots: [], currentSlotIndex: 0, currentCharIndex: 0,
                 currentTargetIndex: 0, contextTargetAnswers: [],
-                questionCompleted: false, transitioning: false, showGuide: false
+                questionCompleted: false, transitioning: false, showGuide: false, errorWordSelected: false
             };
             this.prepareCurrentQuestion();
             EventManager.emit("activityStarted", this.activity);
@@ -110,6 +110,7 @@
             this.state.questionCompleted = false;
             this.state.transitioning = false;
             this.state.showGuide = false;
+            this.state.errorWordSelected = false;
             this.state.missingSlots = this.buildMissingSlots(this.getCurrentTarget());
         },
 
@@ -147,6 +148,8 @@
             if (question && !this.state.questionCompleted) {
                 if (this.getMode() === "dictation") {
                     PERSIAN_ROWS.flat().forEach(c => active.add(c));
+                } else if (this.getMode() === "error-hunt") {
+                    if (this.state.errorWordSelected) PERSIAN_ROWS.flat().forEach(c => active.add(c));
                 } else if (this.getMode() === "missing-letter") {
                     const target = this.getCurrentTarget() || question;
                     const ruleLetters = target.spellingRule && window.SpellingRules && typeof window.SpellingRules.getLetters === "function"
@@ -194,7 +197,7 @@
             if (!q || !this.state) return "";
             const target = this.getCurrentTarget() || q;
             const chars = Array.from(target.answer || "");
-            if (this.getMode() === "context" || this.getMode() === "dictation") return this.state.currentInput || "";
+            if (this.getMode() === "context" || this.getMode() === "dictation" || this.getMode() === "error-hunt") return this.state.currentInput || "";
             if (this.getMode() === "missing-letter") {
                 const pending = new Set(this.state.missingSlots.slice(this.state.currentSlotIndex));
                 return chars.map((char, index) => pending.has(index) ? "ـ...ـ" : char).join("");
@@ -244,6 +247,7 @@
             // post-completion clicks from overwriting the final feedback or
             // being recorded as extra attempts.
             if (!this.state || this.state.isFinished || this.state.transitioning || this.state.questionCompleted || !char) return null;
+            if (this.getMode() === "error-hunt" && !this.state.errorWordSelected) return null;
             const q = this.getCurrentQuestion();
             if (!q) return null;
             const expected = this.getExpectedChar();
@@ -281,7 +285,7 @@
                 this.state.currentSlotIndex += 1;
             } else {
                 this.state.currentCharIndex += 1;
-                if (this.getMode() === "dictation" || this.getMode() === "context") this.state.currentInput += char;
+                if (this.getMode() === "dictation" || this.getMode() === "context" || this.getMode() === "error-hunt") this.state.currentInput += char;
 
                 // In guided-word and phrase/context modes, spaces inside a
                 // multi-word answer are structural separators, not learner
@@ -351,6 +355,17 @@
             return this.inputChar(SPACE);
         },
 
+        selectErrorWord: function () {
+            if (!this.state || this.getMode() !== "error-hunt" || this.state.questionCompleted || this.state.isFinished || this.state.errorWordSelected) return false;
+            this.state.errorWordSelected = true;
+            this.state.currentInput = "";
+            this.state.currentCharIndex = 0;
+            this.state.currentWrongChar = "";
+            this.state.showGuide = false;
+            EventManager.emit("dictationQuestionChanged", this.getState());
+            return true;
+        },
+
         backspace: function () {
             if (!this.state || this.state.isFinished || this.state.questionCompleted || this.state.transitioning) return false;
             const mode = this.getMode();
@@ -359,7 +374,7 @@
                 this.state.currentSlotIndex -= 1;
                 return true;
             }
-            if (mode === "context") {
+            if (mode === "context" || mode === "error-hunt") {
                 if (this.state.currentWrongChar) {
                     this.state.currentWrongChar = "";
                     this.state.showGuide = false;
@@ -550,6 +565,7 @@
                 currentQuestion: this.getCurrentQuestion(),
                 currentTarget: this.getCurrentTarget(),
                 mode: this.getMode(),
+                errorWordSelected: !!this.state.errorWordSelected,
                 keyboardRows: this.getKeyboardRows(),
                 expectedChar: this.getExpectedChar(),
                 displayText: this.getDisplayText(),
