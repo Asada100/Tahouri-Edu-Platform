@@ -21,8 +21,12 @@
 
 /* Spelling error hunt */
 .spellingErrorVerse{margin:18px auto;padding:18px 12px;border:1px solid #dbe4ef;border-radius:16px;background:#f8fbff;color:#172033;font-size:23px;font-weight:800;line-height:2.1;white-space:normal}
-.spellingErrorWord{display:inline-block;margin:0 2px;padding:0 5px;border:2px dashed #d97706;border-radius:8px;background:#fff7ed;color:#b45309;font:inherit;cursor:pointer;touch-action:manipulation}
-.spellingErrorWord.is-selected{border-style:solid;background:#ffedd5;color:#9a3412}
+.spellingErrorWord{display:inline;margin:0;padding:0 1px;border:0;border-radius:3px;background:transparent;color:inherit;font:inherit;cursor:pointer;touch-action:manipulation;text-decoration:none}
+.spellingErrorWord:hover,.spellingErrorWord:focus-visible{background:#e8eef7;outline:1px solid #94a3b8}
+.spellingErrorWord.is-selected{background:#dcfce7;color:#166534;font-weight:900}
+.spellingErrorWord:disabled{cursor:default;opacity:1}
 .spellingErrorAnswerHint,.spellingErrorPlaceholders{color:#98a2b3;font-size:.65em}
 .spellingErrorExplanation{margin:12px auto;padding:12px;border-radius:12px;background:#ecfdf3;color:#166534;line-height:1.8;font-weight:700}
 @media(max-width:600px){.spellingErrorVerse{font-size:19px;padding:14px 8px}.spellingErrorWord{padding:0 3px}}
+
+.spellingErrorVerse{white-space:pre-line}
