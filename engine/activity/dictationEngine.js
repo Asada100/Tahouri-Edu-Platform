@@ -339,7 +339,6 @@
                 const errors = this.getErrorTargets();
                 this.state.errorWordSelected = false;
                 this.state.selectedErrorWord = "";
-                this.state.currentErrorIndex = -1;
                 this.state.currentInput = "";
                 this.state.currentCharIndex = 0;
                 this.state.currentWrongChar = "";
@@ -348,6 +347,7 @@
                     const completedState = this.completeCurrentQuestion();
                     return { ...completedState, correct: true, complete: true, questionIndex: this.state.currentIndex };
                 }
+                this.state.currentErrorIndex = -1;
                 this.state.errorFeedback = "آفرین! این واژه اصلاح شد؛ هنوز " + (errors.length - this.state.correctedErrorIndexes.length) + " اشتباه باقی مانده است.";
                 EventManager.emit("dictationQuestionChanged", this.getState());
                 return { correct: true, complete: false, wordComplete: true, questionIndex: this.state.currentIndex };
