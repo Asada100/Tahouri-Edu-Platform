@@ -843,3 +843,12 @@ transform:translateX(-50%) translateY(0);
 .wp-tree-instruction{line-height:1.8;color:#536452;margin:14px auto 8px}.wp-tree-feedback{min-height:28px;font-weight:800;margin-top:8px}.wp-tree-feedback.good{color:#18733a}.wp-tree-feedback.bad{color:#b42318}.wp-tree-card [data-tree-check]:disabled{opacity:.65;cursor:wait}
 @media(max-width:520px){.wp-tree-illustration{height:300px}.wp-tree-leaf{min-width:55px;padding:6px 7px;font-size:12px}.wp-tree-canopy{inset:8% 3% 15%}.wp-tree-leaves{inset:9% 2% 17%}}
 @media(prefers-reduced-motion:reduce){.wp-tree-leaf.is-falling,.wp-tree-fallen-leaf{animation:none!important;transition:none!important}}
+
+
+/* Tree-family compact heading: keep title and stage on one line and instructions above the game. */
+.wp-tree-heading{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin:0 auto 4px}
+.wp-tree-heading h1{margin:0!important}
+.wp-tree-heading-stage{display:inline-flex;align-items:center;white-space:nowrap;background:#e5f5df;color:#28643b;border-radius:999px;padding:5px 10px;font-size:14px;font-weight:800}
+.wp-tree-top-instruction{margin:4px auto 8px!important;line-height:1.55}
+.wp-tree-stage-label{display:none!important}
+@media(max-width:520px){.wp-tree-heading{gap:6px}.wp-tree-heading h1{font-size:clamp(19px,5vw,25px)}.wp-tree-heading-stage{font-size:12px;padding:4px 8px}}
