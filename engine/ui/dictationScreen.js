@@ -182,9 +182,9 @@
         renderErrorHuntVerse: function (question, state) {
             const verse = String(question && question.verseText || "");
             const disabled = state.questionCompleted || state.errorWordSelected ? "disabled" : "";
-            return verse.split(/(\\s+)/).map(function (part) {
+            return verse.split(/(\s+)/).map(function (part) {
                 if (!part) return "";
-                if (/^\\s+$/.test(part)) return DictationScreen.escape(part);
+                if (/^\s+$/.test(part)) return DictationScreen.escape(part);
                 const word = part;
                 const selected = state.errorWordSelected && state.selectedErrorWord === word.replace(/[،؛.!؟,:]+$/g, "");
                 return '<button type="button" class="spellingErrorWord' + (selected ? " is-selected" : "") + '" data-error-word="' + DictationScreen.escape(word) + '" ' + disabled + '>' + DictationScreen.escape(word) + '</button>';
