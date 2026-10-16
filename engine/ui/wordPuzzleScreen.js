@@ -27,7 +27,7 @@ ${(s.data?.type==="wordSearch"||s.data?.type==="wordBuilder"||s.data?.type==="tr
 <div class="wp-score">⭐ <strong>${s.score}</strong></div>
 </section>`}
 ${s.data?.type==="treeFamily"?`<div class="wp-tree-heading"><h1>${s.data?.title||"درخت خانوادهٔ واژه‌ها"}</h1><span class="wp-tree-heading-stage">مرحله ${s.data?.stage} از ${s.data?.totalStages}</span></div>`:`<h1>${s.data?.title||"واژه‌خانه"}</h1>`}
-${s.data?.type==="wordBuilder"?"":s.data?.type==="wordSearch"?`<div class="wp-instruction wp-instruction-with-hint"><span>واژه‌های پنهان را با کشیدن انگشت یا موس پیدا کن؛ مسیر می‌تواند مستقیم، مورب یا دارای یک پیچ L باشد.</span><button type="button" class="wp-btn wp-hint-btn wp-search-hint" aria-label="راهنما" title="راهنما">💡</button></div>`:s.data?.type==="treeFamily"?`<p class="wp-instruction wp-tree-top-instruction">برگ‌های هم‌خانواده را سبز کن و برگ‌های نامرتبط را زرد کن؛ بعد بررسی را بزن.</p>`:`<p class="wp-instruction">${s.data?.instruction||""}</p>`}
+${s.data?.type==="wordBuilder"?"":s.data?.type==="wordSearch"?`<div class="wp-instruction wp-instruction-with-hint"><span>واژه‌های پنهان را با کشیدن انگشت یا موس پیدا کن؛ مسیر می‌تواند مستقیم، مورب یا دارای یک پیچ L باشد.</span><button type="button" class="wp-btn wp-hint-btn wp-search-hint" aria-label="راهنما" title="راهنما">💡</button></div>`:s.data?.type==="treeFamily"?`<div class="wp-tree-top-instruction-row" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:8px 0 14px"><p class="wp-instruction wp-tree-top-instruction" style="flex:1;margin:0">برگ‌های هم‌خانواده را سبز کن و برگ‌های نامرتبط را زرد کن؛ بعد بررسی را بزن.</p><button type="button" class="wp-btn" data-tree-check>بررسی</button></div>`:`<p class="wp-instruction">${s.data?.instruction||""}</p>`}
 ${s.data?.type==="treeFamily"?"":'<div class="wp-status" aria-live="polite"></div>'}
 <div id="wp"></div>`;
 root.appendChild(box);
@@ -450,7 +450,7 @@ x.innerHTML=`
 <div class="wp-tree-box-wrap"><div class="wp-tree-box-title">📦 جعبهٔ برگ‌های جداشده</div><div class="wp-tree-box" aria-live="polite"><span class="wp-tree-box-empty">برگ‌های زرد اینجا می‌افتند!</span></div></div>
 <p class="wp-tree-instruction">روی هر برگ بزن تا رنگش عوض شود: بی‌رنگ ← سبز ← زرد. همهٔ برگ‌ها را دسته‌بندی کن.</p>
 <div class="wp-tree-feedback" aria-live="polite"></div>
-<div class="wp-actions"><button type="button" class="wp-btn" data-tree-check>بررسی درخت 🌳</button></div>
+
 </div>`;
 const leaves=x.querySelector(".wp-tree-leaves"),box=x.querySelector(".wp-tree-box"),feedback=x.querySelector(".wp-tree-feedback");
 const positions=[[18,18],[39,8],[61,9],[81,19],[10,45],[30,37],[51,30],[73,39],[89,47],[22,61],[45,54],[68,61]];
@@ -467,7 +467,7 @@ else{classifications.set(word,next);b.classList.toggle("is-green",next===1);b.cl
 };
 leaves.appendChild(b);
 });
-x.querySelector("[data-tree-check]").onclick=()=>{
+x.closest(".wp-shell").querySelector("[data-tree-check]").onclick=()=>{
 const green=d.options.filter(w=>classifications.get(w)===1);
 const yellow=d.options.filter(w=>classifications.get(w)===2);
 const result=WordPuzzleEngine.submitTreeFamily(green,yellow);
