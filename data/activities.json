@@ -179,6 +179,20 @@
     "path": "content/grades/grade6/persian/chapter1/setayesh/spelling"
   },
   {
+    "id": "persianWordPuzzle",
+    "title": "واژه‌خانه 🧩",
+    "grade": "grade6",
+    "subject": "persian",
+    "chapter": "chapter1",
+    "type": "wordPuzzle",
+    "engine": "wordPuzzle",
+    "locked": false,
+    "requires": null,
+    "lesson": "setayesh",
+    "path": "content/grades/grade6/persian/chapter1/wordPuzzle",
+    "group": "setayesh"
+  },
+  {
     "id": "persianLesson1Jigsaw",
     "title": "درس اول — پازل",
     "grade": "grade6",
@@ -268,19 +282,6 @@
     "requires": null,
     "lesson": "spelling",
     "path": "content/grades/grade6/persian/chapter1/spellingGenerated"
-  },
-  {
-    "id": "persianWordPuzzle",
-    "title": "واژه‌خانه 🧩",
-    "grade": "grade6",
-    "subject": "persian",
-    "chapter": "chapter1",
-    "type": "wordPuzzle",
-    "engine": "wordPuzzle",
-    "locked": false,
-    "requires": null,
-    "lesson": "chapter1",
-    "path": "content/grades/grade6/persian/chapter1/wordPuzzle"
   },
   {
     "id": "mathSpatial",
