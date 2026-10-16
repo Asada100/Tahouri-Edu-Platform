@@ -30,3 +30,8 @@
 @media(max-width:600px){.spellingErrorVerse{font-size:19px;padding:14px 8px}.spellingErrorWord{padding:0 3px}}
 
 .spellingErrorVerse{white-space:pre-line}
+
+/* Multi-error Setayesh spelling hunt */
+.spellingErrorWord.is-corrected{display:inline;margin:0;padding:0 1px;border:0;background:transparent;color:#15803d;font:inherit;font-weight:900}
+.spellingErrorWord.is-hint{background:#fef3c7;color:#92400e;outline:2px solid #f59e0b;outline-offset:1px}
+.spellingErrorHintButton{min-width:104px;padding:0 12px;color:#92400e;font-weight:800;background:#fffbeb;border-color:#fcd34d}
