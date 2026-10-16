@@ -179,6 +179,20 @@
     "path": "content/grades/grade6/persian/chapter1/setayesh/spelling"
   },
   {
+    "id": "persianSetayeshSpellingErrorHunt",
+    "title": "شکار اشتباه املایی 🔎",
+    "grade": "grade6",
+    "subject": "persian",
+    "chapter": "chapter1",
+    "type": "dictation",
+    "engine": "dictation",
+    "group": "setayesh",
+    "locked": false,
+    "requires": null,
+    "lesson": "setayesh",
+    "path": "content/grades/grade6/persian/chapter1/setayesh/spellingErrorHunt"
+  },
+  {
     "id": "persianWordPuzzle",
     "title": "واژه‌خانه 🧩",
     "grade": "grade6",
