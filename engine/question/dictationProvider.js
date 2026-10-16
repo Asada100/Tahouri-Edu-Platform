@@ -73,7 +73,7 @@
                         : [];
 
                     let mode = item.mode || source.mode || "guided-word";
-                    if (!["missing-letter", "guided-word", "context"].includes(mode)) mode = "guided-word";
+                    if (!["missing-letter", "guided-word", "context", "error-hunt"].includes(mode)) mode = "guided-word";
 
                     if (mode === "missing-letter" && missing.length === 0) {
                         mode = "guided-word";
@@ -91,6 +91,9 @@
                                 ? item.targets[0].answer.trim() : ""),
                         prompt: item.prompt || source.instruction || "املای کلمه را کامل کن.",
                         context: item.context || null,
+                        verseText: item.verseText || null,
+                        wrongWord: item.wrongWord || null,
+                        explanation: item.explanation || null,
                         contextTemplate: item.contextTemplate || item.context || null,
                         masked: item.masked || null,
                         missing: missing,
