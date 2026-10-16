@@ -6,7 +6,7 @@
     "keyboardMode": "guided",
     "allowRetry": true,
     "scorePerCorrect": 10,
-    "questionCount": 5,
+    "questionCount": 4,
     "randomizeQuestions": true
   },
   "questions": [
@@ -106,19 +106,6 @@
         }
       ],
       "explanation": "بیت درست: خرد را نیست تاب نور آن روی / برو از بحر او چشم دگر جوی"
-    },
-    {
-      "id": "setayesh-verse-05",
-      "mode": "error-hunt",
-      "verseText": "به نام آن که جان را فکرت آموغت\nچراغ دل به نور جان برافروخت",
-      "errors": [
-        {
-          "wrongWord": "آموغت",
-          "answer": "آموخت",
-          "spellingRule": "خ/غ"
-        }
-      ],
-      "explanation": "بیت درست: به نام آن که جان را فکرت آموخت / چراغ دل به نور جان برافروخت"
     }
   ]
 }
