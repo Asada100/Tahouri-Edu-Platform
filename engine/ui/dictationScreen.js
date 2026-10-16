@@ -81,7 +81,7 @@
                         </div>
 
                         ${isErrorHunt && state.questionCompleted ? `<div class="spellingErrorExplanation">${this.escape(q.explanation || "آفرین! واژه را درست کردی.")}</div>` : ""}
-                        <div class="dictationFeedback" id="dictationFeedback" aria-live="polite"></div>
+                        <div class="dictationFeedback${isErrorHunt && state.errorFeedback ? " " + (state.errorWordSelected ? "correct" : "wrong") : ""}" id="dictationFeedback" aria-live="polite">${isErrorHunt ? this.escape(state.errorFeedback || "") : ""}</div>
 
                         <div class="dictationKeyboard" id="dictationKeyboard">
                             ${rows.map(row => `<div class="dictationKeyboardRow">${row.map(key => {
@@ -181,14 +181,14 @@
 
         renderErrorHuntVerse: function (question, state) {
             const verse = String(question && question.verseText || "");
-            const wrongWord = String(question && question.wrongWord || "");
-            const index = wrongWord ? verse.indexOf(wrongWord) : -1;
-            if (index < 0) return this.escape(verse).replace(/\n/g, "<br>");
-            const before = this.escape(verse.slice(0, index)).replace(/\n/g, "<br>");
-            const after = this.escape(verse.slice(index + wrongWord.length)).replace(/\n/g, "<br>");
-            const selected = !!state.errorWordSelected;
-            const disabled = state.questionCompleted ? "disabled" : "";
-            return before + '<button type="button" class="spellingErrorWord' + (selected ? " is-selected" : "") + '" data-error-word="true" ' + disabled + '>' + this.escape(wrongWord) + '</button>' + after;
+            const disabled = state.questionCompleted || state.errorWordSelected ? "disabled" : "";
+            return verse.split(/(\\s+)/).map(function (part) {
+                if (!part) return "";
+                if (/^\\s+$/.test(part)) return DictationScreen.escape(part);
+                const word = part;
+                const selected = state.errorWordSelected && state.selectedErrorWord === word.replace(/[،؛.!؟,:]+$/g, "");
+                return '<button type="button" class="spellingErrorWord' + (selected ? " is-selected" : "") + '" data-error-word="' + DictationScreen.escape(word) + '" ' + disabled + '>' + DictationScreen.escape(word) + '</button>';
+            }).join("");
         },
 
         renderErrorHuntAnswer: function (state) {
@@ -302,10 +302,15 @@
                 }
             });
 
-            const errorWord = document.querySelector("[data-error-word]");
-            if (errorWord) errorWord.onclick = function () {
-                if (window.DictationEngine && window.DictationEngine.selectErrorWord()) DictationScreen.render(window.DictationEngine.getState());
-            };
+            document.querySelectorAll("[data-error-word]").forEach(function (errorWord) {
+                errorWord.onclick = function () {
+                    if (!window.DictationEngine) return;
+                    const result = window.DictationEngine.selectErrorWord(errorWord.dataset.errorWord || "");
+                    if (!result) return;
+                    DictationScreen.render(window.DictationEngine.getState());
+                    if (!result.correct) DictationScreen.flash("wrong");
+                };
+            });
             const space = document.getElementById("dictationSpace");
             if (space) space.onclick = function () { self.handleInput(" "); };
             const period = document.getElementById("dictationPeriod");
