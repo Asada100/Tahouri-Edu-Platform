@@ -13,6 +13,8 @@
   "settings": {
     "rounds": 4,
     "modes": [
+      "wordBuilder",
+      "wordSearch",
       "wordFamily"
     ],
     "difficulty": 2,
