@@ -473,7 +473,7 @@ const yellow=d.options.filter(w=>classifications.get(w)===2);
 const result=WordPuzzleEngine.submitTreeFamily(green,yellow);
 if(!result.correct){feedback.textContent="هنوز چند برگ اشتباه رنگ شده یا دسته‌بندی نشده‌اند. دوباره بررسی کن 🌱";feedback.className="wp-tree-feedback bad";return;}
 feedback.textContent="آفرین! دسته‌بندی درخت درست بود. 🍃";feedback.className="wp-tree-feedback good";
-x.querySelector("[data-tree-check]").disabled=true;
+x.closest(".wp-shell").querySelector("[data-tree-check]").disabled=true;
 const yellowLeaves=Array.from(leaves.querySelectorAll(".is-yellow"));
 const empty=box.querySelector(".wp-tree-box-empty");if(empty)empty.remove();
 yellowLeaves.forEach((leaf,index)=>{
