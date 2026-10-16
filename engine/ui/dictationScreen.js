@@ -92,18 +92,18 @@
                                 return `<button type="button" class="${cls}" data-key="${this.escape(key.key)}" data-variants="${this.escape((key.variants || []).join("|"))}" ${disabledAttr}${activeStyle}>${this.escape(key.key)}</button>`;
                             }).join("")}</div>`).join("")}
                             <div class="dictationUtilityRow">
-                                ${isErrorHunt ? "" : `<button type="button" class="dictationUtility dictationSpace" id="dictationSpace" aria-label="کلید فاصله"></button>`}
+                                ${isErrorHunt ? `<button type="button" class="dictationUtility spellingErrorHintButton" id="spellingErrorHint">💡 راهنما</button>` : `<button type="button" class="dictationUtility dictationSpace" id="dictationSpace" aria-label="کلید فاصله"></button>`}
                                 ${isContext ? `<button type="button" class="dictationUtility dictationPunctuation" id="dictationPeriod" aria-label="نقطه">.</button>` : ""}
                                 <button type="button" class="dictationUtility" id="dictationBackspace" aria-label="حذف">⌫</button>
                             </div>
                         </div>
 
                         <div class="dictationProgress">
-                            سؤال ${Number(state.currentIndex) + 1} از ${Number(state.totalQuestions) || 0}
+                            ${isErrorHunt ? `بیت ${Number(state.currentIndex) + 1} از ${Number(state.totalQuestions) || 0} · اصلاح‌شده: ${(state.correctedErrorIndexes || []).length} از ${(q.errors || (q.wrongWord ? [q] : [])).length}` : `سؤال ${Number(state.currentIndex) + 1} از ${Number(state.totalQuestions) || 0}`}
                         </div>
                         <div class="dictationNextSlot${state.questionCompleted ? " is-visible" : ""}" aria-live="polite">
                             <button type="button" class="dictationNextButton" id="dictationNextButton" ${state.questionCompleted ? "" : "disabled"} ${state.questionCompleted ? "" : "aria-hidden=\"true\""}>
-                                ${Number(state.currentIndex) + 1 >= Number(state.totalQuestions) ? "پایان" : "کلمه بعدی"}
+                                ${isErrorHunt ? (Number(state.currentIndex) + 1 >= Number(state.totalQuestions) ? "پایان" : "بیت بعدی") : (Number(state.currentIndex) + 1 >= Number(state.totalQuestions) ? "پایان" : "کلمه بعدی")}
                             </button>
                         </div>
                     </div>
@@ -181,21 +181,33 @@
 
         renderErrorHuntVerse: function (question, state) {
             const verse = String(question && question.verseText || "");
-            const disabled = state.questionCompleted || state.errorWordSelected ? "disabled" : "";
+            const errors = Array.isArray(question && question.errors) && question.errors.length ? question.errors : (question && question.wrongWord ? [question] : []);
+            const corrected = new Set(state.correctedErrorIndexes || []);
             return verse.split(/(\s+)/).map(function (part) {
                 if (!part) return "";
                 if (/^\s+$/.test(part)) return DictationScreen.escape(part);
                 const word = part;
-                const selected = state.errorWordSelected && state.selectedErrorWord === word.replace(/[،؛.!؟,:]+$/g, "");
-                return '<button type="button" class="spellingErrorWord' + (selected ? " is-selected" : "") + '" data-error-word="' + DictationScreen.escape(word) + '" ' + disabled + '>' + DictationScreen.escape(word) + '</button>';
+                const cleanWord = word.replace(/[،؛.!؟,:]+$/g, "");
+                const punctuation = word.slice(cleanWord.length);
+                const errorIndex = errors.findIndex(function (item, index) {
+                    return !corrected.has(index) && String(item.wrongWord || "").replace(/[،؛.!؟,:]+$/g, "") === cleanWord;
+                });
+                const correctedIndex = errors.findIndex(function (item, index) {
+                    return corrected.has(index) && String(item.wrongWord || "").replace(/[،؛.!؟,:]+$/g, "") === cleanWord;
+                });
+                if (correctedIndex >= 0) return '<span class="spellingErrorWord is-corrected">' + DictationScreen.escape(errors[correctedIndex].answer + punctuation) + '</span>';
+                const selected = state.errorWordSelected && Number(state.currentErrorIndex) === errorIndex;
+                const hinted = Number(state.hintErrorIndex) === errorIndex && errorIndex >= 0;
+                const disabled = state.questionCompleted || (state.errorWordSelected && !selected) ? "disabled" : "";
+                return '<button type="button" class="spellingErrorWord' + (selected ? " is-selected" : "") + (hinted ? " is-hint" : "") + '" data-error-index="' + errorIndex + '" data-error-word="' + DictationScreen.escape(cleanWord) + '" ' + disabled + '>' + DictationScreen.escape(word) + '</button>';
             }).join("");
         },
 
         renderErrorHuntAnswer: function (state) {
-            const q = state.currentQuestion || {};
-            if (!state.errorWordSelected) return '<span class="spellingErrorAnswerHint">اول واژهٔ اشتباه را در بیت پیدا کن.</span>';
+            const target = state.currentTarget || {};
+            if (!state.errorWordSelected) return '<span class="spellingErrorAnswerHint">روی یکی از واژه‌های نادرست بزن؛ سپس شکل درست آن را بنویس.</span>';
             const typed = String(state.currentInput || "");
-            const remaining = Math.max(0, Array.from(q.answer || "").length - Array.from(typed).length);
+            const remaining = Math.max(0, Array.from(target.answer || "").length - Array.from(typed).length);
             return '<span class="dictationTyped">' + this.escape(typed) + '</span><span class="spellingErrorPlaceholders">' + "ـ ".repeat(remaining) + '</span>' + (state.currentWrongChar ? '<span class="dictationGuidedWrong">' + this.escape(state.currentWrongChar) + '</span>' : "");
         },
 
@@ -305,12 +317,18 @@
             document.querySelectorAll("[data-error-word]").forEach(function (errorWord) {
                 errorWord.onclick = function () {
                     if (!window.DictationEngine) return;
-                    const result = window.DictationEngine.selectErrorWord(errorWord.dataset.errorWord || "");
+                    const result = window.DictationEngine.selectErrorWord(errorWord.dataset.errorWord || "", Number(errorWord.dataset.errorIndex));
                     if (!result) return;
                     DictationScreen.render(window.DictationEngine.getState());
                     if (!result.correct) DictationScreen.flash("wrong");
                 };
             });
+            const hintButton = document.getElementById("spellingErrorHint");
+            if (hintButton) hintButton.onclick = function () {
+                if (window.DictationEngine && window.DictationEngine.showErrorHuntHint()) {
+                    DictationScreen.render(window.DictationEngine.getState());
+                }
+            };
             const space = document.getElementById("dictationSpace");
             if (space) space.onclick = function () { self.handleInput(" "); };
             const period = document.getElementById("dictationPeriod");
@@ -411,7 +429,7 @@
         },
 
         getRuleGuide: function (question, mode) {
-            if (mode === "error-hunt") return { title: "واژهٔ نادرست را در بیت پیدا کن.", guide: "روی واژهٔ اشتباه بزن؛ سپس شکل درستش را با صفحه‌کلید بنویس." };
+            if (mode === "error-hunt") return { title: "همهٔ اشتباه‌های این بیت را پیدا کن.", guide: "حروف اول، وسط و آخر واژه‌ها را با دقت بخوان؛ هر واژه را اصلاح کن تا به بیت بعدی بروی." };
             if (mode === "guided-word") return { title: "کلمه را کامل و با دقت بنویس.", guide: "حرف‌ها را به ترتیب انتخاب کن." };
             const rule = question && question.spellingRule ? question.spellingRule : "";
             const guides = {
