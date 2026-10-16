@@ -6,7 +6,7 @@
     "keyboardMode": "guided",
     "allowRetry": true,
     "scorePerCorrect": 10,
-    "questionCount": 4,
+    "questionCount": 6,
     "randomizeQuestions": true,
     "randomizeErrors": true
   },
@@ -14,22 +14,12 @@
     {
       "id": "setayesh-verse-01",
       "mode": "error-hunt",
-      "verseText": "به نام آن که جان را فرتک آموغت\nچراق دل به نور جان برافروخت",
+      "verseText": "به نام آن که جان را فرتک آموخت\nچراغ دل به نور جان برافروخت",
       "errors": [
         {
           "wrongWord": "فرتک",
           "answer": "فکرت",
           "spellingRule": "جابه‌جایی حروف میانی"
-        },
-        {
-          "wrongWord": "آموغت",
-          "answer": "آموخت",
-          "spellingRule": "خ/غ"
-        },
-        {
-          "wrongWord": "چراق",
-          "answer": "چراغ",
-          "spellingRule": "ق/غ"
         }
       ],
       "explanation": "بیت درست: به نام آن که جان را فکرت آموخت / چراغ دل به نور جان برافروخت"
@@ -37,7 +27,7 @@
     {
       "id": "setayesh-verse-02",
       "mode": "error-hunt",
-      "verseText": "ز فزلش هر دو آلم گشت روشن\nز فیضش خاک آدم گشت کلشن",
+      "verseText": "ز فزلش هر دو عالم گشت روشن\nز فیضش خاک آدم گشت کلشن",
       "errors": [
         {
           "wrongWord": "فزلش",
@@ -45,9 +35,9 @@
           "spellingRule": "ض/ز"
         },
         {
-          "wrongWord": "آلم",
-          "answer": "عالم",
-          "spellingRule": "ع/آ"
+          "wrongWord": "کلشن",
+          "answer": "گلشن",
+          "spellingRule": "گ/ک"
         }
       ],
       "explanation": "بیت درست: ز فضلش هر دو عالم گشت روشن / ز فیضش خاک آدم گشت گلشن"
@@ -73,12 +63,12 @@
     {
       "id": "setayesh-verse-04",
       "mode": "error-hunt",
-      "verseText": "خورد را نیست طاب نور آن روی\nبرو از بهر او چشم دکر جوی",
+      "verseText": "خورد را نیست طاب نور آن روی\nبرو از بحر او چشم دکر جوی",
       "errors": [
         {
           "wrongWord": "خورد",
           "answer": "خرد",
-          "spellingRule": "افزودن حرف میانی"
+          "spellingRule": "د/و"
         },
         {
           "wrongWord": "طاب",
@@ -86,12 +76,38 @@
           "spellingRule": "ت/ط"
         },
         {
-          "wrongWord": "دکر",
-          "answer": "دگر",
-          "spellingRule": "گ/ک"
+          "wrongWord": "بحر",
+          "answer": "بهر",
+          "spellingRule": "جابه‌جایی حروف"
         }
       ],
       "explanation": "بیت درست: خرد را نیست تاب نور آن روی / برو از بهر او چشم دگر جوی"
+    },
+    {
+      "id": "setayesh-verse-05",
+      "mode": "error-hunt",
+      "verseText": "در او هر چه بگفتند از کم و بیس\nنشانی داده‌اند از دیدهٔ خویش",
+      "errors": [
+        {
+          "wrongWord": "بیس",
+          "answer": "بیش",
+          "spellingRule": "ش/س"
+        }
+      ],
+      "explanation": "بیت درست: در او هر چه بگفتند از کم و بیش / نشانی داده‌اند از دیدهٔ خویش"
+    },
+    {
+      "id": "setayesh-verse-06",
+      "mode": "error-hunt",
+      "verseText": "به نزد آن که جانش در تجلیی است\nهمه عالم کتاب حق تعالی است",
+      "errors": [
+        {
+          "wrongWord": "تجلیی",
+          "answer": "تجلی",
+          "spellingRule": "حرف اضافه"
+        }
+      ],
+      "explanation": "بیت درست: به نزد آن که جانش در تجلی است / همه عالم کتاب حق تعالی است"
     }
   ]
 }
