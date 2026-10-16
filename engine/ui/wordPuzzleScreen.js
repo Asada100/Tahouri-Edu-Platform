@@ -32,6 +32,7 @@ root.appendChild(box);
 const x=box.querySelector("#wp");
 if(s.data?.type==="wordBuilder")this.builder(x,s.data);
 else if(s.data?.type==="wordSearch")this.search(x,s.data,s.foundWords||[]);
+else if(s.data?.type==="treeFamily")this.treeFamily(x,s.data);
 else if(s.data?.type==="wordFamily")this.family(x,s.data);
 else this.search(x,s.data,s.foundWords||[]);
 },
@@ -430,6 +431,57 @@ placeLetters();
 answer.textContent="";answer.classList.remove("has-value");
 };
 },
+
+treeFamily(x,d){
+const classifications=new Map();
+x.innerHTML=`
+<div class="wp-card wp-tree-card">
+<div class="wp-tree-stage"><span class="wp-tree-stage-label">مرحلهٔ ${d.stage} از ${d.totalStages}</span>
+<div class="wp-tree-root-word">ریشه: <strong>${d.base}</strong></div>
+<div class="wp-tree-illustration">
+<div class="wp-tree-canopy"></div><div class="wp-tree-trunk"></div><div class="wp-tree-roots"></div>
+<div class="wp-tree-leaves" aria-label="برگ‌های واژه"></div>
+</div>
+<div class="wp-tree-legend"><span><i class="wp-legend-green"></i> هم‌خانواده</span><span><i class="wp-legend-yellow"></i> نامرتبط</span></div>
+</div>
+<div class="wp-tree-box-wrap"><div class="wp-tree-box-title">📦 جعبهٔ برگ‌های جداشده</div><div class="wp-tree-box" aria-live="polite"><span class="wp-tree-box-empty">برگ‌های زرد اینجا می‌افتند!</span></div></div>
+<p class="wp-tree-instruction">روی هر برگ بزن تا رنگش عوض شود: بی‌رنگ ← سبز ← زرد. همهٔ برگ‌ها را دسته‌بندی کن.</p>
+<div class="wp-tree-feedback" aria-live="polite"></div>
+<div class="wp-actions"><button type="button" class="wp-btn" data-tree-check>بررسی درخت 🌳</button></div>
+</div>`;
+const leaves=x.querySelector(".wp-tree-leaves"),box=x.querySelector(".wp-tree-box"),feedback=x.querySelector(".wp-tree-feedback");
+const positions=[[18,18],[39,8],[61,9],[81,19],[10,45],[30,37],[51,30],[73,39],[89,47],[22,61],[45,54],[68,61]];
+d.options.forEach((word,i)=>{
+const b=document.createElement("button");
+b.type="button";b.className="wp-tree-leaf";b.textContent=word;b.style.left=positions[i%positions.length][0]+"%";b.style.top=positions[i%positions.length][1]+"%";
+b.setAttribute("aria-label",word+"؛ برای تغییر رنگ برگ بزن");
+b.onclick=()=>{
+if(classifications.has(word)){
+const next=(classifications.get(word)+1)%3;
+if(next===0){classifications.delete(word);b.classList.remove("is-green","is-yellow");b.removeAttribute("data-classification");}
+else{classifications.set(word,next);b.classList.toggle("is-green",next===1);b.classList.toggle("is-yellow",next===2);b.dataset.classification=next===1?"green":"yellow";}
+}else{classifications.set(word,1);b.classList.add("is-green");b.dataset.classification="green";}
+};
+leaves.appendChild(b);
+});
+x.querySelector("[data-tree-check]").onclick=()=>{
+const green=d.options.filter(w=>classifications.get(w)===1);
+const yellow=d.options.filter(w=>classifications.get(w)===2);
+const result=WordPuzzleEngine.submitTreeFamily(green,yellow);
+if(!result.correct){feedback.textContent="هنوز چند برگ اشتباه رنگ شده یا دسته‌بندی نشده‌اند. دوباره بررسی کن 🌱";feedback.className="wp-tree-feedback bad";return;}
+feedback.textContent="آفرین! دسته‌بندی درخت درست بود. 🍃";feedback.className="wp-tree-feedback good";
+x.querySelector("[data-tree-check]").disabled=true;
+const yellowLeaves=Array.from(leaves.querySelectorAll(".is-yellow"));
+const empty=box.querySelector(".wp-tree-box-empty");if(empty)empty.remove();
+yellowLeaves.forEach((leaf,index)=>{
+leaf.classList.add("is-falling");
+setTimeout(()=>{const fallen=document.createElement("span");fallen.className="wp-tree-fallen-leaf";fallen.textContent=leaf.textContent;box.appendChild(fallen);leaf.remove();},180+index*70);
+});
+if(result.finalStage)setTimeout(()=>WordPuzzleEngine.finish(),1050);
+else setTimeout(()=>this.render(result.state),1050);
+};
+},
+
 family(x,d){
 let selected=new Set();
 x.innerHTML=`

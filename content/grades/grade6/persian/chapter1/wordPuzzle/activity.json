@@ -11,11 +11,9 @@
   "requires": null,
   "lesson": "chapter1",
   "settings": {
-    "rounds": 5,
+    "rounds": 4,
     "modes": [
-      "wordFamily",
-      "wordBuilder",
-      "wordSearch"
+      "wordFamily"
     ],
     "difficulty": 2,
     "builderMaxWordLength": 8,

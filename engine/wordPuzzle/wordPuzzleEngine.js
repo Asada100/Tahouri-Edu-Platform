@@ -1,5 +1,5 @@
 const WordPuzzleEngine={
-version:"1.9",
+version:"2.0",
 activity:null,state:null,round:null,
 
 start(a){
@@ -141,7 +141,7 @@ const family=families.find(f=>f.id===order[this.state.round])||{base:"",members:
 const correct=[...family.members];
 const allMembers=WordPuzzleRepository.getAllFamilyMembers(this.activity);
 const decoys=this.shuffle(allMembers.filter(w=>!correct.some(c=>WordPuzzleRepository.normalize(c)===WordPuzzleRepository.normalize(w)))).slice(0,4);
-return{type:"wordFamily",title:"خانواده واژه‌ها — مرحله "+(this.state.round+1)+" از "+order.length,instruction:"واژه‌های هم‌خانواده با واژهٔ درس «"+family.base+"» را انتخاب کن.",base:family.base,options:this.shuffle([...correct,...decoys]),answers:correct};
+return{type:"treeFamily",title:"درخت خانوادهٔ واژه‌ها — مرحله "+(this.state.round+1)+" از "+order.length,instruction:"برگ‌های هم‌خانواده را سبز کن و برگ‌های نامرتبط را زرد کن؛ بعد بررسی را بزن.",base:family.base,options:this.shuffle([...correct,...decoys]),answers:correct,stage:this.state.round+1,totalStages:order.length};
 },
 
 lpath(){
@@ -198,6 +198,24 @@ this.round=this.builder();
 const result={correct:true,foundWord:target.word,stageComplete,finished:false,state:this.getState()};
 this.emitReady();
 return result;
+},
+
+submitTreeFamily(greenWords,yellowWords){
+if(!this.state?.started||this.state.finished)return{correct:false,finished:true};
+const normalize=WordPuzzleRepository.normalize;
+const green=(greenWords||[]).map(normalize).sort();
+const yellow=(yellowWords||[]).map(normalize).sort();
+const answers=(this.round?.answers||[]).map(normalize).sort();
+const options=(this.round?.options||[]).map(normalize);
+const expectedYellow=options.filter(word=>!answers.includes(word)).sort();
+const ok=green.length===answers.length&&green.every((word,i)=>word===answers[i])&&yellow.length===expectedYellow.length&&yellow.every((word,i)=>word===expectedYellow[i]);
+if(!ok){this.state.wrong++;return{correct:false,finished:false,state:this.getState()};}
+this.state.correct++;
+this.state.score+=WordPuzzleScore.correct(10,this.state.hints);
+if(this.state.correct>=this.state.total)return{correct:true,finished:false,finalStage:true,state:this.getState()};
+this.state.round++;
+this.round=this.family();
+return{correct:true,finished:false,finalStage:false,state:this.getState()};
 },
 
 submitFamily(values){
@@ -273,8 +291,8 @@ finish(){
 this.state.finished=true;
 const percentage=Math.round(this.state.correct/Math.max(1,this.state.total)*100);
 const result=typeof ActivityResult!=="undefined"&&ActivityResult.create
-?ActivityResult.create({activityId:this.activity?.id||"persianWordPuzzle",score:Math.max(0,this.state.score-(this.state.hintPenalty||0)),percentage,totalQuestions:this.state.total,correctAnswers:this.state.correct,wrongAnswers:this.state.wrong,message:"🎉 آفرین! بازی واژه‌ها را کامل کردی."})
- :{activityId:this.activity?.id||"persianWordPuzzle",score:Math.max(0,this.state.score-(this.state.hintPenalty||0)),percentage,totalQuestions:this.state.total,correctAnswers:this.state.correct,wrongAnswers:this.state.wrong,message:"🎉 آفرین! بازی واژه‌ها را کامل کردی."};
+?ActivityResult.create({activityId:this.activity?.id||"persianWordPuzzle",score:Math.max(0,this.state.score-(this.state.hintPenalty||0)),percentage,totalQuestions:this.state.total,correctAnswers:this.state.correct,wrongAnswers:this.state.wrong,message:"برگ درختان سبز در نظر هوشیار\nهر ورقش دفتریست معرفت کردگار"})
+ :{activityId:this.activity?.id||"persianWordPuzzle",score:Math.max(0,this.state.score-(this.state.hintPenalty||0)),percentage,totalQuestions:this.state.total,correctAnswers:this.state.correct,wrongAnswers:this.state.wrong,message:"برگ درختان سبز در نظر هوشیار\nهر ورقش دفتریست معرفت کردگار"};
 if(typeof EventManager!=="undefined")EventManager.emit("activityFinished",result);
 return result;
 },
@@ -297,4 +315,4 @@ fill(grid){const letters="ابپتثجچحخدذرزژسشصضطظعغفقکگل
 shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 };
 window.WordPuzzleEngine=WordPuzzleEngine;
-console.log("Word Puzzle Engine v1.9 Ready");
+console.log("Word Puzzle Engine v2.0 Ready");
