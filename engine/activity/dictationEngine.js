@@ -417,7 +417,7 @@
         },
 
         showErrorHuntHint: function () {
-            if (!this.state || this.getMode() !== "error-hunt" || this.state.questionCompleted || this.state.isFinished) return false;
+            if (!this.state || this.getMode() !== "error-hunt" || this.state.questionCompleted || this.state.isFinished || this.state.errorWordSelected) return false;
             const errors = this.getErrorTargets();
             const unresolved = errors.map((item, index) => index).filter(index => !this.state.correctedErrorIndexes.includes(index));
             if (!unresolved.length) return false;
