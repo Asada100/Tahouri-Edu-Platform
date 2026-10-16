@@ -56,16 +56,31 @@
             // the content order stored in the lesson file.
             const settings = this.content.settings || {};
             const questionCount = Number(settings.questionCount);
-            if (settings.randomizeQuestions === true || Number.isFinite(questionCount)) {
-                const questions = this.content.questions.slice();
-                if (settings.randomizeQuestions === true) {
-                    for (let i = questions.length - 1; i > 0; i -= 1) {
+            const questions = this.content.questions.slice();
+
+            // Randomize each verse's error order for every new session.
+            // Each configured error remains unique and is presented only once.
+            if (settings.randomizeErrors === true) {
+                questions.forEach(function (question) {
+                    if (!Array.isArray(question.errors)) return;
+                    for (let i = question.errors.length - 1; i > 0; i -= 1) {
                         const j = Math.floor(Math.random() * (i + 1));
-                        const temp = questions[i];
-                        questions[i] = questions[j];
-                        questions[j] = temp;
+                        const temp = question.errors[i];
+                        question.errors[i] = question.errors[j];
+                        question.errors[j] = temp;
                     }
+                });
+            }
+
+            if (settings.randomizeQuestions === true) {
+                for (let i = questions.length - 1; i > 0; i -= 1) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    const temp = questions[i];
+                    questions[i] = questions[j];
+                    questions[j] = temp;
                 }
+            }
+            if (settings.randomizeQuestions === true || Number.isFinite(questionCount)) {
                 this.content.questions = Number.isFinite(questionCount) && questionCount > 0
                     ? questions.slice(0, Math.min(questionCount, questions.length))
                     : questions;
