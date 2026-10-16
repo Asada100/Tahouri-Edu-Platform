@@ -852,3 +852,10 @@ transform:translateX(-50%) translateY(0);
 .wp-tree-top-instruction{margin:4px auto 8px!important;line-height:1.55}
 .wp-tree-stage-label{display:none!important}
 @media(max-width:520px){.wp-tree-heading{gap:6px}.wp-tree-heading h1{font-size:clamp(19px,5vw,25px)}.wp-tree-heading-stage{font-size:12px;padding:4px 8px}}
+
+
+/* Tree Family: keep the instruction/check row centered and aligned to the game card, like Word Search. */
+.wp-tree-top-instruction-row{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;width:min(100%,680px);box-sizing:border-box;margin:8px auto 14px;padding:0 4px;}
+.wp-tree-top-instruction-row .wp-tree-top-instruction{flex:0 1 auto;width:auto;max-width:100%;margin:0!important;text-align:right;}
+.wp-tree-top-instruction-row [data-tree-check]{flex:0 0 auto;white-space:nowrap;}
+@media(max-width:600px){.wp-tree-top-instruction-row{gap:7px;margin:6px auto 10px}.wp-tree-top-instruction-row .wp-tree-top-instruction{font-size:clamp(12px,3.3vw,15px);line-height:1.6}.wp-tree-top-instruction-row [data-tree-check]{padding:8px 13px;font-size:14px}}
