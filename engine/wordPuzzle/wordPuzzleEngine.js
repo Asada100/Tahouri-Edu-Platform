@@ -141,7 +141,7 @@ const family=families.find(f=>f.id===order[this.state.round])||{base:"",members:
 const correct=[...family.members];
 const allMembers=WordPuzzleRepository.getAllFamilyMembers(this.activity);
 const decoys=this.shuffle(allMembers.filter(w=>!correct.some(c=>WordPuzzleRepository.normalize(c)===WordPuzzleRepository.normalize(w)))).slice(0,4);
-return{type:"treeFamily",title:"درخت خانوادهٔ واژه‌ها — مرحله "+(this.state.round+1)+" از "+order.length,instruction:"برگ‌های هم‌خانواده را سبز کن و برگ‌های نامرتبط را زرد کن؛ بعد بررسی را بزن.",base:family.base,options:this.shuffle([...correct,...decoys]),answers:correct,stage:this.state.round+1,totalStages:order.length};
+return{type:"treeFamily",title:"درخت خانوادهٔ واژه‌ها",instruction:"برگ‌های هم‌خانواده را سبز کن و برگ‌های نامرتبط را زرد کن؛ بعد بررسی را بزن.",base:family.base,options:this.shuffle([...correct,...decoys]),answers:correct,stage:this.state.round+1,totalStages:order.length};
 },
 
 lpath(){
