@@ -25,7 +25,7 @@
           "wrongVariants": [
             "فرتک"
           ],
-          "spellingRule": "جابه‌جایی حروف"
+          "spellingRule": "جابه‌جایی ترتیب حروف"
         },
         {
           "wordIndex": 7,
@@ -39,17 +39,9 @@
           "wordIndex": 8,
           "correctWord": "چراغ",
           "wrongVariants": [
-            "چراخ"
+            "چراق"
           ],
-          "spellingRule": "غ/خ"
-        },
-        {
-          "wordIndex": 13,
-          "correctWord": "برافروخت",
-          "wrongVariants": [
-            "برافروخد"
-          ],
-          "spellingRule": "ت/د"
+          "spellingRule": "غ/ق"
         }
       ]
     },
@@ -65,9 +57,9 @@
           "correctWord": "فضلش",
           "wrongVariants": [
             "فزلش",
-            "فذلش"
+            "فظلش"
           ],
-          "spellingRule": "ض/ز"
+          "spellingRule": "ض/ز/ظ"
         },
         {
           "wordIndex": 4,
@@ -81,19 +73,10 @@
           "wordIndex": 8,
           "correctWord": "فیضش",
           "wrongVariants": [
-            "فیذش",
-            "فیظش"
+            "فیظش",
+            "فیذش"
           ],
-          "spellingRule": "ض/ذ"
-        },
-        {
-          "wordIndex": 12,
-          "correctWord": "گلشن",
-          "wrongVariants": [
-            "کلشن",
-            "جلشن"
-          ],
-          "spellingRule": "گ/ک"
+          "spellingRule": "ض/ذ/ظ"
         }
       ]
     },
@@ -110,14 +93,13 @@
           "wrongVariants": [
             "جملا"
           ],
-          "spellingRule": "ه/ا"
+          "spellingRule": "ه/ا در پایان واژه"
         },
         {
           "wordIndex": 2,
           "correctWord": "فروغ",
           "wrongVariants": [
-            "فروق",
-            "فروخ"
+            "فروق"
           ],
           "spellingRule": "غ/ق"
         },
@@ -125,19 +107,17 @@
           "wordIndex": 10,
           "correctWord": "پیدایی",
           "wrongVariants": [
-            "پیدای",
-            "پیدایئ"
+            "پیدای"
           ],
-          "spellingRule": "حذف یا جابه‌جایی حرف"
+          "spellingRule": "حذف حرف"
         },
         {
           "wordIndex": 12,
           "correctWord": "پنهان",
           "wrongVariants": [
-            "پهنان",
-            "پنحان"
+            "پهنان"
           ],
-          "spellingRule": "جابه‌جایی/تبدیل حرف"
+          "spellingRule": "جابه‌جایی ترتیب حروف"
         }
       ]
     },
@@ -152,17 +132,15 @@
           "wordIndex": 0,
           "correctWord": "خرد",
           "wrongVariants": [
-            "خورد",
-            "خرت"
+            "خورد"
           ],
-          "spellingRule": "د/و"
+          "spellingRule": "افزودن حرف"
         },
         {
           "wordIndex": 3,
           "correctWord": "تاب",
           "wrongVariants": [
-            "طاب",
-            "تاپ"
+            "طاب"
           ],
           "spellingRule": "ت/ط"
         },
@@ -170,19 +148,9 @@
           "wordIndex": 9,
           "correctWord": "بهر",
           "wrongVariants": [
-            "بحر",
-            "بهار"
+            "بحر"
           ],
-          "spellingRule": "جابه‌جایی حروف"
-        },
-        {
-          "wordIndex": 12,
-          "correctWord": "دگر",
-          "wrongVariants": [
-            "دکر",
-            "دقر"
-          ],
-          "spellingRule": "گ/ک"
+          "spellingRule": "انتخاب واژه بر اساس بافت جمله"
         }
       ]
     },
@@ -197,37 +165,25 @@
           "wordIndex": 4,
           "correctWord": "بگفتند",
           "wrongVariants": [
-            "بگفنتد",
-            "بگفتنذ"
+            "بگفنتد"
           ],
-          "spellingRule": "جابه‌جایی/تبدیل حرف"
+          "spellingRule": "جابه‌جایی ترتیب حروف"
         },
         {
           "wordIndex": 6,
           "correctWord": "کم",
           "wrongVariants": [
-            "قم",
             "کمم"
           ],
-          "spellingRule": "ک/ق یا افزودن حرف"
+          "spellingRule": "افزودن حرف تکراری"
         },
         {
           "wordIndex": 8,
           "correctWord": "بیش",
           "wrongVariants": [
-            "بیس",
-            "بیض"
+            "بیشش"
           ],
-          "spellingRule": "ش/س"
-        },
-        {
-          "wordIndex": 12,
-          "correctWord": "دیده",
-          "wrongVariants": [
-            "دیدع",
-            "دیده‌ی"
-          ],
-          "spellingRule": "ه/ع یا افزودن حرف"
+          "spellingRule": "افزودن حرف"
         }
       ]
     },
@@ -239,20 +195,12 @@
       "explanation": "بیت درست: به نزد آن که جانش در تجلی است / همه عالم کتاب حق تعالی است",
       "dynamicErrorPool": [
         {
-          "wordIndex": 4,
-          "correctWord": "جانش",
-          "wrongVariants": [
-            "حانش"
-          ],
-          "spellingRule": "ج/ح"
-        },
-        {
           "wordIndex": 6,
           "correctWord": "تجلی",
           "wrongVariants": [
             "تجلیی"
           ],
-          "spellingRule": "حرف اضافه"
+          "spellingRule": "افزودن حرف"
         },
         {
           "wordIndex": 9,
