@@ -93,7 +93,7 @@
                     const selected = selectedByQuestion[questionIndex];
                     if (!Array.isArray(question.dynamicErrorPool)) return;
                     const replacements = [];
-                    const matches = Array.from(String(question.verseText || "").matchAll(/\\S+/g));
+                    const matches = Array.from(String(question.verseText || "").matchAll(/\S+/g));
                     question.errors = selected.map(function (candidate) {
                         const variants = Array.isArray(candidate.wrongVariants) ? candidate.wrongVariants.filter(v => v && v !== candidate.correctWord) : [];
                         const wrongWord = variants.length ? variants[Math.floor(Math.random() * variants.length)] : "";
