@@ -827,12 +827,15 @@ transform:translateX(-50%) translateY(0);
 /* Interactive word-family tree: green leaves stay, yellow leaves fall into the box. */
 .wp-tree-card{max-width:680px;margin:0 auto;padding:clamp(12px,3vw,24px);background:linear-gradient(180deg,#f4fff5,#fffdf1)!important;border-color:#b8dfb7!important}
 .wp-tree-stage{position:relative}.wp-tree-stage-label{display:inline-block;background:#e5f5df;color:#28643b;border-radius:999px;padding:6px 13px;font-weight:800}
-.wp-tree-root-word{margin:12px auto 0;font-size:20px;font-weight:700}.wp-tree-root-word strong{color:#236d3b;font-size:26px}
-.wp-tree-illustration{height:350px;max-width:510px;margin:0 auto;position:relative;isolation:isolate}
-.wp-tree-canopy{position:absolute;inset:8% 9% 15%;border-radius:48% 52% 42% 45%;background:radial-gradient(circle at 35% 28%,#c9f3a7,#79c96a 52%,#4b9a4c);box-shadow:0 10px 20px #357a3220}
-.wp-tree-trunk{position:absolute;z-index:-1;left:43%;top:57%;width:14%;height:35%;border-radius:35% 35% 15% 15%;background:linear-gradient(90deg,#87522d,#b77a43,#8b542e)}
-.wp-tree-roots{position:absolute;z-index:-1;left:28%;right:28%;bottom:0;height:26px;background:#a46c3b;clip-path:polygon(43% 0,57% 0,100% 100%,72% 100%,50% 38%,28% 100%,0 100%)}
-.wp-tree-leaves{position:absolute;inset:9% 9% 17%}
+.wp-tree-root-word{position:absolute;z-index:4;left:50%;bottom:1%;transform:translateX(-50%);width:max-content;max-width:90%;padding:5px 13px;border:2px solid #8a5a32;border-radius:12px;background:#f7e7c5;color:#684323;font-size:16px;font-weight:800;box-shadow:0 3px 8px #41260d35;white-space:normal}.wp-tree-root-word strong{color:#236d3b;font-size:23px}
+.wp-tree-illustration{height:390px;max-width:510px;margin:0 auto;position:relative;isolation:isolate;overflow:visible}
+.wp-tree-canopy{position:absolute;inset:5% 9% 22%;border-radius:48% 52% 42% 45%;background:radial-gradient(ellipse at 35% 25%,#c9f3a7,#79c96a 52%,#4b9a4c);box-shadow:0 10px 20px #357a3220}
+.wp-tree-trunk{position:absolute;z-index:0;left:42%;top:38%;width:16%;height:48%;border-radius:42% 35% 18% 18%;background:linear-gradient(90deg,#71401f 0%,#986035 20%,#bd8951 43%,#8b542e 65%,#62391f 100%);clip-path:polygon(38% 0,65% 0,70% 15%,88% 34%,76% 48%,67% 68%,83% 100%,57% 100%,43% 76%,27% 100%,8% 100%,30% 64%,24% 46%,12% 32%,31% 18%);box-shadow:inset 3px 0 4px #e5b77b55}
+.wp-tree-trunk:before,.wp-tree-trunk:after{content:"";position:absolute;bottom:45%;height:43%;width:48%;background:linear-gradient(90deg,#704020,#b77a43,#8b542e);border-radius:60% 20% 10% 10%;transform-origin:bottom center;z-index:-1}
+.wp-tree-trunk:before{left:-24%;transform:rotate(-43deg) skewY(-8deg);clip-path:polygon(35% 0,58% 0,100% 100%,0 100%)}
+.wp-tree-trunk:after{right:-24%;transform:rotate(42deg) skewY(8deg);clip-path:polygon(42% 0,65% 0,100% 100%,0 100%)}
+.wp-tree-roots{position:absolute;z-index:1;left:19%;right:19%;bottom:0;height:20%;background:linear-gradient(180deg,#b9824b,#8a542e 55%,#633b22);clip-path:polygon(43% 0,56% 0,63% 23%,100% 72%,91% 88%,60% 48%,55% 100%,45% 100%,43% 53%,18% 91%,0 76%,32% 36%);filter:drop-shadow(0 3px 2px #52301855)}
+.wp-tree-leaves{position:absolute;z-index:2;inset:6% 9% 25%}
 .wp-tree-leaf{position:absolute;z-index:2;transform:translate(-50%,-50%) rotate(-5deg);border:2px solid #4f974e;border-radius:65% 8% 65% 8%;min-width:64px;max-width:104px;min-height:40px;padding:7px 9px;background:#f8fff1;color:#27452b;font-size:clamp(13px,2.6vw,17px);font-weight:800;box-shadow:0 3px 7px #245c2524;transition:background .2s,transform .2s,opacity .5s;overflow-wrap:anywhere}
 .wp-tree-leaf:nth-child(even){transform:translate(-50%,-50%) rotate(8deg)}.wp-tree-leaf.is-green{background:#2e9b52;color:white;border-color:#18733a;box-shadow:0 0 0 3px #d7f5d9,0 4px 9px #245c2530}.wp-tree-leaf.is-yellow{background:#ffdf67;color:#604700;border-color:#d4a620;box-shadow:0 0 0 3px #fff3bd,0 4px 9px #795f1825}
 .wp-tree-leaf.is-falling{pointer-events:none;animation:wp-leaf-fall .7s ease-in forwards}
