@@ -60,7 +60,7 @@
                 .filter(function (item) {
                     return item && ((typeof item.answer === "string" && item.answer.trim() !== "") ||
                         (item.mode === "context" && Array.isArray(item.targets) && item.targets.length > 0) ||
-                        ((item.mode === "error-hunt" || source.mode === "error-hunt") && Array.isArray(item.errors) && item.errors.length > 0));
+                        ((item.mode === "error-hunt" || source.mode === "error-hunt") && ((Array.isArray(item.errors) && item.errors.length > 0) || (Array.isArray(item.dynamicErrorPool) && item.dynamicErrorPool.length > 0))));
                 })
                 .map(function (item, index) {
                     const missing = Array.isArray(item.missing)
@@ -94,6 +94,16 @@
                         context: item.context || null,
                         verseText: item.verseText || null,
                         wrongWord: item.wrongWord || null,
+                        dynamicErrorPool: Array.isArray(item.dynamicErrorPool) ? item.dynamicErrorPool.map(function (candidate) {
+                            return {
+                                wordIndex: Number(candidate.wordIndex),
+                                correctWord: String(candidate.correctWord || "").trim(),
+                                wrongVariants: Array.isArray(candidate.wrongVariants) ? candidate.wrongVariants.map(function (value) { return String(value || "").trim(); }).filter(Boolean) : [],
+                                spellingRule: candidate.spellingRule || ""
+                            };
+                        }).filter(function (candidate) {
+                            return Number.isInteger(candidate.wordIndex) && candidate.wordIndex >= 0 && candidate.correctWord && candidate.wrongVariants.length > 0;
+                        }) : [],
                         errors: Array.isArray(item.errors) ? item.errors.map(function (error) {
                             return {
                                 wrongWord: String(error.wrongWord || ""),
