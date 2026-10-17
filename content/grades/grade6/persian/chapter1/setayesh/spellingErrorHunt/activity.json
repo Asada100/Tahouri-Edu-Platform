@@ -189,7 +189,7 @@
     {
       "id": "setayesh-verse-05",
       "mode": "error-hunt",
-      "verseText": "در او هر چه بگفتند از کم و بیش\nنشانی داده‌اند از دیدهٔ خویش",
+      "verseText": "در او هر چه بگفتند از کم و بیش\nنشانی داده‌اند از دیده خویش",
       "errors": [],
       "explanation": "بیت درست: در او هر چه بگفتند از کم و بیش / نشانی داده‌اند از دیدهٔ خویش",
       "dynamicErrorPool": [
@@ -203,6 +203,15 @@
           "spellingRule": "جابه‌جایی/تبدیل حرف"
         },
         {
+          "wordIndex": 6,
+          "correctWord": "کم",
+          "wrongVariants": [
+            "قم",
+            "کمم"
+          ],
+          "spellingRule": "ک/ق یا افزودن حرف"
+        },
+        {
           "wordIndex": 8,
           "correctWord": "بیش",
           "wrongVariants": [
@@ -212,22 +221,13 @@
           "spellingRule": "ش/س"
         },
         {
-          "wordIndex": 10,
-          "correctWord": "داده‌اند",
-          "wrongVariants": [
-            "داده‌ان",
-            "داده‌انذ"
-          ],
-          "spellingRule": "حذف/تبدیل حرف"
-        },
-        {
           "wordIndex": 12,
-          "correctWord": "دیدهٔ",
+          "correctWord": "دیده",
           "wrongVariants": [
             "دیدع",
             "دیده‌ی"
           ],
-          "spellingRule": "ه/ع"
+          "spellingRule": "ه/ع یا افزودن حرف"
         }
       ]
     },
