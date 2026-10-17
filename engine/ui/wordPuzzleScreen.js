@@ -440,10 +440,10 @@ const classifications=new Map();
 x.innerHTML=`
 <div class="wp-card wp-tree-card">
 <div class="wp-tree-stage">
-<div class="wp-tree-root-word">ریشه: <strong>${d.base}</strong></div>
 <div class="wp-tree-illustration">
 <div class="wp-tree-canopy"></div><div class="wp-tree-trunk"></div><div class="wp-tree-roots"></div>
 <div class="wp-tree-leaves" aria-label="برگ‌های واژه"></div>
+<div class="wp-tree-root-word">ریشهٔ واژه: <strong>${d.base}</strong></div>
 </div>
 <div class="wp-tree-legend"><span><i class="wp-legend-green"></i> هم‌خانواده</span><span><i class="wp-legend-yellow"></i> نامرتبط</span></div>
 </div>
