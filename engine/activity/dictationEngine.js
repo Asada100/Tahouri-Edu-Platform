@@ -47,7 +47,8 @@
             if (!window.DictationProvider || typeof window.DictationProvider.getContent !== "function") {
                 throw new Error("DictationProvider is not available");
             }
-            this.content = window.DictationProvider.getContent(this.activity);
+            const loadedContent = window.DictationProvider.getContent(this.activity);
+            this.content = loadedContent ? JSON.parse(JSON.stringify(loadedContent)) : null;
             if (!this.content || !Array.isArray(this.content.questions) || this.content.questions.length === 0) {
                 throw new Error("DictationEngine: No spelling questions available");
             }
@@ -56,10 +57,70 @@
             // the content order stored in the lesson file.
             const settings = this.content.settings || {};
             const questionCount = Number(settings.questionCount);
-            const questions = this.content.questions.slice();
+            const questions = this.content.questions;
 
-            // Randomize each verse's error order for every new session.
-            // Each configured error remains unique and is presented only once.
+            // Build a fresh set of spelling targets from a larger word pool.
+            // Error-hunt lessons keep all six canonical verses, but select the
+            // configured number of unique word targets on every new run.
+            const dynamicErrorCount = Number(settings.dynamicErrorCount);
+            if (dynamicErrorCount > 0 && questions.some(q => Array.isArray(q.dynamicErrorPool))) {
+                const allCandidates = [];
+                const chosen = [];
+                questions.forEach(function (question, questionIndex) {
+                    const pool = Array.isArray(question.dynamicErrorPool) ? question.dynamicErrorPool : [];
+                    if (pool.length) {
+                        const first = pool[Math.floor(Math.random() * pool.length)];
+                        chosen.push({ questionIndex: questionIndex, candidate: first });
+                        pool.forEach(function (candidate) {
+                            if (candidate !== first) allCandidates.push({ questionIndex: questionIndex, candidate: candidate });
+                        });
+                    }
+                });
+                const targetCount = Math.min(dynamicErrorCount, allCandidates.length + chosen.length);
+                for (let i = allCandidates.length - 1; i > 0; i -= 1) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    const temp = allCandidates[i];
+                    allCandidates[i] = allCandidates[j];
+                    allCandidates[j] = temp;
+                }
+                while (chosen.length < targetCount && allCandidates.length) chosen.push(allCandidates.pop());
+
+                const selectedByQuestion = questions.map(() => []);
+                chosen.forEach(function (entry) {
+                    selectedByQuestion[entry.questionIndex].push(entry.candidate);
+                });
+                questions.forEach(function (question, questionIndex) {
+                    const selected = selectedByQuestion[questionIndex];
+                    if (!Array.isArray(question.dynamicErrorPool)) return;
+                    const replacements = [];
+                    const matches = Array.from(String(question.verseText || "").matchAll(/\\S+/g));
+                    question.errors = selected.map(function (candidate) {
+                        const variants = Array.isArray(candidate.wrongVariants) ? candidate.wrongVariants.filter(v => v && v !== candidate.correctWord) : [];
+                        const wrongWord = variants.length ? variants[Math.floor(Math.random() * variants.length)] : "";
+                        const token = matches[candidate.wordIndex];
+                        if (!wrongWord || !token || !token[0].includes(candidate.correctWord)) {
+                            throw new Error("DictationEngine: Invalid dynamic spelling candidate in " + question.id);
+                        }
+                        replacements.push({
+                            start: token.index,
+                            end: token.index + token[0].length,
+                            value: token[0].replace(candidate.correctWord, wrongWord)
+                        });
+                        return {
+                            wrongWord: wrongWord,
+                            answer: candidate.correctWord,
+                            spellingRule: candidate.spellingRule || ""
+                        };
+                    });
+                    replacements.sort((a, b) => b.start - a.start).forEach(function (item) {
+                        question.verseText = question.verseText.slice(0, item.start) + item.value + question.verseText.slice(item.end);
+                    });
+                });
+            }
+
+            const totalDynamicTargets = questions.reduce((sum, question) => sum + (Array.isArray(question.errors) ? question.errors.length : 0), 0);
+
+            // Randomize each verse's selected error order for every new session.
             if (settings.randomizeErrors === true) {
                 questions.forEach(function (question) {
                     if (!Array.isArray(question.errors)) return;
@@ -89,6 +150,7 @@
             this.state = {
                 started: true, isFinished: false, locked: false,
                 currentIndex: 0, totalQuestions: this.content.questions.length,
+                totalErrorTargets: totalDynamicTargets || 0, correctErrorTargets: 0,
                 correctAnswers: 0, wrongAnswers: 0, score: 0, attempts: 0,
                 characterErrors: 0, currentQuestionCharacterErrors: 0, currentTargetCharacterErrors: 0, answers: [], targetAnswers: [], currentInput: "", inputBlockedAfterWrong: false, currentWrongChar: "",
                 missingSlots: [], currentSlotIndex: 0, currentCharIndex: 0,
@@ -350,7 +412,11 @@
             const complete = this.isCurrentQuestionComplete();
             if (this.getMode() === "error-hunt" && complete) {
                 const completedErrorIndex = this.state.currentErrorIndex;
-                if (completedErrorIndex >= 0 && !this.state.correctedErrorIndexes.includes(completedErrorIndex)) this.state.correctedErrorIndexes.push(completedErrorIndex);
+                if (completedErrorIndex >= 0 && !this.state.correctedErrorIndexes.includes(completedErrorIndex)) {
+                    this.state.correctedErrorIndexes.push(completedErrorIndex);
+                    this.state.correctErrorTargets += 1;
+                    this.state.score += 1;
+                }
                 const errors = this.getErrorTargets();
                 this.state.errorWordSelected = false;
                 this.state.selectedErrorWord = "";
@@ -541,7 +607,9 @@
         completeCurrentQuestion: function () {
             const q = this.getCurrentQuestion();
             this.state.correctAnswers += 1;
-            this.state.score += Number(this.content.settings.scorePerCorrect) || 10;
+            if (this.getMode() !== "error-hunt") {
+                this.state.score += Number(this.content.settings.scorePerCorrect) || 10;
+            }
             this.state.answers.push({
                 questionIndex: this.state.currentIndex,
                 target: (this.getCurrentTarget() && this.getCurrentTarget().answer) || q.answer,
@@ -602,19 +670,22 @@
             this.finishAuthorized = false;
             this.state.isFinished = true;
             this.state.locked = true;
-            const percentage = total > 0 ? Math.round((this.state.correctAnswers / total) * 100) : 0;
+            const isErrorHunt = this.getMode() === "error-hunt" || this.content.questions.some(q => q.mode === "error-hunt");
+            const resultTotal = isErrorHunt ? (Number(this.state.totalErrorTargets) || 0) : total;
+            const resultCorrect = isErrorHunt ? (Number(this.state.correctErrorTargets) || 0) : this.state.correctAnswers;
+            const percentage = resultTotal > 0 ? Math.round((resultCorrect / resultTotal) * 100) : 0;
             let result = {
                 activityId: this.activity ? this.activity.id : null,
                 score: this.state.score, percentage: percentage,
-                correctAnswers: this.state.correctAnswers, wrongAnswers: this.state.wrongAnswers,
-                totalQuestions: total, characterErrors: this.state.characterErrors, completed: true
+                correctAnswers: resultCorrect, wrongAnswers: this.state.wrongAnswers,
+                totalQuestions: resultTotal, characterErrors: this.state.characterErrors, completed: true
             };
             if (window.ActivityResult && typeof window.ActivityResult.create === "function") {
                 result = window.ActivityResult.create({
                     activityId: this.activity ? this.activity.id : null,
                     score: this.state.score, percentage: percentage,
-                    correctAnswers: this.state.correctAnswers, wrongAnswers: this.state.wrongAnswers,
-                    totalQuestions: total, correct: this.state.correctAnswers,
+                    correctAnswers: resultCorrect, wrongAnswers: this.state.wrongAnswers,
+                    totalQuestions: resultTotal, correct: resultCorrect,
                     wrong: this.state.wrongAnswers, message: "🎉 املا تمام شد"
                 });
             }
