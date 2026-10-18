@@ -453,7 +453,7 @@ x.innerHTML=`
 
 </div>`;
 const leaves=x.querySelector(".wp-tree-leaves"),box=x.querySelector(".wp-tree-box"),feedback=x.querySelector(".wp-tree-feedback");
-const positions=[[18,18],[39,8],[61,9],[81,19],[10,45],[30,37],[51,30],[73,39],[89,47],[22,61],[45,54],[68,61]];
+const positions=[[25,20],[43,15],[61,18],[76,26],[20,40],[37,36],[54,34],[70,41],[27,55],[44,53],[61,56],[76,54]];
 d.options.forEach((word,i)=>{
 const b=document.createElement("button");
 b.type="button";b.className="wp-tree-leaf";b.textContent=word;b.style.left=positions[i%positions.length][0]+"%";b.style.top=positions[i%positions.length][1]+"%";
