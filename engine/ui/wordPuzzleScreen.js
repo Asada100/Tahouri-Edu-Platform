@@ -441,7 +441,7 @@ x.innerHTML=`
 <div class="wp-card wp-tree-card">
 <div class="wp-tree-stage">
 <div class="wp-tree-illustration">
-<div class="wp-tree-canopy"></div><div class="wp-tree-trunk"></div><div class="wp-tree-roots"></div>
+<img class="wp-tree-art" src="assets/images/tree2.png" alt="" aria-hidden="true">
 <div class="wp-tree-leaves" aria-label="برگ‌های واژه"></div>
 <div class="wp-tree-root-word">ریشهٔ واژه: <strong>${d.base}</strong></div>
 </div>
