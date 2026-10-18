@@ -862,3 +862,14 @@ transform:translateX(-50%) translateY(0);
 .wp-tree-top-instruction-row .wp-tree-top-instruction{flex:0 1 auto;width:auto;max-width:100%;margin:0!important;text-align:right;}
 .wp-tree-top-instruction-row [data-tree-check]{flex:0 0 auto;white-space:nowrap;}
 @media(max-width:600px){.wp-tree-top-instruction-row{gap:7px;margin:6px auto 10px}.wp-tree-top-instruction-row .wp-tree-top-instruction{font-size:clamp(12px,3.3vw,15px);line-height:1.6}.wp-tree-top-instruction-row [data-tree-check]{padding:8px 13px;font-size:14px}}
+
+
+/* Tree Family trial: use the committed tree2 image while keeping all game leaves interactive. */
+.wp-tree-illustration{overflow:hidden!important;border-radius:12px;}
+.wp-tree-art{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center center;z-index:0;pointer-events:none;user-select:none;}
+.wp-tree-leaves{z-index:2;}
+.wp-tree-root-word{z-index:4;}
+@media(max-width:520px){
+  .wp-tree-illustration{height:300px;}
+  .wp-tree-art{object-fit:contain;}
+}
