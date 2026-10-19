@@ -77,6 +77,12 @@ assert.ok(registered.spatial, 'Spatial handler registers');
   assert.equal(wrongEngine.wrong, 1);
   assert.equal(handler.start(makeEngine(), { items: [1, 2], missingIndex: 4, answer: 3 }), null);
   assert.equal(handler.start(makeEngine(), { items: [1, null], missingIndex: 1 }), null);
+
+  const textEngine = makeEngine();
+  handler.start(textEngine, { items: ['روشن', null, 'روشن'], missingIndex: 1, answer: 'روشن‌تر' });
+  assert.equal(textEngine.puzzle.dataType, 'text');
+  assert.equal(handler.setAnswer(textEngine, 'روشن‌تر'), true);
+  assert.equal(handler.check(textEngine), true, 'string-valued patterns can be checked');
 }
 
 // Spatial Place: placements remain editable, invalid moves are rejected, completion checks targets.
@@ -107,6 +113,40 @@ assert.ok(registered.spatial, 'Spatial handler registers');
   assert.equal(handler.setAnswer(invalidEngine, { pieceId: 'missing', row: 0, col: 0 }), false);
   assert.equal(handler.setAnswer(invalidEngine, { pieceId: 'a', row: 2, col: 0 }), false);
   assert.equal(handler.check(invalidEngine), false, 'cannot finish before a user move');
+
+  const swapEngine = makeEngine();
+  handler.start(swapEngine, {
+    mode: 'place',
+    grid: { rows: 2, cols: 2 },
+    pieces: [
+      { id: 'left', target: { row: 0, col: 0 } },
+      { id: 'right', target: { row: 1, col: 1 } }
+    ]
+  });
+  handler.setAnswer(swapEngine, { pieceId: 'left', row: 0, col: 0 });
+  handler.setAnswer(swapEngine, { pieceId: 'right', row: 1, col: 1 });
+  handler.setAnswer(swapEngine, { pieceId: 'left', row: 1, col: 1 });
+  assert.equal(swapEngine.puzzle.placements.left.row, 1);
+  assert.equal(swapEngine.puzzle.placements.right.row, 0);
+  assert.equal(handler.check(swapEngine), false, 'swapping pieces must update ownership rather than duplicate a placement');
+  handler.setAnswer(swapEngine, { pieceId: 'left', row: 0, col: 0 });
+  assert.equal(handler.check(swapEngine), true, 'pieces can be moved back to the correct targets');
+
+  const duplicateTargetEngine = makeEngine();
+  assert.equal(handler.start(duplicateTargetEngine, {
+    mode: 'place',
+    grid: { rows: 2, cols: 2 },
+    pieces: [
+      { id: 'one', target: { row: 0, col: 0 } },
+      { id: 'two', target: { row: 0, col: 0 } }
+    ]
+  }), null, 'duplicate target cells are rejected');
+
+  assert.equal(handler.start(makeEngine(), {
+    mode: 'place',
+    grid: { rows: 0, cols: 2 },
+    pieces: [{ id: 'out-of-grid', target: { row: 0, col: 0 } }]
+  }), null, 'targets outside an invalid grid are rejected');
 
   const duplicateIdEngine = makeEngine();
   assert.equal(handler.start(duplicateIdEngine, {
