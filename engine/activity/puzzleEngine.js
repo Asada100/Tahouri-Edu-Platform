@@ -144,7 +144,7 @@ const PuzzleEngine = {
     },
 
     emitCurrentQuestionReady: function () {
-        EventManager.emit("activityReady", { activity: this.activity, engine: this, engineName: "PuzzleEngine", result: this.getState() });
+        EventManager.emit("activityReady", { activity: this.activity, engine: this, engineName: "PuzzleEngine", questionIndex: this.currentQuestion, result: this.getState() });
     },
 
     getState: function () {
