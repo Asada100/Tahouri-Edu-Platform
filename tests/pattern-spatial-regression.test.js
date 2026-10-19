@@ -187,4 +187,74 @@ for (const axis of ['vertical', 'horizontal']) {
   }
 }
 
-console.log('Pattern and Spatial handler regression checks passed');
+
+
+// PuzzleEngine integration: exercise the real engine lifecycle through multiple questions.
+{
+  const lifecycleEvents = [];
+  const scores = { score: 0, correct: 0, wrong: 0,
+    reset() { this.score = 0; this.correct = 0; this.wrong = 0; },
+    addCorrect() { this.correct++; this.score += 10; },
+    addWrong() { this.wrong++; }
+  };
+  context.ScoreManager = scores;
+  context.ActivityResult = { create(result) { return result; } };
+  context.setTimeout = callback => { callback(); return 1; };
+  context.EventManager = {
+    emit(name, payload) {
+      emitted.push({ name, payload });
+      lifecycleEvents.push({ name, payload });
+    }
+  };
+  vm.runInNewContext(
+    fs.readFileSync('engine/activity/puzzleEngine.js', 'utf8'),
+    context,
+    { filename: 'engine/activity/puzzleEngine.js' }
+  );
+
+  const engine = context.PuzzleEngine;
+  const activity = {
+    id: 'pattern-spatial-lifecycle-test',
+    title: 'Lifecycle test',
+    puzzle: {
+      questions: [
+        { type: 'pattern', items: [2, null, 2], missingIndex: 1, answer: 2 },
+        { type: 'spatial', mode: 'place', grid: { rows: 2, cols: 2 }, pieces: [
+          { id: 'one', label: '1', target: { row: 0, col: 0 } }
+        ] }
+      ]
+    }
+  };
+
+  const first = await engine.start(activity);
+  assert.equal(first.type, 'pattern');
+  assert.equal(engine.state.started, true);
+  assert.equal(scores.correct, 0);
+  assert.equal(engine.finish(), false, 'completion is rejected outside check()');
+
+  engine.setTypeAnswer(2);
+  assert.equal(engine.check(), true, 'correct Pattern answer advances the lifecycle');
+  assert.equal(engine.currentQuestion, 1);
+  assert.equal(engine.puzzle.type, 'spatial');
+  assert.equal(lifecycleEvents.filter(event => event.name === 'activityReady').length, 1,
+    'the next question publishes activityReady');
+
+  engine.setTypeAnswer({ pieceId: 'one', row: 0, col: 0 });
+  assert.equal(engine.check(), true, 'correct Spatial placement completes the activity');
+  assert.equal(engine.state.isFinished, true);
+  assert.equal(scores.correct, 2);
+  assert.equal(scores.wrong, 0);
+
+  const resultEvents = lifecycleEvents.filter(event =>
+    event.name === 'activityFinished' || event.name === 'puzzleFinished');
+  assert.equal(resultEvents.length, 2, 'completion emits each final event exactly once');
+  const result = resultEvents.find(event => event.name === 'activityFinished').payload;
+  assert.equal(result.totalQuestions, 2);
+  assert.equal(result.correctAnswers, 2);
+  assert.equal(result.percentage, 100);
+  assert.equal(result.score, 20);
+  assert.equal(engine.check(), false, 'finished activity cannot complete again');
+  assert.equal(lifecycleEvents.filter(event => event.name === 'activityFinished').length, 1);
+}
+
+console.log('Pattern and Spatial handler + PuzzleEngine lifecycle regression checks passed');
