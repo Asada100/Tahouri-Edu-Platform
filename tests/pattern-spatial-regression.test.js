@@ -345,7 +345,30 @@ for (const axis of ['vertical', 'horizontal']) {
   assert.equal(engine.state.started, false);
   assert.equal(engine.state.isFinished, false);
 
-  console.log('Pattern and Spatial handler + PuzzleEngine lifecycle/reset regression checks passed');
+  const startedEventsBeforeInvalidHandler = lifecycleEvents.filter(event => event.name === 'activityStarted').length;
+  const invalidHandlerStart = await engine.start({
+    id: 'unsupported-puzzle-test',
+    puzzle: { questions: [{ type: 'notRegisteredPuzzleType' }] }
+  });
+  assert.equal(invalidHandlerStart, null);
+  assert.equal(engine.state.started, false, 'failed initial handler leaves engine inactive');
+  assert.equal(engine.state.isFinished, false);
+  assert.equal(engine.activity, null, 'failed initial handler clears activity');
+  assert.equal(engine.puzzle, null, 'failed initial handler clears puzzle');
+  assert.deepEqual(Array.from(engine.questions), [], 'failed initial handler clears question list');
+  assert.equal(engine.currentQuestion, 0);
+  assert.deepEqual(Array.from(engine.items), []);
+  assert.equal(engine.userAnswer, null);
+  assert.equal(engine.moves, 0);
+  assert.equal(engine.transitioning, false);
+  assert.equal(engine.checking, false);
+  assert.equal(scores.score, 0);
+  assert.equal(scores.correct, 0);
+  assert.equal(scores.wrong, 0);
+  assert.equal(lifecycleEvents.filter(event => event.name === 'activityStarted').length,
+    startedEventsBeforeInvalidHandler, 'failed start does not emit activityStarted');
+
+  console.log('Pattern and Spatial handler + PuzzleEngine lifecycle/reset/failure regression checks passed');
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;
