@@ -328,6 +328,17 @@ for (const axis of ['vertical', 'horizontal']) {
   assert.equal(scores.correct, 1);
   assert.equal(engine.state.isFinished, true);
 
+  const restartedRunResult = lifecycleEvents
+    .filter(event => event.name === 'activityFinished')
+    .map(event => event.payload)
+    .find(result => result && result.activityId === secondActivity.id);
+  assert.ok(restartedRunResult, 'the restarted activity publishes its own final result');
+  assert.equal(restartedRunResult.score, 10, 'the restarted result excludes the previous run score');
+  assert.equal(restartedRunResult.correctAnswers, 1, 'the restarted result counts only its own correct answers');
+  assert.equal(restartedRunResult.wrongAnswers, 0, 'the restarted result excludes previous wrong answers');
+  assert.equal(restartedRunResult.totalQuestions, 1);
+  assert.equal(restartedRunResult.percentage, 100);
+
   engine.reset();
   assert.equal(engine.state.started, false);
   assert.equal(engine.state.isFinished, false);
