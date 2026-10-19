@@ -190,7 +190,7 @@ for (const axis of ['vertical', 'horizontal']) {
 
 
 // PuzzleEngine integration: exercise the real engine lifecycle through multiple questions.
-{
+(async function runPuzzleEngineLifecycleIntegration() {
   const lifecycleEvents = [];
   const scores = { score: 0, correct: 0, wrong: 0,
     reset() { this.score = 0; this.correct = 0; this.wrong = 0; },
@@ -255,6 +255,8 @@ for (const axis of ['vertical', 'horizontal']) {
   assert.equal(result.score, 20);
   assert.equal(engine.check(), false, 'finished activity cannot complete again');
   assert.equal(lifecycleEvents.filter(event => event.name === 'activityFinished').length, 1);
-}
-
-console.log('Pattern and Spatial handler + PuzzleEngine lifecycle regression checks passed');
+  console.log('Pattern and Spatial handler + PuzzleEngine lifecycle regression checks passed');
+})().catch(error => {
+  console.error(error);
+  process.exitCode = 1;
+});
