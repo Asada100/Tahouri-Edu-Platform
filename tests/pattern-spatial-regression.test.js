@@ -107,6 +107,16 @@ assert.ok(registered.spatial, 'Spatial handler registers');
   assert.equal(handler.setAnswer(invalidEngine, { pieceId: 'missing', row: 0, col: 0 }), false);
   assert.equal(handler.setAnswer(invalidEngine, { pieceId: 'a', row: 2, col: 0 }), false);
   assert.equal(handler.check(invalidEngine), false, 'cannot finish before a user move');
+
+  const duplicateIdEngine = makeEngine();
+  assert.equal(handler.start(duplicateIdEngine, {
+    mode: 'place',
+    grid: { rows: 2, cols: 2 },
+    pieces: [
+      { id: 'duplicate', target: { row: 0, col: 0 } },
+      { id: 'duplicate', target: { row: 1, col: 1 } }
+    ]
+  }), null, 'duplicate piece IDs are rejected before they can block completion');
 }
 
 // Spatial Symmetry: generated pieces must mirror across the selected axis and remain inside the grid.
