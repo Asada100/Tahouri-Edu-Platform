@@ -268,7 +268,72 @@ for (const axis of ['vertical', 'horizontal']) {
   assert.equal(result.score, 20);
   assert.equal(engine.check(), false, 'finished activity cannot complete again');
   assert.equal(lifecycleEvents.filter(event => event.name === 'activityFinished').length, 1);
-  console.log('Pattern and Spatial handler + PuzzleEngine lifecycle regression checks passed');
+
+  // Restarting must create a clean run with no state or score leakage.
+  const secondActivity = {
+    id: 'pattern-spatial-restart-test',
+    title: 'Restart test',
+    puzzle: { questions: [
+      { type: 'pattern', items: [1, null, 1], missingIndex: 1, answer: 1 }
+    ] }
+  };
+  const second = await engine.start(secondActivity);
+  assert.equal(second.type, 'pattern');
+  assert.equal(engine.activity.id, secondActivity.id);
+  assert.equal(engine.currentQuestion, 0);
+  assert.equal(engine.state.started, true);
+  assert.equal(engine.state.isFinished, false);
+  assert.equal(engine.transitioning, false);
+  assert.equal(engine.checking, false);
+  assert.equal(engine.moves, 0);
+  assert.equal(engine.userAnswer, null);
+  assert.equal(scores.score, 0, 'new activity clears the previous score');
+  assert.equal(scores.correct, 0, 'new activity clears previous correct answers');
+  assert.equal(scores.wrong, 0, 'new activity clears previous wrong answers');
+  assert.equal(engine.questions.length, 1);
+  assert.equal(engine.puzzle.type, 'pattern');
+
+  engine.setTypeAnswer(1);
+  assert.equal(engine.check(), true);
+  assert.equal(scores.score, 10);
+  assert.equal(scores.correct, 1);
+  assert.equal(engine.state.isFinished, true);
+
+  engine.reset();
+  assert.equal(engine.state.started, false);
+  assert.equal(engine.state.isFinished, false);
+  assert.equal(engine.activity, null);
+  assert.equal(engine.puzzle, null);
+  assert.deepEqual(Array.from(engine.questions), []);
+  assert.equal(engine.currentQuestion, 0);
+  assert.deepEqual(Array.from(engine.items), []);
+  assert.equal(engine.userAnswer, null);
+  assert.equal(engine.moves, 0);
+  assert.equal(engine.transitioning, false);
+  assert.equal(engine.checking, false);
+  assert.equal(scores.score, 0, 'reset clears score');
+  assert.equal(scores.correct, 0, 'reset clears correct count');
+  assert.equal(scores.wrong, 0, 'reset clears wrong count');
+
+  // Even a failed start must not leak the previous run's score.
+  scores.score = 70;
+  scores.correct = 7;
+  scores.wrong = 3;
+  const failed = await engine.start({
+    id: 'invalid-restart-test',
+    puzzle: { questions: [] }
+  });
+  assert.equal(failed, null);
+  assert.equal(scores.score, 0);
+  assert.equal(scores.correct, 0);
+  assert.equal(scores.wrong, 0);
+  assert.equal(engine.currentQuestion, 0);
+  assert.equal(engine.moves, 0);
+  assert.equal(engine.userAnswer, null);
+  assert.equal(engine.state.started, false);
+  assert.equal(engine.state.isFinished, false);
+
+  console.log('Pattern and Spatial handler + PuzzleEngine lifecycle/reset regression checks passed');
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;
