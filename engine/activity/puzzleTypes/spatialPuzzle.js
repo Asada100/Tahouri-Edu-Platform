@@ -25,6 +25,73 @@ const SpatialPuzzle = {
         return match ? Number(match[1]) : 6;
     },
 
+    validateCoordinatePlaneData: function (data) {
+        if (!data || data.type !== "spatial" || data.mode !== "coordinatePlane") {
+            return { valid: false, reason: "invalid-activity-mode" };
+        }
+
+        const system = data.coordinateSystem;
+        if (!system || typeof system !== "object") {
+            return { valid: false, reason: "missing-coordinate-system" };
+        }
+
+        const values = [system.xMin, system.xMax, system.yMin, system.yMax, system.unitStep];
+        if (!values.every(function (value) {
+            return typeof value === "number" && Number.isFinite(value);
+        })) {
+            return { valid: false, reason: "non-finite-coordinate-system" };
+        }
+
+        if (system.xMin >= system.xMax || system.yMin >= system.yMax || system.unitStep <= 0) {
+            return { valid: false, reason: "invalid-coordinate-range" };
+        }
+
+        const stepFits = function (min, max, step) {
+            const intervals = (max - min) / step;
+            return Math.abs(intervals - Math.round(intervals)) <= 1e-9;
+        };
+        if (!stepFits(system.xMin, system.xMax, system.unitStep) ||
+            !stepFits(system.yMin, system.yMax, system.unitStep)) {
+            return { valid: false, reason: "incompatible-unit-step" };
+        }
+
+        const isCoordinate = function (point) {
+            return !!point && typeof point.x === "number" && Number.isFinite(point.x) &&
+                typeof point.y === "number" && Number.isFinite(point.y) &&
+                point.x >= system.xMin && point.x <= system.xMax &&
+                point.y >= system.yMin && point.y <= system.yMax;
+        };
+        const task = data.task;
+        if (!task || !["readPoint", "placePoint", "identifyPoint"].includes(task.kind)) {
+            return { valid: false, reason: "unknown-task-kind" };
+        }
+
+        if (task.kind === "readPoint" || task.kind === "placePoint") {
+            if (!isCoordinate(task.target)) {
+                return { valid: false, reason: "invalid-target-coordinate" };
+            }
+        }
+
+        if (task.kind === "identifyPoint") {
+            if (!Array.isArray(task.points) || task.points.length === 0) {
+                return { valid: false, reason: "missing-identify-points" };
+            }
+            const ids = new Set();
+            for (const point of task.points) {
+                if (!point || (typeof point.id !== "string" && typeof point.id !== "number") ||
+                    String(point.id).trim() === "" || ids.has(String(point.id)) || !isCoordinate(point)) {
+                    return { valid: false, reason: "invalid-identify-point" };
+                }
+                ids.add(String(point.id));
+            }
+            if (task.answerId !== undefined && !ids.has(String(task.answerId))) {
+                return { valid: false, reason: "unknown-identify-answer" };
+            }
+        }
+
+        return { valid: true, reason: null };
+    },
+
     buildDifficultyConfig: function (grade, difficulty, generator) {
         const profiles = {
             1: { easy: [4, 6], medium: [6, 9], hard: [9, 12], shapes: { easy: [2, 3], medium: [3, 4], hard: [4, 5] } },
