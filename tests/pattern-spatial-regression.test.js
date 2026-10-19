@@ -280,6 +280,13 @@ for (const axis of ['vertical', 'horizontal']) {
   assert.equal(result.percentage, 100, 'percentage reflects completed correct questions');
   assert.equal(result.score, 20);
   assert.equal(engine.check(), false, 'finished activity cannot complete again');
+  const finalEventCountBeforeDuplicateCompletion = lifecycleEvents.filter(event =>
+    event.name === 'activityFinished' || event.name === 'puzzleFinished').length;
+  assert.equal(engine.completeActivity(), null, 'a repeated completion request is ignored');
+  assert.equal(lifecycleEvents.filter(event =>
+    event.name === 'activityFinished' || event.name === 'puzzleFinished').length,
+    finalEventCountBeforeDuplicateCompletion,
+    'repeated completion cannot publish duplicate result events');
   const scoreAfterFinish = scores.score;
   const wrongAfterFinish = scores.wrong;
   const wrongEventsAfterFinish = lifecycleEvents.filter(event => event.name === 'puzzleWrong').length;
