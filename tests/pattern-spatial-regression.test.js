@@ -55,6 +55,53 @@ function makeEngine() {
 assert.ok(registered.pattern, 'Pattern handler registers');
 assert.ok(registered.spatial, 'Spatial handler registers');
 
+// Coordinate Plane data contract: validate independently of UI and without altering existing modes.
+{
+  const handler = registered.spatial;
+  const validBase = {
+    type: 'spatial',
+    mode: 'coordinatePlane',
+    coordinateSystem: {
+      xMin: -4, xMax: 4, yMin: -3, yMax: 3, unitStep: 1,
+      showAxes: true, showGrid: true
+    },
+    task: { kind: 'placePoint', target: { x: -2, y: 3 } }
+  };
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(handler.validateCoordinatePlaneData(validBase))),
+    { valid: true, reason: null },
+    'valid coordinate-plane data is accepted'
+  );
+
+  const invalidCases = [
+    [{ ...validBase, mode: 'place' }, 'wrong mode is rejected'],
+    [{ ...validBase, coordinateSystem: { ...validBase.coordinateSystem, xMin: Infinity } }, 'infinite bounds are rejected'],
+    [{ ...validBase, coordinateSystem: { ...validBase.coordinateSystem, xMin: 2, xMax: 2 } }, 'zero-width ranges are rejected'],
+    [{ ...validBase, coordinateSystem: { ...validBase.coordinateSystem, unitStep: 0 } }, 'non-positive steps are rejected'],
+    [{ ...validBase, coordinateSystem: { ...validBase.coordinateSystem, unitStep: 3 } }, 'incompatible steps are rejected'],
+    [{ ...validBase, task: { kind: 'unknown', target: { x: 0, y: 0 } } }, 'unknown task kinds are rejected'],
+    [{ ...validBase, task: { kind: 'placePoint', target: { x: 5, y: 0 } } }, 'out-of-range targets are rejected'],
+    [{ ...validBase, task: { kind: 'readPoint', target: { x: 0, y: NaN } } }, 'non-finite target coordinates are rejected'],
+    [{ ...validBase, task: { kind: 'identifyPoint', points: [] } }, 'empty identify-point lists are rejected'],
+    [{ ...validBase, task: { kind: 'identifyPoint', points: [
+      { id: 'A', x: 1, y: 1 }, { id: 'A', x: -1, y: -1 }
+    ] } }, 'duplicate identify-point IDs are rejected'],
+    [{ ...validBase, task: { kind: 'identifyPoint', points: [
+      { id: 'A', x: 1, y: 1 }
+    ], answerId: 'missing' } }, 'unknown identify-point answers are rejected']
+  ];
+  for (const [data, message] of invalidCases) {
+    assert.equal(handler.validateCoordinatePlaneData(data).valid, false, message);
+  }
+
+  assert.equal(handler.validateCoordinatePlaneData(null).valid, false);
+  assert.equal(handler.validateCoordinatePlaneData({
+    ...validBase,
+    task: { kind: 'identifyPoint', points: [{ id: 1, x: 0, y: 0 }, { id: '1', x: 1, y: 1 }] }
+  }).valid, false, 'IDs that collide after normalization are rejected');
+}
+
+
 // Pattern: valid setup, answer replacement, correct/wrong evaluation and invalid data.
 {
   const engine = makeEngine();
