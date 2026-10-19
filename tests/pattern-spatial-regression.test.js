@@ -279,6 +279,15 @@ for (const axis of ['vertical', 'horizontal']) {
   assert.equal(result.percentage, 100, 'percentage reflects completed correct questions');
   assert.equal(result.score, 20);
   assert.equal(engine.check(), false, 'finished activity cannot complete again');
+  const scoreAfterFinish = scores.score;
+  const wrongAfterFinish = scores.wrong;
+  const wrongEventsAfterFinish = lifecycleEvents.filter(event => event.name === 'puzzleWrong').length;
+  assert.equal(engine.emitWrong(), false, 'late wrong-answer events are rejected after completion');
+  assert.equal(scores.score, scoreAfterFinish, 'late wrong-answer events cannot change final score');
+  assert.equal(scores.wrong, wrongAfterFinish, 'late wrong-answer events cannot change wrong-answer count');
+  assert.equal(lifecycleEvents.filter(event => event.name === 'puzzleWrong').length, wrongEventsAfterFinish,
+    'late wrong-answer events are not published');
+
   assert.equal(lifecycleEvents.filter(event => event.name === 'activityFinished').length, 1);
 
   // Restarting must create a clean run with no state or score leakage.
