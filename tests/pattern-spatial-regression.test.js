@@ -234,12 +234,22 @@ for (const axis of ['vertical', 'horizontal']) {
   assert.equal(scores.correct, 0);
   assert.equal(engine.finish(), false, 'completion is rejected outside check()');
 
+  engine.setTypeAnswer(9);
+  assert.equal(engine.check(), false, 'incorrect Pattern answer does not advance');
+  assert.equal(engine.currentQuestion, 0, 'incorrect Pattern answer keeps the current question');
+  assert.equal(scores.wrong, 1, 'incorrect Pattern answer is counted once');
+
   engine.setTypeAnswer(2);
   assert.equal(engine.check(), true, 'correct Pattern answer advances the lifecycle');
   assert.equal(engine.currentQuestion, 1);
   assert.equal(engine.puzzle.type, 'spatial');
   assert.equal(lifecycleEvents.filter(event => event.name === 'activityReady').length, 1,
     'the next question publishes activityReady');
+
+  engine.setTypeAnswer({ pieceId: 'one', row: 1, col: 1 });
+  assert.equal(engine.check(), false, 'incorrect Spatial placement does not complete');
+  assert.equal(engine.currentQuestion, 1, 'incorrect Spatial placement keeps the current question');
+  assert.equal(scores.wrong, 2, 'incorrect Spatial placement is counted once');
 
   engine.setTypeAnswer({ pieceId: 'one', row: 0, col: 0 });
   assert.equal(engine.check(), true, 'correct Spatial placement completes the activity');
@@ -253,7 +263,8 @@ for (const axis of ['vertical', 'horizontal']) {
   const result = resultEvents.find(event => event.name === 'activityFinished').payload;
   assert.equal(result.totalQuestions, 2);
   assert.equal(result.correctAnswers, 2);
-  assert.equal(result.percentage, 100);
+  assert.equal(result.wrongAnswers, 2, 'final result includes wrong attempts');
+  assert.equal(result.percentage, 100, 'percentage reflects completed correct questions');
   assert.equal(result.score, 20);
   assert.equal(engine.check(), false, 'finished activity cannot complete again');
   assert.equal(lifecycleEvents.filter(event => event.name === 'activityFinished').length, 1);
