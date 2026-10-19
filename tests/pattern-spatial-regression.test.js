@@ -193,6 +193,9 @@ for (const axis of ['vertical', 'horizontal']) {
 // PuzzleEngine integration: exercise the real engine lifecycle through multiple questions.
 (async function runPuzzleEngineLifecycleIntegration() {
   const lifecycleEvents = [];
+  let transitionCheckAttempted = false;
+  let transitionCheckResult = null;
+  let engineUnderTest = null;
   const scores = { score: 0, correct: 0, wrong: 0,
     reset() { this.score = 0; this.correct = 0; this.wrong = 0; },
     addCorrect() { this.correct++; this.score += 10; },
@@ -206,6 +209,10 @@ for (const axis of ['vertical', 'horizontal']) {
     emit(name, payload) {
       emitted.push({ name, payload });
       lifecycleEvents.push({ name, payload });
+      if (name === 'activityReady' && engineUnderTest && !transitionCheckAttempted) {
+        transitionCheckAttempted = true;
+        transitionCheckResult = engineUnderTest.check();
+      }
     }
   };
   vm.runInNewContext(
@@ -215,6 +222,7 @@ for (const axis of ['vertical', 'horizontal']) {
   );
 
   const engine = context.PuzzleEngine;
+  engineUnderTest = engine;
   const activity = {
     id: 'pattern-spatial-lifecycle-test',
     title: 'Lifecycle test',
@@ -243,6 +251,10 @@ for (const axis of ['vertical', 'horizontal']) {
   assert.equal(engine.check(), true, 'correct Pattern answer advances the lifecycle');
   assert.equal(engine.currentQuestion, 1);
   assert.equal(engine.puzzle.type, 'spatial');
+  assert.equal(transitionCheckAttempted, true);
+  assert.equal(transitionCheckResult, false, 'checks triggered during question transition are ignored');
+  assert.equal(scores.correct, 1, 'transition-time checks cannot award a second point');
+  assert.equal(scores.wrong, 1, 'transition-time checks cannot register a stale wrong answer');
   assert.equal(lifecycleEvents.filter(event => event.name === 'activityReady').length, 1,
     'the next question publishes activityReady');
 
