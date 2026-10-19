@@ -182,11 +182,11 @@ const PuzzleEngine = {
         return state;
     },
 
-    setOrder: function (newOrder) { if (!this.puzzle || !this.state.started || this.state.isFinished || this.transitioning || this.checking || !Array.isArray(newOrder)) return false; this.items = [...newOrder]; this.moves++; EventManager.emit("puzzleChanged", this.getState()); return true; },
-    setSequenceAnswer: function (value) { if (!this.puzzle || !this.state.started || this.state.isFinished || this.transitioning || this.checking || this.puzzle.type !== "sequence") return false; this.items[this.puzzle.missingIndex] = value; this.moves++; EventManager.emit("puzzleChanged", this.getState()); return true; },
-    setVisualMathAnswer: function (value) { if (!this.puzzle || !this.state.started || this.state.isFinished || this.transitioning || this.checking || this.puzzle.type !== "visualMath") return false; if (this.puzzle.operation === "comparison") { if (!["left", "right", "equal"].includes(value)) return false; this.userAnswer = value; } else { const numericValue = Number(value); if (!Number.isFinite(numericValue)) return false; this.userAnswer = numericValue; } this.moves++; EventManager.emit("puzzleChanged", this.getState()); return true; },
-    setGenericAnswer: function (value) { if (!this.puzzle || !this.state.started || this.state.isFinished || this.transitioning || this.checking) return false; this.userAnswer = Array.isArray(value) ? [...value] : value; if (this.puzzle.type === "inputOutput" && Number.isInteger(this.puzzle.missingIndex)) this.items[this.puzzle.missingIndex] = value; this.moves++; EventManager.emit("puzzleChanged", this.getState()); return true; },
-    setTypeAnswer: function (value) { if (!this.puzzle || !this.state.started || this.state.isFinished || this.transitioning || this.checking) return false; const handler = PuzzleTypeRegistry.get(this.puzzle.type); if (!handler) return false; if (typeof handler.setAnswer === "function") return handler.setAnswer(this, value); this.userAnswer = Array.isArray(value) ? [...value] : value; this.moves++; EventManager.emit("puzzleChanged", this.getState()); return true; },
+    setOrder: function (newOrder) { if (!this.puzzle || !this.state.started || this.state.isFinished || this.transitioning || this.checking || !Array.isArray(newOrder)) return false; this.items = [...newOrder]; this.moves++; return this.emitChanged(); },
+    setSequenceAnswer: function (value) { if (!this.puzzle || !this.state.started || this.state.isFinished || this.transitioning || this.checking || this.puzzle.type !== "sequence") return false; this.items[this.puzzle.missingIndex] = value; this.moves++; return this.emitChanged(); },
+    setVisualMathAnswer: function (value) { if (!this.puzzle || !this.state.started || this.state.isFinished || this.transitioning || this.checking || this.puzzle.type !== "visualMath") return false; if (this.puzzle.operation === "comparison") { if (!["left", "right", "equal"].includes(value)) return false; this.userAnswer = value; } else { const numericValue = Number(value); if (!Number.isFinite(numericValue)) return false; this.userAnswer = numericValue; } this.moves++; return this.emitChanged(); },
+    setGenericAnswer: function (value) { if (!this.puzzle || !this.state.started || this.state.isFinished || this.transitioning || this.checking) return false; this.userAnswer = Array.isArray(value) ? [...value] : value; if (this.puzzle.type === "inputOutput" && Number.isInteger(this.puzzle.missingIndex)) this.items[this.puzzle.missingIndex] = value; this.moves++; return this.emitChanged(); },
+    setTypeAnswer: function (value) { if (!this.puzzle || !this.state.started || this.state.isFinished || this.transitioning || this.checking) return false; const handler = PuzzleTypeRegistry.get(this.puzzle.type); if (!handler) return false; if (typeof handler.setAnswer === "function") return handler.setAnswer(this, value); this.userAnswer = Array.isArray(value) ? [...value] : value; this.moves++; return this.emitChanged(); },
     setCell: function (index, value) { if (!this.puzzle || !this.state.started || this.state.isFinished || this.transitioning || this.checking) return false; const handler = PuzzleTypeRegistry.get(this.puzzle.type); if (!handler || typeof handler.setCell !== "function") return false; return handler.setCell(this, index, value); },
     setCells: function (values) { if (!this.puzzle || !this.state.started || this.state.isFinished || this.transitioning || this.checking) return false; const handler = PuzzleTypeRegistry.get(this.puzzle.type); if (!handler || typeof handler.setCells !== "function") return false; return handler.setCells(this, values); },
 
@@ -202,7 +202,28 @@ const PuzzleEngine = {
         }
     },
 
-    emitWrong: function () { if (!this.puzzle || !this.state.started || this.state.isFinished || this.transitioning) return false; if (typeof ScoreManager !== "undefined" && typeof ScoreManager.addWrong === "function") ScoreManager.addWrong(); EventManager.emit("puzzleWrong", this.getState()); return true; },
+    emitChanged: function () {
+        if (!this.puzzle || !this.state.started || this.state.isFinished || this.transitioning) return false;
+        const requestId = this.startRequestId;
+        const activity = this.activity;
+        const puzzle = this.puzzle;
+        EventManager.emit("puzzleChanged", this.getState());
+        // If a change listener replaced the activity, do not report the old edit as current.
+        return requestId === this.startRequestId && this.activity === activity &&
+            this.puzzle === puzzle && this.state.started && !this.state.isFinished;
+    },
+
+    emitWrong: function () {
+        if (!this.puzzle || !this.state.started || this.state.isFinished || this.transitioning) return false;
+        const requestId = this.startRequestId;
+        const activity = this.activity;
+        const puzzle = this.puzzle;
+        if (typeof ScoreManager !== "undefined" && typeof ScoreManager.addWrong === "function") ScoreManager.addWrong();
+        EventManager.emit("puzzleWrong", this.getState());
+        // A listener may synchronously restart; the old check must not continue as current.
+        return requestId === this.startRequestId && this.activity === activity &&
+            this.puzzle === puzzle && this.state.started && !this.state.isFinished;
+    },
     emitStarted: function () {
         const requestId = this.startRequestId;
         const activity = this.activity;
