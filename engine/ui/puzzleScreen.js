@@ -369,7 +369,7 @@ const PuzzleScreen = {
         } else if (task.kind === "identifyPoint" && Array.isArray(task.points)) {
             markers += task.points.map(function (point) {
                 const p = toPixel(point);
-                const selected = state.userAnswer && String(state.userAnswer.id) === String(point.id);
+                const selected = state.userAnswer && String(state.userAnswer) === String(point.id);
                 return p ? "<circle cx='" + p.x + "' cy='" + p.y + "' r='" + (selected ? 8 : 5) + "' fill='" + (selected ? "#16a34a" : "#2563eb") + "' stroke='white' stroke-width='2' /><text x='" + (p.x + 7) + "' y='" + (p.y - 7) + "' font-size='12' fill='#1d4ed8'>" + PuzzleScreen.escapeHTML(point.label || point.id) + "</text>" : "";
             }).join("");
         }
@@ -379,7 +379,7 @@ const PuzzleScreen = {
         }
 
         const status = state.userAnswer
-            ? (task.kind === "identifyPoint" ? "نقطه انتخاب‌شده: " + PuzzleScreen.escapeHTML(String(state.userAnswer.id)) :
+            ? (task.kind === "identifyPoint" ? "نقطه انتخاب‌شده: " + PuzzleScreen.escapeHTML(String(state.userAnswer)) :
                 "مختصات انتخاب‌شده: (" + PuzzleScreen.escapeHTML(String(state.userAnswer.x)) + "، " + PuzzleScreen.escapeHTML(String(state.userAnswer.y)) + ")")
             : (task.kind === "placePoint" ? "برای قراردادن نقطه، روی شبکه لمس کن." :
                 task.kind === "identifyPoint" ? "یکی از نقاط نام‌گذاری‌شده را لمس کن." :
