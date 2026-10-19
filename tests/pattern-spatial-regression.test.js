@@ -198,6 +198,7 @@ for (const axis of ['vertical', 'horizontal']) {
     addWrong() { this.wrong++; }
   };
   context.ScoreManager = scores;
+  context.QuestionProvider = { async getPuzzleQuestions() { return []; } };
   context.ActivityResult = { create(result) { return result; } };
   context.setTimeout = callback => { callback(); return 1; };
   context.EventManager = {
