@@ -629,8 +629,8 @@ for (const axis of ['vertical', 'horizontal']) {
   engine.emitStarted();
   assert.equal(engine.activity.id, 'puzzle-started-restart-target');
   assert.equal(lifecycleEvents.filter(event => event.name === 'activityPlaying').length,
-    activityPlayingCountBeforePuzzleStarted + 1,
-    'only the replacement run publishes activityPlaying after puzzleStarted triggers restart');
+    activityPlayingCountBeforePuzzleStarted + 2,
+    'replacement run publishes its normal start events, but the superseded run adds no activityPlaying');
   assert.equal(lifecycleEvents.slice(puzzleStartedEventIndex).filter(event =>
     event.name === 'puzzleStarted').length, 1);
   context.EventManager.emit = previousEmit;
