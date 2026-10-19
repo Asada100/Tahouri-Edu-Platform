@@ -336,13 +336,13 @@ const SpatialPuzzle = {
             engine.userAnswer = { ...engine.puzzle.placements };
             engine.puzzle.hasUserMove = true;
             engine.moves++;
-            EventManager.emit("puzzleChanged", engine.getState());
+            return engine.emitChanged();
             return true;
         }
 
         engine.userAnswer = value;
         engine.moves++;
-        EventManager.emit("puzzleChanged", engine.getState());
+        return engine.emitChanged();
         return true;
     },
 
