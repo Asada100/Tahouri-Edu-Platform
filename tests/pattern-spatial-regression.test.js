@@ -11,7 +11,8 @@ const context = {
   Math, Number, String, Object, Array, Set, JSON,
   EventManager: { emit(name, payload) { emitted.push({ name, payload }); } },
   PuzzleTypeRegistry: {
-    register(type, handler) { registered[type] = handler; return true; }
+    register(type, handler) { registered[type] = handler; return true; },
+    get(type) { return registered[type]; }
   }
 };
 context.window = context;
