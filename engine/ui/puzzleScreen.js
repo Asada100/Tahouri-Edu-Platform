@@ -4563,9 +4563,17 @@ PuzzleScreen.showSpatialSymmetry = function (state) {
             ghost.style.top = (event.clientY - 28) + "px";
         };
 
+        const cancelDrag = function () {
+            document.removeEventListener("pointermove", moveGhost);
+            document.removeEventListener("pointerup", finishDrag);
+            document.removeEventListener("pointercancel", cancelDrag);
+            ghost.remove();
+        };
+
         const finishDrag = function (event) {
             document.removeEventListener("pointermove", moveGhost);
             document.removeEventListener("pointerup", finishDrag);
+            document.removeEventListener("pointercancel", cancelDrag);
             ghost.remove();
 
             const target = document.elementFromPoint(event.clientX, event.clientY);
@@ -4585,6 +4593,7 @@ PuzzleScreen.showSpatialSymmetry = function (state) {
 
         document.addEventListener("pointermove", moveGhost);
         document.addEventListener("pointerup", finishDrag, { once: true });
+        document.addEventListener("pointercancel", cancelDrag, { once: true });
         moveGhost(event);
     };
 
