@@ -336,7 +336,7 @@ const PuzzleScreen = {
         }
 
         const width = 360, height = 300;
-        const viewport = { left: 30, top: 20, width: 300, height: 250 };
+        const viewport = { left: 30, top: 20, right: 330, bottom: 270 };
         const xMin = Number(system.xMin), xMax = Number(system.xMax);
         const yMin = Number(system.yMin), yMax = Number(system.yMax);
         const step = Number(system.unitStep);
@@ -346,30 +346,83 @@ const PuzzleScreen = {
         const lines = [];
         for (let x = xMin; x <= xMax + 1e-8; x += step) {
             const p = toPixel({ x: x, y: yMin });
-            if (p) lines.push("<line x1='" + p.x + "' y1='" + viewport.top + "' x2='" + p.x + "' y2='" + (viewport.top + viewport.height) + "' stroke='#dbe3ec' />");
+            if (p) lines.push("<line x1='" + p.x + "' y1='" + viewport.top + "' x2='" + p.x + "' y2='" + viewport.bottom + "' stroke='#dbe3ec' />");
+            if (p) lines.push("<text x='" + p.x + "' y='" + (viewport.bottom + 15) + "' text-anchor='middle' font-size='10' fill='#475569'>" + x + "</text>");
         }
         for (let y = yMin; y <= yMax + 1e-8; y += step) {
             const p = toPixel({ x: xMin, y: y });
-            if (p) lines.push("<line x1='" + viewport.left + "' y1='" + p.y + "' x2='" + (viewport.left + viewport.width) + "' y2='" + p.y + "' stroke='#dbe3ec' />");
+            if (p) lines.push("<line x1='" + viewport.left + "' y1='" + p.y + "' x2='" + viewport.right + "' y2='" + p.y + "' stroke='#dbe3ec' />");
+            if (p) lines.push("<text x='" + (viewport.left - 8) + "' y='" + (p.y + 4) + "' text-anchor='end' font-size='10' fill='#475569'>" + y + "</text>");
         }
 
         const xa = toPixel({ x: xMin, y: 0 }), xb = toPixel({ x: xMax, y: 0 });
         const ya = toPixel({ x: 0, y: yMin }), yb = toPixel({ x: 0, y: yMax });
         if (xa && xb) lines.push("<line x1='" + xa.x + "' y1='" + xa.y + "' x2='" + xb.x + "' y2='" + xb.y + "' stroke='#334155' stroke-width='2' />");
         if (ya && yb) lines.push("<line x1='" + ya.x + "' y1='" + ya.y + "' x2='" + yb.x + "' y2='" + yb.y + "' stroke='#334155' stroke-width='2' />");
+        if (xb) lines.push("<text x='" + (xb.x - 5) + "' y='" + (xb.y - 8) + "' font-size='13' font-weight='bold' fill='#334155'>x</text>");
+        if (yb) lines.push("<text x='" + (yb.x + 8) + "' y='" + (yb.y + 12) + "' font-size='13' font-weight='bold' fill='#334155'>y</text>");
 
         let markers = "";
         if (task.kind === "readPoint" && task.target) {
             const p = toPixel(task.target);
-            if (p) markers = "<circle cx='" + p.x + "' cy='" + p.y + "' r='6' fill='#2563eb' /><text x='" + (p.x + 8) + "' y='" + (p.y - 8) + "' font-size='12' fill='#1d4ed8'>A</text>";
+            if (p) markers += "<circle cx='" + p.x + "' cy='" + p.y + "' r='6' fill='#2563eb' stroke='white' stroke-width='2' /><text x='" + (p.x + 8) + "' y='" + (p.y - 8) + "' font-size='12' fill='#1d4ed8'>A</text>";
         } else if (task.kind === "identifyPoint" && Array.isArray(task.points)) {
-            markers = task.points.map(function (point) {
+            markers += task.points.map(function (point) {
                 const p = toPixel(point);
-                return p ? "<circle cx='" + p.x + "' cy='" + p.y + "' r='5' fill='#2563eb' /><text x='" + (p.x + 7) + "' y='" + (p.y - 7) + "' font-size='12' fill='#1d4ed8'>" + PuzzleScreen.escapeHTML(point.label || point.id) + "</text>" : "";
+                const selected = state.userAnswer && String(state.userAnswer.id) === String(point.id);
+                return p ? "<circle cx='" + p.x + "' cy='" + p.y + "' r='" + (selected ? 8 : 5) + "' fill='" + (selected ? "#16a34a" : "#2563eb") + "' stroke='white' stroke-width='2' /><text x='" + (p.x + 7) + "' y='" + (p.y - 7) + "' font-size='12' fill='#1d4ed8'>" + PuzzleScreen.escapeHTML(point.label || point.id) + "</text>" : "";
             }).join("");
         }
+        if (task.kind === "placePoint" && state.userAnswer && Number.isFinite(Number(state.userAnswer.x)) && Number.isFinite(Number(state.userAnswer.y))) {
+            const p = toPixel(state.userAnswer);
+            if (p) markers += "<circle cx='" + p.x + "' cy='" + p.y + "' r='7' fill='#16a34a' stroke='white' stroke-width='2' />";
+        }
 
-        app.innerHTML = "<div class='screen puzzleScreen spatialScreen coordinatePlaneScreen' dir='rtl'><h1>صفحه مختصات</h1><p class='puzzleInstruction'>" + PuzzleScreen.escapeHTML(state.instruction || "نقاط و محورهای مختصات را بررسی کن.") + "</p><div class='coordinatePlaneCanvas'><svg viewBox='0 0 " + width + " " + height + "' role='img' aria-label='صفحه مختصات'>" + lines.join("") + markers + "</svg></div><p class='coordinatePlaneStatus'>" + (task.kind === "placePoint" ? "نمایش محورها آماده است؛ انتخاب نقطه در مرحله بعد فعال می‌شود." : "محورها و نقاط تمرین نمایش داده شده‌اند.") + "</p>" + this.renderStandardFooter(state.moves) + "</div><style>.coordinatePlaneCanvas{width:100%;max-width:480px;margin:16px auto;padding:8px;box-sizing:border-box;background:#fff;border:1px solid #dbe3ec;border-radius:14px}.coordinatePlaneCanvas svg{display:block;width:100%;height:auto}.coordinatePlaneStatus{text-align:center;color:#475569;font-size:14px}</style>";
+        const status = state.userAnswer
+            ? (task.kind === "identifyPoint" ? "نقطه انتخاب‌شده: " + PuzzleScreen.escapeHTML(String(state.userAnswer.id)) :
+                "مختصات انتخاب‌شده: (" + PuzzleScreen.escapeHTML(String(state.userAnswer.x)) + "، " + PuzzleScreen.escapeHTML(String(state.userAnswer.y)) + ")")
+            : (task.kind === "placePoint" ? "برای قراردادن نقطه، روی شبکه لمس کن." :
+                task.kind === "identifyPoint" ? "یکی از نقاط نام‌گذاری‌شده را لمس کن." :
+                "برای ثبت مختصات نقطه A، روی محل آن در شبکه لمس کن.");
+
+        app.innerHTML = "<div class='screen puzzleScreen spatialScreen coordinatePlaneScreen' dir='rtl'><h1>صفحه مختصات</h1><p class='puzzleInstruction'>" + PuzzleScreen.escapeHTML(state.instruction || "پاسخ را روی صفحه مشخص کن.") + "</p><div class='coordinatePlaneCanvas'><svg id='coordinatePlaneSvg' viewBox='0 0 " + width + " " + height + "' role='application' aria-label='صفحه مختصات؛ برای انتخاب نقطه لمس کن'>" + lines.join("") + markers + "</svg></div><p id='coordinatePlaneStatus' class='coordinatePlaneStatus' aria-live='polite'>" + status + "</p><button id='coordinatePlaneCheckBtn' type='button' " + (state.userAnswer ? "" : "disabled") + ">بررسی پاسخ</button><div id='puzzleMessage' class='puzzleMessage' aria-live='polite'></div>" + this.renderStandardFooter(state.moves) + "</div><style>.coordinatePlaneCanvas{width:100%;max-width:480px;margin:16px auto;padding:8px;box-sizing:border-box;background:#fff;border:1px solid #dbe3ec;border-radius:14px}.coordinatePlaneCanvas svg{display:block;width:100%;height:auto;touch-action:manipulation;cursor:crosshair}.coordinatePlaneStatus{text-align:center;color:#334155;font-size:14px;min-height:24px}#coordinatePlaneCheckBtn{display:block;margin:12px auto;padding:10px 24px;border:0;border-radius:9px;background:#2563eb;color:#fff;font-size:16px}#coordinatePlaneCheckBtn:disabled{opacity:.45}</style>";
+
+        const svg = app.querySelector("#coordinatePlaneSvg");
+        if (svg) {
+            svg.addEventListener("pointerdown", function (event) {
+                if (event.cancelable) event.preventDefault();
+                const rect = svg.getBoundingClientRect();
+                if (!rect.width || !rect.height) return;
+                const pointInViewBox = {
+                    x: (event.clientX - rect.left) * width / rect.width,
+                    y: (event.clientY - rect.top) * height / rect.height
+                };
+                if (pointInViewBox.x < viewport.left || pointInViewBox.x > viewport.right ||
+                    pointInViewBox.y < viewport.top || pointInViewBox.y > viewport.bottom) return;
+
+                if (task.kind === "identifyPoint") {
+                    let closest = null, closestDistance = Infinity;
+                    (task.points || []).forEach(function (point) {
+                        const p = toPixel(point);
+                        if (!p) return;
+                        const distance = Math.hypot(p.x - pointInViewBox.x, p.y - pointInViewBox.y);
+                        if (distance < closestDistance) { closest = point; closestDistance = distance; }
+                    });
+                    if (!closest || closestDistance > 22) return;
+                    PuzzleEngine.setTypeAnswer({ id: String(closest.id) });
+                } else {
+                    const mathPoint = SpatialPuzzle.pixelToMath(pointInViewBox, system, viewport);
+                    const snapped = mathPoint && SpatialPuzzle.snapCoordinatePoint(mathPoint, system);
+                    if (!snapped) return;
+                    PuzzleEngine.setTypeAnswer(snapped);
+                }
+                PuzzleScreen.show(PuzzleEngine.getState());
+            });
+        }
+        const checkButton = app.querySelector("#coordinatePlaneCheckBtn");
+        if (checkButton) checkButton.addEventListener("click", function () {
+            PuzzleEngine.check();
+        });
     },
 
 
