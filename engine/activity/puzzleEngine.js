@@ -18,6 +18,7 @@ const PuzzleEngine = {
     moves: 0,
     transitioning: false,
     checking: false,
+    finishAcceptedThisCheck: false,
     startRequestId: 0,
     transitionRequestId: 0,
 
@@ -31,6 +32,7 @@ const PuzzleEngine = {
         this.state.isFinished = false;
         this.transitioning = false;
         this.checking = false;
+        this.finishAcceptedThisCheck = false;
         this.puzzle = null;
         this.questions = [];
         this.currentQuestion = 0;
@@ -203,6 +205,7 @@ const PuzzleEngine = {
         const handler = PuzzleTypeRegistry.get(this.puzzle.type);
         if (!handler || typeof handler.check !== "function") return false;
         this.checking = true;
+        this.finishAcceptedThisCheck = false;
         try {
             return !!handler.check(this);
         } finally {
@@ -249,7 +252,9 @@ const PuzzleEngine = {
             console.warn("Puzzle Engine: Ignored completion outside an explicit check() call.");
             return false;
         }
-        if (this.state.isFinished || this.transitioning) return false;
+        if (this.state.isFinished || this.transitioning || this.finishAcceptedThisCheck) return false;
+        // One successful check can award credit and advance at most one question.
+        this.finishAcceptedThisCheck = true;
         if (typeof ScoreManager !== "undefined" && typeof ScoreManager.addCorrect === "function") ScoreManager.addCorrect();
         this.currentQuestion++;
         if (this.currentQuestion < this.questions.length) {
@@ -303,7 +308,7 @@ const PuzzleEngine = {
         return ActivityResult.create({ activityId: this.activity ? this.activity.id : null, score: score, percentage: percentage, totalQuestions: total, correctAnswers: correct, wrongAnswers: wrong, moves: this.moves, message: "🎉 پازل تمام شد" });
     },
 
-    reset: function () { this.startRequestId++; this.transitionRequestId++; this.state.started = false; this.state.isFinished = false; this.activity = null; this.puzzle = null; this.questions = []; this.currentQuestion = 0; this.items = []; this.userAnswer = null; this.moves = 0; this.transitioning = false; this.checking = false; if (typeof ScoreManager !== "undefined" && typeof ScoreManager.reset === "function") ScoreManager.reset(); },
+    reset: function () { this.startRequestId++; this.transitionRequestId++; this.state.started = false; this.state.isFinished = false; this.activity = null; this.puzzle = null; this.questions = []; this.currentQuestion = 0; this.items = []; this.userAnswer = null; this.moves = 0; this.transitioning = false; this.checking = false; this.finishAcceptedThisCheck = false; if (typeof ScoreManager !== "undefined" && typeof ScoreManager.reset === "function") ScoreManager.reset(); },
     buildCorrectOrder: function (items, order) { const copy = Array.isArray(items) ? [...items] : []; if (order === "descending") return copy.sort((a, b) => b - a); if (this.detectDataType(copy) === "number") return copy.sort((a, b) => a - b); return copy.sort(); },
     detectDataType: function (items) { if (!Array.isArray(items) || items.length === 0) return "text"; if (items.every(item => typeof item === "string" && (/\.(png|jpg|jpeg|gif|webp|svg)$/i.test(item) || item.startsWith("data:image/")))) return "image"; if (items.every(item => typeof item === "number")) return "number"; return "text"; },
     valuesEqual: function (a, b) { if (a === null || a === undefined || b === null || b === undefined) return a === b; const numberA = Number(a); const numberB = Number(b); if (!Number.isNaN(numberA) && !Number.isNaN(numberB)) return numberA === numberB; return String(a) === String(b); },
