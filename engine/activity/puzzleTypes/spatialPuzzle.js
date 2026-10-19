@@ -209,10 +209,19 @@ const SpatialPuzzle = {
             }).filter(Boolean);
 
             const seenTargets = new Set();
+            const seenIds = new Set();
 
             for (const piece of normalizedPieces) {
-                const row = Number(piece.target.row);
-                const col = Number(piece.target.col);
+                const pieceId = String(piece.id);
+
+                if (seenIds.has(pieceId)) {
+                    console.error("Spatial Puzzle: Duplicate Piece ID");
+                    return null;
+                }
+                seenIds.add(pieceId);
+
+                const row = Number(piece.target && piece.target.row);
+                const col = Number(piece.target && piece.target.col);
 
                 if (!Number.isInteger(row) || !Number.isInteger(col) ||
                     row < 0 || row >= Number(grid.rows) ||
