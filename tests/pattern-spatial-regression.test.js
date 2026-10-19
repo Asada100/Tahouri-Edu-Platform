@@ -526,6 +526,38 @@ for (const axis of ['vertical', 'horizontal']) {
   context.PuzzleScreen.handleActivityReady(currentReadyPayload);
   assert.equal(renderedState, null, 'ready event after reset is ignored');
 
+  // A delayed transition callback from an old run must not unlock a newer run's transition.
+  const originalSetTimeout = context.setTimeout;
+  const delayedCallbacks = [];
+  context.setTimeout = callback => { delayedCallbacks.push(callback); return delayedCallbacks.length; };
+  const transitionActivity = id => ({
+    id,
+    title: id,
+    puzzle: { questions: [
+      { type: 'pattern', items: [1, null, 1], missingIndex: 1, answer: 1 },
+      { type: 'pattern', items: [2, null, 2], missingIndex: 1, answer: 2 }
+    ] }
+  });
+  await engine.start(transitionActivity('old-run'));
+  engine.setTypeAnswer(1);
+  assert.equal(engine.check(), true, 'old run begins a question transition');
+  assert.equal(engine.transitioning, true);
+  assert.equal(delayedCallbacks.length, 1);
+
+  engine.reset();
+  await engine.start(transitionActivity('new-run'));
+  engine.setTypeAnswer(1);
+  assert.equal(engine.check(), true, 'new run begins its own question transition');
+  assert.equal(engine.transitioning, true);
+  assert.equal(delayedCallbacks.length, 2);
+
+  delayedCallbacks[0]();
+  assert.equal(engine.transitioning, true,
+    'stale callback from old run cannot clear the current transition lock');
+  delayedCallbacks[1]();
+  assert.equal(engine.transitioning, false, 'current callback releases its own transition lock');
+  context.setTimeout = originalSetTimeout;
+  
   console.log('Pattern and Spatial handler + PuzzleEngine lifecycle/reset/failure regression checks passed');
 })().catch(error => {
   console.error(error);
