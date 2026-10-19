@@ -636,6 +636,60 @@ for (const axis of ['vertical', 'horizontal']) {
     'source and replacement puzzles each publish their own puzzleStarted event');
   context.EventManager.emit = previousEmit;
 
+  // A synchronous puzzleChanged listener may replace the activity. The old edit must not
+  // be reported as a successful edit against the newly active run.
+  await engine.start({
+    id: 'puzzle-changed-restart-source',
+    puzzle: { questions: [
+      { type: 'pattern', items: [12, null, 12], missingIndex: 1, answer: 12 }
+    ] }
+  });
+  let restartOnPuzzleChanged = true;
+  context.EventManager.emit = function (name, payload) {
+    previousEmit.call(this, name, payload);
+    if (name === 'puzzleChanged' && restartOnPuzzleChanged) {
+      restartOnPuzzleChanged = false;
+      void engine.start({
+        id: 'puzzle-changed-restart-target',
+        puzzle: { questions: [
+          { type: 'pattern', items: [13, null, 13], missingIndex: 1, answer: 13 }
+        ] }
+      });
+    }
+  };
+  assert.equal(engine.setTypeAnswer(12), false,
+    'an answer edit is rejected as current if its change listener replaces the run');
+  assert.equal(engine.activity.id, 'puzzle-changed-restart-target');
+  assert.equal(engine.userAnswer, null, 'the superseded answer does not overwrite the replacement run');
+  context.EventManager.emit = previousEmit;
+
+  // A puzzleWrong listener can also restart synchronously; emitWrong must report the old
+  // attempt as stale and leave the replacement activity untouched.
+  await engine.start({
+    id: 'puzzle-wrong-restart-source',
+    puzzle: { questions: [
+      { type: 'pattern', items: [14, null, 14], missingIndex: 1, answer: 14 }
+    ] }
+  });
+  engine.setTypeAnswer(99);
+  let restartOnPuzzleWrong = true;
+  context.EventManager.emit = function (name, payload) {
+    previousEmit.call(this, name, payload);
+    if (name === 'puzzleWrong' && restartOnPuzzleWrong) {
+      restartOnPuzzleWrong = false;
+      void engine.start({
+        id: 'puzzle-wrong-restart-target',
+        puzzle: { questions: [
+          { type: 'pattern', items: [15, null, 15], missingIndex: 1, answer: 15 }
+        ] }
+      });
+    }
+  };
+  assert.equal(engine.check(), false, 'the superseded incorrect check does not pass');
+  assert.equal(engine.activity.id, 'puzzle-wrong-restart-target');
+  assert.equal(engine.userAnswer, null, 'the old incorrect answer does not leak into the replacement run');
+  context.EventManager.emit = previousEmit;
+
   console.log('Pattern and Spatial handler + PuzzleEngine lifecycle/reset/failure regression checks passed');
 })().catch(error => {
   console.error(error);
