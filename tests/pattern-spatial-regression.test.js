@@ -632,7 +632,8 @@ for (const axis of ['vertical', 'horizontal']) {
     activityPlayingCountBeforePuzzleStarted + 2,
     'replacement run publishes its normal start events, but the superseded run adds no activityPlaying');
   assert.equal(lifecycleEvents.slice(puzzleStartedEventIndex).filter(event =>
-    event.name === 'puzzleStarted').length, 1);
+    event.name === 'puzzleStarted').length, 2,
+    'source and replacement puzzles each publish their own puzzleStarted event');
   context.EventManager.emit = previousEmit;
 
   console.log('Pattern and Spatial handler + PuzzleEngine lifecycle/reset/failure regression checks passed');
