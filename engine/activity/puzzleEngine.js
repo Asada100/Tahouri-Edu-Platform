@@ -199,7 +199,7 @@ const PuzzleEngine = {
         }
     },
 
-    emitWrong: function () { if (typeof ScoreManager !== "undefined" && typeof ScoreManager.addWrong === "function") ScoreManager.addWrong(); EventManager.emit("puzzleWrong", this.getState()); },
+    emitWrong: function () { if (!this.puzzle || !this.state.started || this.state.isFinished || this.transitioning) return false; if (typeof ScoreManager !== "undefined" && typeof ScoreManager.addWrong === "function") ScoreManager.addWrong(); EventManager.emit("puzzleWrong", this.getState()); return true; },
     emitStarted: function () { EventManager.emit("puzzleStarted", this.puzzle); EventManager.emit("activityPlaying"); },
 
     finish: function () {
