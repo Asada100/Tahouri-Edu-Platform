@@ -208,7 +208,15 @@ const PuzzleEngine = {
         if (this.currentQuestion < this.questions.length) {
             this.transitioning = true;
             const nextState = this.startCurrentQuestion(true);
-            setTimeout(function () { PuzzleEngine.transitioning = false; }, 0);
+            if (!nextState) {
+                console.error("Puzzle Engine: Question transition failed; clearing incomplete activity.");
+                this.reset();
+                return false;
+            }
+            const engine = this;
+            setTimeout(function () {
+                if (engine.state.started && !engine.state.isFinished) engine.transitioning = false;
+            }, 0);
             return nextState;
         }
         return this.completeActivity();
