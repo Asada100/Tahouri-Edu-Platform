@@ -291,6 +291,51 @@ const SpatialPuzzle = {
             return this.start(engine, this.generateSymmetry(data));
         }
 
+        if (mode === "coordinatePlane") {
+            const validation = this.validateCoordinatePlaneData(data);
+            if (!validation.valid) {
+                console.error("Spatial Puzzle: Invalid Coordinate Plane Data", validation.reason);
+                return null;
+            }
+
+            const task = { ...data.task };
+            let answer = null;
+            if (task.kind === "readPoint" || task.kind === "placePoint") {
+                answer = { x: Number(task.target.x), y: Number(task.target.y) };
+            } else if (task.kind === "identifyPoint") {
+                answer = task.answerId === undefined || task.answerId === null
+                    ? null
+                    : String(task.answerId);
+                task.points = task.points.map(function (point) {
+                    return { ...point, id: String(point.id), x: Number(point.x), y: Number(point.y) };
+                });
+            }
+
+            if (answer === null) {
+                console.error("Spatial Puzzle: Coordinate Plane Answer Missing");
+                return null;
+            }
+
+            engine.puzzle = {
+                type: "spatial",
+                mode: "coordinatePlane",
+                source: data.source || "file",
+                instruction: data.instruction || (
+                    task.kind === "readPoint" ? "مختصات نقطه را مشخص کن." :
+                    task.kind === "placePoint" ? "نقطه خواسته‌شده را روی صفحه قرار بده." :
+                    "مختصات نقطه مشخص‌شده را انتخاب کن."
+                ),
+                coordinateSystem: { ...data.coordinateSystem },
+                task: task,
+                answer: answer,
+                hasUserMove: false
+            };
+            engine.items = [];
+            engine.userAnswer = null;
+            engine.emitStarted();
+            return engine.getState();
+        }
+
         const pieces = Array.isArray(data.pieces)
             ? [...data.pieces]
             : (Array.isArray(data.items) ? [...data.items] : []);
@@ -425,6 +470,29 @@ const SpatialPuzzle = {
     setAnswer: function (engine, value) {
         if (!engine.puzzle || engine.puzzle.type !== "spatial") return false;
 
+        if (engine.puzzle.mode === "coordinatePlane") {
+            if (!value || typeof value !== "object") return false;
+            const system = engine.puzzle.coordinateSystem;
+            if (engine.puzzle.task.kind === "identifyPoint") {
+                const id = String(value.id === undefined ? "" : value.id);
+                const point = (engine.puzzle.task.points || []).find(function (item) {
+                    return item.id === id;
+                });
+                if (!point) return false;
+                engine.userAnswer = id;
+            } else {
+                const snapped = this.snapCoordinatePoint(
+                    { x: Number(value.x), y: Number(value.y) },
+                    system
+                );
+                if (!snapped) return false;
+                engine.userAnswer = snapped;
+            }
+            engine.puzzle.hasUserMove = true;
+            engine.moves++;
+            return engine.emitChanged();
+        }
+
         if (engine.puzzle.mode === "place" || engine.puzzle.mode === "symmetry") {
             if (!value || value.pieceId === undefined) return false;
 
@@ -480,6 +548,11 @@ const SpatialPuzzle = {
 
     check: function (engine) {
         if (!engine.puzzle || engine.puzzle.type !== "spatial") return false;
+
+        if (engine.puzzle.mode === "coordinatePlane" && engine.puzzle.hasUserMove !== true) {
+            console.log("Spatial Puzzle: Coordinate Plane check blocked before user input.");
+            return false;
+        }
 
         if (engine.puzzle.mode === "place" || engine.puzzle.mode === "symmetry") {
             if (engine.puzzle.hasUserMove !== true) {
