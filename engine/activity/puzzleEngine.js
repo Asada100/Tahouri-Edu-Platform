@@ -172,7 +172,7 @@ const PuzzleEngine = {
     setCells: function (values) { if (!this.puzzle) return false; const handler = PuzzleTypeRegistry.get(this.puzzle.type); if (!handler || typeof handler.setCells !== "function") return false; return handler.setCells(this, values); },
 
     check: function () {
-        if (!this.puzzle || this.state.isFinished) return false;
+        if (!this.puzzle || !this.state.started || this.state.isFinished || this.checking || this.transitioning) return false;
         const handler = PuzzleTypeRegistry.get(this.puzzle.type);
         if (!handler || typeof handler.check !== "function") return false;
         this.checking = true;
