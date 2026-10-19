@@ -203,7 +203,17 @@ const PuzzleEngine = {
     },
 
     emitWrong: function () { if (!this.puzzle || !this.state.started || this.state.isFinished || this.transitioning) return false; if (typeof ScoreManager !== "undefined" && typeof ScoreManager.addWrong === "function") ScoreManager.addWrong(); EventManager.emit("puzzleWrong", this.getState()); return true; },
-    emitStarted: function () { EventManager.emit("puzzleStarted", this.puzzle); EventManager.emit("activityPlaying"); },
+    emitStarted: function () {
+        const requestId = this.startRequestId;
+        const activity = this.activity;
+        const puzzle = this.puzzle;
+        EventManager.emit("puzzleStarted", puzzle);
+        // Do not let the old run publish activityPlaying if a listener restarted it.
+        if (requestId !== this.startRequestId || this.activity !== activity ||
+            this.puzzle !== puzzle || !this.state.started || this.state.isFinished) return false;
+        EventManager.emit("activityPlaying");
+        return true;
+    },
 
     finish: function () {
         if (!this.checking) {
