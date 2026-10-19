@@ -21,7 +21,7 @@ const PuzzleEngine = {
 
     start: async function (activityData) {
         if (typeof ScoreManager !== "undefined" && typeof ScoreManager.reset === "function") ScoreManager.reset();
-        if (!activityData) { console.error("Puzzle Engine: Activity Data Missing"); return null; }
+        if (!activityData) { console.error("Puzzle Engine: Activity Data Missing"); this.reset(); return null; }
         this.activity = activityData;
         this.state.started = true;
         this.state.isFinished = false;
@@ -33,8 +33,8 @@ const PuzzleEngine = {
         this.items = [];
         this.userAnswer = null;
         this.moves = 0;
-        if (typeof QuestionProvider === "undefined") { console.error("Puzzle Engine: QuestionProvider Not Available"); this.state.started = false; return null; }
-        if (typeof PuzzleTypeRegistry === "undefined") { console.error("Puzzle Engine: PuzzleTypeRegistry Not Available"); this.state.started = false; return null; }
+        if (typeof QuestionProvider === "undefined") { console.error("Puzzle Engine: QuestionProvider Not Available"); this.reset(); return null; }
+        if (typeof PuzzleTypeRegistry === "undefined") { console.error("Puzzle Engine: PuzzleTypeRegistry Not Available"); this.reset(); return null; }
 
         const fileQuestions = this.getFileDefinedQuestions(activityData);
         let puzzleQuestions;
@@ -45,12 +45,12 @@ const PuzzleEngine = {
         } else {
             const providerActivity = this.prepareProviderActivity(activityData);
             try { puzzleQuestions = await QuestionProvider.getPuzzleQuestions(providerActivity); }
-            catch (error) { console.error("Puzzle Engine: QuestionProvider Error:", error); this.state.started = false; return null; }
+            catch (error) { console.error("Puzzle Engine: QuestionProvider Error:", error); this.reset(); return null; }
         }
 
-        if (!Array.isArray(puzzleQuestions) || puzzleQuestions.length === 0) { console.error("Puzzle Engine: No Puzzle Content Available"); this.state.started = false; return null; }
+        if (!Array.isArray(puzzleQuestions) || puzzleQuestions.length === 0) { console.error("Puzzle Engine: No Puzzle Content Available"); this.reset(); return null; }
         this.questions = puzzleQuestions.filter(Boolean);
-        if (this.questions.length === 0) { console.error("Puzzle Engine: No Valid Puzzle Questions"); this.state.started = false; return null; }
+        if (this.questions.length === 0) { console.error("Puzzle Engine: No Valid Puzzle Questions"); this.reset(); return null; }
         console.log("Puzzle Questions Ready:", this.questions.length);
         const firstQuestion = this.startCurrentQuestion(false);
         if (!firstQuestion) {
