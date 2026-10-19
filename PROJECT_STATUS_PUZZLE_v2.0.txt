@@ -224,9 +224,9 @@ Spatial:
 CI:
 - Workflow: .github/workflows/pattern-spatial-regression.yml
 - Latest verified run:
-  https://github.com/Asada100/Tahouri-Edu-Platform/actions/runs/39303296725
+  https://github.com/Asada100/Tahouri-Edu-Platform/actions/runs/39303450322
 - Result: PASS
-- Additional validation: duplicate piece IDs are rejected before a Spatial Place/Symmetry activity starts.
+- Additional validation: duplicate piece IDs, duplicate targets, invalid grids, placement swaps and numeric/text Pattern answers are covered by regression tests.
 
 Audit report:
 docs/PATTERN_SPATIAL_AUDIT_v1.0.md
