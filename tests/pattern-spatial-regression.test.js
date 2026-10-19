@@ -605,6 +605,12 @@ for (const axis of ['vertical', 'horizontal']) {
   context.EventManager.emit = previousEmit;
 
   // Restarting inside puzzleStarted must suppress activityPlaying from the old run.
+  await engine.start({
+    id: 'puzzle-started-restart-source',
+    puzzle: { questions: [
+      { type: 'pattern', items: [10, null, 10], missingIndex: 1, answer: 10 }
+    ] }
+  });
   const puzzleStartedEventIndex = lifecycleEvents.length;
   const activityPlayingCountBeforePuzzleStarted = lifecycleEvents.filter(event => event.name === 'activityPlaying').length;
   let restartOnPuzzleStarted = true;
@@ -620,12 +626,6 @@ for (const axis of ['vertical', 'horizontal']) {
       });
     }
   };
-  await engine.start({
-    id: 'puzzle-started-restart-source',
-    puzzle: { questions: [
-      { type: 'pattern', items: [10, null, 10], missingIndex: 1, answer: 10 }
-    ] }
-  });
   engine.emitStarted();
   assert.equal(engine.activity.id, 'puzzle-started-restart-target');
   assert.equal(lifecycleEvents.filter(event => event.name === 'activityPlaying').length,
