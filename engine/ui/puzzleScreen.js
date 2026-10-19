@@ -120,9 +120,22 @@ const PuzzleScreen = {
         }
 
 
-        const result =
-            payload.result;
+        const engine = payload.engine;
+        if (
+            !engine ||
+            typeof PuzzleEngine === "undefined" ||
+            engine !== PuzzleEngine ||
+            !engine.state ||
+            !engine.state.started ||
+            engine.state.isFinished ||
+            engine.activity !== payload.activity ||
+            engine.currentQuestion !== payload.questionIndex ||
+            !engine.puzzle
+        ) {
+            return;
+        }
 
+        const result = payload.result;
 
         if (!result) {
 
