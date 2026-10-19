@@ -307,6 +307,10 @@ const PuzzleScreen = {
     // =====================================
 
     showSpatial: function (state) {
+        if (state && state.mode === "coordinatePlane") {
+            this.showCoordinatePlane(state);
+            return;
+        }
         if (state && state.mode === "place") {
             this.showSpatialPlace(state);
             return;
@@ -318,6 +322,54 @@ const PuzzleScreen = {
         }
 
         this.showSpatialLegacy(state);
+    },
+
+
+    showCoordinatePlane: function (state) {
+        const app = this.getApp();
+        if (!app) return;
+        const system = state.coordinateSystem;
+        const task = state.task || {};
+        if (!system || typeof SpatialPuzzle === "undefined") {
+            app.innerHTML = "<div class='screen puzzleScreen'><p>اطلاعات صفحه مختصات معتبر نیست.</p></div>";
+            return;
+        }
+
+        const width = 360, height = 300;
+        const viewport = { left: 30, top: 20, width: 300, height: 250 };
+        const xMin = Number(system.xMin), xMax = Number(system.xMax);
+        const yMin = Number(system.yMin), yMax = Number(system.yMax);
+        const step = Number(system.unitStep);
+        const toPixel = function (point) {
+            return SpatialPuzzle.mathToPixel(point, system, viewport);
+        };
+        const lines = [];
+        for (let x = xMin; x <= xMax + 1e-8; x += step) {
+            const p = toPixel({ x: x, y: yMin });
+            if (p) lines.push("<line x1='" + p.x + "' y1='" + viewport.top + "' x2='" + p.x + "' y2='" + (viewport.top + viewport.height) + "' stroke='#dbe3ec' />");
+        }
+        for (let y = yMin; y <= yMax + 1e-8; y += step) {
+            const p = toPixel({ x: xMin, y: y });
+            if (p) lines.push("<line x1='" + viewport.left + "' y1='" + p.y + "' x2='" + (viewport.left + viewport.width) + "' y2='" + p.y + "' stroke='#dbe3ec' />");
+        }
+
+        const xa = toPixel({ x: xMin, y: 0 }), xb = toPixel({ x: xMax, y: 0 });
+        const ya = toPixel({ x: 0, y: yMin }), yb = toPixel({ x: 0, y: yMax });
+        if (xa && xb) lines.push("<line x1='" + xa.x + "' y1='" + xa.y + "' x2='" + xb.x + "' y2='" + xb.y + "' stroke='#334155' stroke-width='2' />");
+        if (ya && yb) lines.push("<line x1='" + ya.x + "' y1='" + ya.y + "' x2='" + yb.x + "' y2='" + yb.y + "' stroke='#334155' stroke-width='2' />");
+
+        let markers = "";
+        if (task.kind === "readPoint" && task.target) {
+            const p = toPixel(task.target);
+            if (p) markers = "<circle cx='" + p.x + "' cy='" + p.y + "' r='6' fill='#2563eb' /><text x='" + (p.x + 8) + "' y='" + (p.y - 8) + "' font-size='12' fill='#1d4ed8'>A</text>";
+        } else if (task.kind === "identifyPoint" && Array.isArray(task.points)) {
+            markers = task.points.map(function (point) {
+                const p = toPixel(point);
+                return p ? "<circle cx='" + p.x + "' cy='" + p.y + "' r='5' fill='#2563eb' /><text x='" + (p.x + 7) + "' y='" + (p.y - 7) + "' font-size='12' fill='#1d4ed8'>" + PuzzleScreen.escapeHTML(point.label || point.id) + "</text>" : "";
+            }).join("");
+        }
+
+        app.innerHTML = "<div class='screen puzzleScreen spatialScreen coordinatePlaneScreen' dir='rtl'><h1>صفحه مختصات</h1><p class='puzzleInstruction'>" + PuzzleScreen.escapeHTML(state.instruction || "نقاط و محورهای مختصات را بررسی کن.") + "</p><div class='coordinatePlaneCanvas'><svg viewBox='0 0 " + width + " " + height + "' role='img' aria-label='صفحه مختصات'>" + lines.join("") + markers + "</svg></div><p class='coordinatePlaneStatus'>" + (task.kind === "placePoint" ? "نمایش محورها آماده است؛ انتخاب نقطه در مرحله بعد فعال می‌شود." : "محورها و نقاط تمرین نمایش داده شده‌اند.") + "</p>" + this.renderStandardFooter(state.moves) + "</div><style>.coordinatePlaneCanvas{width:100%;max-width:480px;margin:16px auto;padding:8px;box-sizing:border-box;background:#fff;border:1px solid #dbe3ec;border-radius:14px}.coordinatePlaneCanvas svg{display:block;width:100%;height:auto}.coordinatePlaneStatus{text-align:center;color:#475569;font-size:14px}</style>";
     },
 
 
