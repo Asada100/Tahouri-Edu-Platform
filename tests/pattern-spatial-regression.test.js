@@ -477,6 +477,11 @@ for (const axis of ['vertical', 'horizontal']) {
   assert.equal(scores.wrong, 0);
 
   // PuzzleScreen must ignore stale ready events from another question or activity.
+  context.document = {
+    getElementById() { return null; },
+    createElement() { return { id: '', textContent: '' }; },
+    head: { appendChild() {} }
+  };
   vm.runInNewContext(fs.readFileSync('engine/ui/puzzleScreen.js', 'utf8'), context, {
     filename: 'engine/ui/puzzleScreen.js'
   });
