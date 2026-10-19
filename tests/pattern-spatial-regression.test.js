@@ -476,6 +476,36 @@ for (const axis of ['vertical', 'horizontal']) {
   assert.equal(scores.correct, 0);
   assert.equal(scores.wrong, 0);
 
+  // PuzzleScreen must ignore stale ready events from another question or activity.
+  vm.runInNewContext(fs.readFileSync('engine/ui/puzzleScreen.js', 'utf8'), context, {
+    filename: 'engine/ui/puzzleScreen.js'
+  });
+  let renderedState = null;
+  context.PuzzleScreen.show = state => { renderedState = state; };
+  const currentReadyPayload = {
+    activity: engine.activity,
+    engine,
+    engineName: 'PuzzleEngine',
+    questionIndex: engine.currentQuestion,
+    result: engine.getState()
+  };
+  context.PuzzleScreen.handleActivityReady(currentReadyPayload);
+  assert.ok(renderedState, 'current activityReady event renders its question');
+  renderedState = null;
+  context.PuzzleScreen.handleActivityReady({
+    ...currentReadyPayload,
+    questionIndex: engine.currentQuestion + 1
+  });
+  assert.equal(renderedState, null, 'stale question ready event is ignored');
+  context.PuzzleScreen.handleActivityReady({
+    ...currentReadyPayload,
+    activity: { id: 'old-activity' }
+  });
+  assert.equal(renderedState, null, 'ready event for a different activity is ignored');
+  engine.reset();
+  context.PuzzleScreen.handleActivityReady(currentReadyPayload);
+  assert.equal(renderedState, null, 'ready event after reset is ignored');
+
   console.log('Pattern and Spatial handler + PuzzleEngine lifecycle/reset/failure regression checks passed');
 })().catch(error => {
   console.error(error);
