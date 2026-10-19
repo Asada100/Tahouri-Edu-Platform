@@ -442,6 +442,40 @@ for (const axis of ['vertical', 'horizontal']) {
   assert.equal(scores.correct, 0);
   assert.equal(scores.wrong, 0);
 
+  // A slow, stale provider response must not overwrite a newer activity.
+  let resolveStaleQuestions;
+  context.QuestionProvider = {
+    getPuzzleQuestions() {
+      return new Promise(resolve => { resolveStaleQuestions = resolve; });
+    }
+  };
+  const staleStartPromise = engine.start({
+    id: 'stale-async-start',
+    puzzle: { type: 'pattern' }
+  });
+  const newerActivity = {
+    id: 'newer-file-activity',
+    title: 'Newer activity',
+    puzzle: { questions: [
+      { type: 'pattern', items: [8, null, 8], missingIndex: 1, answer: 8 }
+    ] }
+  };
+  const newerStart = await engine.start(newerActivity);
+  assert.equal(newerStart.type, 'pattern');
+  assert.equal(engine.activity.id, 'newer-file-activity');
+  resolveStaleQuestions([
+    { type: 'pattern', items: [2, null, 2], missingIndex: 1, answer: 2 }
+  ]);
+  assert.equal(await staleStartPromise, null, 'stale asynchronous start is discarded');
+  assert.equal(engine.activity.id, 'newer-file-activity', 'stale response cannot replace the newer activity');
+  assert.equal(engine.puzzle.answer, 8);
+  assert.equal(engine.state.started, true);
+  assert.equal(engine.state.isFinished, false);
+  assert.equal(engine.currentQuestion, 0);
+  assert.equal(scores.score, 0);
+  assert.equal(scores.correct, 0);
+  assert.equal(scores.wrong, 0);
+
   console.log('Pattern and Spatial handler + PuzzleEngine lifecycle/reset/failure regression checks passed');
 })().catch(error => {
   console.error(error);
