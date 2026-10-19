@@ -874,12 +874,14 @@ transform:translateX(-50%) translateY(0);
   .wp-tree-art{object-fit:contain;}
 }
 
-/* Mobile: let the family-tree image use nearly the full phone width */
+/* Mobile: reduce card side padding so the tree image uses the available phone width */
 @media(max-width:520px){
+  .wp-tree-card{padding-left:4px!important;padding-right:4px!important;}
   .wp-tree-illustration{
-    width:calc(100vw - 16px);
-    max-width:none;
-    margin-left:calc((100% - (100vw - 16px))/2);
-    margin-right:calc((100% - (100vw - 16px))/2);
+    display:block;
+    width:100%!important;
+    max-width:none!important;
+    margin-left:0!important;
+    margin-right:0!important;
   }
 }
