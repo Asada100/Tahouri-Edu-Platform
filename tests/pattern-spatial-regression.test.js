@@ -273,7 +273,18 @@ for (const axis of ['vertical', 'horizontal']) {
   const resultEvents = lifecycleEvents.filter(event =>
     event.name === 'activityFinished' || event.name === 'puzzleFinished');
   assert.equal(resultEvents.length, 2, 'completion emits each final event exactly once');
-  const result = resultEvents.find(event => event.name === 'activityFinished').payload;
+  const puzzleFinishedEvent = resultEvents.find(event => event.name === 'puzzleFinished');
+  const activityFinishedEvent = resultEvents.find(event => event.name === 'activityFinished');
+  assert.ok(puzzleFinishedEvent && activityFinishedEvent, 'both public completion events are emitted');
+  assert.ok(resultEvents.indexOf(puzzleFinishedEvent) < resultEvents.indexOf(activityFinishedEvent),
+    'puzzleFinished is emitted before activityFinished');
+  const result = activityFinishedEvent.payload;
+  assert.equal(puzzleFinishedEvent.payload.activityId, result.activityId,
+    'both completion events refer to the same activity');
+  assert.equal(puzzleFinishedEvent.payload.score, result.score,
+    'both completion events publish the same final score');
+  assert.equal(puzzleFinishedEvent.payload.percentage, result.percentage,
+    'both completion events publish the same final percentage');
   assert.equal(result.totalQuestions, 2);
   assert.equal(result.correctAnswers, 2);
   assert.equal(result.wrongAnswers, 2, 'final result includes wrong attempts');
