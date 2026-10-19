@@ -691,6 +691,48 @@ for (const axis of ['vertical', 'horizontal']) {
   assert.equal(engine.userAnswer, null, 'the old incorrect answer does not leak into the replacement run');
   context.EventManager.emit = previousEmit;
 
+  // Restarting from puzzleStarted while a transition initializes its next question must
+  // suppress stale activityReady and must not let failed transition cleanup reset the new run.
+  const readyRestartStart = lifecycleEvents.length;
+  await engine.start({
+    id: 'transition-ready-restart-source',
+    puzzle: { questions: [
+      { type: 'pattern', items: [20, null, 20], missingIndex: 1, answer: 20 },
+      { type: 'pattern', items: [21, null, 21], missingIndex: 1, answer: 21 }
+    ] }
+  });
+  const readyCountBeforeTransition = lifecycleEvents.filter(event =>
+    event.name === 'activityReady' && event.payload?.activity?.id === 'transition-ready-restart-source').length;
+  let restartDuringNextPuzzleStart = true;
+  context.EventManager.emit = function (name, payload) {
+    previousEmit.call(this, name, payload);
+    if (name === 'puzzleStarted' && restartDuringNextPuzzleStart) {
+      restartDuringNextPuzzleStart = false;
+      void engine.start({
+        id: 'transition-ready-restart-target',
+        puzzle: { questions: [
+          { type: 'pattern', items: [22, null, 22], missingIndex: 1, answer: 22 }
+        ] }
+      });
+    }
+  };
+  engine.setTypeAnswer(20);
+  assert.equal(engine.check(), false,
+    'a superseded transition does not report completion of the source check');
+  assert.equal(engine.activity.id, 'transition-ready-restart-target',
+    'failed transition cleanup cannot reset the replacement activity');
+  assert.equal(engine.state.started, true);
+  assert.equal(engine.puzzle.answer, 22);
+  assert.equal(lifecycleEvents.filter(event =>
+    event.name === 'activityReady' && event.payload?.activity?.id === 'transition-ready-restart-source').length,
+    readyCountBeforeTransition,
+    'superseded source question does not publish a stale activityReady event');
+  assert.equal(lifecycleEvents.slice(readyRestartStart).filter(event =>
+    event.name === 'activityStarted' && event.payload?.id === 'transition-ready-restart-source').length,
+    1, 'only the initial source start event is emitted');
+  assert.equal(scores.score, 0, 'replacement run retains its clean score after stale transition');
+  context.EventManager.emit = previousEmit;
+
   console.log('Pattern and Spatial handler + PuzzleEngine lifecycle/reset/failure regression checks passed');
 })().catch(error => {
   console.error(error);
