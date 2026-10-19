@@ -326,6 +326,20 @@ for (const axis of ['vertical', 'horizontal']) {
   assert.equal(scores.score, 0, 'reset clears score');
   assert.equal(scores.correct, 0, 'reset clears correct count');
   assert.equal(scores.wrong, 0, 'reset clears wrong count');
+  const eventsAfterReset = lifecycleEvents.length;
+  assert.equal(engine.setOrder([3, 2, 1]), false, 'ordering input is rejected after reset');
+  assert.equal(engine.setSequenceAnswer(4), false, 'sequence input is rejected after reset');
+  assert.equal(engine.setVisualMathAnswer(4), false, 'visual math input is rejected after reset');
+  assert.equal(engine.setGenericAnswer(4), false, 'generic input is rejected after reset');
+  assert.equal(engine.setTypeAnswer(4), false, 'typed input is rejected after reset');
+  assert.equal(engine.setCell(0, 4), false, 'cell input is rejected after reset');
+  assert.equal(engine.setCells([4]), false, 'bulk cell input is rejected after reset');
+  assert.equal(engine.check(), false, 'answer check is rejected after reset');
+  assert.equal(engine.moves, 0, 'rejected input cannot change move count');
+  assert.equal(engine.userAnswer, null, 'rejected input cannot set an answer');
+  assert.equal(lifecycleEvents.length, eventsAfterReset, 'rejected input emits no puzzle events');
+  assert.equal(scores.score, 0, 'rejected input cannot change score');
+
 
   // Even a failed start must not leak the previous run's score.
   scores.score = 70;
