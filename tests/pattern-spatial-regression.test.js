@@ -102,6 +102,59 @@ assert.ok(registered.spatial, 'Spatial handler registers');
 }
 
 
+// Coordinate Plane transforms: math y increases upward while screen y increases downward.
+{
+  const handler = registered.spatial;
+  const system = { xMin: -4, xMax: 4, yMin: -3, yMax: 3, unitStep: 1 };
+  const viewport = { left: 10, right: 810, top: 20, bottom: 620 };
+  const originPixel = handler.mathToPixel({ x: 0, y: 0 }, system, viewport);
+  assert.deepEqual(JSON.parse(JSON.stringify(originPixel)), { x: 410, y: 320 });
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(handler.mathToPixel({ x: -4, y: 3 }, system, viewport))),
+    { x: 10, y: 20 },
+    'negative x and positive y map to top-left'
+  );
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(handler.mathToPixel({ x: 4, y: -3 }, system, viewport))),
+    { x: 810, y: 620 },
+    'positive x and negative y map to bottom-right'
+  );
+
+  for (const point of [
+    { x: -4, y: -3 }, { x: -2, y: 3 }, { x: 0, y: 0 }, { x: 3, y: -1 }
+  ]) {
+    const pixel = handler.mathToPixel(point, system, viewport);
+    const roundTrip = handler.pixelToMath(pixel, system, viewport);
+    assert.ok(Math.abs(roundTrip.x - point.x) < 1e-9, 'x round-trip preserves math coordinate');
+    assert.ok(Math.abs(roundTrip.y - point.y) < 1e-9, 'y round-trip preserves math coordinate');
+  }
+
+  const resizedViewport = { left: 0, right: 320, top: 0, bottom: 240 };
+  const resizedOrigin = handler.mathToPixel({ x: 0, y: 0 }, system, resizedViewport);
+  assert.deepEqual(JSON.parse(JSON.stringify(resizedOrigin)), { x: 160, y: 120 },
+    'resizing changes pixel coordinates, not mathematical coordinates');
+  assert.equal(handler.mathToPixel({ x: 5, y: 0 }, system, viewport), null,
+    'math points outside bounds are rejected');
+  assert.equal(handler.pixelToMath({ x: 811, y: 100 }, system, viewport), null,
+    'pixels outside viewport are rejected');
+
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(handler.snapCoordinatePoint({ x: -1.6, y: 2.4 }, system))),
+    { x: -2, y: 2 },
+    'point snapping uses grid step around negative and positive values'
+  );
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(handler.snapCoordinatePoint({ x: 4, y: -3 }, system))),
+    { x: 4, y: -3 },
+    'boundary grid points remain valid'
+  );
+  assert.equal(handler.snapCoordinatePoint({ x: 4.1, y: 0 }, system), null,
+    'snapping never clamps out-of-range points');
+  assert.equal(handler.snapCoordinatePoint({ x: 0, y: 0 }, { ...system, unitStep: 0 }), null,
+    'snapping rejects invalid step');
+}
+
+
 // Pattern: valid setup, answer replacement, correct/wrong evaluation and invalid data.
 {
   const engine = makeEngine();
