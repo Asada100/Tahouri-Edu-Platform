@@ -382,7 +382,7 @@ for (const axis of ['vertical', 'horizontal']) {
   const firstTransitionQuestion = await engine.start(failedTransitionActivity);
   assert.equal(firstTransitionQuestion.type, 'pattern');
   engine.setTypeAnswer(3);
-  assert.equal(engine.check(), false, 'failed next-question setup does not report a successful transition');
+  assert.equal(engine.check(), true, 'the submitted answer is correct even though advancing to the next question fails');
   assert.equal(engine.state.started, false, 'failed transition deactivates the engine');
   assert.equal(engine.state.isFinished, false, 'failed transition is not reported as completed');
   assert.equal(engine.activity, null);
