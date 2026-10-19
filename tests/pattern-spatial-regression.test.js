@@ -604,6 +604,37 @@ for (const axis of ['vertical', 'horizontal']) {
     0, 'source run cannot publish activityFinished after a listener starts a new run');
   context.EventManager.emit = previousEmit;
 
+  // Restarting inside puzzleStarted must suppress activityPlaying from the old run.
+  const puzzleStartedEventIndex = lifecycleEvents.length;
+  const activityPlayingCountBeforePuzzleStarted = lifecycleEvents.filter(event => event.name === 'activityPlaying').length;
+  let restartOnPuzzleStarted = true;
+  context.EventManager.emit = function (name, payload) {
+    previousEmit.call(this, name, payload);
+    if (name === 'puzzleStarted' && restartOnPuzzleStarted) {
+      restartOnPuzzleStarted = false;
+      void engine.start({
+        id: 'puzzle-started-restart-target',
+        puzzle: { questions: [
+          { type: 'pattern', items: [11, null, 11], missingIndex: 1, answer: 11 }
+        ] }
+      });
+    }
+  };
+  await engine.start({
+    id: 'puzzle-started-restart-source',
+    puzzle: { questions: [
+      { type: 'pattern', items: [10, null, 10], missingIndex: 1, answer: 10 }
+    ] }
+  });
+  engine.emitStarted();
+  assert.equal(engine.activity.id, 'puzzle-started-restart-target');
+  assert.equal(lifecycleEvents.filter(event => event.name === 'activityPlaying').length,
+    activityPlayingCountBeforePuzzleStarted + 1,
+    'only the replacement run publishes activityPlaying after puzzleStarted triggers restart');
+  assert.equal(lifecycleEvents.slice(puzzleStartedEventIndex).filter(event =>
+    event.name === 'puzzleStarted').length, 1);
+  context.EventManager.emit = previousEmit;
+
   console.log('Pattern and Spatial handler + PuzzleEngine lifecycle/reset/failure regression checks passed');
 })().catch(error => {
   console.error(error);
