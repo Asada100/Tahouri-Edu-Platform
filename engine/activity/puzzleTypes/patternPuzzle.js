@@ -42,7 +42,7 @@ const PatternPuzzle = {
         engine.userAnswer = value;
         engine.items[engine.puzzle.missingIndex] = value;
         engine.moves++;
-        EventManager.emit("puzzleChanged", engine.getState());
+        return engine.emitChanged();
         return true;
     },
 
