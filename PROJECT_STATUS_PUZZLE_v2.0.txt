@@ -240,3 +240,10 @@ Architecture decision:
 ========================================
 END SUPPLEMENT
 ========================================
+
+
+SUPPLEMENT — SPATIAL UI CLEANUP 2026-10-19
+- Spatial drag now cleans up temporary listeners and the drag ghost on pointercancel.
+- Removed the shadowed duplicate showSpatialSymmetry renderer; one active implementation remains.
+- CI passed: https://github.com/Asada100/Tahouri-Edu-Platform/actions/runs/39312358315
+- Actual mobile/browser interaction still needs practical verification.
