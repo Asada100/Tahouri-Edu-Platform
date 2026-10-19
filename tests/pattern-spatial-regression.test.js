@@ -368,6 +368,40 @@ for (const axis of ['vertical', 'horizontal']) {
   assert.equal(lifecycleEvents.filter(event => event.name === 'activityStarted').length,
     startedEventsBeforeInvalidHandler, 'failed start does not emit activityStarted');
 
+  // A failed transition must abort cleanly rather than leave a half-active activity.
+  const startedBeforeTransitionFailure = lifecycleEvents.filter(event => event.name === 'activityStarted').length;
+  const finishedBeforeTransitionFailure = lifecycleEvents.filter(event => event.name === 'activityFinished').length;
+  const failedTransitionActivity = {
+    id: 'failed-transition-test',
+    title: 'Failed transition test',
+    puzzle: { questions: [
+      { type: 'pattern', items: [3, null, 3], missingIndex: 1, answer: 3 },
+      { type: 'notRegisteredPuzzleType' }
+    ] }
+  };
+  const firstTransitionQuestion = await engine.start(failedTransitionActivity);
+  assert.equal(firstTransitionQuestion.type, 'pattern');
+  engine.setTypeAnswer(3);
+  assert.equal(engine.check(), false, 'failed next-question setup does not report a successful transition');
+  assert.equal(engine.state.started, false, 'failed transition deactivates the engine');
+  assert.equal(engine.state.isFinished, false, 'failed transition is not reported as completed');
+  assert.equal(engine.activity, null);
+  assert.equal(engine.puzzle, null);
+  assert.deepEqual(Array.from(engine.questions), []);
+  assert.equal(engine.currentQuestion, 0);
+  assert.deepEqual(Array.from(engine.items), []);
+  assert.equal(engine.userAnswer, null);
+  assert.equal(engine.moves, 0);
+  assert.equal(engine.transitioning, false);
+  assert.equal(engine.checking, false);
+  assert.equal(scores.score, 0, 'partial score is cleared after failed transition');
+  assert.equal(scores.correct, 0);
+  assert.equal(scores.wrong, 0);
+  assert.equal(lifecycleEvents.filter(event => event.name === 'activityStarted').length,
+    startedBeforeTransitionFailure + 1, 'only the initial start event is emitted');
+  assert.equal(lifecycleEvents.filter(event => event.name === 'activityFinished').length,
+    finishedBeforeTransitionFailure, 'incomplete activity does not emit a finished event');
+
   console.log('Pattern and Spatial handler + PuzzleEngine lifecycle/reset/failure regression checks passed');
 })().catch(error => {
   console.error(error);
