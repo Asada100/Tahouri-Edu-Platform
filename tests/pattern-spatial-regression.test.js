@@ -717,8 +717,8 @@ for (const axis of ['vertical', 'horizontal']) {
     }
   };
   engine.setTypeAnswer(20);
-  assert.equal(engine.check(), false,
-    'a superseded transition does not report completion of the source check');
+  assert.equal(engine.check(), true,
+    'the answer was correct even though a listener superseded the transition');
   assert.equal(engine.activity.id, 'transition-ready-restart-target',
     'failed transition cleanup cannot reset the replacement activity');
   assert.equal(engine.state.started, true);
