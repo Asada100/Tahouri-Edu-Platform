@@ -59,6 +59,8 @@ const PuzzleEngine = {
         console.log("Puzzle Questions Ready:", this.questions.length);
         const firstQuestion = this.startCurrentQuestion(false);
         if (!firstQuestion) {
+            // A handler listener may have started a replacement activity; never reset it.
+            if (requestId !== this.startRequestId || this.activity !== activityData) return null;
             this.reset();
             return null;
         }
@@ -127,6 +129,8 @@ const PuzzleEngine = {
     },
 
     startCurrentQuestion: function (publishReady) {
+        const requestId = this.startRequestId;
+        const activity = this.activity;
         if (this.currentQuestion >= this.questions.length) { this.completeActivity(); return null; }
         this.puzzle = null;
         this.items = [];
@@ -144,6 +148,10 @@ const PuzzleEngine = {
             return null;
         }
         if (!result) { console.error("Puzzle Engine: Puzzle Handler Failed:", puzzle.type); return null; }
+        // Puzzle handlers may synchronously emit events whose listeners restart the engine.
+        // Do not publish readiness for the superseded run after that happens.
+        if (requestId !== this.startRequestId || this.activity !== activity ||
+            !this.state.started || this.puzzle !== puzzle) return null;
         if (publishReady) this.emitCurrentQuestionReady();
         return result;
     },
@@ -251,13 +259,13 @@ const PuzzleEngine = {
             const runRequestId = this.startRequestId;
             const activity = this.activity;
             const nextState = this.startCurrentQuestion(true);
+            // A handler or readiness listener can synchronously restart the engine.
+            if (runRequestId !== this.startRequestId || this.activity !== activity || !this.state.started) return false;
             if (!nextState) {
                 console.error("Puzzle Engine: Question transition failed; clearing incomplete activity.");
                 this.reset();
                 return false;
             }
-            // activityReady listeners can synchronously restart the engine.
-            if (runRequestId !== this.startRequestId || this.activity !== activity || !this.state.started) return false;
             const engine = this;
             setTimeout(function () {
                 if (engine.transitionRequestId === transitionRequestId &&
