@@ -892,6 +892,45 @@ for (const axis of ['vertical', 'horizontal']) {
   assert.equal(scores.score, 0, 'replacement run retains its clean score after stale transition');
   context.EventManager.emit = previousEmit;
 
+
+
+  // Coordinate-plane handler accepts validated tasks and routes answers through the
+  // same Spatial handler check path, without requiring a row/column grid.
+  {
+    const handler = registered.spatial;
+    const emittedBefore = emitted.length;
+    const engine = {
+      puzzle: null, items: [], userAnswer: null, moves: 0,
+      emitStarted() {},
+      emitChanged() { return true; },
+      emitWrong() { this.wrong = true; return false; },
+      finish() { this.finished = true; return true; },
+      valuesEqual(a, b) {
+        if (a && b && typeof a === 'object' && typeof b === 'object') {
+          return a.x === b.x && a.y === b.y;
+        }
+        return a === b;
+      },
+      getState() { return { type: this.puzzle.type, mode: this.puzzle.mode }; }
+    };
+    const data = {
+      type: 'spatial', mode: 'coordinatePlane',
+      coordinateSystem: { xMin: -4, xMax: 4, yMin: -3, yMax: 3, unitStep: 1 },
+      task: { kind: 'placePoint', target: { x: -2, y: 3 } }
+    };
+    assert.equal(handler.start(engine, data).mode, 'coordinatePlane');
+    assert.equal(handler.setAnswer(engine, { x: -2.2, y: 2.8 }), true);
+    assert.deepEqual(engine.userAnswer, { x: -2, y: 3 });
+    assert.equal(handler.check(engine), true);
+    assert.equal(engine.finished, true);
+
+    const invalidEngine = { ...engine, puzzle: null, userAnswer: null, finished: false };
+    assert.equal(handler.start(invalidEngine, {
+      ...data, coordinateSystem: { ...data.coordinateSystem, unitStep: 0 }
+    }), null);
+    assert.equal(emitted.length, emittedBefore);
+  }
+
   console.log('Pattern and Spatial handler + PuzzleEngine lifecycle/reset/failure regression checks passed');
 })().catch(error => {
   console.error(error);
