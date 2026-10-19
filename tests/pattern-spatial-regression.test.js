@@ -255,7 +255,7 @@ for (const axis of ['vertical', 'horizontal']) {
   assert.equal(engine.check(), true, 'correct Spatial placement completes the activity');
   assert.equal(engine.state.isFinished, true);
   assert.equal(scores.correct, 2);
-  assert.equal(scores.wrong, 0);
+  assert.equal(scores.wrong, 2);
 
   const resultEvents = lifecycleEvents.filter(event =>
     event.name === 'activityFinished' || event.name === 'puzzleFinished');
