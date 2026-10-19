@@ -402,6 +402,46 @@ for (const axis of ['vertical', 'horizontal']) {
   assert.equal(lifecycleEvents.filter(event => event.name === 'activityFinished').length,
     finishedBeforeTransitionFailure, 'incomplete activity does not emit a finished event');
 
+  // Missing activity data must not leave the previous activity attached.
+  const beforeMissingData = await engine.start({
+    id: 'missing-data-cleanup-test',
+    puzzle: { questions: [
+      { type: 'pattern', items: [4, null, 4], missingIndex: 1, answer: 4 }
+    ] }
+  });
+  assert.equal(beforeMissingData.type, 'pattern');
+  scores.score = 30;
+  scores.correct = 3;
+  const missingDataStart = await engine.start(null);
+  assert.equal(missingDataStart, null);
+  assert.equal(engine.state.started, false);
+  assert.equal(engine.activity, null);
+  assert.equal(engine.puzzle, null);
+  assert.deepEqual(Array.from(engine.questions), []);
+  assert.equal(engine.currentQuestion, 0);
+  assert.equal(engine.transitioning, false);
+  assert.equal(engine.checking, false);
+  assert.equal(scores.score, 0);
+  assert.equal(scores.correct, 0);
+  assert.equal(scores.wrong, 0);
+
+  // Provider exceptions must also leave no partial startup state.
+  context.QuestionProvider = { async getPuzzleQuestions() { throw new Error('provider test failure'); } };
+  scores.score = 20;
+  scores.correct = 2;
+  const providerFailure = await engine.start({ id: 'provider-failure-test', puzzle: { type: 'pattern' } });
+  assert.equal(providerFailure, null);
+  assert.equal(engine.state.started, false);
+  assert.equal(engine.activity, null);
+  assert.equal(engine.puzzle, null);
+  assert.deepEqual(Array.from(engine.questions), []);
+  assert.equal(engine.currentQuestion, 0);
+  assert.equal(engine.transitioning, false);
+  assert.equal(engine.checking, false);
+  assert.equal(scores.score, 0);
+  assert.equal(scores.correct, 0);
+  assert.equal(scores.wrong, 0);
+
   console.log('Pattern and Spatial handler + PuzzleEngine lifecycle/reset/failure regression checks passed');
 })().catch(error => {
   console.error(error);
