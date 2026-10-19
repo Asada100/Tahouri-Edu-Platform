@@ -20,6 +20,7 @@ const PuzzleEngine = {
     checking: false,
 
     start: async function (activityData) {
+        if (typeof ScoreManager !== "undefined" && typeof ScoreManager.reset === "function") ScoreManager.reset();
         if (!activityData) { console.error("Puzzle Engine: Activity Data Missing"); return null; }
         this.activity = activityData;
         this.state.started = true;
@@ -50,7 +51,6 @@ const PuzzleEngine = {
         if (!Array.isArray(puzzleQuestions) || puzzleQuestions.length === 0) { console.error("Puzzle Engine: No Puzzle Content Available"); this.state.started = false; return null; }
         this.questions = puzzleQuestions.filter(Boolean);
         if (this.questions.length === 0) { console.error("Puzzle Engine: No Valid Puzzle Questions"); this.state.started = false; return null; }
-        if (typeof ScoreManager !== "undefined" && typeof ScoreManager.reset === "function") ScoreManager.reset();
         EventManager.emit("activityStarted", activityData);
         EventManager.emit("activityPlaying");
         console.log("Puzzle Questions Ready:", this.questions.length);
@@ -222,7 +222,7 @@ const PuzzleEngine = {
         return ActivityResult.create({ activityId: this.activity ? this.activity.id : null, score: score, percentage: percentage, totalQuestions: total, correctAnswers: correct, wrongAnswers: wrong, moves: this.moves, message: "🎉 پازل تمام شد" });
     },
 
-    reset: function () { this.state.started = false; this.state.isFinished = false; this.activity = null; this.puzzle = null; this.questions = []; this.currentQuestion = 0; this.items = []; this.userAnswer = null; this.moves = 0; this.transitioning = false; this.checking = false; },
+    reset: function () { this.state.started = false; this.state.isFinished = false; this.activity = null; this.puzzle = null; this.questions = []; this.currentQuestion = 0; this.items = []; this.userAnswer = null; this.moves = 0; this.transitioning = false; this.checking = false; if (typeof ScoreManager !== "undefined" && typeof ScoreManager.reset === "function") ScoreManager.reset(); },
     buildCorrectOrder: function (items, order) { const copy = Array.isArray(items) ? [...items] : []; if (order === "descending") return copy.sort((a, b) => b - a); if (this.detectDataType(copy) === "number") return copy.sort((a, b) => a - b); return copy.sort(); },
     detectDataType: function (items) { if (!Array.isArray(items) || items.length === 0) return "text"; if (items.every(item => typeof item === "string" && (/\.(png|jpg|jpeg|gif|webp|svg)$/i.test(item) || item.startsWith("data:image/")))) return "image"; if (items.every(item => typeof item === "number")) return "number"; return "text"; },
     valuesEqual: function (a, b) { if (a === null || a === undefined || b === null || b === undefined) return a === b; const numberA = Number(a); const numberB = Number(b); if (!Number.isNaN(numberA) && !Number.isNaN(numberB)) return numberA === numberB; return String(a) === String(b); },
