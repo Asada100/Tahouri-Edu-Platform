@@ -1250,7 +1250,11 @@ Workflow:
 .github/workflows/pattern-spatial-regression.yml
 
 نتیجه اجرای GitHub Actions:
-PASS — اجرای 39303047050
+PASS — اجرای 39303296725
+
+اصلاح انجام‌شده پس از تست:
+Spatial اکنون شناسه‌های تکراری قطعه را قبل از آغاز فعالیت رد می‌کند.
+تست رگرسیون این رفتار را بررسی می‌کند.
 
 دامنه تست فعلی:
 - ثبت Handlerهای Pattern و Spatial
