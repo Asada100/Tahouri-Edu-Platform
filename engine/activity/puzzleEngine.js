@@ -63,7 +63,10 @@ const PuzzleEngine = {
             return null;
         }
         EventManager.emit("activityStarted", activityData);
+        // A synchronous event listener may start or reset another run.
+        if (requestId !== this.startRequestId || this.activity !== activityData || !this.state.started) return null;
         EventManager.emit("activityPlaying");
+        if (requestId !== this.startRequestId || this.activity !== activityData || !this.state.started) return null;
         return firstQuestion;
     },
 
@@ -214,12 +217,16 @@ const PuzzleEngine = {
             this.transitioning = true;
             const transitionRequestId = ++this.transitionRequestId;
             const transitionQuestionIndex = this.currentQuestion;
+            const runRequestId = this.startRequestId;
+            const activity = this.activity;
             const nextState = this.startCurrentQuestion(true);
             if (!nextState) {
                 console.error("Puzzle Engine: Question transition failed; clearing incomplete activity.");
                 this.reset();
                 return false;
             }
+            // activityReady listeners can synchronously restart the engine.
+            if (runRequestId !== this.startRequestId || this.activity !== activity || !this.state.started) return false;
             const engine = this;
             setTimeout(function () {
                 if (engine.transitionRequestId === transitionRequestId &&
