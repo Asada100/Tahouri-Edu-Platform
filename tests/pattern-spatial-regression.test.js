@@ -491,6 +491,7 @@ for (const axis of ['vertical', 'horizontal']) {
       return new Promise(resolve => { resolveStaleQuestions = resolve; });
     }
   };
+  const staleLifecycleStart = lifecycleEvents.length;
   const staleStartPromise = engine.start({
     id: 'stale-async-start',
     puzzle: { type: 'pattern' }
@@ -517,6 +518,10 @@ for (const axis of ['vertical', 'horizontal']) {
   assert.equal(scores.score, 0);
   assert.equal(scores.correct, 0);
   assert.equal(scores.wrong, 0);
+  assert.equal(lifecycleEvents.slice(staleLifecycleStart).filter(event =>
+    ['activityStarted', 'activityPlaying', 'activityReady'].includes(event.name) &&
+    (event.payload?.id === 'stale-async-start' || event.payload?.activity?.id === 'stale-async-start')
+  ).length, 0, 'stale asynchronous start publishes no lifecycle or ready events');
 
   // PuzzleScreen must ignore stale ready events from another question or activity.
   context.EventManager.on = function () {};
