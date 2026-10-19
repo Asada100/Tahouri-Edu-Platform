@@ -151,7 +151,7 @@ const PuzzleEngine = {
         // Puzzle handlers may synchronously emit events whose listeners restart the engine.
         // Do not publish readiness for the superseded run after that happens.
         if (requestId !== this.startRequestId || this.activity !== activity ||
-            !this.state.started || this.puzzle !== puzzle) return null;
+            !this.state.started || !this.puzzle) return null;
         if (publishReady) this.emitCurrentQuestionReady();
         return result;
     },
