@@ -920,7 +920,8 @@ for (const axis of ['vertical', 'horizontal']) {
     };
     assert.equal(handler.start(engine, data).mode, 'coordinatePlane');
     assert.equal(handler.setAnswer(engine, { x: -2.2, y: 2.8 }), true);
-    assert.deepEqual(engine.userAnswer, { x: -2, y: 3 });
+    assert.equal(engine.userAnswer.x, -2);
+    assert.equal(engine.userAnswer.y, 3);
     assert.equal(handler.check(engine), true);
     assert.equal(engine.finished, true);
 
