@@ -51,10 +51,15 @@ const PuzzleEngine = {
         if (!Array.isArray(puzzleQuestions) || puzzleQuestions.length === 0) { console.error("Puzzle Engine: No Puzzle Content Available"); this.state.started = false; return null; }
         this.questions = puzzleQuestions.filter(Boolean);
         if (this.questions.length === 0) { console.error("Puzzle Engine: No Valid Puzzle Questions"); this.state.started = false; return null; }
+        console.log("Puzzle Questions Ready:", this.questions.length);
+        const firstQuestion = this.startCurrentQuestion(false);
+        if (!firstQuestion) {
+            this.reset();
+            return null;
+        }
         EventManager.emit("activityStarted", activityData);
         EventManager.emit("activityPlaying");
-        console.log("Puzzle Questions Ready:", this.questions.length);
-        return this.startCurrentQuestion(false);
+        return firstQuestion;
     },
 
     getFileDefinedQuestions: function (activityData) {
@@ -119,12 +124,18 @@ const PuzzleEngine = {
         this.items = [];
         this.userAnswer = null;
         const puzzle = this.questions[this.currentQuestion];
-        if (!puzzle) { console.error("Puzzle Engine: Invalid Puzzle Content", this.currentQuestion); this.state.started = false; return null; }
+        if (!puzzle) { console.error("Puzzle Engine: Invalid Puzzle Content", this.currentQuestion); return null; }
         const handler = PuzzleTypeRegistry.get(puzzle.type);
-        if (!handler || typeof handler.start !== "function") { console.error("Puzzle Engine: Unsupported Puzzle Type:", puzzle.type); this.state.started = false; return null; }
+        if (!handler || typeof handler.start !== "function") { console.error("Puzzle Engine: Unsupported Puzzle Type:", puzzle.type); return null; }
         console.log("Puzzle Question:", this.currentQuestion + 1, "/", this.questions.length, puzzle.type);
-        const result = handler.start(this, puzzle);
-        if (!result) { console.error("Puzzle Engine: Puzzle Handler Failed:", puzzle.type); this.state.started = false; return null; }
+        let result;
+        try {
+            result = handler.start(this, puzzle);
+        } catch (error) {
+            console.error("Puzzle Engine: Puzzle Handler Error:", error);
+            return null;
+        }
+        if (!result) { console.error("Puzzle Engine: Puzzle Handler Failed:", puzzle.type); return null; }
         if (publishReady) this.emitCurrentQuestionReady();
         return result;
     },
