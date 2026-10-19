@@ -92,6 +92,71 @@ const SpatialPuzzle = {
         return { valid: true, reason: null };
     },
 
+    mathToPixel: function (point, coordinateSystem, viewport) {
+        if (!point || !coordinateSystem || !viewport ||
+            ![point.x, point.y, coordinateSystem.xMin, coordinateSystem.xMax,
+                coordinateSystem.yMin, coordinateSystem.yMax, viewport.left,
+                viewport.right, viewport.top, viewport.bottom].every(Number.isFinite) ||
+            coordinateSystem.xMin >= coordinateSystem.xMax ||
+            coordinateSystem.yMin >= coordinateSystem.yMax ||
+            viewport.left >= viewport.right || viewport.top >= viewport.bottom ||
+            point.x < coordinateSystem.xMin || point.x > coordinateSystem.xMax ||
+            point.y < coordinateSystem.yMin || point.y > coordinateSystem.yMax) {
+            return null;
+        }
+
+        return {
+            x: viewport.left + ((point.x - coordinateSystem.xMin) /
+                (coordinateSystem.xMax - coordinateSystem.xMin)) * (viewport.right - viewport.left),
+            y: viewport.bottom - ((point.y - coordinateSystem.yMin) /
+                (coordinateSystem.yMax - coordinateSystem.yMin)) * (viewport.bottom - viewport.top)
+        };
+    },
+
+    pixelToMath: function (pixel, coordinateSystem, viewport) {
+        if (!pixel || !coordinateSystem || !viewport ||
+            ![pixel.x, pixel.y, coordinateSystem.xMin, coordinateSystem.xMax,
+                coordinateSystem.yMin, coordinateSystem.yMax, viewport.left,
+                viewport.right, viewport.top, viewport.bottom].every(Number.isFinite) ||
+            coordinateSystem.xMin >= coordinateSystem.xMax ||
+            coordinateSystem.yMin >= coordinateSystem.yMax ||
+            viewport.left >= viewport.right || viewport.top >= viewport.bottom ||
+            pixel.x < viewport.left || pixel.x > viewport.right ||
+            pixel.y < viewport.top || pixel.y > viewport.bottom) {
+            return null;
+        }
+
+        return {
+            x: coordinateSystem.xMin + ((pixel.x - viewport.left) /
+                (viewport.right - viewport.left)) * (coordinateSystem.xMax - coordinateSystem.xMin),
+            y: coordinateSystem.yMin + ((viewport.bottom - pixel.y) /
+                (viewport.bottom - viewport.top)) * (coordinateSystem.yMax - coordinateSystem.yMin)
+        };
+    },
+
+    snapCoordinatePoint: function (point, coordinateSystem) {
+        if (!point || !coordinateSystem ||
+            ![point.x, point.y, coordinateSystem.xMin, coordinateSystem.xMax,
+                coordinateSystem.yMin, coordinateSystem.yMax, coordinateSystem.unitStep].every(Number.isFinite) ||
+            coordinateSystem.xMin >= coordinateSystem.xMax ||
+            coordinateSystem.yMin >= coordinateSystem.yMax ||
+            coordinateSystem.unitStep <= 0 ||
+            point.x < coordinateSystem.xMin || point.x > coordinateSystem.xMax ||
+            point.y < coordinateSystem.yMin || point.y > coordinateSystem.yMax) {
+            return null;
+        }
+
+        const snap = function (value, min, max, step) {
+            const candidate = min + Math.round((value - min) / step) * step;
+            if (candidate < min - 1e-9 || candidate > max + 1e-9) return null;
+            return Math.min(max, Math.max(min, Number(candidate.toFixed(10))));
+        };
+
+        const x = snap(point.x, coordinateSystem.xMin, coordinateSystem.xMax, coordinateSystem.unitStep);
+        const y = snap(point.y, coordinateSystem.yMin, coordinateSystem.yMax, coordinateSystem.unitStep);
+        return x === null || y === null ? null : { x: x, y: y };
+    },
+
     buildDifficultyConfig: function (grade, difficulty, generator) {
         const profiles = {
             1: { easy: [4, 6], medium: [6, 9], hard: [9, 12], shapes: { easy: [2, 3], medium: [3, 4], hard: [4, 5] } },
