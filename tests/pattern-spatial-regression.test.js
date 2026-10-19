@@ -566,7 +566,44 @@ for (const axis of ['vertical', 'horizontal']) {
   delayedCallbacks[1]();
   assert.equal(engine.transitioning, false, 'current callback releases its own transition lock');
   context.setTimeout = originalSetTimeout;
-  
+
+  // Restarting synchronously from puzzleFinished must suppress the old run's later finish event.
+  const finishEventStart = lifecycleEvents.length;
+  const previousEmit = context.EventManager.emit;
+  let restartOnPuzzleFinished = true;
+  const finishRestartActivity = {
+    id: 'finish-event-restart-target',
+    puzzle: { questions: [
+      { type: 'pattern', items: [7, null, 7], missingIndex: 1, answer: 7 }
+    ] }
+  };
+  context.EventManager.emit = function (name, payload) {
+    previousEmit.call(this, name, payload);
+    if (name === 'puzzleFinished' && restartOnPuzzleFinished) {
+      restartOnPuzzleFinished = false;
+      void engine.start(finishRestartActivity);
+    }
+  };
+  await engine.start({
+    id: 'finish-event-restart-source',
+    puzzle: { questions: [
+      { type: 'pattern', items: [6, null, 6], missingIndex: 1, answer: 6 }
+    ] }
+  });
+  engine.setTypeAnswer(6);
+  assert.equal(engine.check(), true, 'source activity completes and triggers a synchronous restart');
+  assert.equal(engine.activity.id, 'finish-event-restart-target', 'new activity remains active');
+  assert.equal(engine.state.started, true);
+  assert.equal(engine.state.isFinished, false);
+  const finishRestartEvents = lifecycleEvents.slice(finishEventStart);
+  assert.equal(finishRestartEvents.filter(event =>
+    event.name === 'puzzleFinished' && event.payload.activityId === 'finish-event-restart-source').length,
+    1, 'source run publishes its initial puzzleFinished event');
+  assert.equal(finishRestartEvents.filter(event =>
+    event.name === 'activityFinished' && event.payload.activityId === 'finish-event-restart-source').length,
+    0, 'source run cannot publish activityFinished after a listener starts a new run');
+  context.EventManager.emit = previousEmit;
+
   console.log('Pattern and Spatial handler + PuzzleEngine lifecycle/reset/failure regression checks passed');
 })().catch(error => {
   console.error(error);
