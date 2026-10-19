@@ -873,3 +873,13 @@ transform:translateX(-50%) translateY(0);
   .wp-tree-illustration{height:300px;}
   .wp-tree-art{object-fit:contain;}
 }
+
+/* Mobile: let the family-tree image use nearly the full phone width */
+@media(max-width:520px){
+  .wp-tree-illustration{
+    width:calc(100vw - 16px);
+    max-width:none;
+    margin-left:calc((100% - (100vw - 16px))/2);
+    margin-right:calc((100% - (100vw - 16px))/2);
+  }
+}
