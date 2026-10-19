@@ -235,10 +235,15 @@ const PuzzleEngine = {
 
     completeActivity: function () {
         if (this.state.isFinished) return null;
+        const requestId = this.startRequestId;
+        const activity = this.activity;
         this.state.isFinished = true;
         const result = this.buildResult();
         console.log("Puzzle Finished:", result);
         EventManager.emit("puzzleFinished", result);
+        // A synchronous listener may reset or start another activity.
+        // Do not publish the previous run's second finish event afterward.
+        if (requestId !== this.startRequestId || this.activity !== activity || !this.state.isFinished) return result;
         EventManager.emit("activityFinished", result);
         return result;
     },
