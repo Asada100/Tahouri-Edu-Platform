@@ -568,6 +568,31 @@ for (const axis of ['vertical', 'horizontal']) {
   assert.equal(engine.transitioning, false, 'current callback releases its own transition lock');
   context.setTimeout = originalSetTimeout;
 
+  // Duplicate finish calls in a single check must not award credit or skip questions twice.
+  {
+    const originalHandler = context.PuzzleTypeRegistry.get('pattern');
+    context.PuzzleTypeRegistry.register('duplicateFinishRegression', {
+      start(engine, puzzle) { engine.puzzle = { ...puzzle }; engine.items = []; return engine.puzzle; },
+      check(engine) { engine.finish(); engine.finish(); return true; }
+    });
+    const duplicateFinishStart = lifecycleEvents.length;
+    const duplicateFinishActivity = {
+      id: 'duplicate-finish-regression',
+      puzzle: { questions: [
+        { type: 'duplicateFinishRegression', answer: 1 },
+        { type: 'pattern', items: [2, null, 2], missingIndex: 1, answer: 2 }
+      ] }
+    };
+    await engine.start(duplicateFinishActivity);
+    assert.equal(engine.check(), true);
+    assert.equal(scores.correct, 1, 'duplicate finish calls award credit only once');
+    assert.equal(engine.currentQuestion, 1, 'duplicate finish calls cannot skip a question');
+    assert.equal(engine.puzzle.type, 'pattern', 'the next question remains active');
+    assert.equal(lifecycleEvents.slice(duplicateFinishStart).filter(event => event.name === 'puzzleFinished').length, 0,
+      'a duplicate finish cannot end a multi-question activity early');
+    context.PuzzleTypeRegistry.register('pattern', originalHandler);
+  }
+
   // Restarting synchronously from puzzleFinished must suppress the old run's later finish event.
   const finishEventStart = lifecycleEvents.length;
   const previousEmit = context.EventManager.emit;
