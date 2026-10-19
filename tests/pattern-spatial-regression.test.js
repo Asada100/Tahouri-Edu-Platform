@@ -37,6 +37,8 @@ function makeEngine() {
       return {
         type: this.puzzle && this.puzzle.type,
         mode: this.puzzle && this.puzzle.mode,
+        grid: this.puzzle && this.puzzle.grid ? { ...this.puzzle.grid } : null,
+        axis: this.puzzle && this.puzzle.axis,
         items: [...this.items],
         placements: this.puzzle && this.puzzle.placements ? { ...this.puzzle.placements } : {},
         pieces: this.puzzle && this.puzzle.pieces ? [...this.puzzle.pieces] : []
