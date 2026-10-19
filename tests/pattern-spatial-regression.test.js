@@ -34,6 +34,7 @@ function makeEngine() {
       return values.every(value => typeof value === 'number') ? 'number' : 'text';
     },
     emitStarted() { emitted.push({ name: 'puzzleStarted' }); },
+    emitChanged() { emitted.push({ name: 'puzzleChanged', payload: this.getState() }); return true; },
     getState() {
       return {
         type: this.puzzle && this.puzzle.type,
