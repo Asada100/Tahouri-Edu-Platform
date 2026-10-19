@@ -195,3 +195,47 @@ Existing architecture remains authoritative.
 ========================================
 END OF PUZZLE STATUS
 ========================================
+
+
+========================================
+SUPPLEMENT — CURRENT STATUS 2026-10-19
+========================================
+
+این بخش وضعیت قبلی را برای Pattern و Spatial تکمیل می‌کند؛
+نسخه‌های قدیمی‌تر بالا به‌تنهایی مرجع وضعیت فعلی این دو Handler نیستند.
+
+Pattern:
+- Handler: engine/activity/puzzleTypes/patternPuzzle.js
+- Version in code: 1.0
+- Registered in PuzzleTypeRegistry: YES
+- Current grade-6 activity: pattern/activity.json
+- Automated regression coverage: tests/pattern-spatial-regression.test.js
+
+Spatial:
+- Handler: engine/activity/puzzleTypes/spatialPuzzle.js
+- Version in code: 2.0
+- Registered in PuzzleTypeRegistry: YES
+- Modes confirmed in code: legacy, place, symmetry
+- Current grade-6 activities: spatial/activity.json, spatialSymmetry/activity.json
+- Coordinate Plane numeric mode: NOT VERIFIED AS IMPLEMENTED
+- Point Symmetry mode: NOT VERIFIED AS IMPLEMENTED
+- Automated regression coverage: tests/pattern-spatial-regression.test.js
+
+CI:
+- Workflow: .github/workflows/pattern-spatial-regression.yml
+- Latest verified run at time of this addendum:
+  https://github.com/Asada100/Tahouri-Edu-Platform/actions/runs/39303047050
+- Result: PASS
+
+Audit report:
+docs/PATTERN_SPATIAL_AUDIT_v1.0.md
+
+Architecture decision:
+- Do not replace PuzzleEngine or restructure Puzzle folders.
+- Keep Spatial as a Puzzle Type.
+- Expand test coverage before adding coordinate-plane or point-symmetry behavior.
+- Real mobile/browser interaction still needs practical testing.
+
+========================================
+END SUPPLEMENT
+========================================
