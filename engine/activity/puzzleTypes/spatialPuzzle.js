@@ -84,7 +84,10 @@ const SpatialPuzzle = {
                 }
                 ids.add(String(point.id));
             }
-            if (task.answerId !== undefined && !ids.has(String(task.answerId))) {
+            if (task.answerId === undefined || task.answerId === null || String(task.answerId).trim() === "") {
+                return { valid: false, reason: "missing-identify-answer" };
+            }
+            if (!ids.has(String(task.answerId))) {
                 return { valid: false, reason: "unknown-identify-answer" };
             }
         }
