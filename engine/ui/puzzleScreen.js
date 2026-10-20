@@ -385,7 +385,7 @@ const PuzzleScreen = {
             selectionText = "مختصات انتخاب‌شده: (" + Number(selected.x) + "، " + Number(selected.y) + ")";
         }
 
-        app.innerHTML = "<div class='screen puzzleScreen spatialScreen coordinatePlaneScreen' dir='rtl'><h1>صفحه مختصات</h1><p class='puzzleInstruction'>" + PuzzleScreen.escapeHTML(state.instruction || "نقاط و محورهای مختصات را بررسی کن.") + "</p><div class='coordinatePlaneCanvas'><svg id='coordinatePlaneSvg' viewBox='0 0 " + width + " " + height + "' role='img' aria-label='صفحه مختصات؛ برای انتخاب نقطه لمس یا کلیک کن'>" + lines.join("") + markers + selectionMarker + "</svg></div><p id='coordinatePlaneStatus' class='coordinatePlaneStatus' aria-live='polite'>" + selectionText + "</p><button id='coordinatePlaneCheckBtn' type='button' " + (selected === undefined || selected === null ? "disabled" : "") + ">بررسی پاسخ</button><div id='puzzleMessage' class='puzzleMessage'></div>" + this.renderStandardFooter(state.moves) + "</div><style>.coordinatePlaneCanvas{width:100%;max-width:480px;margin:16px auto;padding:8px;box-sizing:border-box;background:#fff;border:1px solid #dbe3ec;border-radius:14px}.coordinatePlaneCanvas svg{display:block;width:100%;height:auto;touch-action:manipulation;cursor:crosshair}.coordinatePlaneStatus{text-align:center;color:#475569;font-size:14px;min-height:24px}.coordinatePlaneScreen #coordinatePlaneCheckBtn{display:block;margin:12px auto;padding:10px 24px;border:0;border-radius:10px;background:#2563eb;color:#fff;font-size:16px}.coordinatePlaneScreen #coordinatePlaneCheckBtn:disabled{opacity:.45;cursor:not-allowed}</style>";
+        app.innerHTML = "<div class='screen puzzleScreen spatialScreen coordinatePlaneScreen' dir='rtl'><h1>صفحه مختصات</h1><p class='puzzleInstruction'>" + PuzzleScreen.escapeHTML(state.instruction || "نقاط و محورهای مختصات را بررسی کن.") + "</p><div class='coordinatePlaneCanvas'><svg id='coordinatePlaneSvg' viewBox='0 0 " + width + " " + height + "' role='img' aria-label='صفحه مختصات؛ برای انتخاب نقطه لمس یا کلیک کن'>" + lines.join("") + markers + selectionMarker + "</svg></div><div class='coordinateInputPanel'><label for='coordinateXInput'>س (x) <input id='coordinateXInput' type='number' inputmode='numeric' step='" + step + "' min='" + xMin + "' max='" + xMax + "' value='" + (selected && typeof selected === "object" && Number.isFinite(Number(selected.x)) ? Number(selected.x) : "") + "' /></label><label for='coordinateYInput'>ص (y) <input id='coordinateYInput' type='number' inputmode='numeric' step='" + step + "' min='" + yMin + "' max='" + yMax + "' value='" + (selected && typeof selected === "object" && Number.isFinite(Number(selected.y)) ? Number(selected.y) : "") + "' /></label><button id='coordinatePlaneMoveBtn' type='button'>انتقال نقطه</button></div><p id='coordinatePlaneStatus' class='coordinatePlaneStatus' aria-live='polite'>" + selectionText + "</p><button id='coordinatePlaneCheckBtn' type='button' " + (selected === undefined || selected === null ? "disabled" : "") + ">بررسی پاسخ</button><div id='puzzleMessage' class='puzzleMessage'></div>" + this.renderStandardFooter(state.moves) + "</div><style>.coordinatePlaneCanvas{width:100%;max-width:480px;margin:16px auto;padding:8px;box-sizing:border-box;background:#fff;border:1px solid #dbe3ec;border-radius:14px}.coordinatePlaneCanvas svg{display:block;width:100%;height:auto;touch-action:manipulation;cursor:crosshair}.coordinateInputPanel{display:flex;align-items:end;justify-content:center;gap:10px;flex-wrap:wrap;margin:12px auto}.coordinateInputPanel label{display:flex;flex-direction:column;gap:4px;font-size:14px;color:#334155}.coordinateInputPanel input{width:76px;min-height:40px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:6px;font-size:17px;text-align:center}.coordinateInputPanel button{min-height:40px;border:0;border-radius:8px;background:#0f766e;color:#fff;padding:8px 14px;font-size:15px}.coordinatePlaneStatus{text-align:center;color:#475569;font-size:14px;min-height:24px}.coordinatePlaneScreen #coordinatePlaneCheckBtn{display:block;margin:12px auto;padding:10px 24px;border:0;border-radius:10px;background:#2563eb;color:#fff;font-size:16px}.coordinatePlaneScreen #coordinatePlaneCheckBtn:disabled{opacity:.45;cursor:not-allowed}</style>";
 
         const svg = app.querySelector("#coordinatePlaneSvg");
         if (svg) svg.addEventListener("pointerdown", function (event) {
@@ -460,16 +460,65 @@ const PuzzleScreen = {
                     statusText = "مختصات انتخاب‌شده: (" + Number(answer.x) + "، " + Number(answer.y) + ")";
                 }
 
-                if (marker) svg.appendChild(marker);
-                if (status) status.textContent = statusText;
+                if (marker) { marker.setAttribute("id", "coordinatePlaneSelectionMarker"); svg.appendChild(marker); }
+                const xInput = app.querySelector("#coordinateXInput");
+                const yInput = app.querySelector("#coordinateYInput");
+                if (answer && typeof answer === "object" && answer.id === undefined) {
+                    if (xInput) xInput.value = String(Number(answer.x));
+                    if (yInput) yInput.value = String(Number(answer.y));
+                }
+                if (status) status.textContent = task.kind === "placePoint"
+                    ? "نقطه جابه‌جا شد؛ اگر جای درستی است، پاسخ را بررسی کن."
+                    : statusText;
                 if (check) check.disabled = updatedState.userAnswer === undefined || updatedState.userAnswer === null;
             }
         });
 
-        const checkButton = app.querySelector("#coordinatePlaneCheckBtn");
-        if (checkButton) checkButton.addEventListener("click", function () {
-            PuzzleEngine.check();
+        const moveButton = app.querySelector("#coordinatePlaneMoveBtn");
+        if (moveButton) moveButton.addEventListener("click", function () {
+            const xInput = app.querySelector("#coordinateXInput");
+            const yInput = app.querySelector("#coordinateYInput");
+            if (!xInput || !yInput || xInput.value.trim() === "" || yInput.value.trim() === "") return;
+            const x = Number(xInput.value), y = Number(yInput.value);
+            if (!Number.isFinite(x) || !Number.isFinite(y) || x < xMin || x > xMax || y < yMin || y > yMax) {
+                const status = app.querySelector("#coordinatePlaneStatus");
+                if (status) status.textContent = "مختصات باید داخل محدودهٔ شبکه باشد.";
+                return;
+            }
+            const answer = SpatialPuzzle.snapCoordinatePoint({ x: x, y: y }, system);
+            if (!answer || !PuzzleEngine.setTypeAnswer(answer)) return;
+            const p = toPixel(answer);
+            const previousMarker = app.querySelector("#coordinatePlaneSelectionMarker");
+            if (previousMarker) previousMarker.remove();
+            if (p) {
+                const marker = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                marker.setAttribute("id", "coordinatePlaneSelectionMarker");
+                marker.setAttribute("cx", String(p.x)); marker.setAttribute("cy", String(p.y));
+                marker.setAttribute("r", "7"); marker.setAttribute("fill", "#ea580c");
+                marker.setAttribute("stroke", "#fff"); marker.setAttribute("stroke-width", "2");
+                svg.appendChild(marker);
+            }
+            xInput.value = String(answer.x); yInput.value = String(answer.y);
+            const status = app.querySelector("#coordinatePlaneStatus");
+            if (status) status.textContent = "نقطه جابه‌جا شد؛ اگر جای درستی است، پاسخ را بررسی کن.";
+            const check = app.querySelector("#coordinatePlaneCheckBtn");
+            if (check) check.disabled = false;
         });
+
+        const checkButton = app.querySelector("#coordinatePlaneCheckBtn");
+        if (checkButton) {
+            const screenReadyAt = Date.now();
+            let pointerStartedAt = 0;
+            checkButton.addEventListener("pointerdown", function () { pointerStartedAt = Date.now(); });
+            checkButton.addEventListener("click", function () {
+                const now = Date.now();
+                const validPointer = pointerStartedAt >= screenReadyAt && now - pointerStartedAt <= 1500;
+                pointerStartedAt = 0;
+                // The launch tap must never count as an answer check on a newly rendered activity.
+                if (!validPointer || now - screenReadyAt < 700 || checkButton.disabled) return;
+                PuzzleEngine.check();
+            });
+        }
     },
 
     showSpatialLegacy: function (state) {
