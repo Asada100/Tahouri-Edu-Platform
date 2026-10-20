@@ -596,28 +596,6 @@ const SpatialPuzzle = {
             return engine.emitChanged();
         }
 
-        if (engine.puzzle.mode === "transform") {
-            const points = engine.puzzle.userPoints || [];
-            if (engine.puzzle.hasUserMove !== true ||
-                points.length !== engine.puzzle.points.length ||
-                engine.puzzle.points.some(function (_, index) { return !points[index]; })) {
-                console.log("Spatial Puzzle: Transform check blocked before all output points are placed.");
-                return false;
-            }
-            const correct = engine.puzzle.points.every(function (_, index) {
-                const point = points[index];
-                return !!point &&
-                    Math.abs(point.x - engine.puzzle.answer[index].x) <= 1e-8 &&
-                    Math.abs(point.y - engine.puzzle.answer[index].y) <= 1e-8;
-            });
-            if (correct) {
-                engine.finish();
-                return true;
-            }
-            engine.emitWrong();
-            return false;
-        }
-
         if (engine.puzzle.mode === "coordinatePlane") {
             if (!value || typeof value !== "object") return false;
             const system = engine.puzzle.coordinateSystem;
@@ -696,6 +674,28 @@ const SpatialPuzzle = {
 
     check: function (engine) {
         if (!engine.puzzle || engine.puzzle.type !== "spatial") return false;
+
+        if (engine.puzzle.mode === "transform") {
+            const points = engine.puzzle.userPoints || [];
+            if (engine.puzzle.hasUserMove !== true ||
+                points.length !== engine.puzzle.points.length ||
+                engine.puzzle.points.some(function (_, index) { return !points[index]; })) {
+                console.log("Spatial Puzzle: Transform check blocked before all output points are placed.");
+                return false;
+            }
+            const correct = engine.puzzle.points.every(function (_, index) {
+                const point = points[index];
+                return !!point &&
+                    Math.abs(point.x - engine.puzzle.answer[index].x) <= 1e-8 &&
+                    Math.abs(point.y - engine.puzzle.answer[index].y) <= 1e-8;
+            });
+            if (correct) {
+                engine.finish();
+                return true;
+            }
+            engine.emitWrong();
+            return false;
+        }
 
         if (engine.puzzle.mode === "coordinatePlane") {
             if (engine.puzzle.hasUserMove !== true || !engine.userAnswer) {
