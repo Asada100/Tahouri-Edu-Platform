@@ -507,15 +507,18 @@ const PuzzleScreen = {
 
         const checkButton = app.querySelector("#coordinatePlaneCheckBtn");
         if (checkButton) {
-            const screenReadyAt = Date.now();
-            let pointerStartedAt = 0;
-            checkButton.addEventListener("pointerdown", function () { pointerStartedAt = Date.now(); });
-            checkButton.addEventListener("click", function () {
-                const now = Date.now();
-                const validPointer = pointerStartedAt >= screenReadyAt && now - pointerStartedAt <= 1500;
-                pointerStartedAt = 0;
-                // The launch tap must never count as an answer check on a newly rendered activity.
-                if (!validPointer || now - screenReadyAt < 700 || checkButton.disabled) return;
+            checkButton.addEventListener("click", function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                if (checkButton.disabled) return;
+                const currentState = PuzzleEngine.getState();
+                if (!currentState || currentState.userAnswer === undefined || currentState.userAnswer === null) {
+                    const status = app.querySelector("#coordinatePlaneStatus");
+                    if (status) status.textContent = "ابتدا نقطه را روی شبکه انتخاب یا مختصات آن را وارد کن.";
+                    checkButton.disabled = true;
+                    return;
+                }
+                checkButton.disabled = true;
                 PuzzleEngine.check();
             });
         }
