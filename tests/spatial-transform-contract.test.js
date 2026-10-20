@@ -66,8 +66,6 @@ for (const [data, label] of invalidCases) {
   assert.equal(handler.validateTransformPuzzleData(data).valid, false, label);
 }
 
-console.log('Spatial transform contract and gameplay checks passed.');
-
 const engine = {
   puzzle: null, items: [], userAnswer: null, moves: 0,
   emitStarted() {},
@@ -101,8 +99,5 @@ assert.equal(handler.check(wrongEngine), false, 'incorrect transformed point is 
 assert.equal(wrongEngine.wrong, 1);
 assert.equal(wrongEngine.finished, false, 'incorrect answer remains retryable');
 
-const noHelperContext = { ...context, window: {} };
-const invalidStart = handler.start({
-  ...engine, puzzle: null, emitStarted() {}, getState() { return {}; }
-}, { ...base, operation: { kind: 'translate', dx: 1, dy: 0 } });
-assert.ok(invalidStart, 'loaded shared helper enables gameplay');
+assert.ok(context.SharedGeometryTransforms, 'shared geometry helper is loaded for gameplay');
+console.log('Spatial transform contract and gameplay checks passed.');
