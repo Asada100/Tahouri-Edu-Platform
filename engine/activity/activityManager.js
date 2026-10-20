@@ -189,7 +189,7 @@ const ActivityManager = {
     },
 
     resolveEngine: function (engineName) { if (typeof EngineManager === "undefined") { console.error("EngineManager Not Available"); return null; } return EngineManager.getEngine(engineName); },
-    publishActivityReady: function (engineName, engine, result, activity) { const payload = { activity: activity, engine: engine, engineName: engineName, result: result }; console.log("Activity Ready:", activity ? activity.id : null); EventManager.emit("activityReady", payload); },
+    publishActivityReady: function (engineName, engine, result, activity) { const payload = { activity: activity, engine: engine, engineName: engineName, questionIndex: engine && Number.isInteger(engine.currentQuestion) ? engine.currentQuestion : undefined, result: result }; console.log("Activity Ready:", activity ? activity.id : null); EventManager.emit("activityReady", payload); },
     finish: function (result) { console.log("Activity Finished", result); this.blockPostFinishLoads(); ActivityState.set("finished"); EventManager.emit("activityFinished", result); },
     restart: function () {
         console.warn("ActivityManager: Explicit restart requested.", {
