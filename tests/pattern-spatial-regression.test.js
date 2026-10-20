@@ -94,6 +94,10 @@ assert.ok(registered.spatial, 'Spatial handler registers');
     assert.equal(handler.validateCoordinatePlaneData(data).valid, false, message);
   }
 
+  assert.equal(handler.validateCoordinatePlaneData({
+    ...validBase,
+    task: { kind: 'identifyPoint', points: [{ id: 'A', x: 0, y: 0 }] }
+  }).valid, false, 'identify-point tasks require an answer ID');
   assert.equal(handler.validateCoordinatePlaneData(null).valid, false);
   assert.equal(handler.validateCoordinatePlaneData({
     ...validBase,
@@ -924,6 +928,51 @@ for (const axis of ['vertical', 'horizontal']) {
     assert.equal(engine.userAnswer.y, 3);
     assert.equal(handler.check(engine), true);
     assert.equal(engine.finished, true);
+
+    // Realistic Grade 6 coordinate tasks: read a marked point and identify a named point.
+    // Wrong answers must remain retryable; only the explicit correct check finishes.
+    const makeCoordinateEngine = () => ({
+      puzzle: null, items: [], userAnswer: null, moves: 0,
+      emitStarted() {},
+      emitChanged() { return true; },
+      emitWrong() { this.wrong = (this.wrong || 0) + 1; return false; },
+      finish() { this.finished = true; return true; },
+      valuesEqual(a, b) {
+        if (a && b && typeof a === 'object' && typeof b === 'object') return a.x === b.x && a.y === b.y;
+        return a === b;
+      },
+      getState() { return { type: this.puzzle.type, mode: this.puzzle.mode }; }
+    });
+    const readEngine = makeCoordinateEngine();
+    const readData = {
+      type: 'spatial', mode: 'coordinatePlane',
+      coordinateSystem: { xMin: -4, xMax: 4, yMin: -3, yMax: 3, unitStep: 1 },
+      task: { kind: 'readPoint', target: { x: 2, y: -1 } }
+    };
+    assert.ok(handler.start(readEngine, readData), 'read-point example initializes');
+    handler.setAnswer(readEngine, { x: -2, y: 1 });
+    assert.equal(handler.check(readEngine), false, 'wrong read-point answer is rejected');
+    assert.equal(readEngine.wrong, 1);
+    assert.equal(readEngine.finished, undefined, 'wrong answer does not finish the activity');
+    handler.setAnswer(readEngine, { x: 2, y: -1 });
+    assert.equal(handler.check(readEngine), true, 'correct read-point answer succeeds');
+
+    const identifyEngine = makeCoordinateEngine();
+    const identifyData = {
+      type: 'spatial', mode: 'coordinatePlane',
+      coordinateSystem: { xMin: -4, xMax: 4, yMin: -3, yMax: 3, unitStep: 1 },
+      task: {
+        kind: 'identifyPoint',
+        points: [{ id: 'A', label: 'الف', x: -2, y: 1 }, { id: 'B', label: 'ب', x: 3, y: -1 }],
+        answerId: 'B'
+      }
+    };
+    assert.ok(handler.start(identifyEngine, identifyData), 'identify-point example initializes');
+    handler.setAnswer(identifyEngine, { id: 'A' });
+    assert.equal(handler.check(identifyEngine), false, 'wrong named-point selection is rejected');
+    assert.equal(identifyEngine.wrong, 1);
+    handler.setAnswer(identifyEngine, { id: 'B' });
+    assert.equal(handler.check(identifyEngine), true, 'correct named-point selection succeeds');
 
     const invalidEngine = { ...engine, puzzle: null, userAnswer: null, finished: false };
     assert.equal(handler.start(invalidEngine, {
