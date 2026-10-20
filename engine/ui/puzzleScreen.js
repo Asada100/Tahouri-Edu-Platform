@@ -336,7 +336,7 @@ const PuzzleScreen = {
         }
 
         const width = 360, height = 300;
-        const viewport = { left: 30, top: 20, width: 300, height: 250 };
+        const viewport = { left: 30, top: 20, right: 330, bottom: 270, width: 300, height: 250 };
         const xMin = Number(system.xMin), xMax = Number(system.xMax);
         const yMin = Number(system.yMin), yMax = Number(system.yMax);
         const step = Number(system.unitStep);
