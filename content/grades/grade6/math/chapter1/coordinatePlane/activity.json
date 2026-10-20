@@ -1,0 +1,32 @@
+{
+  "id": "mathCoordinatePlane",
+  "title": "مختصات نقطه‌ها",
+  "description": "مختصات یک نقطه را روی صفحه پیدا کن.",
+  "grade": "grade6",
+  "subject": "math",
+  "chapter": "chapter1",
+  "engine": "puzzle",
+  "version": "1.0",
+  "puzzle": {
+    "type": "spatial",
+    "mode": "coordinatePlane",
+    "source": "file",
+    "instruction": "نقطهٔ آبی A را پیدا کن و مختصات آن را با لمس یا کلیک روی صفحه انتخاب کن؛ سپس پاسخ را بررسی کن.",
+    "coordinateSystem": {
+      "xMin": -4,
+      "xMax": 4,
+      "yMin": -3,
+      "yMax": 3,
+      "unitStep": 1,
+      "showAxes": true,
+      "showGrid": true
+    },
+    "task": {
+      "kind": "readPoint",
+      "target": {
+        "x": 2,
+        "y": -1
+      }
+    }
+  }
+}
