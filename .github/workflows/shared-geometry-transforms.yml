@@ -19,6 +19,7 @@ on:
       - "engine/activity/puzzleEngine.js"
       - "engine/ui/puzzleScreen.js"
       - "tests/shared-geometry-transforms.test.js"
+      - "tests/spatial-transform-contract.test.js"
       - ".github/workflows/shared-geometry-transforms.yml"
   workflow_dispatch:
 
@@ -39,6 +40,8 @@ jobs:
         run: |
           node --check engine/activity/puzzleTypes/geometryTransforms.js
           node --check engine/activity/puzzleTypes/spatialPuzzle.js
+          node --check engine/activity/puzzleEngine.js
+          node --check engine/ui/puzzleScreen.js
           node --check tests/shared-geometry-transforms.test.js
           node --check tests/spatial-transform-contract.test.js
       - name: Run geometry transform tests
