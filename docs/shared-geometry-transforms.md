@@ -24,10 +24,12 @@ This module is intentionally a pure calculation utility. It does not register a 
 - `reflectPointAcrossPoint(point, center)`
 - `reflectShapeAcrossPoint(points, center)`
 
-## Integration boundary
+## Integration
 
-Do not connect this module to `SpatialPuzzle.start` or the browser script list until script load order, activity renderer support, answer checking, and regression tests are verified. Existing `legacy`, `place`, `symmetry`, and `coordinatePlane` paths must continue unchanged.
+The helper is loaded before `spatialPuzzle.js` in `index.html`. A separate `mode: "transform"` path uses it to calculate expected coordinates for translation, rotation, line reflection, and point reflection. The renderer lets students place each transformed vertex on the coordinate plane and review the displayed output coordinates.
+
+The existing `legacy`, `place`, `symmetry`, and `coordinatePlane` paths are not intentionally changed. The Grade 6 activity is registered as `mathGeometryTransforms` and contains four example questions.
 
 ## Verification status
 
-The Node-style test file is committed at `tests/shared-geometry-transforms.test.js`. The current connector session can inspect repository files and commit them, but has not executed the test runner; therefore these tests are authored, not yet confirmed passing in GitHub Actions or a local runtime.
+Automated tests are authored in `tests/shared-geometry-transforms.test.js` and `tests/spatial-transform-contract.test.js`. The latter checks the mode contract, answer checking, and registered Grade 6 questions. A confirmed CI result is still required; browser/mobile runtime and regression testing have not yet been completed.
