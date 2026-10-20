@@ -95,6 +95,59 @@ const SpatialPuzzle = {
         return { valid: true, reason: null };
     },
 
+    validateTransformPuzzleData: function (data) {
+        if (!data || data.type !== "spatial" || data.mode !== "transform") {
+            return { valid: false, reason: "invalid-activity-mode" };
+        }
+
+        const system = data.coordinateSystem;
+        if (!system || ![system.xMin, system.xMax, system.yMin, system.yMax, system.unitStep].every(function (value) {
+            return typeof value === "number" && Number.isFinite(value);
+        }) || system.xMin >= system.xMax || system.yMin >= system.yMax || system.unitStep <= 0) {
+            return { valid: false, reason: "invalid-coordinate-system" };
+        }
+
+        const operation = data.operation;
+        if (!operation || !["translate", "rotate", "reflectLine", "reflectPoint"].includes(operation.kind)) {
+            return { valid: false, reason: "invalid-transform-operation" };
+        }
+
+        if (!Array.isArray(data.points) || data.points.length === 0 ||
+            !Array.isArray(data.targetPoints) || data.targetPoints.length !== data.points.length) {
+            return { valid: false, reason: "invalid-transform-points" };
+        }
+
+        const isPoint = function (point) {
+            return !!point && typeof point.x === "number" && Number.isFinite(point.x) &&
+                typeof point.y === "number" && Number.isFinite(point.y) &&
+                point.x >= system.xMin && point.x <= system.xMax &&
+                point.y >= system.yMin && point.y <= system.yMax;
+        };
+        if (!data.points.every(isPoint) || !data.targetPoints.every(isPoint)) {
+            return { valid: false, reason: "point-outside-coordinate-system" };
+        }
+
+        if (operation.kind === "translate" &&
+            (typeof operation.dx !== "number" || !Number.isFinite(operation.dx) ||
+             typeof operation.dy !== "number" || !Number.isFinite(operation.dy))) {
+            return { valid: false, reason: "invalid-translation-offset" };
+        }
+        if (operation.kind === "rotate" &&
+            (!isPoint(operation.center) || typeof operation.degrees !== "number" || !Number.isFinite(operation.degrees))) {
+            return { valid: false, reason: "invalid-rotation" };
+        }
+        if (operation.kind === "reflectLine" &&
+            (!isPoint(operation.lineStart) || !isPoint(operation.lineEnd) ||
+             (operation.lineStart.x === operation.lineEnd.x && operation.lineStart.y === operation.lineEnd.y))) {
+            return { valid: false, reason: "invalid-reflection-line" };
+        }
+        if (operation.kind === "reflectPoint" && !isPoint(operation.center)) {
+            return { valid: false, reason: "invalid-reflection-center" };
+        }
+
+        return { valid: true, reason: null };
+    },
+
     mathToPixel: function (point, coordinateSystem, viewport) {
         if (!point || !coordinateSystem || !viewport ||
             ![point.x, point.y, coordinateSystem.xMin, coordinateSystem.xMax,
