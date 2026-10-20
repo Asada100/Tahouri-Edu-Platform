@@ -55,9 +55,21 @@ function makeEngine() {
 assert.ok(registered.pattern, 'Pattern handler registers');
 assert.ok(registered.spatial, 'Spatial handler registers');
 
-// The registered Grade 6 coordinate-plane activity must resolve to valid content data.
+// Both newly added activities must use the file-question shape consumed by PuzzleEngine.
 {
   const registry = JSON.parse(fs.readFileSync('data/activities.json', 'utf8'));
+
+  const patternEntry = registry.find(item => item.id === 'mathPattern');
+  assert.ok(patternEntry, 'Grade 6 numeric-pattern activity is registered');
+  const patternData = JSON.parse(fs.readFileSync(patternEntry.path + '/activity.json', 'utf8'));
+  assert.ok(Array.isArray(patternData.puzzle.questions) && patternData.puzzle.questions.length > 0,
+    'numeric-pattern content is available to PuzzleEngine as file-defined questions');
+  const patternQuestion = patternData.puzzle.questions[0];
+  assert.equal(patternQuestion.type, 'pattern');
+  const patternEngine = makeEngine();
+  assert.ok(registered.pattern.start(patternEngine, patternQuestion),
+    'numeric-pattern question initializes through the registered handler');
+
   const registeredActivity = registry.find(item => item.id === 'mathCoordinatePlane');
   assert.ok(registeredActivity, 'Grade 6 coordinate-plane activity is registered');
   assert.equal(registeredActivity.path, 'content/grades/grade6/math/chapter1/coordinatePlane');
@@ -67,6 +79,11 @@ assert.ok(registered.spatial, 'Spatial handler registers');
   assert.equal(activityData.id, registeredActivity.id);
   assert.equal(registered.spatial.validateCoordinatePlaneData(activityData.puzzle).valid, true,
     'registered activity contains valid coordinate-plane puzzle data');
+  assert.ok(Array.isArray(activityData.puzzle.questions) && activityData.puzzle.questions.length > 0,
+    'coordinate-plane content is available to PuzzleEngine as file-defined questions');
+  const coordinateEngine = makeEngine();
+  assert.ok(registered.spatial.start(coordinateEngine, activityData.puzzle.questions[0]),
+    'coordinate-plane question initializes through the registered handler');
 }
 
 // Coordinate Plane data contract: validate independently of UI and without altering existing modes.
