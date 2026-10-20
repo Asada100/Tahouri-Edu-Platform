@@ -6,6 +6,8 @@ on:
     paths:
       - "engine/activity/puzzleTypes/geometryTransforms.js"
       - "engine/activity/puzzleTypes/spatialPuzzle.js"
+      - "engine/activity/puzzleEngine.js"
+      - "engine/ui/puzzleScreen.js"
       - "tests/shared-geometry-transforms.test.js"
       - "tests/spatial-transform-contract.test.js"
       - ".github/workflows/shared-geometry-transforms.yml"
@@ -13,6 +15,9 @@ on:
     branches: ["master"]
     paths:
       - "engine/activity/puzzleTypes/geometryTransforms.js"
+      - "engine/activity/puzzleTypes/spatialPuzzle.js"
+      - "engine/activity/puzzleEngine.js"
+      - "engine/ui/puzzleScreen.js"
       - "tests/shared-geometry-transforms.test.js"
       - ".github/workflows/shared-geometry-transforms.yml"
   workflow_dispatch:
