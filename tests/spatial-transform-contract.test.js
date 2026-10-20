@@ -99,5 +99,24 @@ assert.equal(handler.check(wrongEngine), false, 'incorrect transformed point is 
 assert.equal(wrongEngine.wrong, 1);
 assert.equal(wrongEngine.finished, false, 'incorrect answer remains retryable');
 
+const registry = JSON.parse(fs.readFileSync('data/activities.json', 'utf8'));
+const activityEntry = registry.find(item => item.id === 'mathGeometryTransforms');
+assert.ok(activityEntry, 'Grade 6 transform activity is registered');
+const activity = JSON.parse(fs.readFileSync(activityEntry.path + '/activity.json', 'utf8'));
+assert.equal(activity.id, activityEntry.id);
+assert.equal(activity.puzzle.mode, 'transform');
+assert.equal(activity.puzzle.questions.length, 4, 'activity covers all four transform types');
+for (const question of activity.puzzle.questions) {
+  assert.equal(handler.validateTransformPuzzleData(question).valid, true,
+    question.operation.kind + ' content passes the transform data contract');
+  const questionEngine = {
+    puzzle: null, items: [], userAnswer: null, moves: 0,
+    emitStarted() {}, emitChanged() { return true; }, emitWrong() {},
+    finish() { this.finished = true; return true; },
+    getState() { return { type: this.puzzle.type, mode: this.puzzle.mode }; }
+  };
+  assert.ok(handler.start(questionEngine, question),
+    question.operation.kind + ' activity question initializes');
+}
 assert.ok(context.SharedGeometryTransforms, 'shared geometry helper is loaded for gameplay');
 console.log('Spatial transform contract and gameplay checks passed.');
