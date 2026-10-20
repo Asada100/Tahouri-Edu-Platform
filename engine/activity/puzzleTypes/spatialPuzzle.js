@@ -347,6 +347,59 @@ const SpatialPuzzle = {
             return this.start(engine, this.generateSymmetry(data));
         }
 
+        if (mode === "transform") {
+            const validation = this.validateTransformPuzzleData(data);
+            const transforms = window.SharedGeometryTransforms;
+            if (!validation.valid || !transforms) {
+                console.error("Spatial Puzzle: Invalid Transform Data", validation.reason || "transform-helper-missing");
+                return null;
+            }
+
+            const operation = { ...data.operation };
+            let expected;
+            try {
+                if (operation.kind === "translate") {
+                    expected = transforms.translateShape(data.points, operation.dx, operation.dy);
+                } else if (operation.kind === "rotate") {
+                    expected = transforms.rotateShape(data.points, operation.center, operation.degrees);
+                } else if (operation.kind === "reflectLine") {
+                    expected = transforms.reflectShapeAcrossLine(data.points, operation.lineStart, operation.lineEnd);
+                } else {
+                    expected = transforms.reflectShapeAcrossPoint(data.points, operation.center);
+                }
+            } catch (error) {
+                console.error("Spatial Puzzle: Transform Calculation Failed", error);
+                return null;
+            }
+
+            const matchesTarget = expected.length === data.targetPoints.length && expected.every(function (point, index) {
+                return Math.abs(point.x - data.targetPoints[index].x) <= 1e-8 &&
+                    Math.abs(point.y - data.targetPoints[index].y) <= 1e-8;
+            });
+            if (!matchesTarget) {
+                console.error("Spatial Puzzle: Target points do not match the declared operation.");
+                return null;
+            }
+
+            engine.puzzle = {
+                type: "spatial",
+                mode: "transform",
+                source: data.source || "file",
+                instruction: data.instruction || "شکل را طبق دستور تبدیل کن و مختصات نقطه‌های جدید را روی صفحه مشخص کن.",
+                coordinateSystem: { ...data.coordinateSystem },
+                operation: operation,
+                points: data.points.map(function (point) { return { x: point.x, y: point.y }; }),
+                targetPoints: expected,
+                answer: expected,
+                userPoints: [],
+                hasUserMove: false
+            };
+            engine.items = [];
+            engine.userAnswer = [];
+            engine.emitStarted();
+            return engine.getState();
+        }
+
         if (mode === "coordinatePlane") {
             const validation = this.validateCoordinatePlaneData(data);
             if (!validation.valid) {
@@ -525,6 +578,43 @@ const SpatialPuzzle = {
 
     setAnswer: function (engine, value) {
         if (!engine.puzzle || engine.puzzle.type !== "spatial") return false;
+
+        if (engine.puzzle.mode === "transform") {
+            if (!value || typeof value !== "object" || !Number.isInteger(value.index) ||
+                value.index < 0 || value.index >= engine.puzzle.points.length) return false;
+            const snapped = this.snapCoordinatePoint(
+                { x: Number(value.x), y: Number(value.y) },
+                engine.puzzle.coordinateSystem
+            );
+            if (!snapped) return false;
+            engine.puzzle.userPoints[value.index] = snapped;
+            engine.userAnswer = engine.puzzle.userPoints.map(function (point) {
+                return point ? { x: point.x, y: point.y } : null;
+            });
+            engine.puzzle.hasUserMove = true;
+            engine.moves++;
+            return engine.emitChanged();
+        }
+
+        if (engine.puzzle.mode === "transform") {
+            const points = engine.puzzle.userPoints || [];
+            if (engine.puzzle.hasUserMove !== true ||
+                points.length !== engine.puzzle.points.length ||
+                points.some(function (point) { return !point; })) {
+                console.log("Spatial Puzzle: Transform check blocked before all output points are placed.");
+                return false;
+            }
+            const correct = points.every(function (point, index) {
+                return Math.abs(point.x - engine.puzzle.answer[index].x) <= 1e-8 &&
+                    Math.abs(point.y - engine.puzzle.answer[index].y) <= 1e-8;
+            });
+            if (correct) {
+                engine.finish();
+                return true;
+            }
+            engine.emitWrong();
+            return false;
+        }
 
         if (engine.puzzle.mode === "coordinatePlane") {
             if (!value || typeof value !== "object") return false;
