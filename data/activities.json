@@ -346,5 +346,18 @@
     "locked": false,
     "requires": null,
     "path": "content/grades/grade6/science/chapter1/compositeAnimalMediaDemo"
+  },
+  {
+    "id": "mathCoordinatePlane",
+    "title": "مختصات نقطه‌ها",
+    "grade": "grade6",
+    "subject": "math",
+    "chapter": "chapter1",
+    "type": "puzzle",
+    "engine": "puzzle",
+    "group": "spatial",
+    "locked": false,
+    "requires": null,
+    "path": "content/grades/grade6/math/chapter1/coordinatePlane"
   }
 ]
