@@ -307,6 +307,10 @@ const PuzzleScreen = {
     // =====================================
 
     showSpatial: function (state) {
+        if (state && state.mode === "transform") {
+            this.showSpatialTransform(state);
+            return;
+        }
         if (state && state.mode === "coordinatePlane") {
             this.showCoordinatePlane(state);
             return;
@@ -324,6 +328,91 @@ const PuzzleScreen = {
         this.showSpatialLegacy(state);
     },
 
+
+    showSpatialTransform: function (state) {
+        const app = this.getApp();
+        if (!app) return;
+        const system = state.coordinateSystem;
+        const source = Array.isArray(state.points) ? state.points : [];
+        const userPoints = Array.isArray(state.userPoints) ? state.userPoints : [];
+        if (!system || typeof SpatialPuzzle === "undefined" || !source.length) {
+            app.innerHTML = "<div class='screen puzzleScreen'><p>اطلاعات تبدیل هندسی معتبر نیست.</p></div>";
+            return;
+        }
+
+        const width = 360, height = 300;
+        const viewport = { left: 30, top: 20, right: 330, bottom: 270, width: 300, height: 250 };
+        const toPixel = function (point) { return SpatialPuzzle.mathToPixel(point, system, viewport); };
+        const lines = [];
+        const step = Number(system.unitStep);
+        for (let x = system.xMin; x <= system.xMax + 1e-8; x += step) {
+            const p = toPixel({ x: x, y: system.yMin });
+            if (p) lines.push("<line x1='" + p.x + "' y1='" + viewport.top + "' x2='" + p.x + "' y2='" + viewport.bottom + "' stroke='#dbe3ec' />");
+        }
+        for (let y = system.yMin; y <= system.yMax + 1e-8; y += step) {
+            const p = toPixel({ x: system.xMin, y: y });
+            if (p) lines.push("<line x1='" + viewport.left + "' y1='" + p.y + "' x2='" + viewport.right + "' y2='" + p.y + "' stroke='#dbe3ec' />");
+        }
+        const xa = toPixel({ x: system.xMin, y: 0 }), xb = toPixel({ x: system.xMax, y: 0 });
+        const ya = toPixel({ x: 0, y: system.yMin }), yb = toPixel({ x: 0, y: system.yMax });
+        if (xa && xb) lines.push("<line x1='" + xa.x + "' y1='" + xa.y + "' x2='" + xb.x + "' y2='" + xb.y + "' stroke='#334155' stroke-width='2' />");
+        if (ya && yb) lines.push("<line x1='" + ya.x + "' y1='" + ya.y + "' x2='" + yb.x + "' y2='" + yb.y + "' stroke='#334155' stroke-width='2' />");
+
+        const sourcePixels = source.map(toPixel).filter(Boolean);
+        let shape = "";
+        if (sourcePixels.length > 1) {
+            const coords = sourcePixels.map(function (p) { return p.x + "," + p.y; }).join(" ");
+            shape = (sourcePixels.length >= 3
+                ? "<polygon points='" + coords + "' fill='#2563eb' fill-opacity='.10' stroke='#2563eb' stroke-width='2' />"
+                : "<polyline points='" + coords + "' fill='none' stroke='#2563eb' stroke-width='3' />");
+        }
+        const sourceMarkers = source.map(function (point, index) {
+            const p = toPixel(point);
+            return p ? "<circle cx='" + p.x + "' cy='" + p.y + "' r='5' fill='#2563eb' /><text x='" + (p.x + 7) + "' y='" + (p.y - 7) + "' font-size='12' fill='#1d4ed8'>" + String.fromCharCode(65 + index) + "</text>" : "";
+        }).join("");
+        const placed = userPoints.map(function (point, index) {
+            if (!point) return "";
+            const p = toPixel(point);
+            return p ? "<circle cx='" + p.x + "' cy='" + p.y + "' r='6' fill='#ea580c' stroke='#fff' stroke-width='2' /><text x='" + (p.x + 7) + "' y='" + (p.y + 14) + "' font-size='12' fill='#c2410c'>" + String.fromCharCode(65 + index) + "′</text>" : "";
+        }).join("");
+
+        const operation = state.operation || {};
+        let operationText = "تبدیل هندسی";
+        if (operation.kind === "translate") operationText = "انتقال: " + (operation.dx >= 0 ? "+" : "") + operation.dx + " در راستای س، " + (operation.dy >= 0 ? "+" : "") + operation.dy + " در راستای ص";
+        if (operation.kind === "rotate") operationText = "دوران " + operation.degrees + " درجه حول (" + operation.center.x + "، " + operation.center.y + ")";
+        if (operation.kind === "reflectLine") operationText = "قرینه نسبت به خط گذرنده از (" + operation.lineStart.x + "، " + operation.lineStart.y + ") و (" + operation.lineEnd.x + "، " + operation.lineEnd.y + ")";
+        if (operation.kind === "reflectPoint") operationText = "قرینه نسبت به نقطه (" + operation.center.x + "، " + operation.center.y + ")";
+        const nextIndex = userPoints.findIndex(function (point) { return !point; });
+        const outputText = source.map(function (_, index) {
+            const point = userPoints[index];
+            return String.fromCharCode(65 + index) + "′: " + (point ? "(" + point.x + "، " + point.y + ")" : "—");
+        }).join("   ");
+
+        app.innerHTML = "<div class='screen puzzleScreen spatialScreen spatialTransformScreen' dir='rtl'><h1>تبدیل‌های هندسی</h1><p class='puzzleInstruction'>" + PuzzleScreen.escapeHTML(state.instruction || "نقطه‌های تبدیل‌شده را روی صفحه مختصات مشخص کن.") + "</p><div class='transformOperation'>" + PuzzleScreen.escapeHTML(operationText) + "</div><div class='coordinatePlaneCanvas'><svg id='spatialTransformSvg' viewBox='0 0 " + width + " " + height + "' role='img' aria-label='صفحه مختصات برای قرار دادن نقاط تبدیل‌شده'>" + lines.join("") + shape + sourceMarkers + placed + "</svg></div><p id='spatialTransformStatus' class='coordinatePlaneStatus' aria-live='polite'>" + (nextIndex < 0 ? "همهٔ نقطه‌ها مشخص شده‌اند؛ پاسخ را بررسی کن." : "نقطهٔ " + String.fromCharCode(65 + nextIndex) + "′ را روی صفحه لمس کن.") + "</p><p class='transformCoordinates'>" + PuzzleScreen.escapeHTML(outputText) + "</p><button id='spatialTransformCheckBtn' type='button' " + (nextIndex < 0 ? "" : "disabled") + ">بررسی پاسخ</button><div id='puzzleMessage' class='puzzleMessage'></div>" + this.renderStandardFooter(state.moves) + "</div><style>.transformOperation{max-width:480px;margin:10px auto;padding:10px 12px;border-radius:10px;background:#eef2ff;color:#3730a3;text-align:center;font-weight:600}.coordinatePlaneCanvas{width:100%;max-width:480px;margin:16px auto;padding:8px;box-sizing:border-box;background:#fff;border:1px solid #dbe3ec;border-radius:14px}.coordinatePlaneCanvas svg{display:block;width:100%;height:auto;touch-action:manipulation;cursor:crosshair}.transformCoordinates{margin:10px auto;text-align:center;direction:rtl;line-height:1.9;font-size:14px;color:#334155;overflow-wrap:anywhere}.spatialTransformScreen #spatialTransformCheckBtn{display:block;margin:12px auto;padding:10px 24px;border:0;border-radius:10px;background:#2563eb;color:#fff;font-size:16px}.spatialTransformScreen #spatialTransformCheckBtn:disabled{opacity:.45}</style>";
+
+        const svg = app.querySelector("#spatialTransformSvg");
+        if (svg && nextIndex >= 0) svg.addEventListener("pointerdown", function (event) {
+            if (event.button !== undefined && event.button !== 0) return;
+            const rect = svg.getBoundingClientRect();
+            if (!rect.width || !rect.height) return;
+            const pixel = { x: (event.clientX - rect.left) * width / rect.width, y: (event.clientY - rect.top) * height / rect.height };
+            if (pixel.x < viewport.left || pixel.x > viewport.right || pixel.y < viewport.top || pixel.y > viewport.bottom) return;
+            const point = SpatialPuzzle.pixelToMath(pixel, system, viewport);
+            const snapped = point && SpatialPuzzle.snapCoordinatePoint(point, system);
+            if (!snapped || !PuzzleEngine.setTypeAnswer({ index: nextIndex, x: snapped.x, y: snapped.y })) return;
+            PuzzleScreen.show(PuzzleEngine.getState());
+        });
+
+        const check = app.querySelector("#spatialTransformCheckBtn");
+        if (check) check.addEventListener("click", function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            if (!check.disabled) {
+                check.disabled = true;
+                PuzzleEngine.check();
+            }
+        });
+    },
 
     showCoordinatePlane: function (state) {
         const app = this.getApp();
