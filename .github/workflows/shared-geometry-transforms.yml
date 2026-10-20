@@ -5,7 +5,9 @@ on:
     branches: ["master"]
     paths:
       - "engine/activity/puzzleTypes/geometryTransforms.js"
+      - "engine/activity/puzzleTypes/spatialPuzzle.js"
       - "tests/shared-geometry-transforms.test.js"
+      - "tests/spatial-transform-contract.test.js"
       - ".github/workflows/shared-geometry-transforms.yml"
   pull_request:
     branches: ["master"]
@@ -31,6 +33,10 @@ jobs:
       - name: Check JavaScript syntax
         run: |
           node --check engine/activity/puzzleTypes/geometryTransforms.js
+          node --check engine/activity/puzzleTypes/spatialPuzzle.js
           node --check tests/shared-geometry-transforms.test.js
+          node --check tests/spatial-transform-contract.test.js
       - name: Run geometry transform tests
-        run: node tests/shared-geometry-transforms.test.js
+        run: |
+          node tests/shared-geometry-transforms.test.js
+          node tests/spatial-transform-contract.test.js
