@@ -12,6 +12,7 @@ on:
       - "content/grades/grade6/math/chapter1/geometryTransforms/activity.json"
       - "tests/shared-geometry-transforms.test.js"
       - "tests/spatial-transform-contract.test.js"
+      - "tests/spatial-transform-runtime.test.js"
       - ".github/workflows/shared-geometry-transforms.yml"
   pull_request:
     branches: ["master"]
@@ -48,7 +49,9 @@ jobs:
           node --check engine/ui/puzzleScreen.js
           node --check tests/shared-geometry-transforms.test.js
           node --check tests/spatial-transform-contract.test.js
+          node --check tests/spatial-transform-runtime.test.js
       - name: Run geometry transform tests
         run: |
           node tests/shared-geometry-transforms.test.js
           node tests/spatial-transform-contract.test.js
+          node tests/spatial-transform-runtime.test.js
