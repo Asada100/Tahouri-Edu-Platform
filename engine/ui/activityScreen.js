@@ -298,6 +298,15 @@ const ActivityScreen = {
             return;
         }
 
+        // A deliberate selection from the activity list is an explicit new start.
+        // Clear the post-completion guard so a previous result cannot block a new activity.
+        if (
+            typeof ActivityManager !== "undefined" &&
+            typeof ActivityManager.allowNewActivityStart === "function"
+        ) {
+            ActivityManager.allowNewActivityStart();
+        }
+
         if (typeof Navigation !== "undefined") {
             Navigation.selectActivity(activity.id);
         }
@@ -330,4 +339,4 @@ const ActivityScreen = {
 
 window.ActivityScreen = ActivityScreen;
 
-console.log("Activity Screen v3.11 Ready");
+console.log("Activity Screen v3.12 Ready");
