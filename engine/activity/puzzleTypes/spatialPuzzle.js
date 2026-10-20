@@ -600,12 +600,14 @@ const SpatialPuzzle = {
             const points = engine.puzzle.userPoints || [];
             if (engine.puzzle.hasUserMove !== true ||
                 points.length !== engine.puzzle.points.length ||
-                points.some(function (point) { return !point; })) {
+                engine.puzzle.points.some(function (_, index) { return !points[index]; })) {
                 console.log("Spatial Puzzle: Transform check blocked before all output points are placed.");
                 return false;
             }
-            const correct = points.every(function (point, index) {
-                return Math.abs(point.x - engine.puzzle.answer[index].x) <= 1e-8 &&
+            const correct = engine.puzzle.points.every(function (_, index) {
+                const point = points[index];
+                return !!point &&
+                    Math.abs(point.x - engine.puzzle.answer[index].x) <= 1e-8 &&
                     Math.abs(point.y - engine.puzzle.answer[index].y) <= 1e-8;
             });
             if (correct) {
