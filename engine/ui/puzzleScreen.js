@@ -383,15 +383,27 @@ const PuzzleScreen = {
         if (operation.kind === "reflectLine") operationText = "قرینه نسبت به خط گذرنده از (" + operation.lineStart.x + "، " + operation.lineStart.y + ") و (" + operation.lineEnd.x + "، " + operation.lineEnd.y + ")";
         if (operation.kind === "reflectPoint") operationText = "قرینه نسبت به نقطه (" + operation.center.x + "، " + operation.center.y + ")";
         const nextIndex = userPoints.findIndex(function (point) { return !point; });
+        let activeIndex = nextIndex >= 0 ? nextIndex : 0;
         const outputText = source.map(function (_, index) {
             const point = userPoints[index];
             return String.fromCharCode(65 + index) + "′: " + (point ? "(" + point.x + "، " + point.y + ")" : "—");
         }).join("   ");
+        const outputSelectors = source.map(function (_, index) {
+            return "<button type='button' class='transformPointSelector' data-transform-index='" + index + "'>" + String.fromCharCode(65 + index) + "′" + (userPoints[index] ? " (" + userPoints[index].x + "، " + userPoints[index].y + ")" : " تعیین") + "</button>";
+        }).join("");
 
-        app.innerHTML = "<div class='screen puzzleScreen spatialScreen spatialTransformScreen' dir='rtl'><h1>تبدیل‌های هندسی</h1><p class='puzzleInstruction'>" + PuzzleScreen.escapeHTML(state.instruction || "نقطه‌های تبدیل‌شده را روی صفحه مختصات مشخص کن.") + "</p><div class='transformOperation'>" + PuzzleScreen.escapeHTML(operationText) + "</div><div class='coordinatePlaneCanvas'><svg id='spatialTransformSvg' viewBox='0 0 " + width + " " + height + "' role='img' aria-label='صفحه مختصات برای قرار دادن نقاط تبدیل‌شده'>" + lines.join("") + shape + sourceMarkers + placed + "</svg></div><p id='spatialTransformStatus' class='coordinatePlaneStatus' aria-live='polite'>" + (nextIndex < 0 ? "همهٔ نقطه‌ها مشخص شده‌اند؛ پاسخ را بررسی کن." : "نقطهٔ " + String.fromCharCode(65 + nextIndex) + "′ را روی صفحه لمس کن.") + "</p><p class='transformCoordinates'>" + PuzzleScreen.escapeHTML(outputText) + "</p><button id='spatialTransformCheckBtn' type='button' " + (nextIndex < 0 ? "" : "disabled") + ">بررسی پاسخ</button><div id='puzzleMessage' class='puzzleMessage'></div>" + this.renderStandardFooter(state.moves) + "</div><style>.transformOperation{max-width:480px;margin:10px auto;padding:10px 12px;border-radius:10px;background:#eef2ff;color:#3730a3;text-align:center;font-weight:600}.coordinatePlaneCanvas{width:100%;max-width:480px;margin:16px auto;padding:8px;box-sizing:border-box;background:#fff;border:1px solid #dbe3ec;border-radius:14px}.coordinatePlaneCanvas svg{display:block;width:100%;height:auto;touch-action:manipulation;cursor:crosshair}.transformCoordinates{margin:10px auto;text-align:center;direction:rtl;line-height:1.9;font-size:14px;color:#334155;overflow-wrap:anywhere}.spatialTransformScreen #spatialTransformCheckBtn{display:block;margin:12px auto;padding:10px 24px;border:0;border-radius:10px;background:#2563eb;color:#fff;font-size:16px}.spatialTransformScreen #spatialTransformCheckBtn:disabled{opacity:.45}</style>";
+        app.innerHTML = "<div class='screen puzzleScreen spatialScreen spatialTransformScreen' dir='rtl'><h1>تبدیل‌های هندسی</h1><p class='puzzleInstruction'>" + PuzzleScreen.escapeHTML(state.instruction || "نقطه‌های تبدیل‌شده را روی صفحه مختصات مشخص کن.") + "</p><div class='transformOperation'>" + PuzzleScreen.escapeHTML(operationText) + "</div><div class='coordinatePlaneCanvas'><svg id='spatialTransformSvg' viewBox='0 0 " + width + " " + height + "' role='img' aria-label='صفحه مختصات برای قرار دادن نقاط تبدیل‌شده'>" + lines.join("") + shape + sourceMarkers + placed + "</svg></div><p id='spatialTransformStatus' class='coordinatePlaneStatus' aria-live='polite'>" + (nextIndex < 0 ? "برای اصلاح هر نقطه، حرف آن را انتخاب کن و سپس جای درستش را روی صفحه بزن." : "نقطهٔ " + String.fromCharCode(65 + nextIndex) + "′ را روی صفحه لمس کن.") + "</p><div class='transformPointSelectors'>" + outputSelectors + "</div><p class='transformCoordinates'>" + PuzzleScreen.escapeHTML(outputText) + "</p><button id='spatialTransformCheckBtn' type='button' " + (nextIndex < 0 ? "" : "disabled") + ">بررسی پاسخ</button><div id='puzzleMessage' class='puzzleMessage'></div>" + this.renderStandardFooter(state.moves) + "</div><style>.transformOperation{max-width:480px;margin:10px auto;padding:10px 12px;border-radius:10px;background:#eef2ff;color:#3730a3;text-align:center;font-weight:600}.coordinatePlaneCanvas{width:100%;max-width:480px;margin:16px auto;padding:8px;box-sizing:border-box;background:#fff;border:1px solid #dbe3ec;border-radius:14px}.coordinatePlaneCanvas svg{display:block;width:100%;height:auto;touch-action:manipulation;cursor:crosshair}.transformCoordinates{margin:10px auto;text-align:center;direction:rtl;line-height:1.9;font-size:14px;color:#334155;overflow-wrap:anywhere}.transformPointSelectors{display:flex;justify-content:center;gap:8px;flex-wrap:wrap}.transformPointSelector{border:1px solid #cbd5e1;border-radius:8px;padding:7px 10px;background:#f8fafc;color:#334155}.spatialTransformScreen #spatialTransformCheckBtn{display:block;margin:12px auto;padding:10px 24px;border:0;border-radius:10px;background:#2563eb;color:#fff;font-size:16px}.spatialTransformScreen #spatialTransformCheckBtn:disabled{opacity:.45}</style>";
+
+        app.querySelectorAll(".transformPointSelector").forEach(function (button) {
+            button.addEventListener("click", function () {
+                activeIndex = Number(button.getAttribute("data-transform-index"));
+                const status = app.querySelector("#spatialTransformStatus");
+                if (status) status.textContent = "نقطهٔ " + String.fromCharCode(65 + activeIndex) + "′ را روی صفحه مشخص کن.";
+            });
+        });
 
         const svg = app.querySelector("#spatialTransformSvg");
-        if (svg && nextIndex >= 0) svg.addEventListener("pointerdown", function (event) {
+        if (svg) svg.addEventListener("pointerdown", function (event) {
             if (event.button !== undefined && event.button !== 0) return;
             const rect = svg.getBoundingClientRect();
             if (!rect.width || !rect.height) return;
@@ -399,7 +411,7 @@ const PuzzleScreen = {
             if (pixel.x < viewport.left || pixel.x > viewport.right || pixel.y < viewport.top || pixel.y > viewport.bottom) return;
             const point = SpatialPuzzle.pixelToMath(pixel, system, viewport);
             const snapped = point && SpatialPuzzle.snapCoordinatePoint(point, system);
-            if (!snapped || !PuzzleEngine.setTypeAnswer({ index: nextIndex, x: snapped.x, y: snapped.y })) return;
+            if (!snapped || !PuzzleEngine.setTypeAnswer({ index: activeIndex, x: snapped.x, y: snapped.y })) return;
             PuzzleScreen.show(PuzzleEngine.getState());
         });
 
