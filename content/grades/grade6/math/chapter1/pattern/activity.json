@@ -12,9 +12,45 @@
     "source": "file",
     "dataType": "number",
     "instruction": "الگو را پیدا کن و جای خالی را با عدد درست کامل کن.",
-    "items": [2, 4, 2, 4, 2, null],
+    "items": [
+      2,
+      4,
+      2,
+      4,
+      2,
+      null
+    ],
     "missingIndex": 5,
     "answer": 4,
-    "options": [2, 4, 6, 8]
+    "options": [
+      2,
+      4,
+      6,
+      8
+    ],
+    "questions": [
+      {
+        "type": "pattern",
+        "source": "file",
+        "dataType": "number",
+        "instruction": "الگو را پیدا کن و جای خالی را با عدد درست کامل کن.",
+        "items": [
+          2,
+          4,
+          2,
+          4,
+          2,
+          null
+        ],
+        "missingIndex": 5,
+        "answer": 4,
+        "options": [
+          2,
+          4,
+          6,
+          8
+        ]
+      }
+    ]
   }
 }
