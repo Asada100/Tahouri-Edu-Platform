@@ -381,7 +381,7 @@ const PuzzleScreen = {
             }
         } else if (selected && typeof selected === "object" && Number.isFinite(Number(selected.x)) && Number.isFinite(Number(selected.y))) {
             const p = toPixel(selected);
-            if (p) selectionMarker = "<circle cx='" + p.x + "' cy='" + p.y + "' r='7' fill='#ea580c' stroke='#fff' stroke-width='2' />";
+            if (p) selectionMarker = "<circle id='coordinatePlaneSelectionMarker' cx='" + p.x + "' cy='" + p.y + "' r='7' fill='#ea580c' stroke='#fff' stroke-width='2' />";
             selectionText = "مختصات انتخاب‌شده: (" + Number(selected.x) + "، " + Number(selected.y) + ")";
         }
 
