@@ -15,6 +15,11 @@ const context = {
 };
 context.window = context;
 vm.runInNewContext(
+  fs.readFileSync('engine/activity/puzzleTypes/geometryTransforms.js', 'utf8'),
+  context,
+  { filename: 'engine/activity/puzzleTypes/geometryTransforms.js' }
+);
+vm.runInNewContext(
   fs.readFileSync('engine/activity/puzzleTypes/spatialPuzzle.js', 'utf8'),
   context,
   { filename: 'engine/activity/puzzleTypes/spatialPuzzle.js' }
@@ -61,4 +66,43 @@ for (const [data, label] of invalidCases) {
   assert.equal(handler.validateTransformPuzzleData(data).valid, false, label);
 }
 
-console.log('Spatial transform task contract: 14 checks passed.');
+console.log('Spatial transform contract and gameplay checks passed.');
+
+const engine = {
+  puzzle: null, items: [], userAnswer: null, moves: 0,
+  emitStarted() {},
+  emitChanged() { return true; },
+  emitWrong() { this.wrong = (this.wrong || 0) + 1; return false; },
+  finish() { this.finished = true; return true; },
+  getState() { return { type: this.puzzle.type, mode: this.puzzle.mode }; }
+};
+assert.ok(handler.start(engine, base), 'valid transform activity starts');
+assert.equal(engine.puzzle.mode, 'transform');
+assert.equal(handler.setAnswer(engine, { index: 0, x: 1, y: 1 }), true,
+  'first transformed point can be placed');
+assert.equal(handler.check(engine), false, 'cannot check until every output point is placed');
+assert.equal(engine.finished, undefined);
+assert.equal(handler.setAnswer(engine, { index: 1, x: 3, y: 1 }), true,
+  'second transformed point can be placed');
+assert.equal(handler.check(engine), true, 'correct transformed shape finishes');
+assert.equal(engine.finished, true);
+
+const wrongEngine = {
+  ...engine, puzzle: null, items: [], userAnswer: null, moves: 0,
+  finished: false, wrong: 0,
+  emitStarted() {}, emitChanged() { return true; },
+  emitWrong() { this.wrong++; }, finish() { this.finished = true; },
+  getState() { return { type: this.puzzle.type, mode: this.puzzle.mode }; }
+};
+assert.ok(handler.start(wrongEngine, base), 'wrong-answer test starts');
+handler.setAnswer(wrongEngine, { index: 0, x: 0, y: 0 });
+handler.setAnswer(wrongEngine, { index: 1, x: 3, y: 1 });
+assert.equal(handler.check(wrongEngine), false, 'incorrect transformed point is rejected');
+assert.equal(wrongEngine.wrong, 1);
+assert.equal(wrongEngine.finished, false, 'incorrect answer remains retryable');
+
+const noHelperContext = { ...context, window: {} };
+const invalidStart = handler.start({
+  ...engine, puzzle: null, emitStarted() {}, getState() { return {}; }
+}, { ...base, operation: { kind: 'translate', dx: 1, dy: 0 } });
+assert.ok(invalidStart, 'loaded shared helper enables gameplay');
