@@ -417,7 +417,53 @@ const PuzzleScreen = {
                 if (!answer) return;
             }
 
-            if (PuzzleEngine.setTypeAnswer(answer)) PuzzleScreen.show(PuzzleEngine.getState());
+            if (PuzzleEngine.setTypeAnswer(answer)) {
+                const updatedState = PuzzleEngine.getState();
+                const status = app.querySelector("#coordinatePlaneStatus");
+                const check = app.querySelector("#coordinatePlaneCheckBtn");
+                const previousMarker = app.querySelector("#coordinatePlaneSelectionMarker");
+                if (previousMarker) previousMarker.remove();
+
+                let marker = null;
+                let statusText = "پاسخ انتخاب شد؛ حالا «بررسی پاسخ» را بزن.";
+                if (task.kind === "identifyPoint") {
+                    const id = String(answer.id);
+                    const point = (task.points || []).find(function (item) {
+                        return String(item.id) === id;
+                    });
+                    if (point) {
+                        const p = toPixel(point);
+                        if (p) {
+                            marker = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                            marker.setAttribute("id", "coordinatePlaneSelectionMarker");
+                            marker.setAttribute("cx", String(p.x));
+                            marker.setAttribute("cy", String(p.y));
+                            marker.setAttribute("r", "9");
+                            marker.setAttribute("fill", "none");
+                            marker.setAttribute("stroke", "#ea580c");
+                            marker.setAttribute("stroke-width", "3");
+                        }
+                        statusText = "نقطهٔ انتخاب‌شده: " + (point.label || point.id);
+                    }
+                } else {
+                    const p = toPixel(answer);
+                    if (p) {
+                        marker = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                        marker.setAttribute("id", "coordinatePlaneSelectionMarker");
+                        marker.setAttribute("cx", String(p.x));
+                        marker.setAttribute("cy", String(p.y));
+                        marker.setAttribute("r", "7");
+                        marker.setAttribute("fill", "#ea580c");
+                        marker.setAttribute("stroke", "#fff");
+                        marker.setAttribute("stroke-width", "2");
+                    }
+                    statusText = "مختصات انتخاب‌شده: (" + Number(answer.x) + "، " + Number(answer.y) + ")";
+                }
+
+                if (marker) svg.appendChild(marker);
+                if (status) status.textContent = statusText;
+                if (check) check.disabled = updatedState.userAnswer === undefined || updatedState.userAnswer === null;
+            }
         });
 
         const checkButton = app.querySelector("#coordinatePlaneCheckBtn");
