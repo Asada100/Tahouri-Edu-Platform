@@ -361,36 +361,33 @@ const PuzzleScreen = {
         let markers = "";
         if (task.kind === "readPoint" && task.target) {
             const p = toPixel(task.target);
-            if (p) markers += "<circle cx='" + p.x + "' cy='" + p.y + "' r='6' fill='#2563eb' /><text x='" + (p.x + 8) + "' y='" + (p.y - 8) + "' font-size='12' fill='#1d4ed8'>A</text>";
+            if (p) markers = "<circle cx='" + p.x + "' cy='" + p.y + "' r='6' fill='#2563eb' /><text x='" + (p.x + 8) + "' y='" + (p.y - 8) + "' font-size='12' fill='#1d4ed8'>A</text>";
         } else if (task.kind === "identifyPoint" && Array.isArray(task.points)) {
-            markers += task.points.map(function (point) {
+            markers = task.points.map(function (point) {
                 const p = toPixel(point);
                 return p ? "<circle cx='" + p.x + "' cy='" + p.y + "' r='5' fill='#2563eb' /><text x='" + (p.x + 7) + "' y='" + (p.y - 7) + "' font-size='12' fill='#1d4ed8'>" + PuzzleScreen.escapeHTML(point.label || point.id) + "</text>" : "";
             }).join("");
         }
 
-        let selectedPoint = null;
-        if (task.kind === "identifyPoint" && typeof state.userAnswer === "string" && Array.isArray(task.points)) {
-            selectedPoint = task.points.find(function (point) { return String(point.id) === state.userAnswer; }) || null;
-        } else if (state.userAnswer && typeof state.userAnswer === "object" &&
-            Number.isFinite(Number(state.userAnswer.x)) && Number.isFinite(Number(state.userAnswer.y))) {
-            selectedPoint = { x: Number(state.userAnswer.x), y: Number(state.userAnswer.y) };
-        }
-        if (selectedPoint) {
-            const p = toPixel(selectedPoint);
-            if (p) markers += "<circle cx='" + p.x + "' cy='" + p.y + "' r='8' fill='#f97316' stroke='#fff' stroke-width='2' /><circle cx='" + p.x + "' cy='" + p.y + "' r='11' fill='none' stroke='#f97316' stroke-width='2' />";
-        }
-
-        let status = "روی صفحه مختصات لمس کن یا با ماوس کلیک کن؛ سپس پاسخ را بررسی کن.";
-        if (selectedPoint) {
-            status = task.kind === "identifyPoint"
-                ? "نقطه انتخاب‌شده: " + PuzzleScreen.escapeHTML(selectedPoint.label || selectedPoint.id) + "؛ برای ثبت نهایی «بررسی پاسخ» را بزن."
-                : "پاسخ انتخاب‌شده: (" + selectedPoint.x + "، " + selectedPoint.y + ")؛ می‌توانی نقطه را تغییر بدهی و بعد بررسی کنی.";
+        const selected = state.userAnswer;
+        let selectionMarker = "";
+        let selectionText = "برای انتخاب، روی صفحه مختصات لمس یا کلیک کن.";
+        if (task.kind === "identifyPoint" && typeof selected === "string") {
+            const selectedPoint = (task.points || []).find(function (point) { return String(point.id) === selected; });
+            if (selectedPoint) {
+                const p = toPixel(selectedPoint);
+                if (p) selectionMarker = "<circle cx='" + p.x + "' cy='" + p.y + "' r='9' fill='none' stroke='#ea580c' stroke-width='3' />";
+                selectionText = "نقطهٔ انتخاب‌شده: " + PuzzleScreen.escapeHTML(selectedPoint.label || selectedPoint.id);
+            }
+        } else if (selected && typeof selected === "object" && Number.isFinite(Number(selected.x)) && Number.isFinite(Number(selected.y))) {
+            const p = toPixel(selected);
+            if (p) selectionMarker = "<circle cx='" + p.x + "' cy='" + p.y + "' r='7' fill='#ea580c' stroke='#fff' stroke-width='2' />";
+            selectionText = "مختصات انتخاب‌شده: (" + Number(selected.x) + "، " + Number(selected.y) + ")";
         }
 
-        app.innerHTML = "<div class='screen puzzleScreen spatialScreen coordinatePlaneScreen' dir='rtl'><h1>صفحه مختصات</h1><p class='puzzleInstruction'>" + PuzzleScreen.escapeHTML(state.instruction || "نقاط و محورهای مختصات را بررسی کن.") + "</p><div class='coordinatePlaneCanvas'><svg data-coordinate-plane='true' viewBox='0 0 " + width + " " + height + "' role='img' aria-label='صفحه مختصات تعاملی'>" + lines.join("") + markers + "</svg></div><p class='coordinatePlaneStatus' aria-live='polite'>" + status + "</p><button id='coordinatePlaneCheckBtn' type='button'" + (selectedPoint ? "" : " disabled") + ">بررسی پاسخ</button><div id='puzzleMessage' class='puzzleMessage'></div>" + this.renderStandardFooter(state.moves) + "</div><style>.coordinatePlaneCanvas{width:100%;max-width:480px;margin:16px auto;padding:8px;box-sizing:border-box;background:#fff;border:1px solid #dbe3ec;border-radius:14px}.coordinatePlaneCanvas svg{display:block;width:100%;height:auto;touch-action:manipulation;cursor:crosshair}.coordinatePlaneStatus{text-align:center;color:#334155;font-size:14px;min-height:24px}.coordinatePlaneScreen #coordinatePlaneCheckBtn{display:block;margin:12px auto;padding:10px 24px;border:0;border-radius:10px;background:#2563eb;color:#fff;font-size:16px}.coordinatePlaneScreen #coordinatePlaneCheckBtn:disabled{opacity:.45;cursor:not-allowed}</style>";
+        app.innerHTML = "<div class='screen puzzleScreen spatialScreen coordinatePlaneScreen' dir='rtl'><h1>صفحه مختصات</h1><p class='puzzleInstruction'>" + PuzzleScreen.escapeHTML(state.instruction || "نقاط و محورهای مختصات را بررسی کن.") + "</p><div class='coordinatePlaneCanvas'><svg id='coordinatePlaneSvg' viewBox='0 0 " + width + " " + height + "' role='img' aria-label='صفحه مختصات؛ برای انتخاب نقطه لمس یا کلیک کن'>" + lines.join("") + markers + selectionMarker + "</svg></div><p id='coordinatePlaneStatus' class='coordinatePlaneStatus' aria-live='polite'>" + selectionText + "</p><button id='coordinatePlaneCheckBtn' type='button' " + (selected === undefined || selected === null ? "disabled" : "") + ">بررسی پاسخ</button><div id='puzzleMessage' class='puzzleMessage'></div>" + this.renderStandardFooter(state.moves) + "</div><style>.coordinatePlaneCanvas{width:100%;max-width:480px;margin:16px auto;padding:8px;box-sizing:border-box;background:#fff;border:1px solid #dbe3ec;border-radius:14px}.coordinatePlaneCanvas svg{display:block;width:100%;height:auto;touch-action:manipulation;cursor:crosshair}.coordinatePlaneStatus{text-align:center;color:#475569;font-size:14px;min-height:24px}.coordinatePlaneScreen #coordinatePlaneCheckBtn{display:block;margin:12px auto;padding:10px 24px;border:0;border-radius:10px;background:#2563eb;color:#fff;font-size:16px}.coordinatePlaneScreen #coordinatePlaneCheckBtn:disabled{opacity:.45;cursor:not-allowed}</style>";
 
-        const svg = app.querySelector("[data-coordinate-plane='true']");
+        const svg = app.querySelector("#coordinatePlaneSvg");
         if (svg) svg.addEventListener("pointerdown", function (event) {
             if (event.button !== undefined && event.button !== 0) return;
             const rect = svg.getBoundingClientRect();
@@ -402,36 +399,32 @@ const PuzzleScreen = {
             if (pixel.x < viewport.left || pixel.x > viewport.left + viewport.width ||
                 pixel.y < viewport.top || pixel.y > viewport.top + viewport.height) return;
 
-            const point = SpatialPuzzle.pixelToMath(pixel, system, viewport);
-            if (!point) return;
             let answer;
             if (task.kind === "identifyPoint") {
-                if (!Array.isArray(task.points)) return;
                 let nearest = null, nearestDistance = Infinity;
-                task.points.forEach(function (candidate) {
-                    const candidatePixel = toPixel(candidate);
-                    if (!candidatePixel) return;
-                    const dx = candidatePixel.x - pixel.x, dy = candidatePixel.y - pixel.y;
-                    const distance = Math.sqrt(dx * dx + dy * dy);
-                    if (distance < nearestDistance) { nearestDistance = distance; nearest = candidate; }
+                (task.points || []).forEach(function (point) {
+                    const pointPixel = toPixel(point);
+                    if (!pointPixel) return;
+                    const distance = Math.hypot(pointPixel.x - pixel.x, pointPixel.y - pixel.y);
+                    if (distance < nearestDistance) { nearest = point; nearestDistance = distance; }
                 });
                 if (!nearest || nearestDistance > 18) return;
                 answer = { id: String(nearest.id) };
             } else {
-                answer = SpatialPuzzle.snapCoordinatePoint(point, system);
+                answer = SpatialPuzzle.pixelToMath(pixel, system, viewport);
+                if (!answer) return;
+                answer = SpatialPuzzle.snapCoordinatePoint(answer, system);
                 if (!answer) return;
             }
-            if (typeof PuzzleEngine !== "undefined" && PuzzleEngine.setTypeAnswer(answer)) {
-                if (event.cancelable) event.preventDefault();
-            }
+
+            if (PuzzleEngine.setTypeAnswer(answer)) PuzzleScreen.show(PuzzleEngine.getState());
         });
 
         const checkButton = app.querySelector("#coordinatePlaneCheckBtn");
         if (checkButton) checkButton.addEventListener("click", function () {
-            if (typeof PuzzleEngine !== "undefined") PuzzleEngine.check();
+            PuzzleEngine.check();
         });
     },
-
 
     showSpatialLegacy: function (state) {
         const app = this.getApp();
