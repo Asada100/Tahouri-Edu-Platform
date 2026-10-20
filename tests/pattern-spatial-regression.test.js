@@ -55,6 +55,20 @@ function makeEngine() {
 assert.ok(registered.pattern, 'Pattern handler registers');
 assert.ok(registered.spatial, 'Spatial handler registers');
 
+// The registered Grade 6 coordinate-plane activity must resolve to valid content data.
+{
+  const registry = JSON.parse(fs.readFileSync('data/activities.json', 'utf8'));
+  const registeredActivity = registry.find(item => item.id === 'mathCoordinatePlane');
+  assert.ok(registeredActivity, 'Grade 6 coordinate-plane activity is registered');
+  assert.equal(registeredActivity.path, 'content/grades/grade6/math/chapter1/coordinatePlane');
+  const activityData = JSON.parse(fs.readFileSync(
+    registeredActivity.path + '/activity.json', 'utf8'
+  ));
+  assert.equal(activityData.id, registeredActivity.id);
+  assert.equal(registered.spatial.validateCoordinatePlaneData(activityData.puzzle).valid, true,
+    'registered activity contains valid coordinate-plane puzzle data');
+}
+
 // Coordinate Plane data contract: validate independently of UI and without altering existing modes.
 {
   const handler = registered.spatial;
