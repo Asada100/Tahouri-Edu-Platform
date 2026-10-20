@@ -552,8 +552,28 @@ const SpatialPuzzle = {
     check: function (engine) {
         if (!engine.puzzle || engine.puzzle.type !== "spatial") return false;
 
-        if (engine.puzzle.mode === "coordinatePlane" && engine.puzzle.hasUserMove !== true) {
-            console.log("Spatial Puzzle: Coordinate Plane check blocked before user input.");
+        if (engine.puzzle.mode === "coordinatePlane") {
+            if (engine.puzzle.hasUserMove !== true || !engine.userAnswer) {
+                console.log("Spatial Puzzle: Coordinate Plane check blocked before user input.");
+                return false;
+            }
+
+            let correct = false;
+            if (engine.puzzle.task && engine.puzzle.task.kind === "identifyPoint") {
+                correct = String(engine.userAnswer) === String(engine.puzzle.answer);
+            } else {
+                const userPoint = engine.userAnswer;
+                const targetPoint = engine.puzzle.answer;
+                correct = !!userPoint && !!targetPoint &&
+                    Number(userPoint.x) === Number(targetPoint.x) &&
+                    Number(userPoint.y) === Number(targetPoint.y);
+            }
+
+            if (correct) {
+                engine.finish();
+                return true;
+            }
+            engine.emitWrong();
             return false;
         }
 
