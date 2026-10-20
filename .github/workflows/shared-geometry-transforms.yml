@@ -1,0 +1,36 @@
+name: Shared Geometry Transform Checks
+
+on:
+  push:
+    branches: ["master"]
+    paths:
+      - "engine/activity/puzzleTypes/geometryTransforms.js"
+      - "tests/shared-geometry-transforms.test.js"
+      - ".github/workflows/shared-geometry-transforms.yml"
+  pull_request:
+    branches: ["master"]
+    paths:
+      - "engine/activity/puzzleTypes/geometryTransforms.js"
+      - "tests/shared-geometry-transforms.test.js"
+      - ".github/workflows/shared-geometry-transforms.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shared-geometry-transforms:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check JavaScript syntax
+        run: |
+          node --check engine/activity/puzzleTypes/geometryTransforms.js
+          node --check tests/shared-geometry-transforms.test.js
+      - name: Run geometry transform tests
+        run: node tests/shared-geometry-transforms.test.js
