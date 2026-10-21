@@ -38,10 +38,9 @@ for (const path of [
   assert.equal(context.PuzzleEngine.questions.length, 4, 'PuzzleEngine loads all four file-defined questions');
 
   for (let questionIndex = 0; questionIndex < config.puzzle.questions.length; questionIndex++) {
-    const question = config.puzzle.questions[questionIndex];
     const state = context.PuzzleEngine.getState();
     assert.equal(state.mode, 'transform', 'current question is routed to spatial transform renderer');
-    const expected = question.targetPoints;
+    const expected = context.PuzzleEngine.puzzle.targetPoints;
     expected.forEach((point, index) => {
       assert.equal(context.PuzzleEngine.setTypeAnswer({ index, x: point.x, y: point.y }), true,
         'answer point ' + index + ' is accepted for question ' + questionIndex);
