@@ -338,6 +338,71 @@ const SpatialPuzzle = {
         };
     },
 
+    generateTransformQuestions: function (config) {
+        const system = { ...(config.coordinateSystem || {}), unitStep: 0.5 };
+        const transforms = window.SharedGeometryTransforms;
+        if (!transforms) return [];
+        const kinds = ["translate", "rotate", "reflectLine", "reflectPoint"];
+        const randStep = function (min, max) {
+            const steps = Math.round((max - min) / 0.5);
+            return Number((min + Math.floor(Math.random() * (steps + 1)) * 0.5).toFixed(2));
+        };
+        const inBounds = function (points) {
+            return points.every(function (p) {
+                return p.x >= system.xMin && p.x <= system.xMax &&
+                    p.y >= system.yMin && p.y <= system.yMax;
+            });
+        };
+        const questions = [];
+        for (const kind of this.shuffle(kinds)) {
+            let question = null;
+            for (let attempt = 0; attempt < 120 && !question; attempt++) {
+                const points = [];
+                while (points.length < 3) {
+                    const point = { x: randStep(-3, 3), y: randStep(-3, 3) };
+                    if (!points.some(function (p) { return p.x === point.x && p.y === point.y; })) points.push(point);
+                }
+                let operation;
+                if (kind === "translate") {
+                    operation = { kind: kind, dx: randStep(-2, 2), dy: randStep(-2, 2) };
+                    if (operation.dx === 0 && operation.dy === 0) operation.dx = 0.5;
+                } else if (kind === "rotate") {
+                    operation = { kind: kind, center: { x: 0, y: 0 }, degrees: [90, 180, 270][Math.floor(Math.random() * 3)] };
+                } else if (kind === "reflectLine") {
+                    const axis = Math.random() < 0.5 ? "vertical" : "horizontal";
+                    const offset = randStep(-1.5, 1.5);
+                    operation = axis === "vertical"
+                        ? { kind: kind, lineStart: { x: offset, y: system.yMin }, lineEnd: { x: offset, y: system.yMax } }
+                        : { kind: kind, lineStart: { x: system.xMin, y: offset }, lineEnd: { x: system.xMax, y: offset } };
+                } else {
+                    operation = { kind: kind, center: { x: randStep(-1, 1), y: randStep(-1, 1) } };
+                }
+                try {
+                    let targetPoints;
+                    if (kind === "translate") targetPoints = transforms.translateShape(points, operation.dx, operation.dy);
+                    else if (kind === "rotate") targetPoints = transforms.rotateShape(points, operation.center, operation.degrees);
+                    else if (kind === "reflectLine") targetPoints = transforms.reflectShapeAcrossLine(points, operation.lineStart, operation.lineEnd);
+                    else targetPoints = transforms.reflectShapeAcrossPoint(points, operation.center);
+                    if (!inBounds(points) || !inBounds(targetPoints)) continue;
+                    question = {
+                        type: "spatial", mode: "transform", source: "generated",
+                        instruction: kind === "translate" ? "نقطه‌ها را طبق انتقال خواسته‌شده جابه‌جا کن."
+                            : kind === "rotate" ? "شکل را حول نقطهٔ مشخص‌شده بچرخان."
+                            : kind === "reflectLine" ? "شکل را نسبت به خط مشخص‌شده قرینه کن."
+                            : "شکل را نسبت به مرکز مشخص‌شده قرینه کن.",
+                        coordinateSystem: system, operation: operation,
+                        points: points, targetPoints: targetPoints
+                    };
+                } catch (error) {
+                    // Retry with a fresh shape when a transform is not valid.
+                }
+            }
+            if (!question) return [];
+            questions.push(question);
+        }
+        return questions;
+    },
+
     start: function (engine, data) {
         data = data || {};
         const mode = data.mode ? String(data.mode) : "legacy";
