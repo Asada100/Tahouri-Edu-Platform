@@ -76,7 +76,14 @@ const PuzzleEngine = {
 
     getFileDefinedQuestions: function (activityData) {
         const puzzle = activityData && activityData.puzzle;
-        if (!puzzle || !Array.isArray(puzzle.questions) || puzzle.questions.length === 0) return null;
+        if (!puzzle) return null;
+        if (puzzle.mode === "transform" && puzzle.generator === true) {
+            const handler = typeof PuzzleTypeRegistry !== "undefined" ? PuzzleTypeRegistry.get("spatial") : null;
+            const generated = handler && typeof handler.generateTransformQuestions === "function"
+                ? handler.generateTransformQuestions(puzzle) : [];
+            return generated.length ? generated : null;
+        }
+        if (!Array.isArray(puzzle.questions) || puzzle.questions.length === 0) return null;
 
         const questions = puzzle.questions.map(function (question) {
             if (!question || typeof question !== "object") return null;
