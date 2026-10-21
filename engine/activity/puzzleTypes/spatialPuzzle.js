@@ -386,10 +386,15 @@ const SpatialPuzzle = {
                     if (!inBounds(points) || !inBounds(targetPoints)) continue;
                     question = {
                         type: "spatial", mode: "transform", source: "generated",
-                        instruction: kind === "translate" ? "نقطه‌ها را طبق انتقال خواسته‌شده جابه‌جا کن."
-                            : kind === "rotate" ? "شکل را حول نقطهٔ مشخص‌شده بچرخان."
-                            : kind === "reflectLine" ? "شکل را نسبت به خط مشخص‌شده قرینه کن."
-                            : "شکل را نسبت به مرکز مشخص‌شده قرینه کن.",
+                        instruction: kind === "translate"
+                            ? "هر نقطه را " + (operation.dx < 0 ? " " : " ") + String(operation.dx).replace("-", "منفی ") + " واحد در راستای افقی و " + String(operation.dy).replace("-", "منفی ") + " واحد در راستای عمودی انتقال بده."
+                            : kind === "rotate"
+                                ? "شکل را " + operation.degrees + " درجه پادساعت‌گرد حول مبدأ مختصات بچرخان."
+                                : kind === "reflectLine"
+                                    ? (operation.lineStart.x === operation.lineEnd.x
+                                        ? "شکل را نسبت به خط عمودی x = " + operation.lineStart.x + " قرینه کن."
+                                        : "شکل را نسبت به خط افقی y = " + operation.lineStart.y + " قرینه کن.")
+                                    : "شکل را نسبت به نقطهٔ (" + operation.center.x + "، " + operation.center.y + ") قرینه کن.",
                         coordinateSystem: system, operation: operation,
                         points: points, targetPoints: targetPoints
                     };
