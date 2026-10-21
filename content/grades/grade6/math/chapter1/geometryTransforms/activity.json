@@ -11,56 +11,250 @@
     "type": "spatial",
     "mode": "transform",
     "source": "file",
-    "instruction": "نقطه‌های شکلِ تبدیل‌شده را روی صفحه مختصات مشخص کن.",
+    "instruction": "نقطه‌های شکلِ تبدیل‌شده را با مختصات دقیق در ماتریس وارد کن.",
     "coordinateSystem": {
       "xMin": -5,
       "xMax": 5,
       "yMin": -5,
       "yMax": 5,
-      "unitStep": 1,
+      "unitStep": 0.5,
       "showAxes": true,
       "showGrid": true
     },
-    "operation": { "kind": "translate", "dx": 2, "dy": 1 },
-    "points": [{ "x": 1, "y": 1 }, { "x": 2, "y": 1 }, { "x": 1, "y": 2 }],
-    "targetPoints": [{ "x": 3, "y": 2 }, { "x": 4, "y": 2 }, { "x": 3, "y": 3 }],
+    "operation": {
+      "kind": "translate",
+      "dx": 2,
+      "dy": 1
+    },
+    "points": [
+      {
+        "x": 1,
+        "y": 1
+      },
+      {
+        "x": 2,
+        "y": 1
+      },
+      {
+        "x": 1,
+        "y": 2
+      }
+    ],
+    "targetPoints": [
+      {
+        "x": 3,
+        "y": 2
+      },
+      {
+        "x": 4,
+        "y": 2
+      },
+      {
+        "x": 3,
+        "y": 3
+      }
+    ],
     "questions": [
       {
         "type": "spatial",
         "mode": "transform",
         "instruction": "هر رأس را ۲ واحد به راست و ۱ واحد به بالا انتقال بده.",
-        "coordinateSystem": { "xMin": -5, "xMax": 5, "yMin": -5, "yMax": 5, "unitStep": 1, "showAxes": true, "showGrid": true },
-        "operation": { "kind": "translate", "dx": 2, "dy": 1 },
-        "points": [{ "x": 1, "y": 1 }, { "x": 2, "y": 1 }, { "x": 1, "y": 2 }],
-        "targetPoints": [{ "x": 3, "y": 2 }, { "x": 4, "y": 2 }, { "x": 3, "y": 3 }]
+        "coordinateSystem": {
+          "xMin": -5,
+          "xMax": 5,
+          "yMin": -5,
+          "yMax": 5,
+          "unitStep": 1,
+          "showAxes": true,
+          "showGrid": true
+        },
+        "operation": {
+          "kind": "translate",
+          "dx": 2,
+          "dy": 1
+        },
+        "points": [
+          {
+            "x": 1,
+            "y": 1
+          },
+          {
+            "x": 2,
+            "y": 1
+          },
+          {
+            "x": 1,
+            "y": 2
+          }
+        ],
+        "targetPoints": [
+          {
+            "x": 3,
+            "y": 2
+          },
+          {
+            "x": 4,
+            "y": 2
+          },
+          {
+            "x": 3,
+            "y": 3
+          }
+        ]
       },
       {
         "type": "spatial",
         "mode": "transform",
         "instruction": "مثلث را ۹۰ درجه پادساعت‌گرد حول مبدأ بچرخان.",
-        "coordinateSystem": { "xMin": -5, "xMax": 5, "yMin": -5, "yMax": 5, "unitStep": 1, "showAxes": true, "showGrid": true },
-        "operation": { "kind": "rotate", "center": { "x": 0, "y": 0 }, "degrees": 90 },
-        "points": [{ "x": 1, "y": 1 }, { "x": 2, "y": 1 }, { "x": 1, "y": 2 }],
-        "targetPoints": [{ "x": -1, "y": 1 }, { "x": -1, "y": 2 }, { "x": -2, "y": 1 }]
+        "coordinateSystem": {
+          "xMin": -5,
+          "xMax": 5,
+          "yMin": -5,
+          "yMax": 5,
+          "unitStep": 1,
+          "showAxes": true,
+          "showGrid": true
+        },
+        "operation": {
+          "kind": "rotate",
+          "center": {
+            "x": 0,
+            "y": 0
+          },
+          "degrees": 90
+        },
+        "points": [
+          {
+            "x": 1,
+            "y": 1
+          },
+          {
+            "x": 2,
+            "y": 1
+          },
+          {
+            "x": 1,
+            "y": 2
+          }
+        ],
+        "targetPoints": [
+          {
+            "x": -1,
+            "y": 1
+          },
+          {
+            "x": -1,
+            "y": 2
+          },
+          {
+            "x": -2,
+            "y": 1
+          }
+        ]
       },
       {
         "type": "spatial",
         "mode": "transform",
         "instruction": "مثلث را نسبت به محور عمودی (محور ص) قرینه کن.",
-        "coordinateSystem": { "xMin": -5, "xMax": 5, "yMin": -5, "yMax": 5, "unitStep": 1, "showAxes": true, "showGrid": true },
-        "operation": { "kind": "reflectLine", "lineStart": { "x": 0, "y": -5 }, "lineEnd": { "x": 0, "y": 5 } },
-        "points": [{ "x": 1, "y": 1 }, { "x": 2, "y": 1 }, { "x": 1, "y": 2 }],
-        "targetPoints": [{ "x": -1, "y": 1 }, { "x": -2, "y": 1 }, { "x": -1, "y": 2 }]
+        "coordinateSystem": {
+          "xMin": -5,
+          "xMax": 5,
+          "yMin": -5,
+          "yMax": 5,
+          "unitStep": 1,
+          "showAxes": true,
+          "showGrid": true
+        },
+        "operation": {
+          "kind": "reflectLine",
+          "lineStart": {
+            "x": 0,
+            "y": -5
+          },
+          "lineEnd": {
+            "x": 0,
+            "y": 5
+          }
+        },
+        "points": [
+          {
+            "x": 1,
+            "y": 1
+          },
+          {
+            "x": 2,
+            "y": 1
+          },
+          {
+            "x": 1,
+            "y": 2
+          }
+        ],
+        "targetPoints": [
+          {
+            "x": -1,
+            "y": 1
+          },
+          {
+            "x": -2,
+            "y": 1
+          },
+          {
+            "x": -1,
+            "y": 2
+          }
+        ]
       },
       {
         "type": "spatial",
         "mode": "transform",
         "instruction": "هر رأس را نسبت به مبدأ مختصات قرینه کن.",
-        "coordinateSystem": { "xMin": -5, "xMax": 5, "yMin": -5, "yMax": 5, "unitStep": 1, "showAxes": true, "showGrid": true },
-        "operation": { "kind": "reflectPoint", "center": { "x": 0, "y": 0 } },
-        "points": [{ "x": 1, "y": 1 }, { "x": 2, "y": 1 }, { "x": 1, "y": 2 }],
-        "targetPoints": [{ "x": -1, "y": -1 }, { "x": -2, "y": -1 }, { "x": -1, "y": -2 }]
+        "coordinateSystem": {
+          "xMin": -5,
+          "xMax": 5,
+          "yMin": -5,
+          "yMax": 5,
+          "unitStep": 1,
+          "showAxes": true,
+          "showGrid": true
+        },
+        "operation": {
+          "kind": "reflectPoint",
+          "center": {
+            "x": 0,
+            "y": 0
+          }
+        },
+        "points": [
+          {
+            "x": 1,
+            "y": 1
+          },
+          {
+            "x": 2,
+            "y": 1
+          },
+          {
+            "x": 1,
+            "y": 2
+          }
+        ],
+        "targetPoints": [
+          {
+            "x": -1,
+            "y": -1
+          },
+          {
+            "x": -2,
+            "y": -1
+          },
+          {
+            "x": -1,
+            "y": -2
+          }
+        ]
       }
-    ]
+    ],
+    "generator": true
   }
 }
