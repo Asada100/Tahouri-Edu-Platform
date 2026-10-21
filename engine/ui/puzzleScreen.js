@@ -418,7 +418,9 @@ const PuzzleScreen = {
                 activeIndex = index;
                 if (!PuzzleEngine.setTypeAnswer({ index: index, x: x, y: y })) {
                     if (status) status.textContent = "ثبت مختصات انجام نشد؛ دوباره تلاش کن.";
+                    return;
                 }
+                PuzzleScreen.show(PuzzleEngine.getState());
             });
         });
 
