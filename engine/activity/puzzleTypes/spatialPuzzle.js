@@ -387,7 +387,7 @@ const SpatialPuzzle = {
                     question = {
                         type: "spatial", mode: "transform", source: "generated",
                         instruction: kind === "translate"
-                            ? "هر نقطه را " + (operation.dx < 0 ? " " : " ") + String(operation.dx).replace("-", "منفی ") + " واحد در راستای افقی و " + String(operation.dy).replace("-", "منفی ") + " واحد در راستای عمودی انتقال بده."
+                            ? "هر نقطه را " + Math.abs(operation.dx) + " واحد به " + (operation.dx < 0 ? "چپ" : "راست") + " و " + Math.abs(operation.dy) + " واحد به " + (operation.dy < 0 ? "پایین" : "بالا") + " انتقال بده."
                             : kind === "rotate"
                                 ? "شکل را " + operation.degrees + " درجه پادساعت‌گرد حول مبدأ مختصات بچرخان."
                                 : kind === "reflectLine"
