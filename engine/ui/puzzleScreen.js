@@ -343,6 +343,39 @@ const PuzzleScreen = {
         const width = 360, height = 300;
         const viewport = { left: 30, top: 20, right: 330, bottom: 270, width: 300, height: 250 };
         const toPixel = function (point) { return SpatialPuzzle.mathToPixel(point, system, viewport); };
+        const parseCoordinate = function (raw) {
+            let value = String(raw == null ? "" : raw).trim()
+                .replace(/[۰-۹]/g, function (digit) { return String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)); })
+                .replace(/[٠-٩]/g, function (digit) { return String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)); })
+                .replace(/٫/g, ".").replace(/٬/g, "").replace(/−/g, "-");
+            const glyphs = { "½": "1/2", "¼": "1/4", "¾": "3/4" };
+            Object.keys(glyphs).forEach(function (glyph) {
+                value = value.replace(glyph, " " + glyphs[glyph]);
+            });
+            const mixed = value.match(/^(-?)\s*(\d+)\s+(\d+)\s*\/\s*(\d+)$/);
+            if (mixed) {
+                const denominator = Number(mixed[4]);
+                if (!denominator || Number(mixed[3]) >= denominator) return NaN;
+                return (mixed[1] ? -1 : 1) * (Number(mixed[2]) + Number(mixed[3]) / denominator);
+            }
+            const fraction = value.match(/^(-?)\s*(\d+)\s*\/\s*(\d+)$/);
+            if (fraction) {
+                const denominator = Number(fraction[3]);
+                return denominator ? (fraction[1] ? -1 : 1) * Number(fraction[2]) / denominator : NaN;
+            }
+            if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(value)) return NaN;
+            return Number(value);
+        };
+        const formatCoordinate = function (number) {
+            const value = Math.round(Number(number) * 4) / 4;
+            const sign = value < 0 ? "−" : "";
+            const absolute = Math.abs(value);
+            const whole = Math.floor(absolute);
+            const fraction = Math.round((absolute - whole) * 4);
+            if (!fraction) return sign + whole;
+            const parts = { 1: "¼", 2: "½", 3: "¾" };
+            return sign + (whole ? whole + " " : "") + (parts[fraction] || String(absolute - whole));
+        };
         const lines = [];
         const step = Number(system.unitStep);
         for (let x = system.xMin; x <= system.xMax + 1e-8; x += step) {
@@ -386,12 +419,12 @@ const PuzzleScreen = {
         let activeIndex = nextIndex >= 0 ? nextIndex : 0;
         const outputText = source.map(function (_, index) {
             const point = userPoints[index];
-            return String.fromCharCode(65 + index) + "′: " + (point ? "(" + point.x + "، " + point.y + ")" : "—");
+            return String.fromCharCode(65 + index) + "′: " + (point ? "(" + formatCoordinate(point.x) + "، " + formatCoordinate(point.y) + ")" : "—");
         }).join("   ");
         const outputSelectors = source.map(function (_, index) {
             const point = userPoints[index];
             const letter = String.fromCharCode(65 + index) + "′";
-            return "<section class='transformMatrixCard' data-transform-matrix='" + index + "'><h3 dir='ltr'>" + letter + "</h3><div class='transformMatrix' dir='ltr' aria-label='ماتریس مختصات " + letter + "'><label><span>x</span><input class='transformMatrixX' type='number' inputmode='numeric' step='" + step + "' min='" + system.xMin + "' max='" + system.xMax + "' value='" + (point ? point.x : "") + "' aria-label='مختصات x نقطه " + letter + "' /></label><label><span>y</span><input class='transformMatrixY' type='number' inputmode='numeric' step='" + step + "' min='" + system.yMin + "' max='" + system.yMax + "' value='" + (point ? point.y : "") + "' aria-label='مختصات y نقطه " + letter + "' /></label></div><button type='button' class='transformMatrixSubmit' data-transform-index='" + index + "'>" + (point ? "ثبت تغییرات" : "ثبت مختصات") + "</button></section>";
+            return "<section class='transformMatrixCard' data-transform-matrix='" + index + "'><h3 dir='ltr'>" + letter + "</h3><div class='transformMatrix' dir='ltr' aria-label='ماتریس مختصات " + letter + "'><label><span>x</span><input class='transformMatrixX' type='text' inputmode='decimal' placeholder='مثلاً 1.5 یا 1 1/2' value='" + (point ? formatCoordinate(point.x) : "") + "' aria-label='مختصات x نقطه " + letter + "' /></label><label><span>y</span><input class='transformMatrixY' type='text' inputmode='decimal' placeholder='مثلاً 1.5 یا 1 1/2' value='" + (point ? formatCoordinate(point.y) : "") + "' aria-label='مختصات y نقطه " + letter + "' /></label></div><button type='button' class='transformMatrixSubmit' data-transform-index='" + index + "'>" + (point ? "ثبت تغییرات" : "ثبت مختصات") + "</button></section>";
         }).join("");
 
         app.innerHTML = "<div class='screen puzzleScreen spatialScreen spatialTransformScreen' dir='rtl'><h1>تبدیل‌های هندسی</h1><p class='puzzleInstruction'>" + PuzzleScreen.escapeHTML(state.instruction || "نقطه‌های تبدیل‌شده را روی صفحه مختصات مشخص کن.") + "</p><div class='transformOperation'>" + PuzzleScreen.escapeHTML(operationText) + "</div><div class='coordinatePlaneCanvas'><svg id='spatialTransformSvg' viewBox='0 0 " + width + " " + height + "' role='img' aria-label='صفحه مختصات برای قرار دادن نقاط تبدیل‌شده'>" + lines.join("") + shape + sourceMarkers + placed + "</svg></div><p id='spatialTransformStatus' class='coordinatePlaneStatus' aria-live='polite'>" + (nextIndex < 0 ? "برای اصلاح هر نقطه، حرف آن را انتخاب کن و سپس جای درستش را روی صفحه بزن." : "نقطهٔ " + String.fromCharCode(65 + nextIndex) + "′ را روی صفحه لمس کن.") + "</p><div class='transformMatrices'>" + outputSelectors + "</div><p class='transformCoordinates' dir='ltr'>" + PuzzleScreen.escapeHTML(outputText) + "</p><button id='spatialTransformCheckBtn' type='button' " + (nextIndex < 0 ? "" : "disabled") + ">بررسی پاسخ</button><div id='puzzleMessage' class='puzzleMessage'></div>" + this.renderStandardFooter(state.moves) + "</div><style>.transformOperation{max-width:480px;margin:10px auto;padding:10px 12px;border-radius:10px;background:#eef2ff;color:#3730a3;text-align:center;font-weight:600}.coordinatePlaneCanvas{width:100%;max-width:480px;margin:16px auto;padding:8px;box-sizing:border-box;background:#fff;border:1px solid #dbe3ec;border-radius:14px}.coordinatePlaneCanvas svg{display:block;width:100%;height:auto;touch-action:manipulation;cursor:crosshair}.transformCoordinates{margin:10px auto;text-align:center;direction:ltr;unicode-bidi:isolate;line-height:1.9;font-size:14px;color:#334155;overflow-wrap:anywhere}.transformMatrices{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:12px;max-width:480px;margin:14px auto}.transformMatrixCard{border:1px solid #cbd5e1;border-radius:12px;padding:10px;background:#f8fafc;text-align:center}.transformMatrixCard h3{margin:0 0 8px;font-size:16px;color:#1e293b}.transformMatrix{display:grid;gap:6px;width:max-content;margin:0 auto 10px;padding:6px 10px;position:relative;direction:ltr}.transformMatrix:before,.transformMatrix:after{content:'';position:absolute;top:0;bottom:0;width:5px;border-top:2px solid #475569;border-bottom:2px solid #475569}.transformMatrix:before{left:0;border-left:2px solid #475569}.transformMatrix:after{right:0;border-right:2px solid #475569}.transformMatrix label{display:grid;grid-template-columns:18px 64px;align-items:center;gap:5px}.transformMatrix label span{font-size:13px;color:#475569;text-align:center}.transformMatrix input{box-sizing:border-box;width:64px;min-height:38px;border:1px solid #94a3b8;border-radius:7px;background:#fff;text-align:center;direction:ltr;font-size:17px;padding:4px}.transformMatrixSubmit{border:1px solid #cbd5e1;border-radius:8px;padding:7px 10px;background:#fff;color:#334155}.spatialTransformScreen #spatialTransformCheckBtn{display:block;margin:12px auto;padding:10px 24px;border:0;border-radius:10px;background:#2563eb;color:#fff;font-size:16px}.spatialTransformScreen #spatialTransformCheckBtn:disabled{opacity:.45}</style>";
@@ -407,12 +440,12 @@ const PuzzleScreen = {
                     if (status) status.textContent = "هر دو خانهٔ x و y را برای نقطه وارد کن.";
                     return;
                 }
-                const x = Number(xInput.value);
-                const y = Number(yInput.value);
+                const x = parseCoordinate(xInput.value);
+                const y = parseCoordinate(yInput.value);
                 if (!Number.isFinite(x) || !Number.isFinite(y) ||
                     x < Number(system.xMin) || x > Number(system.xMax) ||
                     y < Number(system.yMin) || y > Number(system.yMax)) {
-                    if (status) status.textContent = "مختصات باید در محدودهٔ صفحه باشد.";
+                    if (status) status.textContent = "مختصات را به‌صورت 1.5 یا 1 1/2 وارد کن و محدودهٔ صفحه را رعایت کن.";
                     return;
                 }
                 activeIndex = index;
