@@ -37,6 +37,12 @@ const PuzzleScreen = {
 
     spatialUserInitiatedDragAt: 0,
 
+    coordinatePlaneActivityId: null,
+
+    coordinatePlaneSolvedPoints: [],
+
+    coordinatePlanePointNames: ["آ", "ب", "پ", "ت", "ث", "ج", "چ", "ح", "خ", "د", "ذ", "ر", "ز", "ژ", "س", "ش", "ص", "ض", "ط", "ظ", "ع", "غ", "ف", "ق", "ک", "گ", "ل", "م", "ن", "و", "ه", "ی"],
+
 
     // =====================================
     // INIT
@@ -147,6 +153,12 @@ const PuzzleScreen = {
 
         }
 
+
+        if (payload.activity && payload.activity.id === "mathCoordinatePlane" &&
+            this.coordinatePlaneActivityId !== payload.activity.id) {
+            this.coordinatePlaneActivityId = payload.activity.id;
+            this.coordinatePlaneSolvedPoints = [];
+        }
 
         if (payload.activity && payload.activity.id === "mathSpatialSymmetry") {
             this.spatialScreenActivatedAt = 0;
@@ -359,9 +371,15 @@ const PuzzleScreen = {
         if (ya && yb) lines.push("<line x1='" + ya.x + "' y1='" + ya.y + "' x2='" + yb.x + "' y2='" + yb.y + "' stroke='#334155' stroke-width='2' />");
 
         let markers = "";
-        if (task.kind === "readPoint" && task.target) {
-            const p = toPixel(task.target);
-            if (p) markers = "<circle cx='" + p.x + "' cy='" + p.y + "' r='6' fill='#2563eb' /><text x='" + (p.x + 8) + "' y='" + (p.y - 8) + "' font-size='12' fill='#1d4ed8'>A</text>";
+        if (task.kind === "placePoint" || task.kind === "readPoint") {
+            markers = (this.coordinatePlaneSolvedPoints || []).map(function (point) {
+                const p = toPixel(point);
+                return p ? "<circle cx='" + p.x + "' cy='" + p.y + "' r='5' fill='#16a34a' /><text x='" + (p.x + 8) + "' y='" + (p.y - 8) + "' font-size='13' font-weight='700' fill='#15803d'>" + PuzzleScreen.escapeHTML(point.label) + "</text>" : "";
+            }).join("");
+            if (task.kind === "readPoint" && task.target) {
+                const p = toPixel(task.target);
+                if (p) markers += "<circle cx='" + p.x + "' cy='" + p.y + "' r='6' fill='#2563eb' /><text x='" + (p.x + 8) + "' y='" + (p.y - 8) + "' font-size='12' fill='#1d4ed8'>" + PuzzleScreen.escapeHTML(this.coordinatePlanePointNames[this.coordinatePlaneSolvedPoints.length] || "نقطه") + "</text>";
+            }
         } else if (task.kind === "identifyPoint" && Array.isArray(task.points)) {
             markers = task.points.map(function (point) {
                 const p = toPixel(point);
@@ -372,8 +390,9 @@ const PuzzleScreen = {
         const instructionMarkup = task.kind === "placePoint" && task.target
             ? "مکان نقاط مشخص‌شده را در دستگاه مختصات مشخص کن."
             : (state.instruction || "نقاط و محورهای مختصات را بررسی کن.");
+        const currentCoordinatePointName = this.coordinatePlanePointNames[this.coordinatePlaneSolvedPoints.length] || "نقطه";
         const targetMatrixMarkup = task.kind === "placePoint" && task.target
-            ? "<div class='coordinateTargetMatrixWrap'><span>مختصات هدف</span><div class='coordinateTargetNamedMatrix' dir='rtl'><div class='coordinateTargetMatrix' dir='ltr'><span class='coordinateTargetRows'><span>" + Number(task.target.x) + "</span><span>" + Number(task.target.y) + "</span></span><span class='coordinateTargetBracket coordinateTargetBracketRight'></span><span class='coordinateTargetLabels'><span>طول</span><span>عرض</span></span><span class='coordinateTargetBracket'></span></div><span class='coordinateTargetPointName'>= آ</span></div></div>"
+            ? "<div class='coordinateTargetMatrixWrap'><span>مختصات هدف</span><div class='coordinateTargetNamedMatrix' dir='rtl'><div class='coordinateTargetMatrix' dir='ltr'><span class='coordinateTargetRows'><span>" + Number(task.target.x) + "</span><span>" + Number(task.target.y) + "</span></span><span class='coordinateTargetBracket coordinateTargetBracketRight'></span><span class='coordinateTargetLabels'><span>طول</span><span>عرض</span></span><span class='coordinateTargetBracket'></span></div><span class='coordinateTargetPointName'>= " + PuzzleScreen.escapeHTML(currentCoordinatePointName) + "</span></div></div>"
             : "";
 
         const selected = state.userAnswer;
@@ -489,6 +508,22 @@ const PuzzleScreen = {
                     return;
                 }
                 checkButton.disabled = true;
+                if (task.kind === "placePoint" && task.target &&
+                    currentState.userAnswer && typeof currentState.userAnswer === "object" &&
+                    Number(currentState.userAnswer.x) === Number(task.target.x) &&
+                    Number(currentState.userAnswer.y) === Number(task.target.y)) {
+                    const existingPoint = (PuzzleScreen.coordinatePlaneSolvedPoints || []).some(function (point) {
+                        return Number(point.x) === Number(task.target.x) && Number(point.y) === Number(task.target.y);
+                    });
+                    if (!existingPoint) {
+                        const pointName = PuzzleScreen.coordinatePlanePointNames[PuzzleScreen.coordinatePlaneSolvedPoints.length] || "نقطه";
+                        PuzzleScreen.coordinatePlaneSolvedPoints.push({
+                            x: Number(task.target.x),
+                            y: Number(task.target.y),
+                            label: pointName
+                        });
+                    }
+                }
                 PuzzleEngine.check();
             });
         }
