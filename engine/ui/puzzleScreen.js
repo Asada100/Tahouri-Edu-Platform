@@ -372,11 +372,13 @@ const PuzzleScreen = {
         const instructionMarkup = task.kind === "placePoint" && task.target
             ? "نقطه را در صفحه مختصات مشخص کن:"
             : (state.instruction || "نقاط و محورهای مختصات را بررسی کن.");
+        const selected = state.userAnswer;
+        const matrixX = selected && typeof selected === "object" && Number.isFinite(Number(selected.x)) ? String(selected.x) : "";
+        const matrixY = selected && typeof selected === "object" && Number.isFinite(Number(selected.y)) ? String(selected.y) : "";
         const targetMatrixMarkup = task.kind === "placePoint" && task.target
-            ? "<div class='coordinateTargetMatrixWrap'><span class='coordinateTargetTitle'>نشانی نقطه</span><table class='coordinateTargetMatrix' aria-label='مختصات نقطه'><tbody><tr><th>طول (x)</th><td>" + Number(task.target.x) + "</td></tr><tr><th>عرض (y)</th><td>" + Number(task.target.y) + "</td></tr></tbody></table></div>"
+            ? "<div class='coordinateTargetMatrixWrap'><span class='coordinateTargetTitle'>ماتریس مختصات</span><table class='coordinateTargetMatrix' aria-label='ماتریس مختصات دو در یک'><tbody><tr><th>الف</th><td><input id='coordinateMatrixX' class='coordinateMatrixInput' type='number' step='any' inputmode='decimal' aria-label='الف' value='" + matrixX + "' /></td></tr><tr><th>ب</th><td><input id='coordinateMatrixY' class='coordinateMatrixInput' type='number' step='any' inputmode='decimal' aria-label='ب' value='" + matrixY + "' /></td></tr></tbody></table></div>"
             : "";
 
-        const selected = state.userAnswer;
         let selectionMarker = "";
         let selectionText = "برای انتخاب، روی صفحه مختصات لمس یا کلیک کن.";
         if (task.kind === "identifyPoint" && typeof selected === "string") {
@@ -392,7 +394,30 @@ const PuzzleScreen = {
             selectionText = "مختصات انتخاب‌شده — x: " + Number(selected.x) + "، y: " + Number(selected.y);
         }
 
-        app.innerHTML = "<div class='screen puzzleScreen spatialScreen coordinatePlaneScreen' dir='rtl'><h1>صفحه مختصات</h1><p class='puzzleInstruction'>" + PuzzleScreen.escapeHTML(instructionMarkup) + "</p>" + targetMatrixMarkup + "<div class='coordinatePlaneCanvas'><svg id='coordinatePlaneSvg' viewBox='0 0 " + width + " " + height + "' role='img' aria-label='صفحه مختصات؛ برای انتخاب نقطه لمس یا کلیک کن'>" + lines.join("") + markers + selectionMarker + "</svg></div><p id='coordinatePlaneStatus' class='coordinatePlaneStatus' aria-live='polite'>" + selectionText + "</p><button id='coordinatePlaneCheckBtn' type='button' " + (selected === undefined || selected === null ? "disabled" : "") + ">بررسی پاسخ</button><div id='puzzleMessage' class='puzzleMessage'></div>" + "</div><style>.coordinateTargetMatrixWrap{display:flex;flex-direction:column;align-items:center;gap:8px;margin:12px auto;padding:10px 14px;max-width:320px;border:1px solid #bfdbfe;border-radius:14px;background:#eff6ff;color:#1e3a8a;font-size:14px}.coordinateTargetTitle{font-weight:700;font-size:15px}.coordinateTargetMatrix{border-collapse:collapse;min-width:210px;background:#fff;border:2px solid #2563eb;border-radius:8px;overflow:hidden;text-align:center}.coordinateTargetMatrix th,.coordinateTargetMatrix td{padding:8px 18px;border:1px solid #bfdbfe}.coordinateTargetMatrix th{font-weight:700;background:#dbeafe;color:#1e40af}.coordinateTargetMatrix td{font-size:22px;font-weight:700;color:#0f172a;min-width:48px}.coordinatePlaneCanvas{width:100%;max-width:480px;margin:16px auto;padding:8px;box-sizing:border-box;background:#fff;border:1px solid #dbe3ec;border-radius:14px}.coordinatePlaneCanvas svg{display:block;width:100%;height:auto;touch-action:manipulation;cursor:crosshair}.coordinatePlaneStatus{text-align:center;color:#475569;font-size:14px;min-height:24px}.coordinatePlaneScreen #coordinatePlaneCheckBtn{display:block;margin:12px auto;padding:10px 24px;border:0;border-radius:10px;background:#2563eb;color:#fff;font-size:16px}.coordinatePlaneScreen #coordinatePlaneCheckBtn:disabled{opacity:.45;cursor:not-allowed}</style>";
+        app.innerHTML = "<div class='screen puzzleScreen spatialScreen coordinatePlaneScreen' dir='rtl'><h1>صفحه مختصات</h1><p class='puzzleInstruction'>" + PuzzleScreen.escapeHTML(instructionMarkup) + "</p>" + targetMatrixMarkup + "<div class='coordinatePlaneCanvas'><svg id='coordinatePlaneSvg' viewBox='0 0 " + width + " " + height + "' role='img' aria-label='صفحه مختصات؛ برای انتخاب نقطه لمس یا کلیک کن'>" + lines.join("") + markers + selectionMarker + "</svg></div><p id='coordinatePlaneStatus' class='coordinatePlaneStatus' aria-live='polite'>" + selectionText + "</p><button id='coordinatePlaneCheckBtn' type='button' " + (selected === undefined || selected === null ? "disabled" : "") + ">بررسی پاسخ</button><div id='puzzleMessage' class='puzzleMessage'></div>" + "</div><style>.coordinateTargetMatrixWrap{display:flex;flex-direction:column;align-items:center;gap:8px;margin:8px auto;padding:8px 12px;max-width:240px;border:1px solid #bfdbfe;border-radius:12px;background:#eff6ff;color:#1e3a8a;font-size:14px}.coordinateTargetTitle{font-weight:700;font-size:15px}.coordinateTargetMatrix{border-collapse:collapse;min-width:150px;background:#fff;border:2px solid #2563eb;text-align:center}.coordinateTargetMatrix th,.coordinateTargetMatrix td{padding:5px 12px;border:1px solid #bfdbfe}.coordinateTargetMatrix th{width:42px;font-weight:700;background:#dbeafe;color:#1e40af}.coordinateMatrixInput{box-sizing:border-box;width:100px;min-height:36px;border:1px solid #93c5fd;border-radius:6px;text-align:center;font-size:18px;font-weight:700;color:#0f172a;background:#fff}.coordinatePlaneCanvas{width:100%;max-width:480px;margin:16px auto;padding:8px;box-sizing:border-box;background:#fff;border:1px solid #dbe3ec;border-radius:14px}.coordinatePlaneCanvas svg{display:block;width:100%;height:auto;touch-action:manipulation;cursor:crosshair}.coordinatePlaneStatus{text-align:center;color:#475569;font-size:14px;min-height:24px}.coordinatePlaneScreen #coordinatePlaneCheckBtn{display:block;margin:12px auto;padding:10px 24px;border:0;border-radius:10px;background:#2563eb;color:#fff;font-size:16px}.coordinatePlaneScreen #coordinatePlaneCheckBtn:disabled{opacity:.45;cursor:not-allowed}</style>";
+
+        const matrixXInput = app.querySelector("#coordinateMatrixX");
+        const matrixYInput = app.querySelector("#coordinateMatrixY");
+        const checkMatrixInputs = function () {
+            if (!matrixXInput || !matrixYInput) return;
+            const xText = matrixXInput.value.trim();
+            const yText = matrixYInput.value.trim();
+            const x = Number(xText), y = Number(yText);
+            const valid = xText !== "" && yText !== "" && Number.isFinite(x) && Number.isFinite(y);
+            const check = app.querySelector("#coordinatePlaneCheckBtn");
+            if (valid) {
+                PuzzleEngine.setTypeAnswer({ x: x, y: y });
+                if (check) check.disabled = false;
+                const status = app.querySelector("#coordinatePlaneStatus");
+                if (status) status.textContent = "مختصات وارد شد؛ پاسخ را بررسی کن.";
+            } else {
+                if (check) check.disabled = true;
+                const status = app.querySelector("#coordinatePlaneStatus");
+                if (status) status.textContent = "مقدار هر دو خانه را وارد کن.";
+            }
+        };
+        if (matrixXInput) matrixXInput.addEventListener("input", checkMatrixInputs);
+        if (matrixYInput) matrixYInput.addEventListener("input", checkMatrixInputs);
 
         const svg = app.querySelector("#coordinatePlaneSvg");
         if (svg) svg.addEventListener("pointerdown", function (event) {
@@ -468,6 +493,10 @@ const PuzzleScreen = {
                 }
 
                 if (marker) { marker.setAttribute("id", "coordinatePlaneSelectionMarker"); svg.appendChild(marker); }
+                if (task.kind === "placePoint") {
+                    if (matrixXInput) matrixXInput.value = String(Number(answer.x));
+                    if (matrixYInput) matrixYInput.value = String(Number(answer.y));
+                }
                 if (status) status.textContent = task.kind === "placePoint"
                     ? "نقطه جابه‌جا شد؛ اگر جای درستی است، پاسخ را بررسی کن."
                     : statusText;
@@ -484,7 +513,7 @@ const PuzzleScreen = {
                 const currentState = PuzzleEngine.getState();
                 if (!currentState || currentState.userAnswer === undefined || currentState.userAnswer === null) {
                     const status = app.querySelector("#coordinatePlaneStatus");
-                    if (status) status.textContent = "ابتدا نقطه را روی شبکه انتخاب کن.";
+                    if (status) status.textContent = "مختصات را در ماتریس وارد کن یا نقطه را روی شبکه انتخاب کن.";
                     checkButton.disabled = true;
                     return;
                 }
