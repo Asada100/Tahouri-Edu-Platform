@@ -525,7 +525,13 @@ const PuzzleScreen = {
                         });
                     }
                 }
-                PuzzleEngine.check();
+                const accepted = PuzzleEngine.check();
+                // A wrong answer must leave the learner able to adjust the point and retry.
+                // A correct answer may synchronously render the next question, so only
+                // re-enable the existing button when the check was not accepted.
+                if (!accepted && checkButton.isConnected) {
+                    checkButton.disabled = false;
+                }
             });
         }
 
