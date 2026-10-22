@@ -494,7 +494,7 @@ const PuzzleScreen = {
 
                 if (marker) { marker.setAttribute("id", "coordinatePlaneSelectionMarker"); svg.appendChild(marker); }
                 if (status) status.textContent = task.kind === "placePoint"
-                    ? "نقطه جابه‌جا شد؛ اگر جای درستی است، پاسخ را بررسی کن."
+                    ? statusText
                     : statusText;
                 if (check) check.disabled = updatedState.userAnswer === undefined || updatedState.userAnswer === null;
             }
