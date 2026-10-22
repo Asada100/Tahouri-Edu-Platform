@@ -492,6 +492,9 @@ const PuzzleScreen = {
                 PuzzleEngine.check();
             });
         }
+
+        // The shared footer is rendered here too, so bind its restart control.
+        this.bindResetButton();
     },
 
     showSpatialLegacy: function (state) {
