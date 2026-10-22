@@ -155,7 +155,8 @@ const PuzzleScreen = {
 
 
         if (payload.activity && payload.activity.id === "mathCoordinatePlane" &&
-            this.coordinatePlaneActivityId !== payload.activity.id) {
+            Number(payload.questionIndex) === 0) {
+            // A new run starts at question index 0, even when the activity ID is unchanged.
             this.coordinatePlaneActivityId = payload.activity.id;
             this.coordinatePlaneSolvedPoints = [];
         }
