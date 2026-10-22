@@ -6,7 +6,7 @@
   "subject": "math",
   "chapter": "chapter1",
   "engine": "puzzle",
-  "version": "1.2",
+  "version": "1.3",
   "puzzle": {
     "type": "spatial",
     "mode": "coordinatePlane",
@@ -17,7 +17,7 @@
       "xMax": 6,
       "yMin": 0,
       "yMax": 5,
-      "unitStep": 1,
+      "unitStep": 0.5,
       "showAxes": true,
       "showGrid": true
     },
@@ -39,7 +39,7 @@
           "xMax": 6,
           "yMin": 0,
           "yMax": 5,
-          "unitStep": 1,
+          "unitStep": 0.5,
           "showAxes": true,
           "showGrid": true
         },
@@ -61,7 +61,7 @@
           "xMax": 6,
           "yMin": 0,
           "yMax": 5,
-          "unitStep": 1,
+          "unitStep": 0.5,
           "showAxes": true,
           "showGrid": true
         },
@@ -83,7 +83,7 @@
           "xMax": 6,
           "yMin": 0,
           "yMax": 5,
-          "unitStep": 1,
+          "unitStep": 0.5,
           "showAxes": true,
           "showGrid": true
         },
@@ -105,7 +105,7 @@
           "xMax": 6,
           "yMin": 0,
           "yMax": 5,
-          "unitStep": 1,
+          "unitStep": 0.5,
           "showAxes": true,
           "showGrid": true
         },
@@ -127,7 +127,7 @@
           "xMax": 6,
           "yMin": 0,
           "yMax": 5,
-          "unitStep": 1,
+          "unitStep": 0.5,
           "showAxes": true,
           "showGrid": true
         },
@@ -149,7 +149,7 @@
           "xMax": 6,
           "yMin": 0,
           "yMax": 5,
-          "unitStep": 1,
+          "unitStep": 0.5,
           "showAxes": true,
           "showGrid": true
         },
