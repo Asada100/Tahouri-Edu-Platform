@@ -417,17 +417,16 @@ const PuzzleScreen = {
         const svg = app.querySelector("#coordinatePlaneSvg");
         if (svg) svg.addEventListener("pointerdown", function (event) {
             if (event.button !== undefined && event.button !== 0) return;
-            // Convert from browser client coordinates through the SVG's actual
-            // screen transform. Scaling clientX/clientY by the bounding rectangle
-            // can select the wrong grid coordinate when the SVG is scaled or letterboxed.
-            if (typeof svg.createSVGPoint !== "function" || typeof svg.getScreenCTM !== "function") return;
-            const screenMatrix = svg.getScreenCTM();
-            if (!screenMatrix) return;
-            const screenPoint = svg.createSVGPoint();
-            screenPoint.x = event.clientX;
-            screenPoint.y = event.clientY;
-            const localPoint = screenPoint.matrixTransform(screenMatrix.inverse());
-            const pixel = { x: localPoint.x, y: localPoint.y };
+            // Convert the click from the rendered SVG rectangle into its fixed viewBox.
+            // This SVG uses a 360x300 viewBox and is rendered at the same aspect ratio;
+            // the direct rectangle ratio avoids incorrect coordinates from a stale/invalid
+            // screen CTM in some browser/zoom/touch combinations.
+            const rect = svg.getBoundingClientRect();
+            if (!rect.width || !rect.height) return;
+            const pixel = {
+                x: (event.clientX - rect.left) * (width / rect.width),
+                y: (event.clientY - rect.top) * (height / rect.height)
+            };
             if (pixel.x < viewport.left || pixel.x > viewport.left + viewport.width ||
                 pixel.y < viewport.top || pixel.y > viewport.top + viewport.height) return;
 
