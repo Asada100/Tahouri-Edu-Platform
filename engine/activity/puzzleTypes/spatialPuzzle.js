@@ -95,6 +95,59 @@ const SpatialPuzzle = {
         return { valid: true, reason: null };
     },
 
+    validateTransformPuzzleData: function (data) {
+        if (!data || data.type !== "spatial" || data.mode !== "transform") {
+            return { valid: false, reason: "invalid-activity-mode" };
+        }
+
+        const system = data.coordinateSystem;
+        if (!system || ![system.xMin, system.xMax, system.yMin, system.yMax, system.unitStep].every(function (value) {
+            return typeof value === "number" && Number.isFinite(value);
+        }) || system.xMin >= system.xMax || system.yMin >= system.yMax || system.unitStep <= 0) {
+            return { valid: false, reason: "invalid-coordinate-system" };
+        }
+
+        const operation = data.operation;
+        if (!operation || !["translate", "rotate", "reflectLine", "reflectPoint"].includes(operation.kind)) {
+            return { valid: false, reason: "invalid-transform-operation" };
+        }
+
+        if (!Array.isArray(data.points) || data.points.length === 0 ||
+            !Array.isArray(data.targetPoints) || data.targetPoints.length !== data.points.length) {
+            return { valid: false, reason: "invalid-transform-points" };
+        }
+
+        const isPoint = function (point) {
+            return !!point && typeof point.x === "number" && Number.isFinite(point.x) &&
+                typeof point.y === "number" && Number.isFinite(point.y) &&
+                point.x >= system.xMin && point.x <= system.xMax &&
+                point.y >= system.yMin && point.y <= system.yMax;
+        };
+        if (!data.points.every(isPoint) || !data.targetPoints.every(isPoint)) {
+            return { valid: false, reason: "point-outside-coordinate-system" };
+        }
+
+        if (operation.kind === "translate" &&
+            (typeof operation.dx !== "number" || !Number.isFinite(operation.dx) ||
+             typeof operation.dy !== "number" || !Number.isFinite(operation.dy))) {
+            return { valid: false, reason: "invalid-translation-offset" };
+        }
+        if (operation.kind === "rotate" &&
+            (!isPoint(operation.center) || typeof operation.degrees !== "number" || !Number.isFinite(operation.degrees))) {
+            return { valid: false, reason: "invalid-rotation" };
+        }
+        if (operation.kind === "reflectLine" &&
+            (!isPoint(operation.lineStart) || !isPoint(operation.lineEnd) ||
+             (operation.lineStart.x === operation.lineEnd.x && operation.lineStart.y === operation.lineEnd.y))) {
+            return { valid: false, reason: "invalid-reflection-line" };
+        }
+        if (operation.kind === "reflectPoint" && !isPoint(operation.center)) {
+            return { valid: false, reason: "invalid-reflection-center" };
+        }
+
+        return { valid: true, reason: null };
+    },
+
     mathToPixel: function (point, coordinateSystem, viewport) {
         if (!point || !coordinateSystem || !viewport ||
             ![point.x, point.y, coordinateSystem.xMin, coordinateSystem.xMax,
@@ -285,6 +338,76 @@ const SpatialPuzzle = {
         };
     },
 
+    generateTransformQuestions: function (config) {
+        const system = { ...(config.coordinateSystem || {}), unitStep: 0.5 };
+        const transforms = window.SharedGeometryTransforms;
+        if (!transforms) return [];
+        const kinds = ["translate", "rotate", "reflectLine", "reflectPoint"];
+        const randStep = function (min, max) {
+            const steps = Math.round((max - min) / 0.5);
+            return Number((min + Math.floor(Math.random() * (steps + 1)) * 0.5).toFixed(2));
+        };
+        const inBounds = function (points) {
+            return points.every(function (p) {
+                return p.x >= system.xMin && p.x <= system.xMax &&
+                    p.y >= system.yMin && p.y <= system.yMax;
+            });
+        };
+        const questions = [];
+        for (const kind of this.shuffle(kinds)) {
+            let question = null;
+            for (let attempt = 0; attempt < 120 && !question; attempt++) {
+                const points = [];
+                while (points.length < 3) {
+                    const point = { x: randStep(-3, 3), y: randStep(-3, 3) };
+                    if (!points.some(function (p) { return p.x === point.x && p.y === point.y; })) points.push(point);
+                }
+                let operation;
+                if (kind === "translate") {
+                    operation = { kind: kind, dx: randStep(-2, 2), dy: randStep(-2, 2) };
+                    if (operation.dx === 0 && operation.dy === 0) operation.dx = 0.5;
+                } else if (kind === "rotate") {
+                    operation = { kind: kind, center: { x: 0, y: 0 }, degrees: [90, 180, 270][Math.floor(Math.random() * 3)] };
+                } else if (kind === "reflectLine") {
+                    const axis = Math.random() < 0.5 ? "vertical" : "horizontal";
+                    const offset = randStep(-1.5, 1.5);
+                    operation = axis === "vertical"
+                        ? { kind: kind, lineStart: { x: offset, y: system.yMin }, lineEnd: { x: offset, y: system.yMax } }
+                        : { kind: kind, lineStart: { x: system.xMin, y: offset }, lineEnd: { x: system.xMax, y: offset } };
+                } else {
+                    operation = { kind: kind, center: { x: randStep(-1, 1), y: randStep(-1, 1) } };
+                }
+                try {
+                    let targetPoints;
+                    if (kind === "translate") targetPoints = transforms.translateShape(points, operation.dx, operation.dy);
+                    else if (kind === "rotate") targetPoints = transforms.rotateShape(points, operation.center, operation.degrees);
+                    else if (kind === "reflectLine") targetPoints = transforms.reflectShapeAcrossLine(points, operation.lineStart, operation.lineEnd);
+                    else targetPoints = transforms.reflectShapeAcrossPoint(points, operation.center);
+                    if (!inBounds(points) || !inBounds(targetPoints)) continue;
+                    question = {
+                        type: "spatial", mode: "transform", source: "generated",
+                        instruction: kind === "translate"
+                            ? "هر نقطه را " + Math.abs(operation.dx) + " واحد به " + (operation.dx < 0 ? "چپ" : "راست") + " و " + Math.abs(operation.dy) + " واحد به " + (operation.dy < 0 ? "پایین" : "بالا") + " انتقال بده."
+                            : kind === "rotate"
+                                ? "شکل را " + operation.degrees + " درجه پادساعت‌گرد حول مبدأ مختصات بچرخان."
+                                : kind === "reflectLine"
+                                    ? (operation.lineStart.x === operation.lineEnd.x
+                                        ? "شکل را نسبت به خط عمودی x = " + operation.lineStart.x + " قرینه کن."
+                                        : "شکل را نسبت به خط افقی y = " + operation.lineStart.y + " قرینه کن.")
+                                    : "شکل را نسبت به نقطهٔ (" + operation.center.x + "، " + operation.center.y + ") قرینه کن.",
+                        coordinateSystem: system, operation: operation,
+                        points: points, targetPoints: targetPoints
+                    };
+                } catch (error) {
+                    // Retry with a fresh shape when a transform is not valid.
+                }
+            }
+            if (!question) return [];
+            questions.push(question);
+        }
+        return questions;
+    },
+
     start: function (engine, data) {
         data = data || {};
         const mode = data.mode ? String(data.mode) : "legacy";
@@ -292,6 +415,59 @@ const SpatialPuzzle = {
 
         if (mode === "symmetry" && data.generator) {
             return this.start(engine, this.generateSymmetry(data));
+        }
+
+        if (mode === "transform") {
+            const validation = this.validateTransformPuzzleData(data);
+            const transforms = window.SharedGeometryTransforms;
+            if (!validation.valid || !transforms) {
+                console.error("Spatial Puzzle: Invalid Transform Data", validation.reason || "transform-helper-missing");
+                return null;
+            }
+
+            const operation = { ...data.operation };
+            let expected;
+            try {
+                if (operation.kind === "translate") {
+                    expected = transforms.translateShape(data.points, operation.dx, operation.dy);
+                } else if (operation.kind === "rotate") {
+                    expected = transforms.rotateShape(data.points, operation.center, operation.degrees);
+                } else if (operation.kind === "reflectLine") {
+                    expected = transforms.reflectShapeAcrossLine(data.points, operation.lineStart, operation.lineEnd);
+                } else {
+                    expected = transforms.reflectShapeAcrossPoint(data.points, operation.center);
+                }
+            } catch (error) {
+                console.error("Spatial Puzzle: Transform Calculation Failed", error);
+                return null;
+            }
+
+            const matchesTarget = expected.length === data.targetPoints.length && expected.every(function (point, index) {
+                return Math.abs(point.x - data.targetPoints[index].x) <= 1e-8 &&
+                    Math.abs(point.y - data.targetPoints[index].y) <= 1e-8;
+            });
+            if (!matchesTarget) {
+                console.error("Spatial Puzzle: Target points do not match the declared operation.");
+                return null;
+            }
+
+            engine.puzzle = {
+                type: "spatial",
+                mode: "transform",
+                source: data.source || "file",
+                instruction: data.instruction || "شکل را طبق دستور تبدیل کن و مختصات نقطه‌های جدید را روی صفحه مشخص کن.",
+                coordinateSystem: { ...data.coordinateSystem },
+                operation: operation,
+                points: data.points.map(function (point) { return { x: point.x, y: point.y }; }),
+                targetPoints: expected,
+                answer: expected,
+                userPoints: [],
+                hasUserMove: false
+            };
+            engine.items = [];
+            engine.userAnswer = [];
+            engine.emitStarted();
+            return engine.getState();
         }
 
         if (mode === "coordinatePlane") {
@@ -473,6 +649,23 @@ const SpatialPuzzle = {
     setAnswer: function (engine, value) {
         if (!engine.puzzle || engine.puzzle.type !== "spatial") return false;
 
+        if (engine.puzzle.mode === "transform") {
+            if (!value || typeof value !== "object" || !Number.isInteger(value.index) ||
+                value.index < 0 || value.index >= engine.puzzle.points.length) return false;
+            const snapped = this.snapCoordinatePoint(
+                { x: Number(value.x), y: Number(value.y) },
+                engine.puzzle.coordinateSystem
+            );
+            if (!snapped) return false;
+            engine.puzzle.userPoints[value.index] = snapped;
+            engine.userAnswer = engine.puzzle.userPoints.map(function (point) {
+                return point ? { x: point.x, y: point.y } : null;
+            });
+            engine.puzzle.hasUserMove = true;
+            engine.moves++;
+            return engine.emitChanged();
+        }
+
         if (engine.puzzle.mode === "coordinatePlane") {
             if (!value || typeof value !== "object") return false;
             const system = engine.puzzle.coordinateSystem;
@@ -551,6 +744,28 @@ const SpatialPuzzle = {
 
     check: function (engine) {
         if (!engine.puzzle || engine.puzzle.type !== "spatial") return false;
+
+        if (engine.puzzle.mode === "transform") {
+            const points = engine.puzzle.userPoints || [];
+            if (engine.puzzle.hasUserMove !== true ||
+                points.length !== engine.puzzle.points.length ||
+                engine.puzzle.points.some(function (_, index) { return !points[index]; })) {
+                console.log("Spatial Puzzle: Transform check blocked before all output points are placed.");
+                return false;
+            }
+            const correct = engine.puzzle.points.every(function (_, index) {
+                const point = points[index];
+                return !!point &&
+                    Math.abs(point.x - engine.puzzle.answer[index].x) <= 1e-8 &&
+                    Math.abs(point.y - engine.puzzle.answer[index].y) <= 1e-8;
+            });
+            if (correct) {
+                engine.finish();
+                return true;
+            }
+            engine.emitWrong();
+            return false;
+        }
 
         if (engine.puzzle.mode === "coordinatePlane") {
             if (engine.puzzle.hasUserMove !== true || !engine.userAnswer) {

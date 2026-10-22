@@ -76,7 +76,14 @@ const PuzzleEngine = {
 
     getFileDefinedQuestions: function (activityData) {
         const puzzle = activityData && activityData.puzzle;
-        if (!puzzle || !Array.isArray(puzzle.questions) || puzzle.questions.length === 0) return null;
+        if (!puzzle) return null;
+        if (puzzle.mode === "transform" && puzzle.generator === true) {
+            const handler = typeof PuzzleTypeRegistry !== "undefined" ? PuzzleTypeRegistry.get("spatial") : null;
+            const generated = handler && typeof handler.generateTransformQuestions === "function"
+                ? handler.generateTransformQuestions(puzzle) : [];
+            return generated.length ? generated : null;
+        }
+        if (!Array.isArray(puzzle.questions) || puzzle.questions.length === 0) return null;
 
         const questions = puzzle.questions.map(function (question) {
             if (!question || typeof question !== "object") return null;
@@ -187,7 +194,7 @@ const PuzzleEngine = {
         if (this.puzzle.type === "wordGrid") { state.relation = this.puzzle.relation; state.relationType = this.puzzle.relationType; state.answer = this.puzzle.answer; }
         if (this.puzzle.type === "crossGrid") { state.horizontalPaths = Array.isArray(this.puzzle.horizontalPaths) ? [...this.puzzle.horizontalPaths] : []; state.verticalPaths = Array.isArray(this.puzzle.verticalPaths) ? [...this.puzzle.verticalPaths] : []; state.paths = Array.isArray(this.puzzle.paths) ? [...this.puzzle.paths] : []; state.rules = Array.isArray(this.puzzle.rules) ? [...this.puzzle.rules] : []; state.answer = this.puzzle.answer; }
         if (this.puzzle.type === "pattern") { state.missingIndex = this.puzzle.missingIndex; state.answer = this.puzzle.answer; state.options = Array.isArray(this.puzzle.options) ? [...this.puzzle.options] : []; }
-        if (this.puzzle.type === "spatial") { state.mode = this.puzzle.mode || "legacy"; state.grid = this.puzzle.grid ? { ...this.puzzle.grid } : null; state.axis = this.puzzle.axis || null; state.items = Array.isArray(this.puzzle.items) ? [...this.puzzle.items] : []; state.pieces = Array.isArray(this.puzzle.pieces) ? [...this.puzzle.pieces] : []; state.placements = this.puzzle.placements ? { ...this.puzzle.placements } : {}; state.options = Array.isArray(this.puzzle.options) ? [...this.puzzle.options] : []; state.answer = this.puzzle.answer; state.question = this.puzzle.question || ""; state.coordinateSystem = this.puzzle.coordinateSystem ? { ...this.puzzle.coordinateSystem } : null; state.task = this.puzzle.task ? JSON.parse(JSON.stringify(this.puzzle.task)) : null; }
+        if (this.puzzle.type === "spatial") { state.mode = this.puzzle.mode || "legacy"; state.grid = this.puzzle.grid ? { ...this.puzzle.grid } : null; state.axis = this.puzzle.axis || null; state.items = Array.isArray(this.puzzle.items) ? [...this.puzzle.items] : []; state.pieces = Array.isArray(this.puzzle.pieces) ? [...this.puzzle.pieces] : []; state.placements = this.puzzle.placements ? { ...this.puzzle.placements } : {}; state.options = Array.isArray(this.puzzle.options) ? [...this.puzzle.options] : []; state.answer = this.puzzle.answer; state.question = this.puzzle.question || ""; state.coordinateSystem = this.puzzle.coordinateSystem ? { ...this.puzzle.coordinateSystem } : null; state.task = this.puzzle.task ? JSON.parse(JSON.stringify(this.puzzle.task)) : null; if (this.puzzle.mode === "transform") { state.operation = JSON.parse(JSON.stringify(this.puzzle.operation)); state.points = JSON.parse(JSON.stringify(this.puzzle.points)); state.targetPoints = JSON.parse(JSON.stringify(this.puzzle.targetPoints)); state.userPoints = JSON.parse(JSON.stringify(this.puzzle.userPoints)); } }
         if (this.puzzle.type === "jigsaw") { state.objective = this.puzzle.objective || ""; state.title = this.puzzle.title || ""; state.difficulty = this.puzzle.difficulty; state.image = this.puzzle.image; state.rows = this.puzzle.rows; state.cols = this.puzzle.cols; state.pieceCount = this.puzzle.pieceCount; }
         return state;
     },

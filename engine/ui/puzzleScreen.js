@@ -307,6 +307,10 @@ const PuzzleScreen = {
     // =====================================
 
     showSpatial: function (state) {
+        if (state && state.mode === "transform") {
+            this.showSpatialTransform(state);
+            return;
+        }
         if (state && state.mode === "coordinatePlane") {
             this.showCoordinatePlane(state);
             return;
@@ -324,6 +328,145 @@ const PuzzleScreen = {
         this.showSpatialLegacy(state);
     },
 
+
+    showSpatialTransform: function (state) {
+        const app = this.getApp();
+        if (!app) return;
+        const system = state.coordinateSystem;
+        const source = Array.isArray(state.points) ? state.points : [];
+        const userPoints = Array.isArray(state.userPoints) ? state.userPoints : [];
+        if (!system || typeof SpatialPuzzle === "undefined" || !source.length) {
+            app.innerHTML = "<div class='screen puzzleScreen'><p>اطلاعات تبدیل هندسی معتبر نیست.</p></div>";
+            return;
+        }
+
+        const width = 360, height = 300;
+        const viewport = { left: 30, top: 20, right: 330, bottom: 270, width: 300, height: 250 };
+        const toPixel = function (point) { return SpatialPuzzle.mathToPixel(point, system, viewport); };
+        const parseCoordinate = function (raw) {
+            let value = String(raw == null ? "" : raw).trim()
+                .replace(/[۰-۹]/g, function (digit) { return String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)); })
+                .replace(/[٠-٩]/g, function (digit) { return String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)); })
+                .replace(/٫/g, ".").replace(/٬/g, "").replace(/−/g, "-");
+            const glyphs = { "½": "1/2", "¼": "1/4", "¾": "3/4" };
+            Object.keys(glyphs).forEach(function (glyph) {
+                value = value.replace(glyph, " " + glyphs[glyph]);
+            });
+            const mixed = value.match(/^(-?)\s*(\d+)\s+(\d+)\s*\/\s*(\d+)$/);
+            if (mixed) {
+                const denominator = Number(mixed[4]);
+                if (!denominator || Number(mixed[3]) >= denominator) return NaN;
+                return (mixed[1] ? -1 : 1) * (Number(mixed[2]) + Number(mixed[3]) / denominator);
+            }
+            const fraction = value.match(/^(-?)\s*(\d+)\s*\/\s*(\d+)$/);
+            if (fraction) {
+                const denominator = Number(fraction[3]);
+                return denominator ? (fraction[1] ? -1 : 1) * Number(fraction[2]) / denominator : NaN;
+            }
+            if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(value)) return NaN;
+            return Number(value);
+        };
+        const formatCoordinate = function (number) {
+            const value = Math.round(Number(number) * 4) / 4;
+            const sign = value < 0 ? "−" : "";
+            const absolute = Math.abs(value);
+            const whole = Math.floor(absolute);
+            const fraction = Math.round((absolute - whole) * 4);
+            if (!fraction) return sign + whole;
+            const parts = { 1: "¼", 2: "½", 3: "¾" };
+            return sign + (whole ? whole + " " : "") + (parts[fraction] || String(absolute - whole));
+        };
+        const lines = [];
+        const step = Number(system.unitStep);
+        for (let x = system.xMin; x <= system.xMax + 1e-8; x += step) {
+            const p = toPixel({ x: x, y: system.yMin });
+            if (p) lines.push("<line x1='" + p.x + "' y1='" + viewport.top + "' x2='" + p.x + "' y2='" + viewport.bottom + "' stroke='#dbe3ec' />");
+        }
+        for (let y = system.yMin; y <= system.yMax + 1e-8; y += step) {
+            const p = toPixel({ x: system.xMin, y: y });
+            if (p) lines.push("<line x1='" + viewport.left + "' y1='" + p.y + "' x2='" + viewport.right + "' y2='" + p.y + "' stroke='#dbe3ec' />");
+        }
+        const xa = toPixel({ x: system.xMin, y: 0 }), xb = toPixel({ x: system.xMax, y: 0 });
+        const ya = toPixel({ x: 0, y: system.yMin }), yb = toPixel({ x: 0, y: system.yMax });
+        if (xa && xb) lines.push("<line x1='" + xa.x + "' y1='" + xa.y + "' x2='" + xb.x + "' y2='" + xb.y + "' stroke='#334155' stroke-width='2' />");
+        if (ya && yb) lines.push("<line x1='" + ya.x + "' y1='" + ya.y + "' x2='" + yb.x + "' y2='" + yb.y + "' stroke='#334155' stroke-width='2' />");
+
+        const sourcePixels = source.map(toPixel).filter(Boolean);
+        let shape = "";
+        if (sourcePixels.length > 1) {
+            const coords = sourcePixels.map(function (p) { return p.x + "," + p.y; }).join(" ");
+            shape = (sourcePixels.length >= 3
+                ? "<polygon points='" + coords + "' fill='#2563eb' fill-opacity='.10' stroke='#2563eb' stroke-width='2' />"
+                : "<polyline points='" + coords + "' fill='none' stroke='#2563eb' stroke-width='3' />");
+        }
+        const sourceMarkers = source.map(function (point, index) {
+            const p = toPixel(point);
+            return p ? "<circle cx='" + p.x + "' cy='" + p.y + "' r='5' fill='#2563eb' /><text x='" + (p.x + 7) + "' y='" + (p.y - 7) + "' font-size='12' fill='#1d4ed8'>" + String.fromCharCode(65 + index) + "</text>" : "";
+        }).join("");
+        const placed = userPoints.map(function (point, index) {
+            if (!point) return "";
+            const p = toPixel(point);
+            return p ? "<circle cx='" + p.x + "' cy='" + p.y + "' r='6' fill='#ea580c' stroke='#fff' stroke-width='2' /><text x='" + (p.x + 7) + "' y='" + (p.y + 14) + "' font-size='12' fill='#c2410c'>" + String.fromCharCode(65 + index) + "′</text>" : "";
+        }).join("");
+
+        const operation = state.operation || {};
+        let operationText = "تبدیل هندسی";
+        if (operation.kind === "translate") operationText = "انتقال: " + (operation.dx >= 0 ? "+" : "") + operation.dx + " در راستای س، " + (operation.dy >= 0 ? "+" : "") + operation.dy + " در راستای ص";
+        if (operation.kind === "rotate") operationText = "دوران " + operation.degrees + " درجه حول (" + operation.center.x + "، " + operation.center.y + ")";
+        if (operation.kind === "reflectLine") operationText = "قرینه نسبت به خط گذرنده از (" + operation.lineStart.x + "، " + operation.lineStart.y + ") و (" + operation.lineEnd.x + "، " + operation.lineEnd.y + ")";
+        if (operation.kind === "reflectPoint") operationText = "قرینه نسبت به نقطه (" + operation.center.x + "، " + operation.center.y + ")";
+        const nextIndex = userPoints.findIndex(function (point) { return !point; });
+        let activeIndex = nextIndex >= 0 ? nextIndex : 0;
+        const outputText = source.map(function (_, index) {
+            const point = userPoints[index];
+            return String.fromCharCode(65 + index) + "′: " + (point ? "(" + formatCoordinate(point.x) + "، " + formatCoordinate(point.y) + ")" : "—");
+        }).join("   ");
+        const outputSelectors = source.map(function (_, index) {
+            const point = userPoints[index];
+            const letter = String.fromCharCode(65 + index) + "′";
+            return "<section class='transformMatrixCard' data-transform-matrix='" + index + "'><h3 dir='ltr'>" + letter + "</h3><div class='transformMatrix' dir='ltr' aria-label='ماتریس مختصات " + letter + "'><label><span>x</span><input class='transformMatrixX' type='text' inputmode='decimal' placeholder='مثلاً 1.5 یا 1 1/2' value='" + (point ? formatCoordinate(point.x) : "") + "' aria-label='مختصات x نقطه " + letter + "' /></label><label><span>y</span><input class='transformMatrixY' type='text' inputmode='decimal' placeholder='مثلاً 1.5 یا 1 1/2' value='" + (point ? formatCoordinate(point.y) : "") + "' aria-label='مختصات y نقطه " + letter + "' /></label></div><button type='button' class='transformMatrixSubmit' data-transform-index='" + index + "'>" + (point ? "ثبت تغییرات" : "ثبت مختصات") + "</button></section>";
+        }).join("");
+
+        app.innerHTML = "<div class='screen puzzleScreen spatialScreen spatialTransformScreen' dir='rtl'><h1>تبدیل‌های هندسی</h1><p class='puzzleInstruction'>" + PuzzleScreen.escapeHTML(state.instruction || "مختصات هر نقطهٔ تبدیل‌شده را در ماتریس آن وارد کن.") + "</p><div class='transformOperation'>" + PuzzleScreen.escapeHTML(operationText) + "</div><div class='coordinatePlaneCanvas'><svg id='spatialTransformSvg' viewBox='0 0 " + width + " " + height + "' role='img' aria-label='نمایش صفحه مختصات؛ پاسخ را فقط در ماتریس‌ها وارد کن'>" + lines.join("") + shape + sourceMarkers + placed + "</svg></div><p id='spatialTransformStatus' class='coordinatePlaneStatus' aria-live='polite'>" + (nextIndex < 0 ? "همهٔ مختصات ثبت شده‌اند؛ می‌توانی آن‌ها را در ماتریس‌ها اصلاح کنی." : "مختصات x و y نقطهٔ " + String.fromCharCode(65 + nextIndex) + "′ را در ماتریس وارد کن.") + "</p><div class='transformMatrices'>" + outputSelectors + "</div><p class='transformCoordinates' dir='ltr'>" + PuzzleScreen.escapeHTML(outputText) + "</p><button id='spatialTransformCheckBtn' type='button' " + (nextIndex < 0 ? "" : "disabled") + ">بررسی پاسخ</button><div id='puzzleMessage' class='puzzleMessage'></div>" + this.renderStandardFooter(state.moves) + "</div><style>.transformOperation{max-width:480px;margin:10px auto;padding:10px 12px;border-radius:10px;background:#eef2ff;color:#3730a3;text-align:center;font-weight:600}.coordinatePlaneCanvas{width:100%;max-width:480px;margin:16px auto;padding:8px;box-sizing:border-box;background:#fff;border:1px solid #dbe3ec;border-radius:14px}.coordinatePlaneCanvas svg{display:block;width:100%;height:auto;touch-action:pan-y;cursor:default}.transformCoordinates{margin:10px auto;text-align:center;direction:ltr;unicode-bidi:isolate;line-height:1.9;font-size:14px;color:#334155;overflow-wrap:anywhere}.transformMatrices{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:12px;max-width:480px;margin:14px auto}.transformMatrixCard{border:1px solid #cbd5e1;border-radius:12px;padding:10px;background:#f8fafc;text-align:center}.transformMatrixCard h3{margin:0 0 8px;font-size:16px;color:#1e293b}.transformMatrix{display:grid;gap:6px;width:max-content;margin:0 auto 10px;padding:6px 10px;position:relative;direction:ltr}.transformMatrix:before,.transformMatrix:after{content:'';position:absolute;top:0;bottom:0;width:5px;border-top:2px solid #475569;border-bottom:2px solid #475569}.transformMatrix:before{left:0;border-left:2px solid #475569}.transformMatrix:after{right:0;border-right:2px solid #475569}.transformMatrix label{display:grid;grid-template-columns:18px 64px;align-items:center;gap:5px}.transformMatrix label span{font-size:13px;color:#475569;text-align:center}.transformMatrix input{box-sizing:border-box;width:64px;min-height:38px;border:1px solid #94a3b8;border-radius:7px;background:#fff;text-align:center;direction:ltr;font-size:17px;padding:4px}.transformMatrixSubmit{border:1px solid #cbd5e1;border-radius:8px;padding:7px 10px;background:#fff;color:#334155}.spatialTransformScreen #spatialTransformCheckBtn{display:block;margin:12px auto;padding:10px 24px;border:0;border-radius:10px;background:#2563eb;color:#fff;font-size:16px}.spatialTransformScreen #spatialTransformCheckBtn:disabled{opacity:.45}</style>";
+
+        app.querySelectorAll(".transformMatrixSubmit").forEach(function (button) {
+            button.addEventListener("click", function () {
+                const index = Number(button.getAttribute("data-transform-index"));
+                const card = button.closest(".transformMatrixCard");
+                const xInput = card && card.querySelector(".transformMatrixX");
+                const yInput = card && card.querySelector(".transformMatrixY");
+                const status = app.querySelector("#spatialTransformStatus");
+                if (!xInput || !yInput || xInput.value.trim() === "" || yInput.value.trim() === "") {
+                    if (status) status.textContent = "هر دو خانهٔ x و y را برای نقطه وارد کن.";
+                    return;
+                }
+                const x = parseCoordinate(xInput.value);
+                const y = parseCoordinate(yInput.value);
+                if (!Number.isFinite(x) || !Number.isFinite(y) ||
+                    x < Number(system.xMin) || x > Number(system.xMax) ||
+                    y < Number(system.yMin) || y > Number(system.yMax)) {
+                    if (status) status.textContent = "مختصات را به‌صورت 1.5 یا 1 1/2 وارد کن و محدودهٔ صفحه را رعایت کن.";
+                    return;
+                }
+                activeIndex = index;
+                if (!PuzzleEngine.setTypeAnswer({ index: index, x: x, y: y })) {
+                    if (status) status.textContent = "ثبت مختصات انجام نشد؛ دوباره تلاش کن.";
+                    return;
+                }
+                PuzzleScreen.show(PuzzleEngine.getState());
+            });
+        });
+
+        const check = app.querySelector("#spatialTransformCheckBtn");
+        if (check) check.addEventListener("click", function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            if (!check.disabled) {
+                check.disabled = true;
+                PuzzleEngine.check();
+            }
+        });
+    },
 
     showCoordinatePlane: function (state) {
         const app = this.getApp();
@@ -385,7 +528,7 @@ const PuzzleScreen = {
             selectionText = "مختصات انتخاب‌شده: (" + Number(selected.x) + "، " + Number(selected.y) + ")";
         }
 
-        app.innerHTML = "<div class='screen puzzleScreen spatialScreen coordinatePlaneScreen' dir='rtl'><h1>صفحه مختصات</h1><p class='puzzleInstruction'>" + PuzzleScreen.escapeHTML(state.instruction || "نقاط و محورهای مختصات را بررسی کن.") + "</p><div class='coordinatePlaneCanvas'><svg id='coordinatePlaneSvg' viewBox='0 0 " + width + " " + height + "' role='img' aria-label='صفحه مختصات؛ برای انتخاب نقطه لمس یا کلیک کن'>" + lines.join("") + markers + selectionMarker + "</svg></div><div class='coordinateInputPanel'><label for='coordinateXInput'>س (x) <input id='coordinateXInput' type='number' inputmode='numeric' step='" + step + "' min='" + xMin + "' max='" + xMax + "' value='" + (selected && typeof selected === "object" && Number.isFinite(Number(selected.x)) ? Number(selected.x) : "") + "' /></label><label for='coordinateYInput'>ص (y) <input id='coordinateYInput' type='number' inputmode='numeric' step='" + step + "' min='" + yMin + "' max='" + yMax + "' value='" + (selected && typeof selected === "object" && Number.isFinite(Number(selected.y)) ? Number(selected.y) : "") + "' /></label><button id='coordinatePlaneMoveBtn' type='button'>انتقال نقطه</button></div><p id='coordinatePlaneStatus' class='coordinatePlaneStatus' aria-live='polite'>" + selectionText + "</p><button id='coordinatePlaneCheckBtn' type='button' " + (selected === undefined || selected === null ? "disabled" : "") + ">بررسی پاسخ</button><div id='puzzleMessage' class='puzzleMessage'></div>" + this.renderStandardFooter(state.moves) + "</div><style>.coordinatePlaneCanvas{width:100%;max-width:480px;margin:16px auto;padding:8px;box-sizing:border-box;background:#fff;border:1px solid #dbe3ec;border-radius:14px}.coordinatePlaneCanvas svg{display:block;width:100%;height:auto;touch-action:manipulation;cursor:crosshair}.coordinateInputPanel{display:flex;align-items:end;justify-content:center;gap:10px;flex-wrap:wrap;margin:12px auto}.coordinateInputPanel label{display:flex;flex-direction:column;gap:4px;font-size:14px;color:#334155}.coordinateInputPanel input{width:76px;min-height:40px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:6px;font-size:17px;text-align:center}.coordinateInputPanel button{min-height:40px;border:0;border-radius:8px;background:#0f766e;color:#fff;padding:8px 14px;font-size:15px}.coordinatePlaneStatus{text-align:center;color:#475569;font-size:14px;min-height:24px}.coordinatePlaneScreen #coordinatePlaneCheckBtn{display:block;margin:12px auto;padding:10px 24px;border:0;border-radius:10px;background:#2563eb;color:#fff;font-size:16px}.coordinatePlaneScreen #coordinatePlaneCheckBtn:disabled{opacity:.45;cursor:not-allowed}</style>";
+        app.innerHTML = "<div class='screen puzzleScreen spatialScreen coordinatePlaneScreen' dir='rtl'><h1>صفحه مختصات</h1><p class='puzzleInstruction'>" + PuzzleScreen.escapeHTML(state.instruction || "نقاط و محورهای مختصات را بررسی کن.") + "</p><div class='coordinatePlaneCanvas'><svg id='coordinatePlaneSvg' viewBox='0 0 " + width + " " + height + "' role='img' aria-label='صفحه مختصات؛ برای انتخاب نقطه لمس یا کلیک کن'>" + lines.join("") + markers + selectionMarker + "</svg></div><div class='coordinateInputPanel'><div class='coordinateMatrix' role='group' aria-label='ماتریس مختصات دو در یک'><div class='coordinateMatrixBracket' aria-hidden='true'></div><div class='coordinateMatrixRows'><label for='coordinateXInput'><span>x</span><input id='coordinateXInput' type='number' inputmode='decimal' step='" + step + "' min='" + xMin + "' max='" + xMax + "' value='" + (selected && typeof selected === "object" && Number.isFinite(Number(selected.x)) ? Number(selected.x) : "") + "' aria-label='مؤلفهٔ x، خانهٔ بالای ماتریس' /></label><label for='coordinateYInput'><span>y</span><input id='coordinateYInput' type='number' inputmode='decimal' step='" + step + "' min='" + yMin + "' max='" + yMax + "' value='" + (selected && typeof selected === "object" && Number.isFinite(Number(selected.y)) ? Number(selected.y) : "") + "' aria-label='مؤلفهٔ y، خانهٔ پایین ماتریس' /></label></div><div class='coordinateMatrixBracket coordinateMatrixBracketRight' aria-hidden='true'></div></div><button id='coordinatePlaneMoveBtn' type='button'>انتقال نقطه</button></div><p id='coordinatePlaneStatus' class='coordinatePlaneStatus' aria-live='polite'>" + selectionText + "</p><button id='coordinatePlaneCheckBtn' type='button' " + (selected === undefined || selected === null ? "disabled" : "") + ">بررسی پاسخ</button><div id='puzzleMessage' class='puzzleMessage'></div>" + this.renderStandardFooter(state.moves) + "</div><style>.coordinatePlaneCanvas{width:100%;max-width:480px;margin:16px auto;padding:8px;box-sizing:border-box;background:#fff;border:1px solid #dbe3ec;border-radius:14px}.coordinatePlaneCanvas svg{display:block;width:100%;height:auto;touch-action:manipulation;cursor:crosshair}.coordinateInputPanel{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;margin:12px auto}.coordinateMatrix{display:flex;align-items:stretch;justify-content:center;gap:7px;padding:2px 0}.coordinateMatrixBracket{width:9px;min-height:94px;box-sizing:border-box;border:2px solid #334155;border-right:0;border-radius:5px 0 0 5px}.coordinateMatrixBracketRight{border:2px solid #334155;border-left:0;border-radius:0 5px 5px 0}.coordinateMatrixRows{display:grid;grid-template-rows:1fr 1fr;gap:7px}.coordinateMatrixRows label{display:grid;grid-template-columns:22px 76px;align-items:center;gap:7px;font-size:14px;font-weight:600;color:#334155}.coordinateMatrixRows label span{direction:ltr;text-align:center}.coordinateMatrixRows input{width:76px;min-height:40px;box-sizing:border-box;border:1px solid #94a3b8;border-radius:8px;padding:6px;font-size:18px;text-align:center;background:#fff;color:#0f172a}.coordinateInputPanel button{min-height:40px;border:0;border-radius:8px;background:#0f766e;color:#fff;padding:8px 14px;font-size:15px}.coordinatePlaneStatus{text-align:center;color:#475569;font-size:14px;min-height:24px}.coordinatePlaneScreen #coordinatePlaneCheckBtn{display:block;margin:12px auto;padding:10px 24px;border:0;border-radius:10px;background:#2563eb;color:#fff;font-size:16px}.coordinatePlaneScreen #coordinatePlaneCheckBtn:disabled{opacity:.45;cursor:not-allowed}</style>";
 
         const svg = app.querySelector("#coordinatePlaneSvg");
         if (svg) svg.addEventListener("pointerdown", function (event) {

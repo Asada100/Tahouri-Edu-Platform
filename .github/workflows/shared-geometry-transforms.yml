@@ -1,0 +1,58 @@
+name: Shared Geometry Transform Checks
+
+on:
+  push:
+    branches: ["master"]
+    paths:
+      - "engine/activity/puzzleTypes/geometryTransforms.js"
+      - "engine/activity/puzzleTypes/spatialPuzzle.js"
+      - "engine/activity/puzzleEngine.js"
+      - "engine/ui/puzzleScreen.js"
+      - "data/activities.json"
+      - "content/grades/grade6/math/chapter1/geometryTransforms/activity.json"
+      - "tests/shared-geometry-transforms.test.js"
+      - "tests/spatial-transform-contract.test.js"
+      - "tests/spatial-transform-runtime.test.js"
+      - ".github/workflows/shared-geometry-transforms.yml"
+  pull_request:
+    branches: ["master"]
+    paths:
+      - "engine/activity/puzzleTypes/geometryTransforms.js"
+      - "engine/activity/puzzleTypes/spatialPuzzle.js"
+      - "engine/activity/puzzleEngine.js"
+      - "engine/ui/puzzleScreen.js"
+      - "data/activities.json"
+      - "content/grades/grade6/math/chapter1/geometryTransforms/activity.json"
+      - "tests/shared-geometry-transforms.test.js"
+      - "tests/spatial-transform-contract.test.js"
+      - "tests/spatial-transform-runtime.test.js"
+      - ".github/workflows/shared-geometry-transforms.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shared-geometry-transforms:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check JavaScript syntax
+        run: |
+          node --check engine/activity/puzzleTypes/geometryTransforms.js
+          node --check engine/activity/puzzleTypes/spatialPuzzle.js
+          node --check engine/activity/puzzleEngine.js
+          node --check engine/ui/puzzleScreen.js
+          node --check tests/shared-geometry-transforms.test.js
+          node --check tests/spatial-transform-contract.test.js
+          node --check tests/spatial-transform-runtime.test.js
+      - name: Run geometry transform tests
+        run: |
+          node tests/shared-geometry-transforms.test.js
+          node tests/spatial-transform-contract.test.js
+          node tests/spatial-transform-runtime.test.js
