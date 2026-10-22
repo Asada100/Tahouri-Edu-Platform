@@ -370,7 +370,7 @@ const PuzzleScreen = {
         }
 
         const instructionMarkup = task.kind === "placePoint" && task.target
-            ? "نقطه را به مختصات نشان‌داده‌شده در ماتریس زیر منتقل کن:"
+            ? "مکان نقاط مشخص‌شده را در دستگاه مختصات مشخص کن."
             : (state.instruction || "نقاط و محورهای مختصات را بررسی کن.");
         const targetMatrixMarkup = task.kind === "placePoint" && task.target
             ? "<div class='coordinateTargetMatrixWrap'><span>مختصات هدف</span><div class='coordinateTargetMatrix' dir='ltr'><span class='coordinateTargetRows'><span>" + Number(task.target.x) + "</span><span>" + Number(task.target.y) + "</span></span><span class='coordinateTargetBracket coordinateTargetBracketRight'></span><span class='coordinateTargetLabels'><span>x</span><span>y</span></span><span class='coordinateTargetBracket'></span></div></div>"
