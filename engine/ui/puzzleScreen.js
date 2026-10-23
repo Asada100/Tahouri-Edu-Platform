@@ -389,8 +389,8 @@ const PuzzleScreen = {
                 axisLabels.push("<text x='" + x + "' y='" + y + "' text-anchor='" + anchor + "' font-size='10' font-weight='600' fill='" + color + "'>" + label + "</text>");
             }
         };
-        if (xa && xb) appendAxisLabels(xMin, xMax, "x", "#2563eb");
-        if (ya && yb) appendAxisLabels(yMin, yMax, "y", "#0f766e");
+        if (xa && xb) appendAxisLabels(xMin, xMax, "x", "#b45309");
+        if (ya && yb) appendAxisLabels(yMin, yMax, "y", "#c2410c");
 
         let markers = "";
         if (task.kind === "placePoint" || task.kind === "readPoint") {
