@@ -98,6 +98,49 @@ const PuzzleEngine = {
             };
         }).filter(Boolean);
 
+        // Coordinate-plane targets are generated afresh for each playthrough.
+        // Choose unique grid points so no target repeats within one round sequence.
+        if (puzzle.mode === "coordinatePlane" && questions.length > 0 &&
+            questions.every(function (question) {
+                return question && question.mode === "coordinatePlane" &&
+                    question.task && question.task.kind === "placePoint";
+            })) {
+            const system = puzzle.coordinateSystem || questions[0].coordinateSystem || {};
+            const minX = Number(system.xMin), maxX = Number(system.xMax);
+            const minY = Number(system.yMin), maxY = Number(system.yMax);
+            const step = Number(system.unitStep);
+            if ([minX, maxX, minY, maxY, step].every(Number.isFinite) &&
+                step > 0 && maxX >= minX && maxY >= minY) {
+                const candidates = [];
+                const countX = Math.floor((maxX - minX) / step + 1e-9);
+                const countY = Math.floor((maxY - minY) / step + 1e-9);
+                for (let xi = 0; xi <= countX; xi++) {
+                    for (let yi = 0; yi <= countY; yi++) {
+                        candidates.push({
+                            x: Number((minX + xi * step).toFixed(10)),
+                            y: Number((minY + yi * step).toFixed(10))
+                        });
+                    }
+                }
+                for (let i = candidates.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+                }
+                if (candidates.length >= questions.length) {
+                    questions.forEach(function (question, index) {
+                        question.task = {
+                            ...question.task,
+                            target: candidates[index]
+                        };
+                        question.instruction = "نقطه را به مختصات خواسته‌شده منتقل کن.";
+                    });
+                    console.log("Puzzle Engine: Unique randomized coordinate targets:", questions.length);
+                } else {
+                    console.warn("Puzzle Engine: Not enough unique coordinate targets for all questions.");
+                }
+            }
+        }
+
         if (puzzle.randomQuestionOrder === true) {
             for (let i = questions.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
