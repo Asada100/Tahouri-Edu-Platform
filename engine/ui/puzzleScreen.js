@@ -419,7 +419,7 @@ const PuzzleScreen = {
             : "";
 
         let selectionMarker = "";
-        let selectionText = "برای انتخاب، روی صفحه مختصات لمس یا کلیک کن.";
+        let selectionText = "نقطه‌ای را که فکر می‌کنی درست است، انتخاب کن.";
         if (task.kind === "identifyPoint" && typeof selected === "string") {
             const selectedPoint = (task.points || []).find(function (point) { return String(point.id) === selected; });
             if (selectedPoint) {
@@ -430,7 +430,7 @@ const PuzzleScreen = {
         } else if (selected && typeof selected === "object" && Number.isFinite(Number(selected.x)) && Number.isFinite(Number(selected.y))) {
             const p = toPixel(selected);
             if (p) selectionMarker = "<circle id='coordinatePlaneSelectionMarker' cx='" + p.x + "' cy='" + p.y + "' r='7' fill='#ea580c' stroke='#fff' stroke-width='2' />";
-            selectionText = "مختصات انتخاب‌شده — x: " + Number(selected.x) + "، y: " + Number(selected.y);
+            selectionText = "نقطه انتخاب شد؛ حالا «بررسی» را بزن.";
         }
 
         app.innerHTML = "<div class='screen puzzleScreen spatialScreen coordinatePlaneScreen' dir='rtl'><div class='coordinatePlaneHeader'><h1>مختصات نقطه‌ها</h1></div><div class='coordinatePlaneInstructionRow'><p class='puzzleInstruction'>" + PuzzleScreen.escapeHTML(instructionMarkup) + "</p></div>" + targetMatrixMarkup + "<div class='coordinatePlaneCanvas'><svg id='coordinatePlaneSvg' viewBox='0 0 " + width + " " + height + "' role='img' aria-label='صفحه مختصات؛ برای انتخاب نقطه لمس یا کلیک کن'>" + lines.join("") + axisLabels.join("") + markers + selectionMarker + "</svg></div><p id='coordinatePlaneStatus' class='coordinatePlaneStatus' aria-live='polite'>" + selectionText + "</p><div id='puzzleMessage' class='puzzleMessage'></div>" + "</div><style>.coordinatePlaneScreen{box-sizing:border-box;overflow:hidden}.coordinatePlaneHeader{display:flex;align-items:center;justify-content:center;gap:8px;margin:0 0 3px}.coordinatePlaneHeader h1{margin:0;font-size:clamp(18px,4.5vw,25px);line-height:1.2}.coordinatePlaneInstructionRow{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 auto 5px;max-width:620px}.coordinatePlaneInstructionRow .puzzleInstruction{flex:1;min-width:0;margin:0;text-align:center;line-height:1.5}.coordinateTargetMatrixWrap{display:flex;flex-direction:row;align-items:center;justify-content:center;flex-wrap:nowrap;gap:8px;margin:4px auto;color:#334155;font-size:14px;white-space:nowrap}.coordinateTargetCaption{font-weight:700;font-size:13px;margin-inline-end:10ch}.coordinateTargetNamedMatrix{direction:rtl;display:flex;align-items:center;justify-content:center;gap:1ch}.coordinateTargetPointName{font-size:16px;font-weight:700;white-space:nowrap}.coordinatePlaneScreen .coordinateTargetMatrixWrap #coordinatePlaneCheckBtn{position:relative;z-index:10;pointer-events:auto;display:block;flex:0 0 auto;margin:0;margin-inline-start:10px;padding:6px 10px;border:0;border-radius:9px;background:#2563eb;color:#fff;font-size:13px;cursor:pointer}.coordinatePlaneScreen .coordinateTargetMatrixWrap #coordinatePlaneCheckBtn:disabled{opacity:.45;cursor:not-allowed}.coordinateTargetMatrix{direction:ltr;display:flex;align-items:stretch;gap:5px;font-size:17px;font-weight:600}.coordinateTargetRows{display:grid;grid-template-rows:1fr 1fr;gap:4px;align-items:center;min-width:24px;text-align:center}.coordinateTargetRows span{display:flex;align-items:center;justify-content:center;min-height:22px}.coordinateTargetBracket{width:7px;min-height:58px;box-sizing:border-box;border:2px solid #334155;border-left:0;border-radius:0 4px 4px 0}.coordinateTargetBracketRight{border:2px solid #334155;border-right:0;border-radius:4px 0 0 4px}.coordinateTargetLabels{display:grid;grid-template-rows:1fr 1fr;gap:4px;align-items:center;font-size:12px}.coordinateTargetLabels span{display:flex;align-items:center;justify-content:center}.coordinatePlaneCanvas{width:100%;max-width:620px;margin:6px auto;padding:4px;box-sizing:border-box;background:#fff;border:1px solid #dbe3ec;border-radius:14px}.coordinatePlaneCanvas svg{display:block;width:100%;height:auto;touch-action:manipulation;cursor:crosshair}.coordinatePlaneStatus{text-align:center;color:#475569;font-size:13px;min-height:20px;margin:3px 0}.coordinatePlaneScreen #coordinatePlaneCheckBtn{position:relative;z-index:10;pointer-events:auto;display:block;flex:0 0 auto;margin:0;padding:7px 13px;border:0;border-radius:10px;background:#2563eb;color:#fff;font-size:14px;cursor:pointer}.coordinatePlaneScreen #coordinatePlaneCheckBtn:disabled{opacity:.45;cursor:not-allowed}@media(max-width:420px){.coordinatePlaneHeader h1{font-size:18px}.coordinatePlaneInstructionRow{gap:6px}.coordinatePlaneInstructionRow .puzzleInstruction{font-size:13px;line-height:1.35}.coordinateTargetMatrixWrap{gap:5px;font-size:12px}.coordinateTargetCaption{font-size:11px}.coordinateTargetNamedMatrix{gap:3px}.coordinateTargetPointName{font-size:14px}.coordinateTargetMatrix{gap:3px;font-size:15px}.coordinateTargetRows{min-width:19px}.coordinateTargetLabels{font-size:10px}.coordinateTargetBracket{width:5px;min-height:48px}.coordinatePlaneScreen .coordinateTargetMatrixWrap #coordinatePlaneCheckBtn{padding:5px 7px;font-size:12px}} </style>";
@@ -477,7 +477,7 @@ const PuzzleScreen = {
                 if (previousMarker) previousMarker.remove();
 
                 let marker = null;
-                let statusText = "پاسخ انتخاب شد؛ حالا «بررسی پاسخ» را بزن.";
+                let statusText = "نقطه انتخاب شد؛ حالا «بررسی» را بزن.";
                 if (task.kind === "identifyPoint") {
                     const id = String(answer.id);
                     const point = (task.points || []).find(function (item) {
@@ -509,7 +509,7 @@ const PuzzleScreen = {
                         marker.setAttribute("stroke", "#fff");
                         marker.setAttribute("stroke-width", "2");
                     }
-                    statusText = "مختصات انتخاب‌شده — x: " + Number(answer.x) + "، y: " + Number(answer.y);
+                    statusText = "نقطه انتخاب شد؛ حالا «بررسی» را بزن.";
                 }
 
                 if (marker) { marker.setAttribute("id", "coordinatePlaneSelectionMarker"); svg.appendChild(marker); }
@@ -557,7 +557,7 @@ const PuzzleScreen = {
                 // Otherwise provide visible feedback and keep retry available.
                 if (!accepted && checkButton.isConnected) {
                     checkButton.disabled = false;
-                    if (status) status.textContent = "این نقطه درست نیست؛ جای نقطه را اصلاح کن و دوباره «بررسی پاسخ» را بزن.";
+                    if (status) status.textContent = "این نقطه درست نیست؛ به جایگاه آن روی محور‌ها دقت کن و دوباره تلاش کن.";
                 }
             });
         }
