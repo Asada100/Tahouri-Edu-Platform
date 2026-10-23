@@ -412,12 +412,12 @@ const PuzzleScreen = {
         const instructionMarkup = task.kind === "placePoint" && task.target
             ? "مکان نقاط مشخص‌شده را در دستگاه مختصات مشخص کن."
             : (state.instruction || "نقاط و محورهای مختصات را بررسی کن.");
+        const selected = state.userAnswer;
         const currentCoordinatePointName = this.coordinatePlanePointNames[this.coordinatePlaneSolvedPoints.length] || "نقطه";
         const targetMatrixMarkup = task.kind === "placePoint" && task.target
             ? "<div class='coordinateTargetMatrixWrap'><span class='coordinateTargetCaption'>مختصات هدف</span><div class='coordinateTargetNamedMatrix' dir='rtl'><div class='coordinateTargetMatrix' dir='ltr'><span class='coordinateTargetRows'><span>" + Number(task.target.x) + "</span><span>" + Number(task.target.y) + "</span></span><span class='coordinateTargetBracket coordinateTargetBracketRight'></span><span class='coordinateTargetLabels'><span>طول</span><span>عرض</span></span><span class='coordinateTargetBracket'></span></div><span class='coordinateTargetPointName'>= " + PuzzleScreen.escapeHTML(currentCoordinatePointName) + "</span></div><button id='coordinatePlaneCheckBtn' type='button' " + (selected === undefined || selected === null ? "disabled" : "") + ">بررسی</button></div>"
             : "";
 
-        const selected = state.userAnswer;
         let selectionMarker = "";
         let selectionText = "برای انتخاب، روی صفحه مختصات لمس یا کلیک کن.";
         if (task.kind === "identifyPoint" && typeof selected === "string") {
