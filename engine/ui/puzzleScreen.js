@@ -371,23 +371,26 @@ const PuzzleScreen = {
         if (xa && xb) lines.push("<line x1='" + xa.x + "' y1='" + xa.y + "' x2='" + xb.x + "' y2='" + xb.y + "' stroke='#334155' stroke-width='2' />");
         if (ya && yb) lines.push("<line x1='" + ya.x + "' y1='" + ya.y + "' x2='" + yb.x + "' y2='" + yb.y + "' stroke='#334155' stroke-width='2' />");
 
-        // Display unit values beside the existing axes. This is presentation only:
-        // coordinate bounds, snapping, point selection, and answer validation stay unchanged.
+        // Render both axis label sets from one shared pattern so positive and negative
+        // coordinate ranges keep the same spacing, typography, and readable axis offsets.
+        // This is presentation only; coordinate math and answer validation stay unchanged.
         const axisLabels = [];
-        if (xa && xb) {
-            for (let x = xMin; x <= xMax + 1e-8; x += step) {
-                if (Math.abs(x) < 1e-8) continue;
-                const p = toPixel({ x: x, y: 0 });
-                if (p) axisLabels.push("<text x='" + p.x + "' y='" + (p.y + 14) + "' text-anchor='middle' font-size='10' fill='#334155'>" + PuzzleScreen.escapeHTML(String(Number(x.toFixed(6)))) + "</text>");
+        const appendAxisLabels = function (min, max, axis, color) {
+            for (let value = min; value <= max + 1e-8; value += step) {
+                if (Math.abs(value) < 1e-8) continue;
+                const point = axis === "x"
+                    ? toPixel({ x: value, y: 0 })
+                    : toPixel({ x: 0, y: value });
+                if (!point) continue;
+                const label = PuzzleScreen.escapeHTML(String(Number(value.toFixed(6))));
+                const x = axis === "x" ? point.x : point.x - 12;
+                const y = axis === "x" ? point.y + 14 : point.y + 3.5;
+                const anchor = axis === "x" ? "middle" : "end";
+                axisLabels.push("<text x='" + x + "' y='" + y + "' text-anchor='" + anchor + "' font-size='10' font-weight='600' fill='" + color + "'>" + label + "</text>");
             }
-        }
-        if (ya && yb) {
-            for (let y = yMin; y <= yMax + 1e-8; y += step) {
-                if (Math.abs(y) < 1e-8) continue;
-                const p = toPixel({ x: 0, y: y });
-                if (p) axisLabels.push("<text x='" + (p.x - 5) + "' y='" + (p.y + 3.5) + "' text-anchor='end' font-size='10' fill='#334155'>" + PuzzleScreen.escapeHTML(String(Number(y.toFixed(6)))) + "</text>");
-            }
-        }
+        };
+        if (xa && xb) appendAxisLabels(xMin, xMax, "x", "#2563eb");
+        if (ya && yb) appendAxisLabels(yMin, yMax, "y", "#0f766e");
 
         let markers = "";
         if (task.kind === "placePoint" || task.kind === "readPoint") {
