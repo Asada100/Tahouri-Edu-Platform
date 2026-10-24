@@ -275,7 +275,11 @@ const QuizEngine = {
         }
 
 
-        ScoreManager.addWrong();
+        // In even/odd sum practice, an incorrect attempt triggers guidance and retry,
+        // not a score penalty. Other quiz modes keep their existing scoring behavior.
+        if (question.mode !== "evenOddSum") {
+            ScoreManager.addWrong();
+        }
 
 
         console.log(
