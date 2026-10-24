@@ -604,11 +604,29 @@ const QuizProvider = {
                 return false;
             }
 
+            let explanation = question.explanation;
+            if (!explanation) {
+                if (question.text.includes("سه عدد فرد")) {
+                    explanation = "بله؛ مثلاً ۵ + ۹ + ۱۱ = ۲۵. سه عدد فرد می‌توانند مجموع فرد بسازند.";
+                } else {
+                    const sumMatch = question.text.match(/حاصل(?: جمع)? (\d+) \+ (\d+)/);
+                    if (sumMatch) {
+                        const a = Number(sumMatch[1]);
+                        const b = Number(sumMatch[2]);
+                        const parity = (a + b) % 2 === 0 ? "زوج" : "فرد";
+                        explanation = `حاصل جمع ${a} + ${b} برابر ${a + b} و عددی ${parity} است. به زوج یا فرد بودن هر دو عدد توجه کن.`;
+                    } else {
+                        explanation = "قانون جمع را به یاد بیاور: زوج + زوج = زوج، فرد + فرد = زوج، و زوج + فرد = فرد.";
+                    }
+                }
+            }
+
             usedTexts.add(question.text);
             questions.push({
                 type: "quiz",
                 mode: "evenOddSum",
-                ...question
+                ...question,
+                explanation
             });
             return true;
         };
