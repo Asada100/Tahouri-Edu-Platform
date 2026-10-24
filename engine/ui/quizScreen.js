@@ -439,6 +439,16 @@ const QuizScreen = {
                 "اشکالی ندارد؛ با هم یاد می‌گیریم. " + explanation,
                 "learning"
             );
+
+            if (question && question.mode === "evenOddSum") {
+                // Let the student use the explanation and try again without losing points.
+                buttons.forEach(function (button) {
+                    button.disabled = false;
+                });
+                this.isLocked = false;
+                return;
+            }
+
             delay = 2800;
         }
 
