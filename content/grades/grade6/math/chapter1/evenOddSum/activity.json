@@ -10,7 +10,7 @@
   "version": "1.0",
   "settings": {
     "questionSource": "generated",
-    "questions": 12,
+    "questions": 10,
     "minNumber": 2,
     "maxNumber": 99,
     "scorePerCorrect": 10,
