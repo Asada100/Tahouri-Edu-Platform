@@ -20,8 +20,8 @@
     "type": "quiz",
     "engine": "QuizEngine",
     "group": "evenOdd",
-    "locked": true,
-    "requires": "evenOdd",
+    "locked": false,
+    "requires": null,
     "path": "content/grades/grade6/math/chapter1/evenOddSum"
   },
   {
