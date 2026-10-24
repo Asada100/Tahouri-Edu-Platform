@@ -614,7 +614,13 @@ const QuizProvider = {
         };
 
         // First build approachable practice questions with changing numbers.
-        while (questions.length < Math.min(6, targetCount)) {
+        let practiceAttempts = 0;
+        const maxPracticeAttempts = Math.max(targetCount * 100, 100);
+        while (
+            questions.length < Math.min(6, targetCount) &&
+            practiceAttempts < maxPracticeAttempts
+        ) {
+            practiceAttempts++;
             const a = this.randomInteger(2, 49);
             const b = this.randomInteger(2, 49);
             const sumParity = (a + b) % 2 === 0 ? "زوج" : "فرد";
