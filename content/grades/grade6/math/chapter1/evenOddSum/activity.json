@@ -15,6 +15,7 @@
     "maxNumber": 99,
     "scorePerCorrect": 10,
     "allowRetry": true,
-    "mode": "evenOddSum"
+    "mode": "evenOddSum",
+    "optionalChallenge": true
   }
 }
