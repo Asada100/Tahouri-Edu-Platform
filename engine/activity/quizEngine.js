@@ -114,6 +114,25 @@ const QuizEngine = {
                 activityData
             );
 
+        // Optional concept challenge appears after the 10 scored practice questions.
+        // It is not included in the round score and can be skipped without penalty.
+        if (
+            activityData.settings &&
+            activityData.settings.mode === "evenOddSum" &&
+            activityData.settings.optionalChallenge === true &&
+            Array.isArray(this.questions)
+        ) {
+            this.questions.push({
+                type: "quiz",
+                mode: "evenOddSum",
+                optional: true,
+                text: "چالش اختیاری: آیا می‌توان سه عدد فرد پیدا کرد که مجموعشان ۲۶ شود؟",
+                answer: "خیر",
+                options: ["بله", "خیر"],
+                explanation: "سه عدد فرد همیشه مجموعی فرد دارند، اما ۲۶ زوج است؛ پس چنین سه عددی وجود ندارد."
+            });
+        }
+
 
         // =====================================
         // Validate Questions
@@ -219,6 +238,16 @@ const QuizEngine = {
 
             return false;
 
+        }
+
+
+        if (question.optional) {
+            const optionalCorrect = answer === question.answer;
+            EventManager.emit(
+                optionalCorrect ? "answer:correct" : "answer:wrong",
+                question
+            );
+            return optionalCorrect;
         }
 
 
@@ -397,7 +426,9 @@ const QuizEngine = {
     getResult: function(){
 
         const total =
-            this.questions.length;
+            this.questions.filter(
+                question => !question.optional
+            ).length;
 
 
         const result =
