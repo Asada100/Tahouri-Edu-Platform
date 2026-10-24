@@ -250,28 +250,40 @@ const QuizScreen = {
         app.innerHTML = `
 
             <div
-                class="quizScreen"
+                class="quizScreen ${question.mode === "evenOddSum" ? "evenOddGameScreen" : ""}"
                 dir="rtl">
 
-                <h1>
-                    پلتفرم آموزشی طهوری
-                </h1>
+                ${question.mode === "evenOddSum" ? `
+                    <div class="gameMasthead">
+                        <div class="gameBrand">
+                            <div class="gameBadge" aria-hidden="true">🎲</div>
+                            <div>
+                                <h1>پلتفرم آموزشی طهوری</h1>
+                                <p>بازی کشف قانون عددها ✨</p>
+                            </div>
+                        </div>
+                        <div class="gameScore" aria-live="polite">⭐ ${data.score || 0} امتیاز</div>
+                    </div>
+                    <h2 class="gameTitle">${data.title || "آزمون"}</h2>
+                    <div class="gameProgress">
+                        <div class="gameProgressLabels">
+                            <span>${question.optional ? "مرحلهٔ جایزه‌ای" : "مرحلهٔ " + (data.currentQuestion || 1) + " از " + (data.totalQuestions || 10)}</span>
+                            <span>${question.optional ? "چالش ویژه" : "در مسیر کشف قانون!"}</span>
+                        </div>
+                        <div class="gameProgressTrack" role="progressbar" aria-label="پیشرفت بازی" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${question.optional ? 100 : Math.round(((data.currentQuestion || 1) / (data.totalQuestions || 10)) * 100)}">
+                            <div class="gameProgressFill" style="width:${question.optional ? 100 : Math.round(((data.currentQuestion || 1) / (data.totalQuestions || 10)) * 100)}%"></div>
+                        </div>
+                    </div>
+                ` : `
+                    <h1>پلتفرم آموزشی طهوری</h1>
+                    <h2>${data.title || "آزمون"}</h2>
+                    <div class="scoreBox">امتیاز: ${data.score || 0}</div>
+                `}
 
-                <h2>
-                    ${data.title || "آزمون"}
-                </h2>
-
-                <div
-                    class="scoreBox">
-                    امتیاز:
-                    ${data.score || 0}
-                </div>
-
-                <div
-                    class="questionBox">
+                <div class="questionBox">
                     ${question.optional
                         ? "چالش اختیاری — بدون امتیاز"
-                        : "سؤال " + (data.currentQuestion || 1) + " از " + (data.totalQuestions || 1)}
+                        : question.mode === "evenOddSum" ? "🧩 معمای عددی" : "سؤال " + (data.currentQuestion || 1) + " از " + (data.totalQuestions || 1)}
                 </div>
 
                 <h2
