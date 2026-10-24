@@ -614,26 +614,23 @@ const QuizProvider = {
                     question.answer = "فرد";
                 }
             } else {
-                const pairs = [
-                    { a: 2 * this.randomInteger(2, 20), b: 2 * this.randomInteger(2, 20) + 1 },
-                    { a: 2 * this.randomInteger(2, 20) + 1, b: 2 * this.randomInteger(2, 20) + 1 },
-                    { a: 2 * this.randomInteger(2, 20), b: 2 * this.randomInteger(2, 20) }
+                const oddPair = [
+                    2 * this.randomInteger(2, 20),
+                    2 * this.randomInteger(2, 20) + 1
                 ];
-                const chosen = pairs[this.randomInteger(0, pairs.length - 1)];
-                const expression = `${chosen.a} + ${chosen.b}`;
-                const correctParity = (chosen.a + chosen.b) % 2 === 0 ? "زوج" : "فرد";
-                const otherPairs = [
-                    [2 * this.randomInteger(2, 20), 2 * this.randomInteger(2, 20) + 1],
-                    [2 * this.randomInteger(2, 20) + 1, 2 * this.randomInteger(2, 20) + 1],
-                    [2 * this.randomInteger(2, 20), 2 * this.randomInteger(2, 20)]
+                const evenPairA = [
+                    2 * this.randomInteger(2, 20),
+                    2 * this.randomInteger(2, 20)
                 ];
-                const options = this.shuffle([expression, ...otherPairs.map(pair => `${pair[0]} + ${pair[1]}`)]);
+                const evenPairB = [
+                    2 * this.randomInteger(2, 20) + 1,
+                    2 * this.randomInteger(2, 20) + 1
+                ];
+                const pairs = [oddPair, evenPairA, evenPairB];
+                const options = this.shuffle(pairs.map(pair => `${pair[0]} + ${pair[1]}`));
                 question = {
                     text: "کدام جمع حاصل فرد دارد؟",
-                    answer: options.find(option => {
-                        const pair = option.split(" + ").map(Number);
-                        return (pair[0] + pair[1]) % 2 === 1;
-                    }),
+                    answer: `${oddPair[0]} + ${oddPair[1]}`,
                     options
                 };
             }
