@@ -573,81 +573,108 @@ const QuizProvider = {
         activityData,
         count
     ) {
-
         const questions = [];
+        const usedTexts = new Set();
         const parityOptions = ["زوج", "فرد"];
-        const formats = ["sum", "rule", "missingParity", "chooseSum"];
+        const maxAttempts = Math.max(count * 30, 100);
+        let attempts = 0;
 
-        for (let i = 0; i < count; i++) {
+        const randomParityNumber = (parity) => {
+            const n = this.randomInteger(2, 99);
+            return parity === "زوج" ? (n % 2 === 0 ? n : n + 1) : (n % 2 !== 0 ? n : n + 1);
+        };
 
-            const format = formats[i % formats.length];
+        while (questions.length < count && attempts < maxAttempts) {
+            attempts++;
+            const format = this.randomInteger(0, 7);
             const a = this.randomInteger(2, 49);
             const b = this.randomInteger(2, 49);
-            const parityA = a % 2 === 0 ? "زوج" : "فرد";
-            const parityB = b % 2 === 0 ? "زوج" : "فرد";
-            const sumParity = (a + b) % 2 === 0 ? "زوج" : "فرد";
-            let question;
+            const pa = a % 2 === 0 ? "زوج" : "فرد";
+            const pb = b % 2 === 0 ? "زوج" : "فرد";
+            const sum = (a + b) % 2 === 0 ? "زوج" : "فرد";
+            let q;
 
-            if (format === "sum") {
-                question = {
-                    text: `حاصل جمع ${a} + ${b} زوج است یا فرد؟`,
-                    answer: sumParity,
-                    options: parityOptions
-                };
-            } else if (format === "rule") {
+            if (format === 0) {
+                q = { text: `حاصل جمع ${a} + ${b} زوج است یا فرد؟`, answer: sum, options: parityOptions };
+            } else if (format === 1) {
                 const rules = [
-                    { text: "حاصل جمع دو عدد زوج همیشه چه نوع عددی است؟", answer: "زوج" },
-                    { text: "حاصل جمع دو عدد فرد همیشه چه نوع عددی است؟", answer: "زوج" },
-                    { text: "حاصل جمع یک عدد زوج و یک عدد فرد چه نوع عددی است؟", answer: "فرد" }
+                    { text: "حاصل جمع دو عدد زوج همیشه چه نوع عددی است؟", answer: "زوج", options: parityOptions },
+                    { text: "حاصل جمع دو عدد فرد همیشه چه نوع عددی است؟", answer: "زوج", options: parityOptions },
+                    { text: "حاصل جمع یک عدد زوج و یک عدد فرد چه نوع عددی است؟", answer: "فرد", options: parityOptions }
                 ];
-                question = { ...rules[this.randomInteger(0, rules.length - 1)], options: parityOptions };
-            } else if (format === "missingParity") {
-                const knownParity = this.randomInteger(0, 1) === 0 ? "زوج" : "فرد";
-                const answer = knownParity === "زوج" ? "فرد" : "زوج";
-                question = {
-                    text: `اگر حاصل جمع یک عدد زوج و عددی نامعلوم، فرد باشد، عدد نامعلوم چه نوعی است؟`,
-                    answer: "فرد",
+                q = rules[this.randomInteger(0, rules.length - 1)];
+            } else if (format === 2) {
+                const cases = [
+                    { text: "حاصل جمع دو عدد، فرد است و یکی از آن‌ها زوج است؛ عدد دیگر چیست؟", answer: "فرد" },
+                    { text: "حاصل جمع دو عدد، زوج است و یکی از آن‌ها فرد است؛ عدد دیگر چیست؟", answer: "فرد" },
+                    { text: "حاصل جمع دو عدد، زوج است و یکی از آن‌ها زوج است؛ عدد دیگر چیست؟", answer: "زوج" },
+                    { text: "حاصل جمع دو عدد، فرد است و یکی از آن‌ها فرد است؛ عدد دیگر چیست؟", answer: "زوج" }
+                ];
+                q = { ...cases[this.randomInteger(0, cases.length - 1)], options: parityOptions };
+            } else if (format === 3) {
+                const odd = [randomParityNumber("زوج"), randomParityNumber("فرد")];
+                q = { text: "کدام جمع حاصل فرد دارد؟", answer: `${odd[0]} + ${odd[1]}`, options: this.shuffle([
+                    `${odd[0]} + ${odd[1]}`,
+                    `${randomParityNumber("زوج")} + ${randomParityNumber("زوج")}`,
+                    `${randomParityNumber("فرد")} + ${randomParityNumber("فرد")}`
+                ]) };
+            } else if (format === 4) {
+                const correct = sum;
+                q = {
+                    text: `مریم می‌گوید حاصل ${a} + ${b} عدد ${correct} است. آیا درست می‌گوید؟`,
+                    answer: "بله",
+                    options: ["بله", "خیر"]
+                };
+                // Ask a genuine error-detection question by deliberately stating the opposite parity.
+                q.text = `علی می‌گوید حاصل ${a} + ${b} عدد ${correct === "زوج" ? "فرد" : "زوج"} است. آیا گفته‌اش درست است؟`;
+                q.answer = "خیر";
+            } else if (format === 5) {
+                const target = this.randomInteger(0, 1) ? "زوج" : "فرد";
+                const x = target === "فرد" ? randomParityNumber("زوج") : randomParityNumber("زوج");
+                const y = target === "فرد" ? randomParityNumber("فرد") : randomParityNumber("زوج");
+                q = {
+                    text: `کدام نوع جمع همیشه حاصل ${target} می‌دهد؟`,
+                    answer: target === "فرد" ? "یک زوج و یک فرد" : "دو عدد هم‌نوع",
+                    options: target === "فرد" ? ["دو عدد زوج", "دو عدد فرد", "یک زوج و یک فرد"] : ["دو عدد هم‌نوع", "یک زوج و یک فرد"]
+                };
+            } else if (format === 6) {
+                const n = this.randomInteger(10, 99);
+                const expected = n % 2 === 0 ? "زوج" : "فرد";
+                q = {
+                    text: `برای اینکه حاصل ${n} + □ فرد شود، جای خالی باید چه نوع عددی باشد؟`,
+                    answer: expected === "زوج" ? "فرد" : "زوج",
                     options: parityOptions
                 };
-                if (knownParity === "فرد") {
-                    question.text = "اگر حاصل جمع دو عدد، زوج باشد و یکی از آن‌ها فرد باشد، عدد دیگر چه نوعی است؟";
-                    question.answer = "فرد";
-                }
             } else {
-                const oddPair = [
-                    2 * this.randomInteger(2, 20),
-                    2 * this.randomInteger(2, 20) + 1
-                ];
-                const evenPairA = [
-                    2 * this.randomInteger(2, 20),
-                    2 * this.randomInteger(2, 20)
-                ];
-                const evenPairB = [
-                    2 * this.randomInteger(2, 20) + 1,
-                    2 * this.randomInteger(2, 20) + 1
-                ];
-                const pairs = [oddPair, evenPairA, evenPairB];
-                const options = this.shuffle(pairs.map(pair => `${pair[0]} + ${pair[1]}`));
-                question = {
-                    text: "کدام جمع حاصل فرد دارد؟",
-                    answer: `${oddPair[0]} + ${oddPair[1]}`,
-                    options
+                const p = this.randomInteger(0, 1) ? "زوج" : "فرد";
+                const result = p === "زوج" ? "فرد" : "زوج";
+                q = {
+                    text: `اگر یک عدد ${p} را با یک عدد فرد جمع کنیم، حاصل چه نوعی می‌شود؟`,
+                    answer: result,
+                    options: parityOptions
                 };
             }
 
+            if (!q || !q.text || usedTexts.has(q.text)) continue;
+            usedTexts.add(q.text);
             questions.push({
                 type: "quiz",
                 mode: "evenOddSum",
-                text: question.text,
-                answer: question.answer,
-                options: question.options
+                text: q.text,
+                answer: q.answer,
+                options: q.options
+            });
+        }
+
+        if (questions.length < count) {
+            console.warn("QuizProvider: Unique evenOddSum question pool exhausted", {
+                requested: count,
+                generated: questions.length
             });
         }
 
         return this.shuffle(questions);
-
     },
-
 
     // =====================================
     // DIVISIBILITY
