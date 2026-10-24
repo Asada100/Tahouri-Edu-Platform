@@ -171,7 +171,9 @@ const QuizScreen = {
                 engine.currentQuestion + 1,
 
             totalQuestions:
-                engine.questions.length,
+                engine.questions.filter(
+                    question => !question.optional
+                ).length,
 
             question:
                 result
@@ -248,29 +250,40 @@ const QuizScreen = {
         app.innerHTML = `
 
             <div
-                class="quizScreen"
+                class="quizScreen ${question.mode === "evenOddSum" ? "evenOddGameScreen" : ""}"
                 dir="rtl">
 
-                <h1>
-                    پلتفرم آموزشی طهوری
-                </h1>
+                ${question.mode === "evenOddSum" ? `
+                    <div class="gameMasthead">
+                        <div class="gameBrand">
+                            <div class="gameBadge" aria-hidden="true">🎲</div>
+                            <div>
+                                <h1>پلتفرم آموزشی طهوری</h1>
+                                <p>بازی کشف قانون عددها ✨</p>
+                            </div>
+                        </div>
+                        <div class="gameScore" aria-live="polite">⭐ ${data.score || 0} امتیاز</div>
+                    </div>
+                    <h2 class="gameTitle">${data.title || "آزمون"}</h2>
+                    <div class="gameProgress">
+                        <div class="gameProgressLabels">
+                            <span>${question.optional ? "مرحلهٔ جایزه‌ای" : "مرحلهٔ " + (data.currentQuestion || 1) + " از " + (data.totalQuestions || 10)}</span>
+                            <span>${question.optional ? "چالش ویژه" : "در مسیر کشف قانون!"}</span>
+                        </div>
+                        <div class="gameProgressTrack" role="progressbar" aria-label="پیشرفت بازی" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${question.optional ? 100 : Math.round(((data.currentQuestion || 1) / (data.totalQuestions || 10)) * 100)}">
+                            <div class="gameProgressFill" style="width:${question.optional ? 100 : Math.round(((data.currentQuestion || 1) / (data.totalQuestions || 10)) * 100)}%"></div>
+                        </div>
+                    </div>
+                ` : `
+                    <h1>پلتفرم آموزشی طهوری</h1>
+                    <h2>${data.title || "آزمون"}</h2>
+                    <div class="scoreBox">امتیاز: ${data.score || 0}</div>
+                `}
 
-                <h2>
-                    ${data.title || "آزمون"}
-                </h2>
-
-                <div
-                    class="scoreBox">
-                    امتیاز:
-                    ${data.score || 0}
-                </div>
-
-                <div
-                    class="questionBox">
-                    سؤال
-                    ${data.currentQuestion || 1}
-                    از
-                    ${data.totalQuestions || 1}
+                <div class="questionBox">
+                    ${question.optional
+                        ? "چالش اختیاری — بدون امتیاز"
+                        : question.mode === "evenOddSum" ? "🧩 معمای عددی" : "سؤال " + (data.currentQuestion || 1) + " از " + (data.totalQuestions || 1)}
                 </div>
 
                 <h2
@@ -299,6 +312,15 @@ const QuizScreen = {
                             .join("")
                     }
                 </div>
+
+                ${question.optional ? `
+                    <button
+                        id="skipOptionalChallenge"
+                        class="quizOptionBtn"
+                        type="button">
+                        فعلاً از این چالش می‌گذرم
+                    </button>
+                ` : ""}
 
                 <div
                     id="messageBox"
@@ -354,6 +376,15 @@ const QuizScreen = {
             }
         );
 
+        const skipButton =
+            document.getElementById("skipOptionalChallenge");
+
+        if (skipButton) {
+            skipButton.onclick = function () {
+                QuizScreen.skipOptionalChallenge();
+            };
+        }
+
         console.log(
             "Quiz Screen Buttons Connected:",
             buttons.length
@@ -392,31 +423,81 @@ const QuizScreen = {
             }
         );
 
+        const question =
+            QuizEngine.getQuestion();
+
         const correct =
             QuizEngine.checkAnswer(
                 answer
             );
 
+        let delay = 1200;
+
         if (correct) {
             this.showMessage(
-                "✅ پاسخ صحیح",
-                "correct"
+                question && question.optional
+                    ? "✅ درست است! این چالش اختیاری بود و امتیاز را تغییر نمی‌دهد."
+                    : "✅ آفرین! پاسخ درست است.",
+                question && question.optional ? "learning" : "correct"
             );
         }
         else {
+            const explanation =
+                question && question.explanation
+                    ? question.explanation
+                    : "قانون جمع را به یاد بیاور: زوج + زوج = زوج، فرد + فرد = زوج، و زوج + فرد = فرد.";
+
             this.showMessage(
-                "❌ پاسخ اشتباه",
-                "wrong"
+                "اشکالی ندارد؛ با هم یاد می‌گیریم. " + explanation,
+                "learning"
             );
+
+            if (question && question.mode === "evenOddSum") {
+                // Let the student use the explanation and try again without losing points.
+                buttons.forEach(function (button) {
+                    button.disabled = false;
+                });
+                this.isLocked = false;
+                return;
+            }
+
+            delay = 2800;
         }
 
         setTimeout(
             function () {
                 QuizScreen.next();
             },
-            1200
+            delay
         );
 
+    },
+
+
+    // =====================================
+    // SKIP OPTIONAL CHALLENGE
+    // =====================================
+
+    skipOptionalChallenge: function () {
+        const question = QuizEngine.getQuestion();
+        if (!question || !question.optional || this.isLocked) {
+            return;
+        }
+
+        this.isLocked = true;
+        const buttons = document.querySelectorAll(".quizOptionBtn");
+        buttons.forEach(function (button) {
+            button.disabled = true;
+        });
+
+        this.showMessage(
+            "چالش رد شد؛ امتیازی کم نمی‌شود.",
+            "learning"
+        );
+
+        setTimeout(function () {
+            QuizScreen.next();
+        }, 600);
     },
 
 
@@ -447,7 +528,9 @@ const QuizScreen = {
                 currentQuestion:
                     QuizEngine.currentQuestion + 1,
                 totalQuestions:
-                    QuizEngine.questions.length,
+                    QuizEngine.questions.filter(
+                        question => !question.optional
+                    ).length,
                 question:
                     nextQuestion
             });
