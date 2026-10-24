@@ -267,10 +267,9 @@ const QuizScreen = {
 
                 <div
                     class="questionBox">
-                    سؤال
-                    ${data.currentQuestion || 1}
-                    از
-                    ${data.totalQuestions || 1}
+                    ${question.optional
+                        ? "چالش اختیاری — بدون امتیاز"
+                        : "سؤال " + (data.currentQuestion || 1) + " از " + (data.totalQuestions || 1)}
                 </div>
 
                 <h2
@@ -299,6 +298,15 @@ const QuizScreen = {
                             .join("")
                     }
                 </div>
+
+                ${question.optional ? `
+                    <button
+                        id="skipOptionalChallenge"
+                        class="quizOptionBtn"
+                        type="button">
+                        فعلاً از این چالش می‌گذرم
+                    </button>
+                ` : ""}
 
                 <div
                     id="messageBox"
@@ -354,6 +362,15 @@ const QuizScreen = {
             }
         );
 
+        const skipButton =
+            document.getElementById("skipOptionalChallenge");
+
+        if (skipButton) {
+            skipButton.onclick = function () {
+                QuizScreen.skipOptionalChallenge();
+            };
+        }
+
         console.log(
             "Quiz Screen Buttons Connected:",
             buttons.length
@@ -404,8 +421,10 @@ const QuizScreen = {
 
         if (correct) {
             this.showMessage(
-                "✅ آفرین! پاسخ درست است.",
-                "correct"
+                question && question.optional
+                    ? "✅ درست است! این چالش اختیاری بود و امتیاز را تغییر نمی‌دهد."
+                    : "✅ آفرین! پاسخ درست است.",
+                question && question.optional ? "learning" : "correct"
             );
         }
         else {
@@ -428,6 +447,33 @@ const QuizScreen = {
             delay
         );
 
+    },
+
+
+    // =====================================
+    // SKIP OPTIONAL CHALLENGE
+    // =====================================
+
+    skipOptionalChallenge: function () {
+        const question = QuizEngine.getQuestion();
+        if (!question || !question.optional || this.isLocked) {
+            return;
+        }
+
+        this.isLocked = true;
+        const buttons = document.querySelectorAll(".quizOptionBtn");
+        buttons.forEach(function (button) {
+            button.disabled = true;
+        });
+
+        this.showMessage(
+            "چالش رد شد؛ امتیازی کم نمی‌شود.",
+            "learning"
+        );
+
+        setTimeout(function () {
+            QuizScreen.next();
+        }, 600);
     },
 
 
@@ -458,7 +504,9 @@ const QuizScreen = {
                 currentQuestion:
                     QuizEngine.currentQuestion + 1,
                 totalQuestions:
-                    QuizEngine.questions.length,
+                    QuizEngine.questions.filter(
+                        question => !question.optional
+                    ).length,
                 question:
                     nextQuestion
             });
