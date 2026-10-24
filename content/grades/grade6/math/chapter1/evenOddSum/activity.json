@@ -1,0 +1,20 @@
+{
+  "id": "evenOddSum",
+  "title": "قانون جمع اعداد زوج و فرد",
+  "description": "کشف و تمرین قانون زوج و فرد بودن حاصل جمع",
+  "grade": "grade6",
+  "subject": "math",
+  "chapter": "chapter1",
+  "type": "quiz",
+  "engine": "quiz",
+  "version": "1.0",
+  "settings": {
+    "questionSource": "generated",
+    "questions": 12,
+    "minNumber": 2,
+    "maxNumber": 99,
+    "scorePerCorrect": 10,
+    "allowRetry": true,
+    "mode": "evenOddSum"
+  }
+}
