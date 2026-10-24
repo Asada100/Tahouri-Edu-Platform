@@ -12,6 +12,19 @@
     "path": "content/grades/grade6/math/chapter1/evenOdd"
   },
   {
+    "id": "evenOddSum",
+    "title": "قانون جمع اعداد زوج و فرد",
+    "grade": "grade6",
+    "subject": "math",
+    "chapter": "chapter1",
+    "type": "quiz",
+    "engine": "QuizEngine",
+    "group": "evenOdd",
+    "locked": true,
+    "requires": "evenOdd",
+    "path": "content/grades/grade6/math/chapter1/evenOddSum"
+  },
+  {
     "id": "divisibleBy2",
     "title": "بخش‌پذیری بر ۲",
     "grade": "grade6",
@@ -21,7 +34,7 @@
     "engine": "QuizEngine",
     "group": "divisibility",
     "locked": true,
-    "requires": "evenOdd",
+    "requires": "evenOddSum",
     "path": "content/grades/grade6/math/chapter1/divisibility/divisibleBy2"
   },
   {
