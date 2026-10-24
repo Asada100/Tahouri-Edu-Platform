@@ -392,29 +392,40 @@ const QuizScreen = {
             }
         );
 
+        const question =
+            QuizEngine.getQuestion();
+
         const correct =
             QuizEngine.checkAnswer(
                 answer
             );
 
+        let delay = 1200;
+
         if (correct) {
             this.showMessage(
-                "✅ پاسخ صحیح",
+                "✅ آفرین! پاسخ درست است.",
                 "correct"
             );
         }
         else {
+            const explanation =
+                question && question.explanation
+                    ? question.explanation
+                    : "قانون جمع را به یاد بیاور: زوج + زوج = زوج، فرد + فرد = زوج، و زوج + فرد = فرد.";
+
             this.showMessage(
-                "❌ پاسخ اشتباه",
-                "wrong"
+                "اشکالی ندارد؛ با هم یاد می‌گیریم. " + explanation,
+                "learning"
             );
+            delay = 2800;
         }
 
         setTimeout(
             function () {
                 QuizScreen.next();
             },
-            1200
+            delay
         );
 
     },
