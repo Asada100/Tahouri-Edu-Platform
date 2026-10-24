@@ -91,6 +91,16 @@
 .quizMessage { min-height: 32px; margin: 12px auto; font-weight: 800; }
 .quizMessage.correct { color: #18794e; }
 .quizMessage.wrong { color: #b42318; }
+.quizMessage.learning {
+    width: min(520px, 100%);
+    padding: 12px 16px;
+    box-sizing: border-box;
+    border-radius: 14px;
+    background: #f2f4f7;
+    color: #344054;
+    line-height: 1.8;
+    font-weight: 600;
+}
 
 @media (max-width: 480px) {
     .quizScreen {
