@@ -171,7 +171,9 @@ const QuizScreen = {
                 engine.currentQuestion + 1,
 
             totalQuestions:
-                engine.questions.length,
+                engine.questions.filter(
+                    question => !question.optional
+                ).length,
 
             question:
                 result
