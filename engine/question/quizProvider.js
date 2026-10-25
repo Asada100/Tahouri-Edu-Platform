@@ -340,22 +340,22 @@ const QuizProvider = {
             activityData.settings || {};
 
 
-        const count =
-            Math.max(
-
-                0,
-
-                Number(
-                    settings.questions
-                ) || 10
-
-            );
-
-
         const mode =
             settings.mode ||
             "evenOdd";
 
+        // This activity must always generate exactly 10 scored questions.
+        // Do not trust a stale catalog/session setting that may still say 12.
+        const configuredCount =
+            Math.max(
+                0,
+                Number(settings.questions) || 10
+            );
+
+        const count =
+            mode === "evenOddSum"
+                ? 10
+                : configuredCount;
 
         if (
             count === 0
