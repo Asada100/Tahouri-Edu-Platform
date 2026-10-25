@@ -125,7 +125,8 @@
     "engine": "matching",
     "locked": false,
     "requires": null,
-    "path": "content/grades/grade6/math/chapter1/matchingManyToOne"
+    "path": "content/grades/grade6/math/chapter1/matchingManyToOne",
+    "group": "evenOdd"
   },
   {
     "id": "mathPattern",
