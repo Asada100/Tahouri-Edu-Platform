@@ -249,7 +249,76 @@ const ContentLockManager = {
         return !!key;
     },
 
+    PARITY_PROGRESSION_KEY: "Tahouri_EvenOddProgression",
+
+    getParityProgressionIds: function () {
+        return [
+            "evenOdd",
+            "parityTrain",
+            "matchingManyToOne",
+            "parityDiscoveryWorkshop",
+            "evenOddSum"
+        ];
+    },
+
+    isProgressionActivity: function (contentId) {
+        return this.getParityProgressionIds().indexOf(contentId) !== -1;
+    },
+
+    getProgressionStorageKey: function () {
+        if (typeof ProfileContext === "undefined" || typeof ProfileContext.key !== "function") {
+            return null;
+        }
+        return ProfileContext.key(this.PARITY_PROGRESSION_KEY);
+    },
+
+    getProgressionState: function () {
+        const key = this.getProgressionStorageKey();
+        if (!key) return { unlocked: [] };
+        try {
+            const parsed = JSON.parse(localStorage.getItem(key) || "{}");
+            const allowed = this.getParityProgressionIds();
+            const unlocked = Array.isArray(parsed.unlocked)
+                ? parsed.unlocked.filter(function (id) { return allowed.indexOf(id) !== -1; })
+                : [];
+            if (unlocked.indexOf("evenOdd") === -1) unlocked.unshift("evenOdd");
+            return { unlocked: unlocked };
+        } catch (error) {
+            console.error("Parity Progression State Parse Error", error);
+            return { unlocked: ["evenOdd"] };
+        }
+    },
+
+    recordProgressionResult: function (activityId, percentage) {
+        const ids = this.getParityProgressionIds();
+        const index = ids.indexOf(activityId);
+        const score = Number(percentage);
+        if (index < 0 || !Number.isFinite(score) || score < 80) return false;
+
+        const key = this.getProgressionStorageKey();
+        if (!key) return false;
+        const state = this.getProgressionState();
+        if (state.unlocked.indexOf(activityId) === -1) return false;
+
+        const nextId = ids[index + 1];
+        if (!nextId || state.unlocked.indexOf(nextId) !== -1) return true;
+        state.unlocked.push(nextId);
+        try {
+            localStorage.setItem(key, JSON.stringify(state));
+            console.log("Parity Progression Unlocked:", { completed: activityId, next: nextId, percentage: score });
+            return true;
+        } catch (error) {
+            console.error("Parity Progression Save Error", error);
+            return false;
+        }
+    },
+
     isLocked: function (contentId) {
+        if (this.isProgressionActivity(contentId)) {
+            if (contentId === "evenOdd") return false;
+            return this.getProgressionState().unlocked.indexOf(contentId) === -1;
+        }
+
         if (!contentId) return true;
 
         this.ensureCurrentProfile();
