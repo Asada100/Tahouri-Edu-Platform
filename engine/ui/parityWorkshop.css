@@ -1,1 +1,56 @@
 .parityWorkshop .workshopNumberGrid{width:min(560px,100%);display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:12px auto}.parityWorkshop .workshopNumber{min-height:54px;border:2px solid #d9d6f2;border-radius:16px;background:linear-gradient(180deg,#fff,#f5f2ff);box-shadow:0 4px 0 #e3e0f5;font:inherit;font-size:20px;font-weight:900;cursor:pointer}.parityWorkshop .workshopNumber.selected{border-color:#16a394;background:#dffaf4;box-shadow:0 4px 0 #a5e7da;transform:translateY(-2px)}.parityWorkshop .workshopNumber:disabled{opacity:.75}.parityWorkshop .workshopSelectionStatus{min-height:30px;font-weight:800;color:#5142a0}.parityWorkshop .workshopPrediction{width:min(560px,100%)}.parityWorkshop .workshopPrediction p{font-weight:900}.parityWorkshop .workshopNext{width:min(360px,100%);margin:8px auto;background:#e5fbf0;border-color:#a6edc8}.parityWorkshop [hidden]{display:none!important}@media(max-width:420px){.parityWorkshop .workshopNumberGrid{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.parityWorkshop .workshopNumber{min-height:50px}}
+
+/* Keep the workshop controls visible together on desktop without changing mobile layout. */
+@media (min-width: 700px) {
+  .parityWorkshop.quizGameBoard {
+    min-height: 100vh;
+    padding: 10px 0 12px;
+    gap: 4px;
+  }
+  .parityWorkshop .gameMasthead { margin-bottom: 0; }
+  .parityWorkshop .gameBadge {
+    width: 42px;
+    height: 42px;
+    flex-basis: 42px;
+    border-radius: 13px;
+    font-size: 22px;
+  }
+  .parityWorkshop .gameScore { padding: 7px 11px; }
+  .parityWorkshop .gameTitle { margin: 3px 0 0; font-size: 22px; }
+  .parityWorkshop .gameProgress { margin: 3px auto 4px; }
+  .parityWorkshop .gameProgressLabels { margin-bottom: 4px; }
+  .parityWorkshop .questionBox { margin: 2px auto; padding: 5px 12px; }
+  .parityWorkshop .quizQuestion {
+    min-height: 0;
+    margin: 4px auto;
+    padding: 9px 18px;
+    font-size: 19px;
+    line-height: 1.5;
+  }
+  .parityWorkshop .workshopNumberGrid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 7px;
+    margin: 5px auto;
+  }
+  .parityWorkshop .workshopNumber {
+    min-height: 42px;
+    border-radius: 12px;
+    font-size: 18px;
+    box-shadow: 0 3px 0 #e3e0f5;
+  }
+  .parityWorkshop .workshopSelectionStatus {
+    min-height: 22px;
+    margin: 1px 0;
+    line-height: 1.4;
+  }
+  .parityWorkshop .workshopPrediction p { margin: 3px 0; }
+  .parityWorkshop .quizOptions { margin: 5px auto; gap: 8px; }
+  .parityWorkshop .quizOptionBtn { min-height: 48px; padding: 9px 14px; }
+  .parityWorkshop .quizMessage {
+    min-height: 0;
+    margin: 3px auto;
+    padding: 6px 10px;
+    line-height: 1.5;
+  }
+  .parityWorkshop .workshopNext { margin: 4px auto; }
+}
