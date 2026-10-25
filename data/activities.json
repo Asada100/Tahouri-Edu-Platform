@@ -1,7 +1,7 @@
 [
   {
     "id": "evenOdd",
-    "title": "اعداد زوج و فرد",
+    "title": "🎯 اعداد زوج و فرد",
     "grade": "grade6",
     "subject": "math",
     "chapter": "chapter1",
@@ -14,7 +14,7 @@
   },
   {
     "id": "evenOddSum",
-    "title": "قانون جمع اعداد زوج و فرد",
+    "title": "➕ قانون جمع اعداد زوج و فرد",
     "grade": "grade6",
     "subject": "math",
     "chapter": "chapter1",
@@ -118,7 +118,7 @@
   },
   {
     "id": "matchingManyToOne",
-    "title": "کارآگاهان عدد 🔎",
+    "title": "🔎 کارآگاهان عدد",
     "grade": "grade6",
     "subject": "math",
     "chapter": "chapter1",
@@ -377,7 +377,7 @@
   },
   {
     "id": "parityDiscoveryWorkshop",
-    "title": "کارگاه کشف قانون زوج و فرد",
+    "title": "💡 کارگاه کشف قانون زوج و فرد",
     "grade": "grade6",
     "subject": "math",
     "chapter": "chapter1",
@@ -390,7 +390,7 @@
   },
   {
     "id": "parityTrain",
-    "title": "قطار زوج و فرد 🚂",
+    "title": "🚂 قطار زوج و فرد",
     "grade": "grade6",
     "subject": "math",
     "chapter": "chapter1",
