@@ -155,6 +155,20 @@ const ActivityManager = {
             const baseSettings = activityConfig && activityConfig.settings ? { ...activityConfig.settings } : {};
             const activitySettings = { ...(activityData.settings || {}) };
             const mergedSettings = { ...baseSettings, ...activitySettings };
+
+            // The activity catalog can carry stale settings. For the evenOddSum
+            // activity, keep the canonical question count and optional challenge
+            // from activity.json so an old catalog entry cannot restore 12 questions.
+            if (
+                activityConfig &&
+                activityConfig.id === "evenOddSum" &&
+                activityConfig.settings &&
+                activityConfig.settings.mode === "evenOddSum"
+            ) {
+                mergedSettings.questions = baseSettings.questions;
+                mergedSettings.optionalChallenge = baseSettings.optionalChallenge === true;
+            }
+
             if (selectedDifficulty) mergedSettings.difficulty = selectedDifficulty;
             fullActivity = { ...activityConfig, ...activityData, settings: mergedSettings };
 
