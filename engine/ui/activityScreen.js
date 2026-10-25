@@ -277,6 +277,7 @@ const ActivityScreen = {
     getGroupTitle: function (groupId) {
         const titles = {
             divisibility: "بخش‌پذیری",
+            evenOdd: "بازی‌های زوج و فرد",
             setayesh: "ستایش"
         };
 
@@ -286,6 +287,7 @@ const ActivityScreen = {
     getGroupIcon: function (groupId) {
         const icons = {
             divisibility: "➗",
+            evenOdd: "🔢",
             setayesh: "📖"
         };
 
