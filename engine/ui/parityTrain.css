@@ -128,6 +128,18 @@
     border: 1px solid #cbd5e1;
     background: #fff;
 }
+
+/* This activity has only ten number cards: keep its card and wagon contents
+   in natural flow instead of inheriting inner scroll areas from shared CSS. */
+.classificationActivity-parityTrain .classificationItems,
+.classificationActivity-parityTrain .classificationDropZones,
+.classificationActivity-parityTrain .classificationDropZone,
+.classificationActivity-parityTrain .classificationDropZoneItems {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+}
+
 @media (max-width: 600px) {
     .classificationActivity-parityTrain {
         padding: 16px 10px 26px;
