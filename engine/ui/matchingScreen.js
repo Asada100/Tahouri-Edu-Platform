@@ -11,6 +11,7 @@
 const MatchingScreen = {
 
     activityReadyConnected: false,
+    currentActivityId: null,
     lastMessage: "",
     lastMessageType: "",
     messageTimer: null,
@@ -59,9 +60,10 @@ const MatchingScreen = {
             return;
         }
 
+        this.currentActivityId = payload.activity ? payload.activity.id : null;
         console.log(
             "Matching Screen: Activity Ready Received",
-            payload.activity ? payload.activity.id : null
+            this.currentActivityId
         );
 
         this.show(payload.result);
@@ -121,8 +123,8 @@ const MatchingScreen = {
             : "";
 
         app.innerHTML = `
-            <div class="screen matchingScreen" dir="rtl">
-                <h1>تطبیق موارد مرتبط</h1>
+            <div class="screen matchingScreen ${this.currentActivityId === "matchingManyToOne" ? "matchingActivity-detective" : ""}" dir="rtl">
+                <h1>${this.currentActivityId === "matchingManyToOne" ? "کارآگاهان عدد 🔎" : "تطبیق موارد مرتبط"}</h1>
 
                 <p class="matchingInstruction">
                     ${this.escapeHTML(state.instruction || "موارد مرتبط را به هم وصل کن.")}
