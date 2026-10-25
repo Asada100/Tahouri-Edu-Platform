@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Content Lock Manager
-// Version 1.9
+// Version 2.0
 // Profile Scoped Persistent Lock System
 // Async initialization synchronization
 // Profile-scoped legacy migration
@@ -249,7 +249,7 @@ const ContentLockManager = {
         return !!key;
     },
 
-    PARITY_PROGRESSION_KEY: "Tahouri_EvenOddProgression",
+    PARITY_PROGRESSION_KEY: "Tahouri_EvenOddProgression_v2",
 
     getParityProgressionIds: function () {
         return [
