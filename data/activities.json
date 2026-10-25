@@ -9,7 +9,8 @@
     "engine": "QuizEngine",
     "locked": false,
     "requires": null,
-    "path": "content/grades/grade6/math/chapter1/evenOdd"
+    "path": "content/grades/grade6/math/chapter1/evenOdd",
+    "group": "evenOdd"
   },
   {
     "id": "evenOddSum",
