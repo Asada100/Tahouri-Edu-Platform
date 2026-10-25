@@ -154,3 +154,8 @@
   .parityWorkshop .quizQuestion { font-size: 16px; }
   .parityWorkshop .workshopNumber { min-height: 36px; }
 }
+
+/* Desktop: use ten cards (two rows of five); keep all twelve cards on mobile. */
+@media (min-width: 700px) {
+  .parityWorkshop .workshopNumber:nth-child(n + 11) { display: none; }
+}
