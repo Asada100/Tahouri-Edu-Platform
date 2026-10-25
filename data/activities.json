@@ -13,17 +13,17 @@
     "group": "evenOdd"
   },
   {
-    "id": "evenOddSum",
-    "title": "➕ قانون جمع اعداد زوج و فرد",
+    "id": "parityTrain",
+    "title": "🚂 قطار زوج و فرد",
     "grade": "grade6",
     "subject": "math",
     "chapter": "chapter1",
-    "type": "quiz",
-    "engine": "QuizEngine",
+    "type": "classification",
+    "engine": "classification",
     "group": "evenOdd",
-    "locked": false,
-    "requires": null,
-    "path": "content/grades/grade6/math/chapter1/evenOddSum"
+    "locked": true,
+    "requires": "evenOdd",
+    "path": "content/grades/grade6/math/chapter1/parityTrain"
   },
   {
     "id": "divisibleBy2",
@@ -124,8 +124,8 @@
     "chapter": "chapter1",
     "type": "matching",
     "engine": "matching",
-    "locked": false,
-    "requires": null,
+    "locked": true,
+    "requires": "parityTrain",
     "path": "content/grades/grade6/math/chapter1/matchingManyToOne",
     "group": "evenOdd"
   },
@@ -384,21 +384,21 @@
     "type": "quiz",
     "engine": "QuizEngine",
     "group": "evenOdd",
-    "locked": false,
-    "requires": null,
+    "locked": true,
+    "requires": "matchingManyToOne",
     "path": "content/grades/grade6/math/chapter1/parityDiscoveryWorkshop"
   },
   {
-    "id": "parityTrain",
-    "title": "🚂 قطار زوج و فرد",
+    "id": "evenOddSum",
+    "title": "🧮 جمع زوج و فرد",
     "grade": "grade6",
     "subject": "math",
     "chapter": "chapter1",
-    "type": "classification",
-    "engine": "classification",
+    "type": "quiz",
+    "engine": "QuizEngine",
     "group": "evenOdd",
-    "locked": false,
-    "requires": null,
-    "path": "content/grades/grade6/math/chapter1/parityTrain"
+    "locked": true,
+    "requires": "parityDiscoveryWorkshop",
+    "path": "content/grades/grade6/math/chapter1/evenOddSum"
   }
 ]
