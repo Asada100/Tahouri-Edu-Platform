@@ -20,7 +20,7 @@
 <link rel="stylesheet" href="engine/ui/difficultyModal.css?v=1.0">
 <link rel="stylesheet" href="engine/ui/divisibility.css?v=1.1">
 <link rel="stylesheet" href="engine/ui/profilePolish.css?v=1.0">
-<link rel="stylesheet" href="engine/ui/quizEngine.css?v=1.1">
+<link rel="stylesheet" href="engine/ui/quizEngine.css?v=1.2">
 <link rel="stylesheet" href="engine/ui/memoryEngine.css?v=1.0">
 <link rel="stylesheet" href="engine/ui/puzzleEngine.css?v=1.0">
 <link rel="stylesheet" href="engine/ui/spatialSymmetry.css?v=2.0">
@@ -135,7 +135,7 @@ PuzzleScreen.show = function (state) { if (state && state.type === "jigsaw") ret
 PuzzleScreen.handleActivityReady = function (payload) { if (payload && payload.result && payload.result.type === "jigsaw") return; return originalHandleActivityReady(payload); };
 })();
 </script>
-<script src="engine/ui/quizScreen.js"></script>
+<script src="engine/ui/quizScreen.js?v=1.2"></script>
 <script src="engine/ui/divisibilityScreen.js?v=2.8"></script>
 <script src="engine/ui/profileScreen.js"></script>
 <script src="engine/ui/activityScreen.js?v=3.13"></script>

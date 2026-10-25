@@ -123,7 +123,7 @@
 
 
 /* Even/odd activity: turn the plain quiz into a playful challenge board. */
-.quizScreen:has(.gameProgress) {
+.quizScreen.quizGameBoard {
     --quiz-ui-accent: #6d4aff;
     width: min(720px, calc(100% - 28px));
     padding: 20px 0 36px;
@@ -292,11 +292,45 @@
     color: #79551a;
 }
 @media (max-width: 480px) {
-    .quizScreen:has(.gameProgress) { width: calc(100% - 20px); padding-top: 14px; }
+    .quizScreen.quizGameBoard { width: calc(100% - 20px); padding-top: 14px; }
     .quizScreen .gameMasthead, .quizScreen .gameProgress { width: 100%; }
     .quizScreen .gameBadge { width: 44px; height: 44px; flex-basis: 44px; border-radius: 14px; font-size: 23px; }
     .quizScreen .gameBrand p { font-size: 11px; }
     .quizScreen .gameScore { padding: 8px 10px; font-size: 13px; }
     .quizScreen .quizQuestion { min-height: 126px; padding: 22px 16px; }
     .quizScreen .quizOptionBtn { min-height: 62px; padding: 12px 10px; font-size: 15px; }
+}
+
+
+/* Shared quiz theme variants: all QuizEngine activities use the same game-board layout. */
+.quizScreen.quizThemeDivisibility {
+    --quiz-ui-accent: #0f9f95;
+    background:
+        radial-gradient(ellipse at 12% 6%, rgba(255, 211, 111, .22), transparent 30%),
+        radial-gradient(ellipse at 90% 28%, rgba(45, 212, 191, .20), transparent 28%);
+}
+.quizScreen.quizThemeDivisibility .gameBadge {
+    background: linear-gradient(145deg, #16b8a6, #087f8c);
+    box-shadow: 0 7px 0 #075e65, 0 12px 22px rgba(8, 127, 140, .22);
+}
+.quizScreen.quizThemeDivisibility .gameTitle { color: #075e65; }
+.quizScreen.quizThemeDivisibility .questionBox {
+    border-color: #b7eee6;
+    background: #e7fbf7;
+    color: #087f8c;
+}
+.quizScreen.quizThemeDivisibility .quizQuestion {
+    border-color: #c7f1ea;
+    background: linear-gradient(145deg, #fff 15%, #effdfa);
+    box-shadow: 0 7px 0 #c5eee7, 0 14px 30px rgba(8, 127, 140, .09);
+}
+.quizScreen.quizThemeDivisibility .quizOptionBtn { border-color: #c4e9e5; box-shadow: 0 5px 0 #d6f1ed; }
+.quizScreen.quizThemeDivisibility .quizOptionBtn:hover:not(:disabled) {
+    border-color: #0f9f95;
+    background: #e7fbf7;
+    box-shadow: 0 8px 0 #b7e8e1;
+}
+@media (prefers-reduced-motion: reduce) {
+    .quizScreen .gameProgressFill,
+    .quizScreen .quizOptionBtn { transition: none !important; }
 }
