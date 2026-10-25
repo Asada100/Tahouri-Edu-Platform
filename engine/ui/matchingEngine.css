@@ -238,7 +238,7 @@
 }
 .matchingActivity-detective .matchingBoard {
     gap: 8px;
-    align-items: start;
+    align-items: center;
 }
 .matchingActivity-detective .matchingColumn {
     padding: 7px;
