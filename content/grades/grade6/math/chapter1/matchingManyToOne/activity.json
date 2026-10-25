@@ -1,7 +1,7 @@
 {
     "id": "matchingManyToOne",
-    "title": "اتصال چندگانه",
-    "description": "هر مورد سمت راست را به گزینه درست در سمت چپ وصل کن.",
+    "title": "کارآگاهان عدد 🔎",
+    "description": "سرنخ‌ها را بررسی کن و هر عدد را به دستهٔ درست وصل کن.",
     "grade": "grade6",
     "subject": "math",
     "chapter": "chapter1",
@@ -10,7 +10,7 @@
     "version": "1.0",
     "matching": {
         "type": "basic",
-        "instruction": "هر عدد را به دسته درست وصل کن",
+        "instruction": "با دقت سرنخ‌ها را بررسی کن و هر عدد را به دستهٔ زوج یا فرد وصل کن.",
         "source": "generated",
         "generator": "numberClassification",
         "mode": "evenOdd",
