@@ -115,7 +115,7 @@ const ClassificationScreen = {
             ? "هر مورد را بگیر و در دسته مناسب رها کن."
             : (state.instruction || "هر مورد را در دسته مناسب قرار بده");
 
-        app.innerHTML = `<div class="screen classificationScreen classificationMode-${ClassificationScreen.escapeAttribute(mode)} ${isDragDrop ? "classificationDragMode" : ""}" dir="rtl">
+        app.innerHTML = `<div class="screen classificationScreen classificationMode-${ClassificationScreen.escapeAttribute(mode)} ${isDragDrop ? "classificationDragMode" : ""} ${activity.id === "parityTrain" ? "classificationActivity-parityTrain" : ""}" dir="rtl">
             <h1>${ClassificationScreen.escapeHTML(activity.title || "دسته‌بندی")}</h1>
             ${isMultiStage && stage ? `<div class="classificationStageTitle">مرحله ${Number(state.currentStage) + 1} از ${Number(state.totalStages)}${stage.title ? " — " + ClassificationScreen.escapeHTML(stage.title) : ""}</div>` : ""}
             <p class="classificationInstruction">${ClassificationScreen.escapeHTML(instruction)}</p>
