@@ -163,7 +163,8 @@ const QuizScreen = {
 
             title:
                 activity.title,
-
+            activityId: activity.id,
+            activityGroup: activity.group,
             score:
                 ScoreManager.score,
 
@@ -247,90 +248,74 @@ const QuizScreen = {
                 ];
 
 
+        const activityId = data.activityId || "";
+        const activityGroup = data.activityGroup || "";
+        const isDivisibility = /divisib|divisible/i.test(activityId + " " + activityGroup);
+        const themeClass = isDivisibility ? "quizThemeDivisibility" : "quizThemeGeneral";
+        const badgeIcon = isDivisibility ? "➗" : question.mode === "evenOddSum" ? "🎲" : /evenodd/i.test(activityId) ? "🔢" : "🧠";
+        const subtitle = isDivisibility
+            ? "ماموریت بخش‌پذیری؛ قانون را کشف کن ✨"
+            : question.mode === "evenOddSum"
+                ? "بازی کشف قانون عددها ✨"
+                : "تمرین کن، کشف کن، پیشرفت کن ✨";
+        const totalQuestions = Math.max(1, Number(data.totalQuestions) || 10);
+        const currentQuestion = Math.max(1, Number(data.currentQuestion) || 1);
+        const progress = question.optional ? 100 : Math.min(100, Math.round((currentQuestion / totalQuestions) * 100));
+
         app.innerHTML = `
 
-            <div
-                class="quizScreen ${question.mode === "evenOddSum" ? "evenOddGameScreen" : ""}"
-                dir="rtl">
+            <div class="quizScreen quizGameBoard ${themeClass}" dir="rtl">
+                <div class="gameMasthead">
+                    <div class="gameBrand">
+                        <div class="gameBadge" aria-hidden="true">${badgeIcon}</div>
+                        <div>
+                            <h1>پلتفرم آموزشی طهوری</h1>
+                            <p>${subtitle}</p>
+                        </div>
+                    </div>
+                    <div class="gameScore" aria-live="polite">⭐ ${data.score || 0} امتیاز</div>
+                </div>
 
-                ${question.mode === "evenOddSum" ? `
-                    <div class="gameMasthead">
-                        <div class="gameBrand">
-                            <div class="gameBadge" aria-hidden="true">🎲</div>
-                            <div>
-                                <h1>پلتفرم آموزشی طهوری</h1>
-                                <p>بازی کشف قانون عددها ✨</p>
-                            </div>
-                        </div>
-                        <div class="gameScore" aria-live="polite">⭐ ${data.score || 0} امتیاز</div>
+                <h2 class="gameTitle">${data.title || "آزمون"}</h2>
+
+                <div class="gameProgress">
+                    <div class="gameProgressLabels">
+                        <span>${question.optional ? "مرحلهٔ جایزه‌ای" : "مرحلهٔ " + currentQuestion + " از " + totalQuestions}</span>
+                        <span>${question.optional ? "چالش ویژه" : isDivisibility ? "قانون بخش‌پذیری را پیدا کن!" : "در مسیر یادگیری!"}</span>
                     </div>
-                    <h2 class="gameTitle">${data.title || "آزمون"}</h2>
-                    <div class="gameProgress">
-                        <div class="gameProgressLabels">
-                            <span>${question.optional ? "مرحلهٔ جایزه‌ای" : "مرحلهٔ " + (data.currentQuestion || 1) + " از " + (data.totalQuestions || 10)}</span>
-                            <span>${question.optional ? "چالش ویژه" : "در مسیر کشف قانون!"}</span>
-                        </div>
-                        <div class="gameProgressTrack" role="progressbar" aria-label="پیشرفت بازی" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${question.optional ? 100 : Math.round(((data.currentQuestion || 1) / (data.totalQuestions || 10)) * 100)}">
-                            <div class="gameProgressFill" style="width:${question.optional ? 100 : Math.round(((data.currentQuestion || 1) / (data.totalQuestions || 10)) * 100)}%"></div>
-                        </div>
+                    <div class="gameProgressTrack" role="progressbar" aria-label="پیشرفت بازی" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress}">
+                        <div class="gameProgressFill" style="width:${progress}%"></div>
                     </div>
-                ` : `
-                    <h1>پلتفرم آموزشی طهوری</h1>
-                    <h2>${data.title || "آزمون"}</h2>
-                    <div class="scoreBox">امتیاز: ${data.score || 0}</div>
-                `}
+                </div>
 
                 <div class="questionBox">
                     ${question.optional
                         ? "چالش اختیاری — بدون امتیاز"
-                        : question.mode === "evenOddSum" ? "🧩 معمای عددی" : "سؤال " + (data.currentQuestion || 1) + " از " + (data.totalQuestions || 1)}
+                        : question.mode === "evenOddSum" ? "🧩 معمای عددی" : isDivisibility ? "➗ چالش بخش‌پذیری" : "🎯 سؤال " + currentQuestion + " از " + totalQuestions}
                 </div>
 
-                <h2
-                    class="quizQuestion">
-                    ${question.text || ""}
-                </h2>
+                <h2 class="quizQuestion">${question.text || ""}</h2>
 
-                <div
-                    id="quizOptions"
-                    class="quizOptions">
-                    ${
-                        options
-                            .map(
-                                function (
-                                    option
-                                ) {
-                                    return `
-                                        <button
-                                            class="quizOptionBtn"
-                                            data-option="${String(option)}">
-                                            ${option}
-                                        </button>
-                                    `;
-                                }
-                            )
-                            .join("")
-                    }
+                <div id="quizOptions" class="quizOptions">
+                    ${options.map(function (option) {
+                        return `
+                            <button class="quizOptionBtn" data-option="${String(option)}" type="button">
+                                ${option}
+                            </button>
+                        `;
+                    }).join("")}
                 </div>
 
                 ${question.optional ? `
-                    <button
-                        id="skipOptionalChallenge"
-                        class="quizOptionBtn"
-                        type="button">
+                    <button id="skipOptionalChallenge" class="quizOptionBtn" type="button">
                         فعلاً از این چالش می‌گذرم
                     </button>
                 ` : ""}
 
-                <div
-                    id="messageBox"
-                    class="quizMessage">
-                </div>
-
+                <div id="messageBox" class="quizMessage" aria-live="polite"></div>
             </div>
 
         `;
-
 
         this.bindEvents();
 
@@ -523,6 +508,8 @@ const QuizScreen = {
                     activity
                         ? activity.title
                         : "آزمون",
+                activityId: activity ? activity.id : "",
+                activityGroup: activity ? activity.group : "",
                 score:
                     ScoreManager.score,
                 currentQuestion:
