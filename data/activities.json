@@ -372,5 +372,18 @@
     "locked": false,
     "requires": null,
     "path": "content/grades/grade6/math/chapter1/coordinatePlane"
+  },
+  {
+    "id": "parityDiscoveryWorkshop",
+    "title": "کارگاه کشف قانون زوج و فرد",
+    "grade": "grade6",
+    "subject": "math",
+    "chapter": "chapter1",
+    "type": "quiz",
+    "engine": "QuizEngine",
+    "group": "evenOdd",
+    "locked": false,
+    "requires": null,
+    "path": "content/grades/grade6/math/chapter1/parityDiscoveryWorkshop"
   }
 ]
