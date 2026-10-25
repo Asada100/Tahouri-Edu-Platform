@@ -108,6 +108,16 @@ const ActivityScreen = {
             return true;
         }
 
+        // The five parity games use the dedicated sequential progression
+        // even if an older catalog or cached record marks one as open.
+        if (
+            typeof ContentLockManager !== "undefined" &&
+            typeof ContentLockManager.isProgressionActivity === "function" &&
+            ContentLockManager.isProgressionActivity(activity.id)
+        ) {
+            return ContentLockManager.isLocked(activity.id);
+        }
+
         if (activity.locked === false) {
             return false;
         }
@@ -341,4 +351,4 @@ const ActivityScreen = {
 
 window.ActivityScreen = ActivityScreen;
 
-console.log("Activity Screen v3.12 Ready");
+console.log("Activity Screen v3.13 Ready");
