@@ -118,3 +118,39 @@
   }
   .parityWorkshop .workshopNext { margin: 4px auto; }
 }
+
+
+/* Keep the current action reachable even on short screens and with mobile browser chrome. */
+.parityWorkshop .workshopPrediction,
+.parityWorkshop .workshopNext {
+  position: sticky;
+  bottom: max(8px, env(safe-area-inset-bottom, 0px));
+  z-index: 5;
+}
+.parityWorkshop .workshopPrediction {
+  padding: 6px 0;
+  border-radius: 16px;
+  background: rgba(255,255,255,.96);
+  box-shadow: 0 -5px 18px rgba(40,30,90,.08);
+}
+.parityWorkshop .workshopNext {
+  box-sizing: border-box;
+  padding: 10px 14px;
+  box-shadow: 0 4px 0 #a6edc8;
+}
+@media (max-height: 760px) {
+  .parityWorkshop.quizGameBoard { padding-top: 6px; padding-bottom: 8px; gap: 2px; }
+  .parityWorkshop .gameTitle { margin-top: 2px; }
+  .parityWorkshop .gameProgress { margin-top: 2px; margin-bottom: 2px; }
+  .parityWorkshop .quizQuestion { padding-top: 7px; padding-bottom: 7px; }
+  .parityWorkshop .workshopNumberGrid { margin-top: 3px; margin-bottom: 3px; }
+  .parityWorkshop .workshopSelectionStatus { min-height: 18px; }
+  .parityWorkshop .quizMessage { padding-top: 4px; padding-bottom: 4px; }
+}
+@media (max-width: 699px) and (max-height: 760px) {
+  .parityWorkshop .gameBrand p { display: none; }
+  .parityWorkshop .gameBadge { width: 34px; height: 34px; flex-basis: 34px; }
+  .parityWorkshop .gameTitle { font-size: 18px; }
+  .parityWorkshop .quizQuestion { font-size: 16px; }
+  .parityWorkshop .workshopNumber { min-height: 36px; }
+}
