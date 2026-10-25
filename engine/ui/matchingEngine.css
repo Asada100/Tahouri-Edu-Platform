@@ -216,3 +216,94 @@
 @media (prefers-reduced-motion: reduce) {
     .matchingMessage { transition: none; }
 }
+
+
+/* Compact layout for the ten-pair detective game: fit the full activity
+   in the viewport on phones and desktop without an inner scroll area. */
+.matchingActivity-detective {
+    box-sizing: border-box;
+    max-height: 100dvh;
+    overflow: hidden;
+    padding: 8px 12px 10px;
+}
+.matchingActivity-detective h1 {
+    margin: 0 0 4px;
+    font-size: clamp(19px, 2.5vw, 26px);
+    line-height: 1.25;
+}
+.matchingActivity-detective .matchingInstruction {
+    margin: 0 auto 7px;
+    line-height: 1.35;
+    font-size: 13px;
+}
+.matchingActivity-detective .matchingBoard {
+    gap: 8px;
+    align-items: start;
+}
+.matchingActivity-detective .matchingColumn {
+    padding: 7px;
+    border-radius: 12px;
+}
+.matchingActivity-detective .matchingColumnTitle {
+    margin-bottom: 5px;
+    font-size: 12px;
+}
+.matchingActivity-detective .matchingItems {
+    gap: 4px;
+}
+.matchingActivity-detective .matchingItem {
+    box-sizing: border-box;
+    min-height: 32px;
+    padding: 4px 5px;
+    border-radius: 8px;
+    font-size: 13px;
+    line-height: 1.2;
+}
+.matchingActivity-detective .matchingStatus {
+    margin: 6px auto 0;
+    font-size: 11px;
+    line-height: 1.3;
+}
+@media (max-width: 560px) {
+    .matchingActivity-detective {
+        padding: 6px 6px 8px;
+    }
+    .matchingActivity-detective .matchingBoard {
+        gap: 5px;
+    }
+    .matchingActivity-detective .matchingColumn {
+        padding: 5px;
+        border-radius: 10px;
+    }
+    .matchingActivity-detective .matchingItems {
+        gap: 3px;
+    }
+    .matchingActivity-detective .matchingItem {
+        min-height: 30px;
+        padding: 3px 2px;
+        font-size: 12px;
+        line-height: 1.15;
+    }
+}
+@media (max-height: 700px) {
+    .matchingActivity-detective {
+        padding-top: 3px;
+        padding-bottom: 4px;
+    }
+    .matchingActivity-detective .matchingInstruction {
+        margin-bottom: 4px;
+        font-size: 12px;
+    }
+    .matchingActivity-detective .matchingColumn {
+        padding: 4px;
+    }
+    .matchingActivity-detective .matchingItems {
+        gap: 2px;
+    }
+    .matchingActivity-detective .matchingItem {
+        min-height: 27px;
+        padding-top: 2px;
+        padding-bottom: 2px;
+        font-size: 11px;
+    }
+}
