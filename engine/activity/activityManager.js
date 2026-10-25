@@ -31,6 +31,16 @@ const ActivityManager = {
         console.log("Loading Activity:", activityData);
         if (!activityData) { console.error("Activity Data Missing"); return null; }
 
+        if (
+            typeof ContentLockManager !== "undefined" &&
+            typeof ContentLockManager.isProgressionActivity === "function" &&
+            ContentLockManager.isProgressionActivity(activityData.id) &&
+            ContentLockManager.isLocked(activityData.id)
+        ) {
+            console.warn("ActivityManager: Parity progression requirement not met.", activityData.id);
+            return null;
+        }
+
         // Jigsaw must ask for its level before the engine starts.
         // Keep this guard here at the ActivityManager boundary so it cannot
         // be skipped by cached/alternate navigation entry points.
