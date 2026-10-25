@@ -191,7 +191,12 @@ const StatisticsManager = {
         this.updateChapter(chapterId, subjectId, gradeId, data);
         this.updateActivity(activityId, subjectId, gradeId, chapterId, data);
 
-        return this.save();
+        const saved = this.save();
+        if (saved && typeof ContentLockManager !== "undefined" &&
+            typeof ContentLockManager.recordProgressionResult === "function") {
+            ContentLockManager.recordProgressionResult(activityId, percentage);
+        }
+        return saved;
     },
 
     updateOverall: function (data) {
