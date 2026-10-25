@@ -139,12 +139,12 @@ const MatchingScreen = {
                     </svg>
 
                     <div class="matchingColumn matchingLeftColumn" data-side="left" style="position:relative;z-index:2;">
-                        <div class="matchingColumnTitle">مورد اول</div>
+                        <div class="matchingColumnTitle">${this.currentActivityId === "matchingManyToOne" ? "عددها" : "مورد اول"}</div>
                         <div class="matchingItems">${leftHTML}</div>
                     </div>
 
                     <div class="matchingColumn matchingRightColumn" data-side="right" style="position:relative;z-index:2;">
-                        <div class="matchingColumnTitle">مورد دوم</div>
+                        <div class="matchingColumnTitle">${this.currentActivityId === "matchingManyToOne" ? "زوج یا فرد" : "مورد دوم"}</div>
                         <div class="matchingItems">${rightHTML}</div>
                     </div>
                 </div>
