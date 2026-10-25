@@ -385,5 +385,18 @@
     "locked": false,
     "requires": null,
     "path": "content/grades/grade6/math/chapter1/parityDiscoveryWorkshop"
+  },
+  {
+    "id": "parityTrain",
+    "title": "قطار زوج و فرد 🚂",
+    "grade": "grade6",
+    "subject": "math",
+    "chapter": "chapter1",
+    "type": "classification",
+    "engine": "classification",
+    "group": "evenOdd",
+    "locked": false,
+    "requires": null,
+    "path": "content/grades/grade6/math/chapter1/parityTrain"
   }
 ]
