@@ -54,3 +54,67 @@
   }
   .parityWorkshop .workshopNext { margin: 4px auto; }
 }
+
+
+/* Compact mobile/tablet layout so answer and next-test controls are visible without looking broken. */
+@media (max-width: 699px) {
+  .parityWorkshop.quizGameBoard {
+    min-height: 100vh;
+    padding: 8px 0 10px;
+    gap: 3px;
+  }
+  .parityWorkshop .gameMasthead { margin-bottom: 0; gap: 6px; }
+  .parityWorkshop .gameBadge {
+    width: 38px;
+    height: 38px;
+    flex-basis: 38px;
+    border-radius: 12px;
+    font-size: 20px;
+  }
+  .parityWorkshop .gameBrand { gap: 7px; }
+  .parityWorkshop .gameBrand h1 { font-size: 17px; }
+  .parityWorkshop .gameBrand p { font-size: 11px; }
+  .parityWorkshop .gameScore { padding: 6px 8px; font-size: 12px; }
+  .parityWorkshop .gameTitle { margin: 3px 0 0; font-size: 20px; }
+  .parityWorkshop .gameProgress { margin: 3px auto 4px; }
+  .parityWorkshop .gameProgressLabels { margin-bottom: 4px; font-size: 11px; }
+  .parityWorkshop .gameProgressTrack { height: 8px; }
+  .parityWorkshop .questionBox { margin: 2px auto; padding: 5px 10px; font-size: 12px; }
+  .parityWorkshop .quizQuestion {
+    min-height: 0;
+    margin: 4px auto;
+    padding: 9px 12px;
+    font-size: 17px;
+    line-height: 1.5;
+    border-radius: 18px;
+  }
+  .parityWorkshop .workshopNumberGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+    margin: 5px auto;
+  }
+  .parityWorkshop .workshopNumber {
+    min-height: 40px;
+    padding: 5px;
+    border-radius: 11px;
+    font-size: 17px;
+    box-shadow: 0 2px 0 #e3e0f5;
+  }
+  .parityWorkshop .workshopSelectionStatus {
+    min-height: 20px;
+    margin: 1px 0;
+    font-size: 13px;
+    line-height: 1.4;
+  }
+  .parityWorkshop .workshopPrediction p { margin: 3px 0; }
+  .parityWorkshop .quizOptions { margin: 5px auto; gap: 7px; }
+  .parityWorkshop .quizOptionBtn { min-height: 44px; padding: 8px 10px; font-size: 15px; }
+  .parityWorkshop .quizMessage {
+    min-height: 0;
+    margin: 3px auto;
+    padding: 6px 9px;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .parityWorkshop .workshopNext { margin: 4px auto; }
+}
