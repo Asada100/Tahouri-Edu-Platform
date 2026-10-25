@@ -17,6 +17,52 @@
             this.reset();
             this.activityData = activityData || {};
 
+            // The parity train uses fresh, non-zero integers on every launch.
+            // Keep this generation scoped to this activity so other classification
+            // activities retain their authored content unchanged.
+            if (this.activityData.id === 'parityTrain' &&
+                this.activityData.classification &&
+                Array.isArray(this.activityData.classification.items)) {
+                const randomIntegers = [];
+                for (let value = 2; value <= 998; value += 2) randomIntegers.push(value);
+                const evenNumbers = [];
+                while (evenNumbers.length < 5) {
+                    const index = Math.floor(Math.random() * randomIntegers.length);
+                    evenNumbers.push(randomIntegers.splice(index, 1)[0]);
+                }
+
+                const oddPool = [];
+                for (let value = 1; value <= 997; value += 2) oddPool.push(value);
+                const oddNumbers = [];
+                while (oddNumbers.length < 5) {
+                    const index = Math.floor(Math.random() * oddPool.length);
+                    oddNumbers.push(oddPool.splice(index, 1)[0]);
+                }
+
+                const toPersianDigits = value => String(value).replace(/[0-9]/g, digit => '۰۱۲۳۴۵۶۷۸۹'[Number(digit)]);
+                const generatedItems = [
+                    ...evenNumbers.map(value => ({
+                        id: `n${value}`,
+                        content: toPersianDigits(value),
+                        type: 'text',
+                        categoryId: 'even'
+                    })),
+                    ...oddNumbers.map(value => ({
+                        id: `n${value}`,
+                        content: toPersianDigits(value),
+                        type: 'text',
+                        categoryId: 'odd'
+                    }))
+                ];
+
+                for (let index = generatedItems.length - 1; index > 0; index--) {
+                    const swapIndex = Math.floor(Math.random() * (index + 1));
+                    [generatedItems[index], generatedItems[swapIndex]] =
+                        [generatedItems[swapIndex], generatedItems[index]];
+                }
+                this.activityData.classification.items = generatedItems;
+            }
+
             if (!window.ClassificationProvider) {
                 throw new Error('ClassificationProvider is not available');
             }
