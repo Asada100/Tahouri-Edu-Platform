@@ -39,11 +39,14 @@ const PatternPuzzle = {
 
     setAnswer: function (engine, value) {
         if (!engine.puzzle || engine.puzzle.type !== "pattern") return false;
-        engine.userAnswer = value;
-        engine.items[engine.puzzle.missingIndex] = value;
+        const answer = engine.puzzle.dataType === "number" && value !== "" && value !== null
+            ? Number(value)
+            : value;
+        if (engine.puzzle.dataType === "number" && !Number.isFinite(answer)) return false;
+        engine.userAnswer = answer;
+        engine.items[engine.puzzle.missingIndex] = answer;
         engine.moves++;
         return engine.emitChanged();
-        return true;
     },
 
     check: function (engine) {
