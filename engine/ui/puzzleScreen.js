@@ -1984,26 +1984,34 @@ const PuzzleScreen = {
             }).join("");
         }
 
-        const optionsHTML = options.map(function (option) {
+        const optionLetters = ["آ", "ب", "پ", "ت"];
+        const optionsHTML = options.map(function (option, index) {
             const value = String(option);
             const selectedClass = selected === value ? " selected" : "";
+            const optionLabel = relationMode ? "<span class=\"patternOptionLetter\">" + optionLetters[index % optionLetters.length] + "</span>" : "";
             return "<button type=\"button\" class=\"patternOption" + selectedClass +
-                "\" data-pattern-value=\"" + PuzzleScreen.escapeHTML(value) + "\">" + renderValue(option) + "</button>";
+                "\" data-pattern-value=\"" + PuzzleScreen.escapeHTML(value) + "\">" + optionLabel + renderValue(option) + "</button>";
         }).join("");
 
+        const relationMission = relationMode
+            ? "<div class=\"relationMission\"><div class=\"relationMissionIcon\">🕵️</div><div class=\"relationMissionCopy\"><strong>پروندهٔ عددی باز شد!</strong><span>۴ شاهد را بررسی کن و قانون پنهان را پیدا کن.</span></div><div class=\"relationMissionTag\">مأموریت</div></div>" +
+              "<div class=\"relationSteps\"><span class=\"relationStep active\"><b>۱</b> بررسی شواهد</span><span class=\"relationStep\"><b>۲</b> انتخاب مظنون</span><span class=\"relationStep\"><b>۳</b> حل پرونده</span></div>"
+            : "";
+
         app.innerHTML =
-            "<div class=\"screen puzzleScreen patternScreen\" dir=\"rtl\"><div class=\"patternCard\">" +
-                "<div class=\"patternHeader\"><div class=\"patternBadge\">" + (relationMode ? "کشف رابطه" : "پازل الگو") + "</div>" +
+            "<div class=\"screen puzzleScreen patternScreen\" dir=\"rtl\"><div class=\"patternCard" + (relationMode ? " relationGameCard" : "") + "\">" +
+                "<div class=\"patternHeader\"><div class=\"patternBadge\">" + (relationMode ? "🗂️ پروندهٔ کارآگاهی" : "پازل الگو") + "</div>" +
                 "<h1>" + (relationMode ? "کارآگاه رابطه‌ها" : "الگو را کشف کن") + "</h1>" +
                 "<p class=\"puzzleInstruction\">" + PuzzleScreen.escapeHTML(state.instruction) + "</p></div>" +
+                relationMission +
                 "<div class=\"patternBoard" + (relationMode ? " patternRelationBoard" : "") + "\" aria-label=\"" +
                     (relationMode ? "نمونه‌های رابطه" : "الگوی عددی") + "\">" + itemsHTML + "</div>" +
-                (relationMode ? "<div class=\"patternRelationHint\">در هر ستون، عددهای دایره و مربع با هم ارتباط دارند. دو ردیف را مقایسه کن.</div>" : "") +
+                (relationMode ? "<div class=\"patternRelationHint\"><span>🔍 سرنخ:</span> هر ستون را از بالا به پایین بخوان؛ چه عملی روی عدد دایره انجام شده تا به مربع برسیم؟</div>" : "") +
                 "<div class=\"patternPrompt\"><span>" +
-                    (relationMode ? "کدام قاعده رابطهٔ بین دو ردیف را توضیح می‌دهد؟" : "عدد مناسب برای جای خالی را انتخاب کن") +
-                "</span></div><div class=\"patternOptions\">" + optionsHTML + "</div>" +
-                "<div class=\"puzzleControls patternControls\"><button type=\"button\" id=\"patternCheckBtn\">بررسی پاسخ</button>" +
-                "<button type=\"button\" id=\"puzzleResetBtn\">شروع دوباره</button></div>" +
+                    (relationMode ? "کدام قانون، همهٔ شاهدها را توضیح می‌دهد؟" : "عدد مناسب برای جای خالی را انتخاب کن") +
+                "</span></div><div class=\"patternOptions" + (relationMode ? " relationSuspects" : "") + "\">" + optionsHTML + "</div>" +
+                "<div class=\"puzzleControls patternControls\"><button type=\"button\" id=\"patternCheckBtn\">" + (relationMode ? "🔎 بررسی مظنون" : "بررسی پاسخ") + "</button>" +
+                "<button type=\"button\" id=\"puzzleResetBtn\">" + (relationMode ? "↻ پروندهٔ تازه" : "شروع دوباره") + "</button></div>" +
                 "<div id=\"puzzleMessage\" class=\"puzzleMessage\"></div></div></div>" +
             "<style>" +
                 ".patternScreen{direction:rtl;width:min(900px,100%);margin:0 auto;padding:24px 14px 40px;}" +
@@ -2028,6 +2036,27 @@ const PuzzleScreen = {
                 ".patternOption:hover{transform:translateY(-2px);box-shadow:0 5px 12px rgba(31,41,55,.09);}" +
                 ".patternOption.selected{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.14);}" +
                 ".patternControls{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;}.patternControls button{min-width:130px;}" +
+                ".relationGameCard{position:relative;overflow:hidden;background:radial-gradient(ellipse at top right,#eff6ff 0,transparent 38%),linear-gradient(145deg,#fff 0%,#f8fbff 100%);border:1px solid #cbdcf5;box-shadow:0 16px 42px rgba(35,70,130,.12);}" +
+                ".relationGameCard:before{content:'';position:absolute;inset:0 0 auto;height:6px;background:linear-gradient(90deg,#0f766e,#2563eb,#7c3aed);}" +
+                ".relationGameCard .patternBadge{background:#eaf2ff;border-color:#c8dcff;color:#1d4ed8;font-weight:800;}" +
+                ".relationMission{display:flex;align-items:center;gap:12px;text-align:right;margin:0 auto 12px;padding:13px 15px;max-width:650px;border:1px solid #c7d9f7;border-radius:18px;background:linear-gradient(110deg,#eff6ff,#f5f3ff);}" +
+                ".relationMissionIcon{display:grid;place-items:center;flex:0 0 48px;height:48px;border-radius:15px;background:#fff;box-shadow:0 4px 12px rgba(37,99,235,.12);font-size:27px;}" +
+                ".relationMissionCopy{display:flex;flex:1;min-width:0;flex-direction:column;gap:4px;}.relationMissionCopy strong{font-size:16px;color:#1e3a8a;}.relationMissionCopy span{font-size:13px;line-height:1.6;color:#475569;}" +
+                ".relationMissionTag{padding:5px 9px;border-radius:999px;background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:900;white-space:nowrap;}" +
+                ".relationSteps{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin:0 auto 14px;}.relationStep{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:#f1f5f9;color:#64748b;font-size:12px;font-weight:700;}.relationStep b{display:grid;place-items:center;width:21px;height:21px;border-radius:50%;background:#e2e8f0;color:#475569;font-size:11px;}.relationStep.active{background:#dcfce7;color:#166534;}.relationStep.active b{background:#16a34a;color:#fff;}" +
+                ".relationGameCard .patternRelationBoard{background:linear-gradient(135deg,#f0fdfa,#eff6ff);border:1px solid #c7e4e8;box-shadow:inset 0 1px 0 #fff;}" +
+                ".relationGameCard .patternRelationTable th{background:#e0f2fe;color:#075985;border-color:#b6d8ee;}.relationGameCard .patternRelationTable tr:nth-child(2) th{background:#ede9fe;color:#5b21b6;}.relationGameCard .patternRelationTable td{background:rgba(255,255,255,.94);border-color:#cbdcf5;font-weight:900;}" +
+                ".relationGameCard .patternRelationTable td:first-of-type{border-inline-start:2px solid #93c5fd;}" +
+                ".relationGameCard .patternRelationHint{background:#fffbeb;border-color:#fde68a;color:#92400e;text-align:right;}.relationGameCard .patternRelationHint span{font-weight:900;color:#b45309;}" +
+                ".relationGameCard .patternPrompt{font-size:18px;font-weight:900;color:#1e293b;}" +
+                ".relationSuspects{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));max-width:660px;gap:10px;}" +
+                ".relationSuspects .patternOption{position:relative;display:flex;align-items:center;justify-content:flex-start;gap:10px;min-width:0;min-height:68px;padding:12px;text-align:right;border:1px solid #d5deec;border-radius:16px;background:linear-gradient(180deg,#fff,#f8fafc);box-shadow:0 4px 0 #e2e8f0;font-size:clamp(15px,2.7vw,20px);}" +
+                ".relationSuspects .patternOption:before{content:'مظنون';position:absolute;top:5px;left:8px;color:#94a3b8;font-size:9px;font-weight:800;}" +
+                ".patternOptionLetter{display:grid;place-items:center;flex:0 0 30px;height:30px;border-radius:10px;background:#e0e7ff;color:#3730a3;font-size:14px;font-weight:900;}" +
+                ".relationSuspects .patternOption.selected{border:2px solid #2563eb;background:#eff6ff;box-shadow:0 4px 0 #bfdbfe;transform:translateY(-2px);}" +
+                ".relationGameCard #patternCheckBtn{background:linear-gradient(135deg,#2563eb,#4f46e5);color:#fff;border:0;border-radius:13px;box-shadow:0 4px 0 #c7d2fe;font-weight:900;}.relationGameCard #puzzleResetBtn{border:1px solid #cbd5e1;border-radius:13px;background:#fff;color:#475569;font-weight:800;}" +
+                ".relationGameCard #puzzleMessage{margin:14px auto 0;max-width:650px;border-radius:14px;line-height:1.8;}" +
+                "@media(max-width:520px){.relationMission{gap:8px;padding:10px}.relationMissionIcon{flex-basis:40px;height:40px;font-size:23px}.relationMissionCopy strong{font-size:14px}.relationMissionCopy span{font-size:12px}.relationMissionTag{display:none}.relationStep{font-size:10px;padding:5px 7px}.relationSuspects{gap:8px}.relationSuspects .patternOption{min-height:62px;padding:9px 7px;gap:6px;font-size:14px}.patternOptionLetter{flex-basis:25px;height:25px;border-radius:8px}.relationSuspects .patternOption:before{font-size:8px;top:3px;left:5px}.relationGameCard .patternPrompt{font-size:16px;}}" +
                 "@media(max-width:600px){.patternCard{padding:18px 10px 24px;border-radius:20px}.patternBoard{gap:5px;padding:12px 4px}.patternRelationBoard{padding:8px 2px}.patternRelationTable th,.patternRelationTable td{min-width:38px;padding:7px 5px;font-size:20px}.patternStep{gap:5px}.patternItem{min-width:52px;height:54px;padding:0 8px}.patternArrow{font-size:19px}.patternOption{min-width:64px;height:52px;padding:0 14px}}"+
             "</style>";
         app.querySelectorAll(".patternOption").forEach(function (button) {
