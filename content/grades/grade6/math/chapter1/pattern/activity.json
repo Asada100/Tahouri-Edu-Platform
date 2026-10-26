@@ -6,52 +6,12 @@
   "subject": "math",
   "chapter": "chapter1",
   "engine": "puzzle",
-  "version": "1.1",
+  "version": "1.2",
   "puzzle": {
     "type": "pattern",
     "source": "generated",
     "dataType": "number",
     "instruction": "به رابطهٔ بین عددها توجه کن و عدد گمشده را پیدا کن.",
-    "items": [
-      2,
-      4,
-      2,
-      4,
-      2,
-      null
-    ],
-    "missingIndex": 5,
-    "answer": 4,
-    "options": [
-      2,
-      4,
-      6,
-      8
-    ],
-    "questions": [
-      {
-        "type": "pattern",
-        "source": "file",
-        "dataType": "number",
-        "instruction": "الگو را پیدا کن و جای خالی را با عدد درست کامل کن.",
-        "items": [
-          2,
-          4,
-          2,
-          4,
-          2,
-          null
-        ],
-        "missingIndex": 5,
-        "answer": 4,
-        "options": [
-          2,
-          4,
-          6,
-          8
-        ]
-      }
-    ],
     "mode": "numeric",
     "length": 5
   },
