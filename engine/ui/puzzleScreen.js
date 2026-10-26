@@ -1948,6 +1948,7 @@ const PuzzleScreen = {
         const selected = state.userAnswer === null || state.userAnswer === undefined
             ? ""
             : String(state.userAnswer);
+        const relationMode = state.mode === "relation";
 
         const toPersianDigits = function (value) {
             return String(value === null || value === undefined ? "" : value)
@@ -1962,7 +1963,7 @@ const PuzzleScreen = {
         };
 
         const itemsHTML = items.map(function (item, index) {
-            const missing = index === Number(state.missingIndex);
+            const missing = !relationMode && index === Number(state.missingIndex);
             const arrow = index < items.length - 1
                 ? "<span class=\"patternArrow\" aria-hidden=\"true\">←</span>"
                 : "";
@@ -1989,19 +1990,19 @@ const PuzzleScreen = {
             "<div class=\"screen puzzleScreen patternScreen\" dir=\"rtl\">" +
                 "<div class=\"patternCard\">" +
                     "<div class=\"patternHeader\">" +
-                        "<div class=\"patternBadge\">پازل الگو</div>" +
-                        "<h1>الگو را کشف کن</h1>" +
+                        "<div class=\"patternBadge\">" + (relationMode ? "کشف رابطه" : "پازل الگو") + "</div>" +
+                        "<h1>" + (relationMode ? "کارآگاه رابطه‌ها" : "الگو را کشف کن") + "</h1>" +
                         "<p class=\"puzzleInstruction\">" +
                             PuzzleScreen.escapeHTML(state.instruction) +
                         "</p>" +
                     "</div>" +
 
-                    "<div class=\"patternBoard\" aria-label=\"الگوی عددی\">" +
+                    "<div class=\"patternBoard\" aria-label=\"" + (relationMode ? "نمونه‌های رابطه" : "الگوی عددی") + "\">" +
                         itemsHTML +
                     "</div>" +
 
                     "<div class=\"patternPrompt\">" +
-                        "<span>عدد مناسب برای جای خالی را انتخاب کن</span>" +
+                        "<span>" + (relationMode ? "کدام قاعده با همهٔ نمونه‌ها سازگار است؟" : "عدد مناسب برای جای خالی را انتخاب کن") + "</span>" +
                     "</div>" +
 
                     "<div class=\"patternOptions\">" +
@@ -2030,7 +2031,7 @@ const PuzzleScreen = {
                 ".patternArrow{font-size:25px;color:var(--ui-muted,#667085);line-height:1;}" +
                 ".patternPrompt{margin:4px auto 12px;font-size:16px;color:var(--ui-muted,#667085);}" +
                 ".patternOptions{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin:0 auto 20px;}" +
-                ".patternOption{min-width:76px;height:58px;padding:0 18px;border:2px solid var(--ui-border,#dbe4ef);border-radius:15px;background:#fff;font-family:\"Tahouri Yekan\",\"B Yekan\",Tahoma,sans-serif;font-size:24px;font-weight:700;color:var(--ui-text,#172033);cursor:pointer;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease;}" +
+                ".patternOption{min-width:76px;min-height:58px;height:auto;padding:10px 14px;border:2px solid var(--ui-border,#dbe4ef);border-radius:15px;background:#fff;font-family:\"Tahouri Yekan\",\"B Yekan\",Tahoma,sans-serif;font-size:" + (relationMode ? "clamp(16px,3vw,21px)" : "24px") + ";font-weight:700;color:var(--ui-text,#172033);cursor:pointer;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease;}" +
                 ".patternOption:hover{transform:translateY(-2px);box-shadow:0 5px 12px rgba(31,41,55,.09);}" +
                 ".patternOption.selected{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.14);}" +
                 ".patternControls{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;}" +
