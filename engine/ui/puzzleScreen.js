@@ -1965,7 +1965,7 @@ const PuzzleScreen = {
         const itemsHTML = items.map(function (item, index) {
             const missing = !relationMode && index === Number(state.missingIndex);
             const arrow = index < items.length - 1
-                ? "<span class=\"patternArrow\" aria-hidden=\"true\">←</span>"
+                ? "<span class=\"patternArrow\" aria-hidden=\"true\">→</span>"
                 : "";
 
             return "<div class=\"patternStep\">" +
@@ -2019,16 +2019,16 @@ const PuzzleScreen = {
             "</div>" +
 
             "<style>" +
-                ".patternScreen{width:min(900px,100%);margin:0 auto;padding:24px 14px 40px;}" +
+                ".patternScreen{direction:rtl;width:min(900px,100%);margin:0 auto;padding:24px 14px 40px;}" +
                 ".patternCard{width:min(820px,100%);margin:0 auto;padding:24px 18px 28px;background:var(--ui-surface,#fff);border:1px solid var(--ui-border,#dbe4ef);border-radius:24px;box-shadow:var(--ui-shadow-card,0 7px 20px rgba(31,41,55,.06));text-align:center;}" +
                 ".patternHeader h1{margin:8px 0 6px;font-size:clamp(25px,4vw,34px);color:var(--ui-text,#172033);}" +
                 ".patternBadge{display:inline-block;padding:6px 14px;border-radius:999px;background:var(--ui-surface-soft,#f8fbff);border:1px solid var(--ui-border-soft,#e4e9f0);font-size:14px;color:var(--ui-muted,#667085);}" +
                 ".patternHeader .puzzleInstruction{max-width:650px;margin:8px auto 22px;line-height:1.9;color:var(--ui-muted,#667085);}" +
-                ".patternBoard{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;margin:10px auto 22px;padding:18px 12px;border-radius:20px;background:var(--ui-surface-soft,#f8fbff);border:1px solid var(--ui-border-soft,#e4e9f0);direction:rtl;}" +
-                ".patternStep{display:flex;align-items:center;gap:8px;}" +
-                ".patternItem{min-width:64px;height:64px;padding:0 12px;display:flex;align-items:center;justify-content:center;border:2px solid var(--ui-border,#dbe4ef);border-radius:16px;background:#fff;font-family:\"Tahouri Yekan\",\"B Yekan\",Tahoma,sans-serif;font-size:clamp(25px,5vw,34px);font-weight:700;color:var(--ui-text,#172033);box-shadow:0 3px 8px rgba(31,41,55,.06);}" +
+                ".patternBoard{direction:ltr;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;margin:10px auto 22px;padding:18px 12px;border-radius:20px;background:var(--ui-surface-soft,#f8fbff);border:1px solid var(--ui-border-soft,#e4e9f0);direction:rtl;}" +
+                ".patternStep{display:flex;align-items:center;gap:8px;direction:ltr;}" +
+                ".patternItem{direction:ltr;unicode-bidi:isolate;min-width:64px;height:64px;padding:0 12px;display:flex;align-items:center;justify-content:center;border:2px solid var(--ui-border,#dbe4ef);border-radius:16px;background:#fff;font-family:\"Tahouri Yekan\",\"B Yekan\",Tahoma,sans-serif;font-size:clamp(25px,5vw,34px);font-weight:700;color:var(--ui-text,#172033);box-shadow:0 3px 8px rgba(31,41,55,.06);}" +
                 ".patternMissing{border-style:dashed;font-size:34px;color:var(--ui-muted,#667085);background:var(--ui-surface-soft,#f8fbff);}" +
-                ".patternArrow{font-size:25px;color:var(--ui-muted,#667085);line-height:1;}" +
+                ".patternArrow{direction:ltr;unicode-bidi:isolate;font-size:25px;color:var(--ui-muted,#667085);line-height:1;}" +
                 ".patternPrompt{margin:4px auto 12px;font-size:16px;color:var(--ui-muted,#667085);}" +
                 ".patternOptions{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin:0 auto 20px;}" +
                 ".patternOption{min-width:76px;min-height:58px;height:auto;padding:10px 14px;border:2px solid var(--ui-border,#dbe4ef);border-radius:15px;background:#fff;font-family:\"Tahouri Yekan\",\"B Yekan\",Tahoma,sans-serif;font-size:" + (relationMode ? "clamp(16px,3vw,21px)" : "24px") + ";font-weight:700;color:var(--ui-text,#172033);cursor:pointer;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease;}" +
