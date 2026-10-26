@@ -1,0 +1,22 @@
+{
+  "id": "mathPatternRelation",
+  "title": "🕵️ کارآگاه رابطه‌ها",
+  "description": "با دیدن چند نمونه، رابطهٔ بین مربعِ ورودی و دایرهٔ خروجی را کشف کن.",
+  "grade": "grade6",
+  "subject": "math",
+  "chapter": "chapter1",
+  "engine": "puzzle",
+  "version": "1.0",
+  "puzzle": {
+    "type": "pattern",
+    "source": "generated",
+    "dataType": "text",
+    "mode": "relation",
+    "instruction": "در هر نمونه، □ عدد ورودی و ○ عدد خروجی است. کدام رابطه همهٔ نمونه‌ها را درست توضیح می‌دهد؟"
+  },
+  "settings": {
+    "questionSource": "generated",
+    "questions": 10,
+    "randomQuestionOrder": true
+  }
+}
