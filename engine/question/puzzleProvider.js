@@ -2622,7 +2622,7 @@ const PuzzleProvider = {
             if (values.some(function (value) { return !Number.isSafeInteger(value) || value <= 0 || value > 1000; })) continue;
             const answer = values[values.length - 1];
             const visible = values.slice(0, -1);
-            const key = kind + ":" + visible.join(",") + "?" + answer;
+            const key = visible.join(",") + "?" + answer;
             if (used.has(key)) continue;
             used.add(key);
 
