@@ -106,7 +106,7 @@ assert.ok(registered.spatial, 'Spatial handler registers');
     question.dataType === 'text' &&
     question.items.length === 4 &&
     question.missingIndex === -1 &&
-    question.items.every(example => example.includes('□=') && example.includes('○=')) &&
+    question.items.every(example => example.includes('○=') && example.includes('□=') && example.indexOf('○=') < example.indexOf('□=')) &&
     question.options.length === 4 &&
     question.options.includes(question.answer)
   ), 'relation questions show four left-to-right table pairs and four rule choices');
