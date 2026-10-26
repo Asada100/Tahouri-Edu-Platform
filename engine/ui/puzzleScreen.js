@@ -1993,9 +1993,18 @@ const PuzzleScreen = {
                 "\" data-pattern-value=\"" + PuzzleScreen.escapeHTML(value) + "\">" + optionLabel + renderValue(option) + "</button>";
         }).join("");
 
+        const relationQuestionTotal = relationMode && typeof PuzzleEngine !== "undefined" && Array.isArray(PuzzleEngine.questions)
+            ? PuzzleEngine.questions.length : 0;
+        const relationQuestionNumber = relationQuestionTotal > 0 && typeof PuzzleEngine.currentQuestion === "number"
+            ? Math.min(PuzzleEngine.currentQuestion + 1, relationQuestionTotal) : 0;
+        const relationProgressPercent = relationQuestionTotal > 0
+            ? Math.round((relationQuestionNumber / relationQuestionTotal) * 100) : 0;
+        const relationProgress = relationMode && relationQuestionTotal > 0
+            ? "<div class=\"relationProgressWrap\"><div class=\"relationProgressMeta\"><span>پیشرفت پرونده</span><strong>سؤال " + toPersianDigits(relationQuestionNumber) + " از " + toPersianDigits(relationQuestionTotal) + "</strong></div><div class=\"relationProgressTrack\" role=\"progressbar\" aria-label=\"پیشرفت پرونده\" aria-valuemin=\"0\" aria-valuemax=\"" + relationQuestionTotal + "\" aria-valuenow=\"" + relationQuestionNumber + "\"><span style=\"width:" + relationProgressPercent + "%\"></span></div></div>"
+            : "";
         const relationMission = relationMode
             ? "<div class=\"relationMission\"><div class=\"relationMissionIcon\">🕵️</div><div class=\"relationMissionCopy\"><strong>پروندهٔ عددی باز شد!</strong><span>۴ شاهد را بررسی کن و قانون پنهان را پیدا کن.</span></div><div class=\"relationMissionTag\">مأموریت</div></div>" +
-              "<div class=\"relationSteps\"><span class=\"relationStep active\"><b>۱</b> بررسی شواهد</span><span class=\"relationStep\"><b>۲</b> انتخاب مظنون</span><span class=\"relationStep\"><b>۳</b> حل پرونده</span></div>"
+              "<div class=\"relationSteps\"><span class=\"relationStep active\"><b>۱</b> بررسی شواهد</span><span class=\"relationStep\"><b>۲</b> انتخاب مظنون</span><span class=\"relationStep\"><b>۳</b> حل پرونده</span></div>" + relationProgress
             : "";
 
         app.innerHTML =
@@ -2043,7 +2052,7 @@ const PuzzleScreen = {
                 ".relationMissionIcon{display:grid;place-items:center;flex:0 0 48px;height:48px;border-radius:15px;background:#fff;box-shadow:0 4px 12px rgba(37,99,235,.12);font-size:27px;}" +
                 ".relationMissionCopy{display:flex;flex:1;min-width:0;flex-direction:column;gap:4px;}.relationMissionCopy strong{font-size:16px;color:#1e3a8a;}.relationMissionCopy span{font-size:13px;line-height:1.6;color:#475569;}" +
                 ".relationMissionTag{padding:5px 9px;border-radius:999px;background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:900;white-space:nowrap;}" +
-                ".relationSteps{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin:0 auto 14px;}.relationStep{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:#f1f5f9;color:#64748b;font-size:12px;font-weight:700;}.relationStep b{display:grid;place-items:center;width:21px;height:21px;border-radius:50%;background:#e2e8f0;color:#475569;font-size:11px;}.relationStep.active{background:#dcfce7;color:#166534;}.relationStep.active b{background:#16a34a;color:#fff;}" +
+                ".relationSteps{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin:0 auto 14px;}.relationStep{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:#f1f5f9;color:#64748b;font-size:12px;font-weight:700;}.relationStep b{display:grid;place-items:center;width:21px;height:21px;border-radius:50%;background:#e2e8f0;color:#475569;font-size:11px;}.relationStep.active{background:#dcfce7;color:#166534;}.relationStep.active b{background:#16a34a;color:#fff;}.relationProgressWrap{max-width:650px;margin:0 auto 16px;text-align:right}.relationProgressMeta{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:6px;color:#64748b;font-size:12px;font-weight:700}.relationProgressMeta strong{color:#1d4ed8;font-size:13px}.relationProgressTrack{height:9px;overflow:hidden;border-radius:999px;background:#e2e8f0;box-shadow:inset 0 1px 2px rgba(15,23,42,.08)}.relationProgressTrack span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#0d9488,#2563eb,#7c3aed);transition:width .25s ease}" +
                 ".relationGameCard .patternRelationBoard{background:linear-gradient(135deg,#f0fdfa,#eff6ff);border:1px solid #c7e4e8;box-shadow:inset 0 1px 0 #fff;}" +
                 ".relationGameCard .patternRelationTable th{background:#e0f2fe;color:#075985;border-color:#b6d8ee;}.relationGameCard .patternRelationTable tr:nth-child(2) th{background:#ede9fe;color:#5b21b6;}.relationGameCard .patternRelationTable td{background:rgba(255,255,255,.94);border-color:#cbdcf5;font-weight:900;}" +
                 ".relationGameCard .patternRelationTable td:first-of-type{border-inline-start:2px solid #93c5fd;}" +
