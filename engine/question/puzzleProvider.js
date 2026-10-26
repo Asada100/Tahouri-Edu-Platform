@@ -2559,13 +2559,13 @@ const PuzzleProvider = {
             const relationRules = [
                 { key: "double", formula: "□ = (○ × ۲)", calculate: function (n) { return n * 2; } },
                 { key: "doublePlusOne", formula: "□ = (○ × ۲) + ۱", calculate: function (n) { return n * 2 + 1; } },
-                { key: "doubleMinusOne", formula: "□ = (○ × ۲) − ۱", calculate: function (n) { return n * 2 - 1; } },
+                { key: "doublePlusTwo", formula: "□ = (○ × ۲) + ۲", calculate: function (n) { return n * 2 + 2; } },
                 { key: "triple", formula: "□ = (○ × ۳)", calculate: function (n) { return n * 3; } },
                 { key: "five", formula: "□ = (○ × ۵)", calculate: function (n) { return n * 5; } },
                 { key: "ten", formula: "□ = (○ × ۱۰)", calculate: function (n) { return n * 10; } }
             ];
             const distractors = [
-                "□ = ○ + ۲", "□ = (○ × ۲) + ۱", "□ = (○ × ۲) − ۱",
+                "□ = ○ + ۲", "□ = (○ × ۲) + ۱", "□ = (○ × ۲) + ۲",
                 "□ = (○ × ۳)", "□ = (○ × ۴)", "□ = (○ × ۵)", "□ = (○ × ۱۰)"
             ];
             const result = [];
