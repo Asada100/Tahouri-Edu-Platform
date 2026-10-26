@@ -43,7 +43,7 @@
 <script src="engine/core/state.js"></script>
 <script src="engine/activity/profileManager.js"></script>
 <script src="engine/core/eventManager.js?v=1.1"></script>
-<script src="engine/core/profileContext.js"></script>
+<script src="engine/core/profileContext.js?v=1.1" onerror="(function(){if(window.ProfileContext)return;console.error('ProfileContext script failed; activating inline fallback');window.ProfileContext={VERSION:'1.1',getProfile:function(){try{if(window.ProfileManager&&typeof ProfileManager.get==='function'){var p=ProfileManager.get();if(p&&p.studentId)return p;}}catch(e){console.error('ProfileContext fallback read failed',e);}return null;},getStudentId:function(){var p=this.getProfile();return p?p.studentId:null;},hasProfile:function(){return !!this.getStudentId();},getGrade:function(){var p=this.getProfile();return p?(p.grade||null):null;},key:function(baseKey){var id=this.getStudentId();return baseKey&&id?String(baseKey)+':'+String(id):null;},get:function(){var p=this.getProfile();return p?{studentId:p.studentId,name:p.name||'',grade:p.grade||null}:{studentId:null,name:'',grade:null};}};console.warn('ProfileContext inline fallback ready');})();"></script>
 <script src="engine/core/dailyLearningStreak.js"></script>
 <script src="engine/core/router.js"></script>
 <script src="engine/core/dataManager.js"></script>
