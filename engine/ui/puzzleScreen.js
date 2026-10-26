@@ -40,6 +40,11 @@ const PuzzleScreen = {
     coordinatePlaneActivityId: null,
 
     coordinatePlaneSolvedPoints: [],
+    relationRunId: null,
+    relationScore: 0,
+    relationStreak: 0,
+    relationBestStreak: 0,
+    relationLastCheckedQuestion: -1,
 
     coordinatePlanePointNames: ["آ", "ب", "پ", "ت", "ث", "ج", "چ", "ح", "خ", "د", "ذ", "ر", "ز", "ژ", "س", "ش", "ص", "ض", "ط", "ظ", "ع", "غ", "ف", "ق", "ک", "گ", "ل", "م", "ن", "و", "ه", "ی"],
 
@@ -1946,6 +1951,16 @@ const PuzzleScreen = {
         const options = Array.isArray(state.options) ? state.options : [];
         const selected = state.userAnswer === null || state.userAnswer === undefined ? "" : String(state.userAnswer);
         const relationMode = state.mode === "relation";
+        if (relationMode) {
+            const runId = typeof PuzzleEngine !== "undefined" ? PuzzleEngine.startRequestId : null;
+            if (this.relationRunId !== runId) {
+                this.relationRunId = runId;
+                this.relationScore = 0;
+                this.relationStreak = 0;
+                this.relationBestStreak = 0;
+                this.relationLastCheckedQuestion = -1;
+            }
+        }
         const toPersianDigits = function (value) {
             return String(value === null || value === undefined ? "" : value)
                 .replace(/[0-9]/g, function (digit) { return "۰۱۲۳۴۵۶۷۸۹"[Number(digit)]; });
@@ -2006,13 +2021,16 @@ const PuzzleScreen = {
             ? "<div class=\"relationMission\"><div class=\"relationMissionIcon\">🕵️</div><div class=\"relationMissionCopy\"><strong>پروندهٔ عددی باز شد!</strong><span>۴ شاهد را بررسی کن و قانون پنهان را پیدا کن.</span></div><div class=\"relationMissionTag\">مأموریت</div></div>" +
               "<div class=\"relationSteps\"><span class=\"relationStep active\"><b>۱</b> بررسی شواهد</span><span class=\"relationStep\"><b>۲</b> انتخاب مظنون</span><span class=\"relationStep\"><b>۳</b> حل پرونده</span></div>" + relationProgress
             : "";
+        const relationHud = relationMode
+            ? "<div class=\\"relationHud\\"><div><span>امتیاز پرونده</span><strong id=\\"relationScore\\">" + this.relationScore + "</strong></div><div><span>پاسخ درست پیاپی</span><strong id=\\"relationStreak\\">🔥 " + this.relationStreak + "</strong></div><div><span>بهترین زنجیره</span><strong id=\\"relationBestStreak\\">" + this.relationBestStreak + "</strong></div></div>"
+            : "";
 
         app.innerHTML =
             "<div class=\"screen puzzleScreen patternScreen\" dir=\"rtl\"><div class=\"patternCard" + (relationMode ? " relationGameCard" : "") + "\">" +
                 "<div class=\"patternHeader\"><div class=\"patternBadge\">" + (relationMode ? "🗂️ پروندهٔ کارآگاهی" : "پازل الگو") + "</div>" +
                 "<h1>" + (relationMode ? "کارآگاه رابطه‌ها" : "الگو را کشف کن") + "</h1>" +
                 "<p class=\"puzzleInstruction\">" + PuzzleScreen.escapeHTML(state.instruction) + "</p></div>" +
-                relationMission +
+                relationMission + relationHud +
                 "<div class=\"patternBoard" + (relationMode ? " patternRelationBoard" : "") + "\" aria-label=\"" +
                     (relationMode ? "نمونه‌های رابطه" : "الگوی عددی") + "\">" + itemsHTML + "</div>" +
                 (relationMode ? "<div class=\"patternRelationHint\"><span>🔍 سرنخ:</span> هر ستون را از بالا به پایین بخوان؛ چه عملی روی عدد دایره انجام شده تا به مربع برسیم؟</div>" : "") +
@@ -3686,29 +3704,39 @@ const PuzzleScreen = {
     // =====================================
 
     checkPuzzle: function () {
+        const state = typeof PuzzleEngine !== "undefined" ? PuzzleEngine.getState() : null;
+        const relationMode = !!(state && state.type === "pattern" && state.mode === "relation");
+        const questionIndex = typeof PuzzleEngine !== "undefined" ? PuzzleEngine.currentQuestion : -1;
 
-        const correct =
-            PuzzleEngine.check();
-
-
-        if (
-            correct
-        ) {
-
-            this.showMessage(
-                "آفرین! پاسخ درست است. 🎉"
-            );
-
+        if (relationMode && questionIndex === this.relationLastCheckedQuestion) {
+            this.showMessage("این شاهد را قبلاً حل کردی؛ به سؤال بعدی برو.");
+            return;
         }
 
-        else {
+        const correct = PuzzleEngine.check();
 
-            this.showMessage(
-                "هنوز درست نیست؛ دوباره فکر کن."
-            );
-
+        if (relationMode) {
+            if (correct) {
+                this.relationLastCheckedQuestion = questionIndex;
+                this.relationScore += 10;
+                this.relationStreak += 1;
+                this.relationBestStreak = Math.max(this.relationBestStreak, this.relationStreak);
+                this.showMessage("پرونده درست پیش می‌رود! +۱۰ امتیاز 🎉" + (this.relationStreak >= 3 ? " زنجیرهٔ سه‌تایی؛ آفرین! ⭐" : ""));
+            } else {
+                this.relationStreak = 0;
+                this.showMessage("این مظنون نبود! 🔎 شواهد را دوباره بررسی کن؛ زنجیره از نو شروع شد.");
+            }
+            const score = document.getElementById("relationScore");
+            const streak = document.getElementById("relationStreak");
+            const best = document.getElementById("relationBestStreak");
+            if (score) score.textContent = String(this.relationScore);
+            if (streak) streak.textContent = "🔥 " + this.relationStreak;
+            if (best) best.textContent = String(this.relationBestStreak);
+            return;
         }
 
+        if (correct) this.showMessage("آفرین! پاسخ درست است. 🎉");
+        else this.showMessage("هنوز درست نیست؛ دوباره فکر کن.");
     },
 
 
