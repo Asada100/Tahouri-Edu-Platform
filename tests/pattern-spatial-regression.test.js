@@ -104,12 +104,12 @@ assert.ok(registered.spatial, 'Spatial handler registers');
   assert.ok(relationQuestions.every(question =>
     question.mode === 'relation' &&
     question.dataType === 'text' &&
-    question.items.length === 3 &&
+    question.items.length === 4 &&
     question.missingIndex === -1 &&
     question.items.every(example => example.includes('□=') && example.includes('○=')) &&
     question.options.length === 4 &&
     question.options.includes(question.answer)
-  ), 'relation questions show three input-output examples and four rule choices');
+  ), 'relation questions show four left-to-right table pairs and four rule choices');
   assert.equal(
     new Set(relationQuestions.map(question => question.answer + '|' + question.items.join('|'))).size,
     relationQuestions.length,
