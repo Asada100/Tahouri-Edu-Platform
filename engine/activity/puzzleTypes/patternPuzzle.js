@@ -8,9 +8,11 @@ const PatternPuzzle = {
 
     start: function (engine, data) {
         const items = Array.isArray(data.items) ? [...data.items] : [];
+        const mode = data.mode || "numeric";
         const missingIndex = Number.isInteger(data.missingIndex) ? data.missingIndex : -1;
+        const relationMode = mode === "relation";
 
-        if (!items.length || missingIndex < 0 || missingIndex >= items.length) {
+        if (!items.length || (!relationMode && missingIndex < 0) || missingIndex >= items.length) {
             console.error("Pattern Puzzle: Invalid Items or Missing Index");
             return null;
         }
@@ -22,6 +24,7 @@ const PatternPuzzle = {
 
         engine.puzzle = {
             type: "pattern",
+            mode: mode,
             dataType: data.dataType || engine.detectDataType(items.filter(function (v) { return v !== null; })),
             source: data.source || "file",
             instruction: data.instruction || "الگو را پیدا کن و جای خالی را کامل کن.",
@@ -44,7 +47,9 @@ const PatternPuzzle = {
             : value;
         if (engine.puzzle.dataType === "number" && !Number.isFinite(answer)) return false;
         engine.userAnswer = answer;
-        engine.items[engine.puzzle.missingIndex] = answer;
+        if (engine.puzzle.mode !== "relation" && engine.puzzle.missingIndex >= 0) {
+            engine.items[engine.puzzle.missingIndex] = answer;
+        }
         engine.moves++;
         return engine.emitChanged();
     },
