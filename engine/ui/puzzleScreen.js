@@ -44,11 +44,6 @@ const PuzzleScreen = {
     coordinatePlaneActivityId: null,
 
     coordinatePlaneSolvedPoints: [],
-    relationRunId: null,
-    relationScore: 0,
-    relationStreak: 0,
-    relationBestStreak: 0,
-    relationLastCheckedQuestion: -1,
 
     coordinatePlanePointNames: ["آ", "ب", "پ", "ت", "ث", "ج", "چ", "ح", "خ", "د", "ذ", "ر", "ز", "ژ", "س", "ش", "ص", "ض", "ط", "ظ", "ع", "غ", "ف", "ق", "ک", "گ", "ل", "م", "ن", "و", "ه", "ی"],
 
@@ -95,8 +90,7 @@ const PuzzleScreen = {
 
 
         EventManager.on("puzzleWrong", function () {
-            if (typeof PuzzleEngine !== "undefined" && PuzzleEngine.activity &&
-                PuzzleEngine.activity.id === "mathPatternRelation") {
+            if (typeof PuzzleEngine !== "undefined" && PuzzleEngine.activity && PuzzleEngine.activity.id === "mathPatternRelation") {
                 PuzzleScreen.relationStreak = 0;
             }
         });
@@ -183,16 +177,16 @@ const PuzzleScreen = {
         }
 
         if (payload.result && payload.result.mode === "relation") {
-            const relationQuestionIndex = Number(payload.questionIndex);
-            const relationActivityId = payload.activity && payload.activity.id;
-            if (this.relationActivityId !== relationActivityId || relationQuestionIndex === 0) {
-                this.relationActivityId = relationActivityId;
+            const index = Number(payload.questionIndex);
+            const id = payload.activity && payload.activity.id;
+            if (this.relationActivityId !== id || index === 0) {
+                this.relationActivityId = id;
                 this.relationStreak = 0;
                 this.relationLastQuestionIndex = -1;
             }
-            if (Number.isInteger(relationQuestionIndex) && relationQuestionIndex > this.relationLastQuestionIndex) {
+            if (Number.isInteger(index) && index > this.relationLastQuestionIndex) {
                 if (this.relationLastQuestionIndex >= 0) this.relationStreak++;
-                this.relationLastQuestionIndex = relationQuestionIndex;
+                this.relationLastQuestionIndex = index;
             }
         }
 
@@ -1976,16 +1970,6 @@ const PuzzleScreen = {
         const options = Array.isArray(state.options) ? state.options : [];
         const selected = state.userAnswer === null || state.userAnswer === undefined ? "" : String(state.userAnswer);
         const relationMode = state.mode === "relation";
-        if (relationMode) {
-            const runId = typeof PuzzleEngine !== "undefined" ? PuzzleEngine.startRequestId : null;
-            if (this.relationRunId !== runId) {
-                this.relationRunId = runId;
-                this.relationScore = 0;
-                this.relationStreak = 0;
-                this.relationBestStreak = 0;
-                this.relationLastCheckedQuestion = -1;
-            }
-        }
         const toPersianDigits = function (value) {
             return String(value === null || value === undefined ? "" : value)
                 .replace(/[0-9]/g, function (digit) { return "۰۱۲۳۴۵۶۷۸۹"[Number(digit)]; });
@@ -2033,27 +2017,25 @@ const PuzzleScreen = {
                 "\" data-pattern-value=\"" + PuzzleScreen.escapeHTML(value) + "\">" + optionLabel + renderValue(option) + "</button>";
         }).join("");
 
-        const relationQuestionTotal = relationMode && typeof PuzzleEngine !== "undefined" && Array.isArray(PuzzleEngine.questions)
-            ? PuzzleEngine.questions.length : 0;
-        const relationQuestionNumber = relationQuestionTotal > 0 && typeof PuzzleEngine.currentQuestion === "number"
-            ? Math.min(PuzzleEngine.currentQuestion + 1, relationQuestionTotal) : 0;
-        const relationProgressPercent = relationQuestionTotal > 0
-            ? Math.round((relationQuestionNumber / relationQuestionTotal) * 100) : 0;
-        const relationProgress = relationMode && relationQuestionTotal > 0
-            ? "<div class=\"relationProgressWrap\"><div class=\"relationProgressMeta\"><span>پیشرفت پرونده</span><strong>سؤال " + toPersianDigits(relationQuestionNumber) + " از " + toPersianDigits(relationQuestionTotal) + "</strong></div><div class=\"relationProgressTrack\" role=\"progressbar\" aria-label=\"پیشرفت پرونده\" aria-valuemin=\"0\" aria-valuemax=\"" + relationQuestionTotal + "\" aria-valuenow=\"" + relationQuestionNumber + "\"><span style=\"width:" + relationProgressPercent + "%\"></span></div></div>"
-            : "";
         const relationMission = relationMode
             ? "<div class=\"relationMission\"><div class=\"relationMissionIcon\">🕵️</div><div class=\"relationMissionCopy\"><strong>پروندهٔ عددی باز شد!</strong><span>۴ شاهد را بررسی کن و قانون پنهان را پیدا کن.</span></div><div class=\"relationMissionTag\">مأموریت</div></div>" +
-              "<div class=\"relationScoreboard\"><div class=\"relationStat\"><span>پرونده</span><strong>" + toPersianDigits(Number(state.currentQuestion || 0) + 1) + " از " + toPersianDigits(state.totalQuestions || 10) + "</strong></div><div class=\"relationProgressTrack\"><span style=\"width:" + Math.min(100, Math.round(((Number(state.currentQuestion || 0) + 1) / Math.max(1, Number(state.totalQuestions) || 10)) * 100)) + "%\"></span></div><div class=\"relationStat relationPoints\"><span>⭐ امتیاز</span><strong>" + toPersianDigits(typeof ScoreManager !== \"undefined\" ? ScoreManager.score || 0 : 0) + "</strong></div><div class=\"relationStat relationStreak\"><span>🔥 زنجیرهٔ درست</span><strong>" + toPersianDigits(this.relationStreak || 0) + "</strong></div></div>" +
               "<div class=\"relationSteps\"><span class=\"relationStep active\"><b>۱</b> بررسی شواهد</span><span class=\"relationStep\"><b>۲</b> انتخاب مظنون</span><span class=\"relationStep\"><b>۳</b> حل پرونده</span></div>"
             : "";
+
+
+        const relationHud = relationMode
+            ? '<div class="relationScoreboard"><div class="relationStat"><span>پرونده</span><strong>' + toPersianDigits(Number(state.currentQuestion || 0) + 1) + ' از ' + toPersianDigits(state.totalQuestions || 10) + '</strong></div>' +
+              '<div class="relationProgressTrack"><span style="width:' + Math.min(100, Math.round(((Number(state.currentQuestion || 0) + 1) / Math.max(1, Number(state.totalQuestions) || 10)) * 100)) + '%"></span></div>' +
+              '<div class="relationStat"><span>⭐ امتیاز</span><strong>' + toPersianDigits(typeof ScoreManager === "undefined" ? 0 : (ScoreManager.score || 0)) + '</strong></div>' +
+              '<div class="relationStat"><span>🔥 زنجیرهٔ درست</span><strong>' + toPersianDigits(this.relationStreak || 0) + '</strong></div></div>'
+            : '';
 
         app.innerHTML =
             "<div class=\"screen puzzleScreen patternScreen\" dir=\"rtl\"><div class=\"patternCard" + (relationMode ? " relationGameCard" : "") + "\">" +
                 "<div class=\"patternHeader\"><div class=\"patternBadge\">" + (relationMode ? "🗂️ پروندهٔ کارآگاهی" : "پازل الگو") + "</div>" +
                 "<h1>" + (relationMode ? "کارآگاه رابطه‌ها" : "الگو را کشف کن") + "</h1>" +
                 "<p class=\"puzzleInstruction\">" + PuzzleScreen.escapeHTML(state.instruction) + "</p></div>" +
-                relationMission +
+                relationMission + relationHud +
                 "<div class=\"patternBoard" + (relationMode ? " patternRelationBoard" : "") + "\" aria-label=\"" +
                     (relationMode ? "نمونه‌های رابطه" : "الگوی عددی") + "\">" + itemsHTML + "</div>" +
                 (relationMode ? "<div class=\"patternRelationHint\"><span>🔍 سرنخ:</span> هر ستون را از بالا به پایین بخوان؛ چه عملی روی عدد دایره انجام شده تا به مربع برسیم؟</div>" : "") +
@@ -2086,18 +2068,17 @@ const PuzzleScreen = {
                 ".patternOption:hover{transform:translateY(-2px);box-shadow:0 5px 12px rgba(31,41,55,.09);}" +
                 ".patternOption.selected{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.14);}" +
                 ".patternControls{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;}.patternControls button{min-width:130px;}" +
-                ".relationHud{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;max-width:650px;margin:0 auto 14px}.relationHud>div{display:flex;flex-direction:column;gap:4px;padding:9px 6px;border:1px solid #dbeafe;border-radius:14px;background:#fff}.relationHud span{font-size:11px;color:#64748b;font-weight:700}.relationHud strong{font-size:21px;color:#1d4ed8;font-weight:900}.relationHud #relationStreak{color:#c2410c}.relationGameCard{position:relative;overflow:hidden;background:radial-gradient(ellipse at top right,#eff6ff 0,transparent 38%),linear-gradient(145deg,#fff 0%,#f8fbff 100%);border:1px solid #cbdcf5;box-shadow:0 16px 42px rgba(35,70,130,.12);}" +
+                ".relationGameCard{position:relative;overflow:hidden;background:radial-gradient(ellipse at top right,#eff6ff 0,transparent 38%),linear-gradient(145deg,#fff 0%,#f8fbff 100%);border:1px solid #cbdcf5;box-shadow:0 16px 42px rgba(35,70,130,.12);}" +
                 ".relationGameCard:before{content:'';position:absolute;inset:0 0 auto;height:6px;background:linear-gradient(90deg,#0f766e,#2563eb,#7c3aed);}" +
                 ".relationGameCard .patternBadge{background:#eaf2ff;border-color:#c8dcff;color:#1d4ed8;font-weight:800;}" +
                 ".relationMission{display:flex;align-items:center;gap:12px;text-align:right;margin:0 auto 12px;padding:13px 15px;max-width:650px;border:1px solid #c7d9f7;border-radius:18px;background:linear-gradient(110deg,#eff6ff,#f5f3ff);}" +
-                ".relationScoreboard{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:8px;max-width:650px;margin:0 auto 12px;padding:10px 12px;border:1px solid #dbeafe;border-radius:15px;background:rgba(255,255,255,.85);text-align:right;}" +
+                ".relationScoreboard{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:center;max-width:650px;margin:0 auto 12px;padding:10px 12px;border:1px solid #dbeafe;border-radius:15px;background:#fff;text-align:right;}" +
                 ".relationStat{display:flex;flex-direction:column;gap:3px;color:#64748b;font-size:11px;font-weight:700;white-space:nowrap;}.relationStat strong{color:#1e293b;font-size:15px;font-weight:900;}" +
-                ".relationProgressTrack{grid-column:1/-1;grid-row:2;height:8px;overflow:hidden;border-radius:999px;background:#e2e8f0;}.relationProgressTrack span{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#0d9488,#2563eb,#7c3aed);transition:width .25s ease;}" +
-                ".relationPoints{grid-column:2;grid-row:1}.relationStreak{grid-column:3;grid-row:1}.relationScoreboard .relationStat:first-child{grid-column:1;grid-row:1}"+
+                ".relationProgressTrack{grid-column:1/-1;height:8px;overflow:hidden;border-radius:999px;background:#e2e8f0;}.relationProgressTrack span{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#0d9488,#2563eb,#7c3aed);transition:width .25s ease;}"+
                 ".relationMissionIcon{display:grid;place-items:center;flex:0 0 48px;height:48px;border-radius:15px;background:#fff;box-shadow:0 4px 12px rgba(37,99,235,.12);font-size:27px;}" +
                 ".relationMissionCopy{display:flex;flex:1;min-width:0;flex-direction:column;gap:4px;}.relationMissionCopy strong{font-size:16px;color:#1e3a8a;}.relationMissionCopy span{font-size:13px;line-height:1.6;color:#475569;}" +
                 ".relationMissionTag{padding:5px 9px;border-radius:999px;background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:900;white-space:nowrap;}" +
-                ".relationSteps{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin:0 auto 14px;}.relationStep{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:#f1f5f9;color:#64748b;font-size:12px;font-weight:700;}.relationStep b{display:grid;place-items:center;width:21px;height:21px;border-radius:50%;background:#e2e8f0;color:#475569;font-size:11px;}.relationStep.active{background:#dcfce7;color:#166534;}.relationStep.active b{background:#16a34a;color:#fff;}.relationProgressWrap{max-width:650px;margin:0 auto 16px;text-align:right}.relationProgressMeta{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:6px;color:#64748b;font-size:12px;font-weight:700}.relationProgressMeta strong{color:#1d4ed8;font-size:13px}.relationProgressTrack{height:9px;overflow:hidden;border-radius:999px;background:#e2e8f0;box-shadow:inset 0 1px 2px rgba(15,23,42,.08)}.relationProgressTrack span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#0d9488,#2563eb,#7c3aed);transition:width .25s ease}" +
+                ".relationSteps{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin:0 auto 14px;}.relationStep{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:#f1f5f9;color:#64748b;font-size:12px;font-weight:700;}.relationStep b{display:grid;place-items:center;width:21px;height:21px;border-radius:50%;background:#e2e8f0;color:#475569;font-size:11px;}.relationStep.active{background:#dcfce7;color:#166534;}.relationStep.active b{background:#16a34a;color:#fff;}" +
                 ".relationGameCard .patternRelationBoard{background:linear-gradient(135deg,#f0fdfa,#eff6ff);border:1px solid #c7e4e8;box-shadow:inset 0 1px 0 #fff;}" +
                 ".relationGameCard .patternRelationTable th{background:#e0f2fe;color:#075985;border-color:#b6d8ee;}.relationGameCard .patternRelationTable tr:nth-child(2) th{background:#ede9fe;color:#5b21b6;}.relationGameCard .patternRelationTable td{background:rgba(255,255,255,.94);border-color:#cbdcf5;font-weight:900;}" +
                 ".relationGameCard .patternRelationTable td:first-of-type{border-inline-start:2px solid #93c5fd;}" +
@@ -3731,39 +3712,29 @@ const PuzzleScreen = {
     // =====================================
 
     checkPuzzle: function () {
-        const state = typeof PuzzleEngine !== "undefined" ? PuzzleEngine.getState() : null;
-        const relationMode = !!(state && state.type === "pattern" && state.mode === "relation");
-        const questionIndex = typeof PuzzleEngine !== "undefined" ? PuzzleEngine.currentQuestion : -1;
 
-        if (relationMode && questionIndex === this.relationLastCheckedQuestion) {
-            this.showMessage("این شاهد را قبلاً حل کردی؛ به سؤال بعدی برو.");
-            return;
+        const correct =
+            PuzzleEngine.check();
+
+
+        if (
+            correct
+        ) {
+
+            this.showMessage(
+                "آفرین! پاسخ درست است. 🎉"
+            );
+
         }
 
-        const correct = PuzzleEngine.check();
+        else {
 
-        if (relationMode) {
-            if (correct) {
-                this.relationLastCheckedQuestion = questionIndex;
-                this.relationScore += 10;
-                this.relationStreak += 1;
-                this.relationBestStreak = Math.max(this.relationBestStreak, this.relationStreak);
-                this.showMessage("پرونده درست پیش می‌رود! +۱۰ امتیاز 🎉" + (this.relationStreak >= 3 ? " زنجیرهٔ سه‌تایی؛ آفرین! ⭐" : ""));
-            } else {
-                this.relationStreak = 0;
-                this.showMessage("این مظنون نبود! 🔎 شواهد را دوباره بررسی کن؛ زنجیره از نو شروع شد.");
-            }
-            const score = document.getElementById("relationScore");
-            const streak = document.getElementById("relationStreak");
-            const best = document.getElementById("relationBestStreak");
-            if (score) score.textContent = String(this.relationScore);
-            if (streak) streak.textContent = "🔥 " + this.relationStreak;
-            if (best) best.textContent = String(this.relationBestStreak);
-            return;
+            this.showMessage(
+                "هنوز درست نیست؛ دوباره فکر کن."
+            );
+
         }
 
-        if (correct) this.showMessage("آفرین! پاسخ درست است. 🎉");
-        else this.showMessage("هنوز درست نیست؛ دوباره فکر کن.");
     },
 
 
