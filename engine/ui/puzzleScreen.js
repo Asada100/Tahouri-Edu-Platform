@@ -1942,126 +1942,106 @@ const PuzzleScreen = {
     showPattern: function (state) {
         const app = this.getApp();
         if (!app) return;
-
         const items = Array.isArray(state.items) ? state.items : [];
         const options = Array.isArray(state.options) ? state.options : [];
-        const selected = state.userAnswer === null || state.userAnswer === undefined
-            ? ""
-            : String(state.userAnswer);
+        const selected = state.userAnswer === null || state.userAnswer === undefined ? "" : String(state.userAnswer);
         const relationMode = state.mode === "relation";
-
         const toPersianDigits = function (value) {
             return String(value === null || value === undefined ? "" : value)
-                .replace(/[0-9]/g, function (digit) {
-                    return "۰۱۲۳۴۵۶۷۸۹"[Number(digit)];
-                });
+                .replace(/[0-9]/g, function (digit) { return "۰۱۲۳۴۵۶۷۸۹"[Number(digit)]; });
         };
-
         const renderValue = function (value) {
             if (value === null || value === undefined || value === "") return "؟";
             return PuzzleScreen.escapeHTML(toPersianDigits(value));
         };
 
-        const itemsHTML = items.map(function (item, index) {
-            const missing = !relationMode && index === Number(state.missingIndex);
-            const arrow = index < items.length - 1
-                ? "<span class=\"patternArrow\" aria-hidden=\"true\">→</span>"
-                : "";
-
-            return "<div class=\"patternStep\">" +
-                "<div class=\"patternItem " + (missing ? "patternMissing" : "") + "\">" +
-                    renderValue(item) +
-                "</div>" +
-                arrow +
-            "</div>";
-        }).join("");
+        let itemsHTML = "";
+        if (relationMode) {
+            const pairs = items.map(function (item) {
+                if (item && typeof item === "object") {
+                    return {
+                        circle: item.circle !== undefined ? item.circle : item.circleValue,
+                        square: item.square !== undefined ? item.square : item.squareValue
+                    };
+                }
+                const text = String(item === null || item === undefined ? "" : item);
+                const circleMatch = text.match(/○\s*=\s*([0-9٠-٩۰-۹]+)/);
+                const squareMatch = text.match(/□\s*=\s*([0-9٠-٩۰-۹]+)/);
+                return { circle: circleMatch ? circleMatch[1] : "", square: squareMatch ? squareMatch[1] : "" };
+            });
+            const circleCells = pairs.map(function (pair) { return "<td>" + renderValue(pair.circle) + "</td>"; }).join("");
+            const squareCells = pairs.map(function (pair) { return "<td>" + renderValue(pair.square) + "</td>"; }).join("");
+            itemsHTML = "<table class=\"patternRelationTable\" dir=\"ltr\" aria-label=\"جدول رابطهٔ دایره و مربع\"><tbody>" +
+                "<tr><th scope=\"row\">○</th>" + circleCells + "</tr>" +
+                "<tr><th scope=\"row\">□</th>" + squareCells + "</tr>" +
+                "</tbody></table>";
+        } else {
+            itemsHTML = items.map(function (item, index) {
+                const missing = index === Number(state.missingIndex);
+                const arrow = index < items.length - 1 ? "<span class=\"patternArrow\" aria-hidden=\"true\">→</span>" : "";
+                return "<div class=\"patternStep\"><div class=\"patternItem " + (missing ? "patternMissing" : "") + "\">" +
+                    renderValue(item) + "</div>" + arrow + "</div>";
+            }).join("");
+        }
 
         const optionsHTML = options.map(function (option) {
             const value = String(option);
             const selectedClass = selected === value ? " selected" : "";
-
             return "<button type=\"button\" class=\"patternOption" + selectedClass +
-                "\" data-pattern-value=\"" + PuzzleScreen.escapeHTML(value) + "\">" +
-                renderValue(option) +
-            "</button>";
+                "\" data-pattern-value=\"" + PuzzleScreen.escapeHTML(value) + "\">" + renderValue(option) + "</button>";
         }).join("");
 
         app.innerHTML =
-            "<div class=\"screen puzzleScreen patternScreen\" dir=\"rtl\">" +
-                "<div class=\"patternCard\">" +
-                    "<div class=\"patternHeader\">" +
-                        "<div class=\"patternBadge\">" + (relationMode ? "کشف رابطه" : "پازل الگو") + "</div>" +
-                        "<h1>" + (relationMode ? "کارآگاه رابطه‌ها" : "الگو را کشف کن") + "</h1>" +
-                        "<p class=\"puzzleInstruction\">" +
-                            PuzzleScreen.escapeHTML(state.instruction) +
-                        "</p>" +
-                    "</div>" +
-
-                    "<div class=\"patternBoard\" aria-label=\"" + (relationMode ? "نمونه‌های رابطه" : "الگوی عددی") + "\">" +
-                        itemsHTML +
-                    "</div>" +
-
-                    (relationMode
-                        ? "<div class=\"patternRelationHint\">عددِ داخل مربع به عددِ داخل دایره تبدیل می‌شود. نمونه‌ها را با هم مقایسه کن.</div>"
-                        : "") +
-                    "<div class=\"patternPrompt\">" +
-                        "<span>" + (relationMode ? "کدام جمله توضیح می‌دهد عددِ مربع چگونه به عددِ دایره تبدیل می‌شود؟" : "عدد مناسب برای جای خالی را انتخاب کن") + "</span>" +
-                    "</div>" +
-
-                    "<div class=\"patternOptions\">" +
-                        optionsHTML +
-                    "</div>" +
-
-                    "<div class=\"puzzleControls patternControls\">" +
-                        "<button type=\"button\" id=\"patternCheckBtn\">بررسی پاسخ</button>" +
-                        "<button type=\"button\" id=\"puzzleResetBtn\">شروع دوباره</button>" +
-                    "</div>" +
-
-                    "<div id=\"puzzleMessage\" class=\"puzzleMessage\"></div>" +
-                "</div>" +
-            "</div>" +
-
+            "<div class=\"screen puzzleScreen patternScreen\" dir=\"rtl\"><div class=\"patternCard\">" +
+                "<div class=\"patternHeader\"><div class=\"patternBadge\">" + (relationMode ? "کشف رابطه" : "پازل الگو") + "</div>" +
+                "<h1>" + (relationMode ? "کارآگاه رابطه‌ها" : "الگو را کشف کن") + "</h1>" +
+                "<p class=\"puzzleInstruction\">" + PuzzleScreen.escapeHTML(state.instruction) + "</p></div>" +
+                "<div class=\"patternBoard" + (relationMode ? " patternRelationBoard" : "") + "\" aria-label=\"" +
+                    (relationMode ? "نمونه‌های رابطه" : "الگوی عددی") + "\">" + itemsHTML + "</div>" +
+                (relationMode ? "<div class=\"patternRelationHint\">در هر ستون، عددهای دایره و مربع با هم ارتباط دارند. دو ردیف را مقایسه کن.</div>" : "") +
+                "<div class=\"patternPrompt\"><span>" +
+                    (relationMode ? "کدام قاعده رابطهٔ بین دو ردیف را توضیح می‌دهد؟" : "عدد مناسب برای جای خالی را انتخاب کن") +
+                "</span></div><div class=\"patternOptions\">" + optionsHTML + "</div>" +
+                "<div class=\"puzzleControls patternControls\"><button type=\"button\" id=\"patternCheckBtn\">بررسی پاسخ</button>" +
+                "<button type=\"button\" id=\"puzzleResetBtn\">شروع دوباره</button></div>" +
+                "<div id=\"puzzleMessage\" class=\"puzzleMessage\"></div></div></div>" +
             "<style>" +
                 ".patternScreen{direction:rtl;width:min(900px,100%);margin:0 auto;padding:24px 14px 40px;}" +
                 ".patternCard{width:min(820px,100%);margin:0 auto;padding:24px 18px 28px;background:var(--ui-surface,#fff);border:1px solid var(--ui-border,#dbe4ef);border-radius:24px;box-shadow:var(--ui-shadow-card,0 7px 20px rgba(31,41,55,.06));text-align:center;}" +
                 ".patternHeader h1{margin:8px 0 6px;font-size:clamp(25px,4vw,34px);color:var(--ui-text,#172033);}" +
                 ".patternBadge{display:inline-block;padding:6px 14px;border-radius:999px;background:var(--ui-surface-soft,#f8fbff);border:1px solid var(--ui-border-soft,#e4e9f0);font-size:14px;color:var(--ui-muted,#667085);}" +
                 ".patternHeader .puzzleInstruction{max-width:650px;margin:8px auto 22px;line-height:1.9;color:var(--ui-muted,#667085);}" +
-                ".patternBoard{direction:ltr;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;margin:10px auto 22px;padding:18px 12px;border-radius:20px;background:var(--ui-surface-soft,#f8fbff);border:1px solid var(--ui-border-soft,#e4e9f0);direction:rtl;}" +
+                ".patternBoard{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;margin:10px auto 22px;padding:18px 12px;border-radius:20px;background:var(--ui-surface-soft,#f8fbff);border:1px solid var(--ui-border-soft,#e4e9f0);}" +
+                ".patternRelationBoard{display:block;max-width:100%;overflow-x:auto;padding:10px 6px;}" +
+                ".patternRelationTable{direction:ltr;border-collapse:collapse;margin:0 auto;table-layout:fixed;width:auto;}" +
+                ".patternRelationTable th,.patternRelationTable td{min-width:44px;padding:8px 9px;border:1px solid var(--ui-border,#dbe4ef);font-family:\"Tahouri Yekan\",\"B Yekan\",Tahoma,sans-serif;font-size:clamp(20px,4vw,28px);line-height:1.35;text-align:center;white-space:nowrap;}" +
+                ".patternRelationTable th{min-width:38px;background:#fff;font-weight:700;color:var(--ui-text,#172033);}" +
+                ".patternRelationTable td{background:#fff;font-weight:600;color:var(--ui-text,#172033);}" +
                 ".patternStep{display:flex;align-items:center;gap:8px;direction:ltr;}" +
                 ".patternItem{direction:ltr;unicode-bidi:isolate;min-width:64px;height:64px;padding:0 12px;display:flex;align-items:center;justify-content:center;border:2px solid var(--ui-border,#dbe4ef);border-radius:16px;background:#fff;font-family:\"Tahouri Yekan\",\"B Yekan\",Tahoma,sans-serif;font-size:clamp(25px,5vw,34px);font-weight:700;color:var(--ui-text,#172033);box-shadow:0 3px 8px rgba(31,41,55,.06);}" +
                 ".patternMissing{border-style:dashed;font-size:34px;color:var(--ui-muted,#667085);background:var(--ui-surface-soft,#f8fbff);}" +
                 ".patternArrow{direction:ltr;unicode-bidi:isolate;font-size:25px;color:var(--ui-muted,#667085);line-height:1;}" +
-                ".patternRelationHint{max-width:620px;margin:0 auto 10px;padding:10px 14px;border:1px solid #bfdbfe;border-radius:12px;background:#eff6ff;color:#1e40af;font-size:16px;line-height:1.8;font-weight:600;}" +
+                ".patternRelationHint{max-width:620px;margin:0 auto 10px;padding:8px 12px;border:1px solid var(--ui-border-soft,#e4e9f0);border-radius:10px;background:var(--ui-surface-soft,#f8fbff);color:var(--ui-muted,#667085);font-size:15px;line-height:1.7;font-weight:500;}" +
                 ".patternPrompt{max-width:650px;margin:4px auto 12px;font-size:16px;line-height:1.8;color:var(--ui-text,#344054);font-weight:600;}" +
                 ".patternOptions{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin:0 auto 20px;}" +
                 ".patternOption{min-width:76px;min-height:58px;height:auto;padding:10px 14px;border:2px solid var(--ui-border,#dbe4ef);border-radius:15px;background:#fff;font-family:\"Tahouri Yekan\",\"B Yekan\",Tahoma,sans-serif;font-size:" + (relationMode ? "clamp(16px,3vw,21px)" : "24px") + ";font-weight:700;color:var(--ui-text,#172033);cursor:pointer;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease;}" +
                 ".patternOption:hover{transform:translateY(-2px);box-shadow:0 5px 12px rgba(31,41,55,.09);}" +
                 ".patternOption.selected{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.14);}" +
-                ".patternControls{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;}" +
-                ".patternControls button{min-width:130px;}" +
-                "@media(max-width:600px){.patternCard{padding:18px 10px 24px;border-radius:20px}.patternBoard{gap:5px;padding:14px 6px}.patternStep{gap:5px}.patternItem{min-width:52px;height:54px;padding:0 8px}.patternArrow{font-size:19px}.patternOption{min-width:64px;height:52px;padding:0 14px}}" +
+                ".patternControls{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;}.patternControls button{min-width:130px;}" +
+                "@media(max-width:600px){.patternCard{padding:18px 10px 24px;border-radius:20px}.patternBoard{gap:5px;padding:12px 4px}.patternRelationBoard{padding:8px 2px}.patternRelationTable th,.patternRelationTable td{min-width:38px;padding:7px 5px;font-size:20px}.patternStep{gap:5px}.patternItem{min-width:52px;height:54px;padding:0 8px}.patternArrow{font-size:19px}.patternOption{min-width:64px;height:52px;padding:0 14px}}"+
             "</style>";
-
         app.querySelectorAll(".patternOption").forEach(function (button) {
             button.onclick = function () {
                 PuzzleEngine.setTypeAnswer(this.dataset.patternValue);
-                app.querySelectorAll(".patternOption").forEach(function (item) {
-                    item.classList.remove("selected");
-                });
+                app.querySelectorAll(".patternOption").forEach(function (item) { item.classList.remove("selected"); });
                 this.classList.add("selected");
             };
         });
-
         const check = app.querySelector("#patternCheckBtn");
-        if (check) {
-            check.onclick = function () {
-                PuzzleScreen.checkPuzzle();
-            };
-        }
-
+        if (check) check.onclick = function () { PuzzleScreen.checkPuzzle(); };
         this.bindResetButton();
     },
+
 
     // =====================================
     // GRID
