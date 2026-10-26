@@ -142,6 +142,19 @@
     "path": "content/grades/grade6/math/chapter1/pattern"
   },
   {
+    "id": "mathPatternRelation",
+    "title": "🕵️ کارآگاه رابطه‌ها",
+    "grade": "grade6",
+    "subject": "math",
+    "chapter": "chapter1",
+    "type": "puzzle",
+    "engine": "puzzle",
+    "locked": false,
+    "requires": null,
+    "path": "content/grades/grade6/math/chapter1/patternRelation",
+    "group": "numberPatterns"
+  },
+  {
     "id": "animalClassification",
     "title": "دسته‌بندی جانوران",
     "grade": "grade6",
