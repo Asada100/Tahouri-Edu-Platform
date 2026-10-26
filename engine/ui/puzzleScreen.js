@@ -92,6 +92,7 @@ const PuzzleScreen = {
         EventManager.on("puzzleWrong", function () {
             if (typeof PuzzleEngine !== "undefined" && PuzzleEngine.activity && PuzzleEngine.activity.id === "mathPatternRelation") {
                 PuzzleScreen.relationStreak = 0;
+                PuzzleScreen.relationLastQuestionWasWrong = true;
             }
         });
 
@@ -183,9 +184,15 @@ const PuzzleScreen = {
                 this.relationActivityId = id;
                 this.relationStreak = 0;
                 this.relationLastQuestionIndex = -1;
+                this.relationLastQuestionWasWrong = false;
             }
             if (Number.isInteger(index) && index > this.relationLastQuestionIndex) {
-                if (this.relationLastQuestionIndex >= 0) this.relationStreak++;
+                // A new question appears only after a correct answer; do not count
+                // the transition if the previous question had any wrong attempt.
+                if (this.relationLastQuestionIndex >= 0 && !this.relationLastQuestionWasWrong) {
+                    this.relationStreak = (this.relationStreak || 0) + 1;
+                }
+                this.relationLastQuestionWasWrong = false;
                 this.relationLastQuestionIndex = index;
             }
         }
