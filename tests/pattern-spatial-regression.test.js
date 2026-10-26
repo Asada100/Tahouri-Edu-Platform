@@ -19,7 +19,8 @@ context.window = context;
 
 for (const path of [
   'engine/activity/puzzleTypes/patternPuzzle.js',
-  'engine/activity/puzzleTypes/spatialPuzzle.js'
+  'engine/activity/puzzleTypes/spatialPuzzle.js',
+  'engine/question/puzzleProvider.js'
 ]) {
   vm.runInNewContext(fs.readFileSync(path, 'utf8'), context, { filename: path });
 }
@@ -69,6 +70,30 @@ assert.ok(registered.spatial, 'Spatial handler registers');
   const patternEngine = makeEngine();
   assert.ok(registered.pattern.start(patternEngine, patternQuestion),
     'numeric-pattern question initializes through the registered handler');
+
+  const generatedPatterns = context.PuzzleProvider.generatePuzzleQuestions(patternData);
+  assert.equal(generatedPatterns.length, 10, 'numeric-pattern activity generates ten questions');
+  assert.ok(generatedPatterns.every(question =>
+    question.type === 'pattern' &&
+    question.dataType === 'number' &&
+    Number.isFinite(question.answer) &&
+    question.items[question.missingIndex] === null &&
+    question.options.includes(question.answer) &&
+    question.options.length === 4
+  ), 'generated numeric patterns have a missing value and four numeric options including the answer');
+  assert.equal(
+    new Set(generatedPatterns.map(question => question.items.join(',') + '|' + question.answer)).size,
+    generatedPatterns.length,
+    'numeric patterns do not repeat within one round'
+  );
+  const numericInputEngine = makeEngine();
+  registered.pattern.start(numericInputEngine, {
+    items: [4, 8, 12, null], missingIndex: 3, answer: 16, dataType: 'number'
+  });
+  assert.equal(registered.pattern.setAnswer(numericInputEngine, '16'), true,
+    'numeric answer selected from an HTML option is converted to a number');
+  assert.equal(registered.pattern.check(numericInputEngine), true,
+    'numeric option selection validates against a numeric answer');
 
   const registeredActivity = registry.find(item => item.id === 'mathCoordinatePlane');
   assert.ok(registeredActivity, 'Grade 6 coordinate-plane activity is registered');
