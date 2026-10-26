@@ -95,6 +95,34 @@ assert.ok(registered.spatial, 'Spatial handler registers');
   assert.equal(registered.pattern.check(numericInputEngine), true,
     'numeric option selection validates against a numeric answer');
 
+  const relationEntry = registry.find(item => item.id === 'mathPatternRelation');
+  assert.ok(relationEntry, 'Grade 6 relation-discovery activity is registered');
+  const relationData = JSON.parse(fs.readFileSync(relationEntry.path + '/activity.json', 'utf8'));
+  assert.equal(relationData.puzzle.mode, 'relation');
+  const relationQuestions = context.PuzzleProvider.generatePuzzleQuestions(relationData);
+  assert.equal(relationQuestions.length, 10, 'relation-discovery activity generates ten questions');
+  assert.ok(relationQuestions.every(question =>
+    question.mode === 'relation' &&
+    question.dataType === 'text' &&
+    question.items.length === 3 &&
+    question.missingIndex === -1 &&
+    question.items.every(example => example.includes('□=') && example.includes('○=')) &&
+    question.options.length === 4 &&
+    question.options.includes(question.answer)
+  ), 'relation questions show three input-output examples and four rule choices');
+  assert.equal(
+    new Set(relationQuestions.map(question => question.answer + '|' + question.items.join('|'))).size,
+    relationQuestions.length,
+    'relation questions do not repeat within one round'
+  );
+  const relationEngine = makeEngine();
+  assert.ok(registered.pattern.start(relationEngine, relationQuestions[0]),
+    'relation-discovery question initializes without a missing sequence value');
+  assert.equal(registered.pattern.setAnswer(relationEngine, relationQuestions[0].answer), true,
+    'relation rule can be selected as a text answer');
+  assert.equal(registered.pattern.check(relationEngine), true,
+    'selected relation rule is validated correctly');
+
   const registeredActivity = registry.find(item => item.id === 'mathCoordinatePlane');
   assert.ok(registeredActivity, 'Grade 6 coordinate-plane activity is registered');
   assert.equal(registeredActivity.path, 'content/grades/grade6/math/chapter1/coordinatePlane');
