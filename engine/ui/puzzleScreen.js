@@ -2001,8 +2001,11 @@ const PuzzleScreen = {
                         itemsHTML +
                     "</div>" +
 
+                    (relationMode
+                        ? "<div class=\"patternRelationHint\">عددِ داخل مربع به عددِ داخل دایره تبدیل می‌شود. نمونه‌ها را با هم مقایسه کن.</div>"
+                        : "") +
                     "<div class=\"patternPrompt\">" +
-                        "<span>" + (relationMode ? "کدام قاعده با همهٔ نمونه‌ها سازگار است؟" : "عدد مناسب برای جای خالی را انتخاب کن") + "</span>" +
+                        "<span>" + (relationMode ? "کدام جمله توضیح می‌دهد عددِ مربع چگونه به عددِ دایره تبدیل می‌شود؟" : "عدد مناسب برای جای خالی را انتخاب کن") + "</span>" +
                     "</div>" +
 
                     "<div class=\"patternOptions\">" +
@@ -2029,7 +2032,8 @@ const PuzzleScreen = {
                 ".patternItem{direction:ltr;unicode-bidi:isolate;min-width:64px;height:64px;padding:0 12px;display:flex;align-items:center;justify-content:center;border:2px solid var(--ui-border,#dbe4ef);border-radius:16px;background:#fff;font-family:\"Tahouri Yekan\",\"B Yekan\",Tahoma,sans-serif;font-size:clamp(25px,5vw,34px);font-weight:700;color:var(--ui-text,#172033);box-shadow:0 3px 8px rgba(31,41,55,.06);}" +
                 ".patternMissing{border-style:dashed;font-size:34px;color:var(--ui-muted,#667085);background:var(--ui-surface-soft,#f8fbff);}" +
                 ".patternArrow{direction:ltr;unicode-bidi:isolate;font-size:25px;color:var(--ui-muted,#667085);line-height:1;}" +
-                ".patternPrompt{margin:4px auto 12px;font-size:16px;color:var(--ui-muted,#667085);}" +
+                ".patternRelationHint{max-width:620px;margin:0 auto 10px;padding:10px 14px;border:1px solid #bfdbfe;border-radius:12px;background:#eff6ff;color:#1e40af;font-size:16px;line-height:1.8;font-weight:600;}" +
+                ".patternPrompt{max-width:650px;margin:4px auto 12px;font-size:16px;line-height:1.8;color:var(--ui-text,#344054);font-weight:600;}" +
                 ".patternOptions{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin:0 auto 20px;}" +
                 ".patternOption{min-width:76px;min-height:58px;height:auto;padding:10px 14px;border:2px solid var(--ui-border,#dbe4ef);border-radius:15px;background:#fff;font-family:\"Tahouri Yekan\",\"B Yekan\",Tahoma,sans-serif;font-size:" + (relationMode ? "clamp(16px,3vw,21px)" : "24px") + ";font-weight:700;color:var(--ui-text,#172033);cursor:pointer;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease;}" +
                 ".patternOption:hover{transform:translateY(-2px);box-shadow:0 5px 12px rgba(31,41,55,.09);}" +
