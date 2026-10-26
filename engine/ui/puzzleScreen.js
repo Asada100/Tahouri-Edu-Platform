@@ -96,6 +96,16 @@ const PuzzleScreen = {
             }
         });
 
+        // The final correct answer finishes the activity without loading another
+        // question, so count it here instead of relying only on question transitions.
+        EventManager.on("puzzleFinished", function (result) {
+            if (!result || result.activityId !== "mathPatternRelation") return;
+            if (PuzzleScreen.relationLastQuestionIndex >= 0 &&
+                !PuzzleScreen.relationLastQuestionWasWrong) {
+                PuzzleScreen.relationStreak = (PuzzleScreen.relationStreak || 0) + 1;
+            }
+        });
+
         this.activityReadyConnected =
             true;
 
