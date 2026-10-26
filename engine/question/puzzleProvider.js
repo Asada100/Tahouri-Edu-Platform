@@ -2553,16 +2553,20 @@ const PuzzleProvider = {
         const puzzle = activityData.puzzle || {};
         if (puzzle.mode === "relation") {
             const countRequested = Math.max(1, Number(count) || 10);
+            // Keep every displayed rule within Grade 6's taught operations:
+            // explicit parentheses whenever multiplication is combined with addition/subtraction.
+            // Circle values are positive (1..5), so subtracting 1 from the product never yields negatives.
             const relationRules = [
-                { key: "double", formula: "□ = ○ × ۲", calculate: function (n) { return n * 2; } },
-                { key: "odd", formula: "□ = (○ × ۲) − ۱", calculate: function (n) { return n * 2 - 1; } },
-                { key: "triple", formula: "□ = ○ × ۳", calculate: function (n) { return n * 3; } },
-                { key: "five", formula: "□ = ○ × ۵", calculate: function (n) { return n * 5; } },
-                { key: "ten", formula: "□ = ○ × ۱۰", calculate: function (n) { return n * 10; } }
+                { key: "double", formula: "□ = (○ × ۲)", calculate: function (n) { return n * 2; } },
+                { key: "doublePlusOne", formula: "□ = (○ × ۲) + ۱", calculate: function (n) { return n * 2 + 1; } },
+                { key: "doubleMinusOne", formula: "□ = (○ × ۲) − ۱", calculate: function (n) { return n * 2 - 1; } },
+                { key: "triple", formula: "□ = (○ × ۳)", calculate: function (n) { return n * 3; } },
+                { key: "five", formula: "□ = (○ × ۵)", calculate: function (n) { return n * 5; } },
+                { key: "ten", formula: "□ = (○ × ۱۰)", calculate: function (n) { return n * 10; } }
             ];
             const distractors = [
-                "□ = ○ + ۲", "□ = ○ × ۲ + ۱", "□ = (○ × ۲) − ۱",
-                "□ = ○ × ۳", "□ = ○ × ۴", "□ = ○ × ۵", "□ = ○ × ۱۰", "□ = ○ − ۲"
+                "□ = ○ + ۲", "□ = (○ × ۲) + ۱", "□ = (○ × ۲) − ۱",
+                "□ = (○ × ۳)", "□ = (○ × ۴)", "□ = (○ × ۵)", "□ = (○ × ۱۰)"
             ];
             const result = [];
             const used = new Set();
