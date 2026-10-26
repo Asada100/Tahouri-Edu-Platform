@@ -2053,7 +2053,7 @@ const PuzzleScreen = {
                 "<div class=\"patternHeader\"><div class=\"patternBadge\">" + (relationMode ? "🗂️ پروندهٔ کارآگاهی" : "پازل الگو") + "</div>" +
                 "<h1>" + (relationMode ? "کارآگاه رابطه‌ها" : "الگو را کشف کن") + "</h1>" +
                 "<p class=\"puzzleInstruction\">" + PuzzleScreen.escapeHTML(state.instruction) + "</p></div>" +
-                relationMission + relationHud +
+                relationMission +
                 "<div class=\"patternBoard" + (relationMode ? " patternRelationBoard" : "") + "\" aria-label=\"" +
                     (relationMode ? "نمونه‌های رابطه" : "الگوی عددی") + "\">" + itemsHTML + "</div>" +
                 (relationMode ? "<div class=\"patternRelationHint\"><span>🔍 سرنخ:</span> هر ستون را از بالا به پایین بخوان؛ چه عملی روی عدد دایره انجام شده تا به مربع برسیم؟</div>" : "") +
