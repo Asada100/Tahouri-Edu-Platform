@@ -2551,22 +2551,106 @@ const PuzzleProvider = {
 
     generatePatternQuestions: function (activityData, count) {
         const puzzle = activityData.puzzle || {};
-        const symbols = Array.isArray(puzzle.symbols) && puzzle.symbols.length >= 2 ? [...puzzle.symbols] : ["●", "▲"];
-        const length = Math.max(3, Number(puzzle.length) || 5);
+        const numericMode = puzzle.mode === "numeric" || puzzle.dataType === "number";
+
+        // Keep the existing symbol-pattern generator unchanged for non-numeric activities.
+        if (!numericMode) {
+            const symbols = Array.isArray(puzzle.symbols) && puzzle.symbols.length >= 2 ? [...puzzle.symbols] : ["●", "▲"];
+            const length = Math.max(3, Number(puzzle.length) || 5);
+            const result = [];
+            for (let i = 0; i < count; i++) {
+                const start = this.randomInteger(0, symbols.length - 1);
+                const items = [];
+                for (let j = 0; j < length; j++) items.push(symbols[(start + j) % symbols.length]);
+                const answer = items[items.length - 1];
+                items[items.length - 1] = null;
+                result.push(this.normalizePuzzle({
+                    type: "pattern", source: "generated", dataType: "text",
+                    instruction: puzzle.instruction || "الگو را پیدا کن و جای خالی را کامل کن.",
+                    items: items, missingIndex: items.length - 1, answer: answer,
+                    options: this.shuffle(symbols).slice(0, Math.min(4, symbols.length))
+                }));
+            }
+            return result;
+        }
+
+        // Grade 6 number patterns: multiples, even/odd numbers, fixed steps,
+        // and simple multiplication patterns. No algebraic letter notation is used.
+        const length = Math.max(4, Math.min(6, Number(puzzle.length) || 5));
         const result = [];
-        for (let i = 0; i < count; i++) {
-            const start = this.randomInteger(0, symbols.length - 1);
-            const items = [];
-            for (let j = 0; j < length; j++) items.push(symbols[(start + j) % symbols.length]);
-            const answer = items[items.length - 1];
+        const used = new Set();
+        const maxAttempts = Math.max(80, count * 30);
+        let attempts = 0;
+
+        while (result.length < count && attempts < maxAttempts) {
+            attempts++;
+            const kinds = ["multiples", "even", "odd", "additive", "multiply", "subtract"];
+            const kind = kinds[this.randomInteger(0, kinds.length - 1)];
+            const values = [];
+            let ruleStep = 0;
+            let start = 0;
+            let factor = 0;
+
+            if (kind === "multiples") {
+                factor = this.randomInteger(2, 9);
+                start = this.randomInteger(1, 4);
+                for (let j = 0; j < length; j++) values.push(factor * (start + j));
+                ruleStep = factor;
+            } else if (kind === "even") {
+                start = this.randomInteger(1, 5);
+                for (let j = 0; j < length; j++) values.push(2 * (start + j));
+                ruleStep = 2;
+            } else if (kind === "odd") {
+                start = this.randomInteger(1, 5);
+                for (let j = 0; j < length; j++) values.push(2 * (start + j) - 1);
+                ruleStep = 2;
+            } else if (kind === "additive") {
+                start = this.randomInteger(3, 24);
+                ruleStep = this.randomInteger(3, 9);
+                for (let j = 0; j < length; j++) values.push(start + ruleStep * j);
+            } else if (kind === "multiply") {
+                start = this.randomInteger(1, 4);
+                factor = this.randomInteger(2, 3);
+                for (let j = 0; j < length; j++) values.push(start * Math.pow(factor, j));
+            } else {
+                start = this.randomInteger(45, 100);
+                ruleStep = this.randomInteger(3, 9);
+                start = Math.max(start, ruleStep * (length - 1) + 1);
+                for (let j = 0; j < length; j++) values.push(start - ruleStep * j);
+            }
+
+            if (values.some(function (value) { return !Number.isSafeInteger(value) || value <= 0 || value > 1000; })) continue;
+            const answer = values[values.length - 1];
+            const visible = values.slice(0, -1);
+            const key = kind + ":" + visible.join(",") + "?" + answer;
+            if (used.has(key)) continue;
+            used.add(key);
+
+            const distractors = [];
+            [answer - 1, answer + 1, answer - 2, answer + 2,
+                answer - Math.max(2, ruleStep || factor), answer + Math.max(2, ruleStep || factor),
+                answer + 3, answer + 5].forEach(function (value) {
+                if (Number.isSafeInteger(value) && value > 0 && value !== answer && !distractors.includes(value)) {
+                    distractors.push(value);
+                }
+            });
+
+            const options = this.shuffle([answer, ...this.shuffle(distractors).slice(0, 3)]);
+            const items = [...values];
             items[items.length - 1] = null;
             result.push(this.normalizePuzzle({
-                type: "pattern", source: "generated", dataType: puzzle.dataType || "text",
-                instruction: puzzle.instruction || "الگو را پیدا کن و جای خالی را کامل کن.",
-                items: items, missingIndex: items.length - 1, answer: answer,
-                options: this.shuffle(symbols).slice(0, Math.min(4, symbols.length))
+                type: "pattern",
+                source: "generated",
+                dataType: "number",
+                instruction: puzzle.instruction || "به رابطهٔ بین عددها توجه کن و عدد گمشده را پیدا کن.",
+                items: items,
+                missingIndex: items.length - 1,
+                answer: answer,
+                options: options
             }));
         }
+
+        console.log("PuzzleProvider: Generated unique numeric-pattern questions:", result.length);
         return result;
     },
 
