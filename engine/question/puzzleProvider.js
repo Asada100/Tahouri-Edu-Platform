@@ -2554,56 +2554,40 @@ const PuzzleProvider = {
         if (puzzle.mode === "relation") {
             const countRequested = Math.max(1, Number(count) || 10);
             const relationRules = [
-                { key: "double", formula: "○ = □ × ۲", calculate: function (n) { return n * 2; } },
-                { key: "odd", formula: "○ = (□ × ۲) − ۱", calculate: function (n) { return n * 2 - 1; } },
-                { key: "triple", formula: "○ = □ × ۳", calculate: function (n) { return n * 3; } },
-                { key: "five", formula: "○ = □ × ۵", calculate: function (n) { return n * 5; } },
-                { key: "ten", formula: "○ = □ × ۱۰", calculate: function (n) { return n * 10; } }
+                { key: "double", formula: "□ = ○ × ۲", calculate: function (n) { return n * 2; } },
+                { key: "odd", formula: "□ = (○ × ۲) − ۱", calculate: function (n) { return n * 2 - 1; } },
+                { key: "triple", formula: "□ = ○ × ۳", calculate: function (n) { return n * 3; } },
+                { key: "five", formula: "□ = ○ × ۵", calculate: function (n) { return n * 5; } },
+                { key: "ten", formula: "□ = ○ × ۱۰", calculate: function (n) { return n * 10; } }
             ];
             const distractors = [
-                "○ = □ + ۲",
-                "○ = □ × ۲ + ۱",
-                "○ = (□ × ۲) − ۱",
-                "○ = □ × ۳",
-                "○ = □ × ۴",
-                "○ = □ × ۵",
-                "○ = □ × ۱۰",
-                "○ = □ − ۲"
+                "□ = ○ + ۲", "□ = ○ × ۲ + ۱", "□ = (○ × ۲) − ۱",
+                "□ = ○ × ۳", "□ = ○ × ۴", "□ = ○ × ۵", "□ = ○ × ۱۰", "□ = ○ − ۲"
             ];
             const result = [];
             const used = new Set();
             let attempts = 0;
-
             while (result.length < countRequested && attempts < countRequested * 30) {
                 attempts++;
                 const rule = relationRules[this.randomInteger(0, relationRules.length - 1)];
                 const start = this.randomInteger(1, 5);
-                const examples = [start, start + 1, start + 2].map(function (squareValue) {
-                    return "□=" + squareValue + "  →  ○=" + rule.calculate(squareValue);
+                const examples = [start, start + 1, start + 2, start + 3].map(function (circleValue) {
+                    return "○=" + circleValue + "  □=" + rule.calculate(circleValue);
                 });
                 const key = rule.key + ":" + examples.join("|");
                 if (used.has(key)) continue;
                 used.add(key);
-
                 const choices = [rule.formula];
                 this.shuffle(distractors).some(function (formula) {
                     if (formula !== rule.formula && !choices.includes(formula)) choices.push(formula);
                     return choices.length === 4;
                 });
-
                 result.push(this.normalizePuzzle({
-                    type: "pattern",
-                    source: "generated",
-                    mode: "relation",
-                    dataType: "text",
-                    instruction: "در هر نمونه، □ عدد ورودی و ○ عدد خروجی است. کدام رابطه همهٔ نمونه‌ها را درست توضیح می‌دهد؟",
-                    items: examples,
-                    missingIndex: -1,
-                    answer: rule.formula,
-                    options: this.shuffle(choices)
+                    type: "pattern", source: "generated", mode: "relation", dataType: "text",
+                    instruction: "در هر ستون، عدد دایره و مربع با هم ارتباط دارند. قاعده را پیدا کن.",
+                    items: examples, missingIndex: -1, answer: rule.formula, options: this.shuffle(choices)
                 }));
             }
-
             console.log("PuzzleProvider: Generated relation-discovery questions:", result.length);
             return result;
         }
