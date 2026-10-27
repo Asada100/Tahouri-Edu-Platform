@@ -29,6 +29,7 @@
 
 const PuzzleScreen = {
 
+    resetInProgress: false,
     currentOrder: [],
 
     activityReadyConnected: false,
@@ -2086,6 +2087,7 @@ const PuzzleScreen = {
                 ".patternOption.selected{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.14);}" +
                 ".patternControls{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;}.patternControls button{min-width:130px;}" +
                 ".relationGameCard{position:relative;overflow:visible;background:radial-gradient(ellipse at top right,#eff6ff 0,transparent 38%),linear-gradient(145deg,#fff 0%,#f8fbff 100%);border:1px solid #cbdcf5;box-shadow:0 16px 42px rgba(35,70,130,.12);}" +
+                ".patternScreen:has(.relationGameCard){height:auto;min-height:0;overflow:visible;overflow-x:clip;padding-bottom:calc(var(--ui-shell-bottom-space,0px) + 32px);}.relationGameCard{height:auto;max-height:none;overflow:visible;}.relationGameCard .patternControls{position:static;float:none;clear:both;margin:14px auto 0;}.relationGameCard #puzzleMessage{position:static;float:none;clear:both;max-height:none;overflow:visible;}" +
                 ".relationGameCard:before{content:'';position:absolute;inset:0 0 auto;height:6px;background:linear-gradient(90deg,#0f766e,#2563eb,#7c3aed);}" +
                 ".relationGameCard .patternBadge{background:#eaf2ff;border-color:#c8dcff;color:#1d4ed8;font-weight:800;}" +
                 ".relationMission{display:flex;align-items:center;gap:12px;text-align:right;margin:0 auto 12px;padding:13px 15px;max-width:650px;border:1px solid #c7d9f7;border-radius:18px;background:linear-gradient(110deg,#eff6ff,#f5f3ff);}" +
@@ -3761,38 +3763,36 @@ const PuzzleScreen = {
 
     resetPuzzle: function () {
 
-        const activity =
-            ActivityManager.currentActivity;
+        // A fresh round is asynchronous: ignore repeated taps until it settles.
+        if (this.resetInProgress) return;
 
+        const activity = ActivityManager.currentActivity;
+        if (!activity) return;
 
-        if (!activity) {
-
-            return;
-
+        this.resetInProgress = true;
+        const resetBtn = document.getElementById("puzzleResetBtn");
+        if (resetBtn) {
+            resetBtn.disabled = true;
+            resetBtn.setAttribute("aria-busy", "true");
         }
 
-
-        Promise
-            .resolve(
-                PuzzleEngine.start(
-                    activity
-                )
-            )
-            .then(
-                function (
-                    state
-                ) {
-
-                    if (state) {
-
-                        PuzzleScreen.show(
-                            state
-                        );
-
-                    }
-
+        Promise.resolve(PuzzleEngine.start(activity))
+            .then(function (state) {
+                if (state && ActivityManager.currentActivity === activity) {
+                    PuzzleScreen.show(state);
                 }
-            );
+            })
+            .catch(function (error) {
+                console.error("PuzzleScreen: Could not start a fresh round:", error);
+            })
+            .finally(function () {
+                PuzzleScreen.resetInProgress = false;
+                const currentButton = document.getElementById("puzzleResetBtn");
+                if (currentButton) {
+                    currentButton.disabled = false;
+                    currentButton.removeAttribute("aria-busy");
+                }
+            });
 
     },
 
