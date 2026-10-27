@@ -2119,7 +2119,9 @@ const PuzzleScreen = {
                 ".shapeMission{display:flex;align-items:center;gap:10px;text-align:right;max-width:620px;margin:0 auto 12px;padding:11px 14px;border:1px solid #fed7aa;border-radius:16px;background:linear-gradient(100deg,#fff7ed,#f5f3ff);color:#7c2d12;}" +
                 ".shapeMission>span{font-size:28px;}.shapeMission div{display:flex;flex-direction:column;gap:3px;}.shapeMission strong{font-size:15px;}.shapeMission small{font-size:13px;color:#6b7280;}" +
                 ".shapePatternBoard{gap:7px;padding:14px 8px;}" +
-                ".shapePatternItem{width:82px;min-width:82px;height:74px;min-height:74px;padding:6px;display:flex;align-items:center;justify-content:center;align-content:center;flex-wrap:wrap;gap:3px;border-radius:15px;}" +
+                ".shapePatternItem,.shapePatternOption{box-sizing:border-box;display:flex;align-items:center;justify-content:center;align-content:center;flex-wrap:wrap;gap:3px;max-width:100%;overflow:hidden;}" +
+                ".shapePatternItem{width:82px;min-width:82px;height:74px;min-height:74px;padding:6px;border-radius:15px;}" +
+                ".shapePatternOption{min-width:70px;min-height:58px;padding:8px;}" +
                 ".shapeGlyph{display:inline-block;flex:0 0 18px;width:18px;height:18px;position:relative;}" +
                 ".shapeCircle,.shapeSquare,.shapeDiamond{background:var(--shape-color);}" +
                 ".shapeCircle{border-radius:50%;}.shapeSquare{border-radius:4px;}.shapeDiamond{border-radius:3px;transform:rotate(45deg) scale(.82);}" +

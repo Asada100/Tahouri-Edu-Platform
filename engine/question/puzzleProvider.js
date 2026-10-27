@@ -2603,17 +2603,15 @@ const PuzzleProvider = {
                 "diamond-green", "circle-orange", "square-purple"
             ];
             const rotationTokens = ["triangle-up", "triangle-right", "triangle-down", "triangle-left"];
+            const kinds = ["cycle", "alternate", "growth", "build", "rotation"];
             const result = [];
             const used = new Set();
-            let attempts = 0;
 
             const repeated = function (token, amount) {
                 return Array.from({ length: amount }, function () { return token; }).join("|");
             };
 
-            while (result.length < countRequested && attempts < countRequested * 40) {
-                attempts++;
-                const kind = ["cycle", "alternate", "growth", "build", "rotation"][this.randomInteger(0, 4)];
+            const makeQuestion = (kind) => {
                 const shuffled = this.shuffle([...shapeTokens]);
                 let items = [];
                 let answer = "";
@@ -2631,10 +2629,11 @@ const PuzzleProvider = {
                     distractors = [b, shuffled[2], shuffled[3]];
                 } else if (kind === "growth") {
                     const token = shuffled[0];
-                    items = [repeated(token, 1), repeated(token, 2), repeated(token, 3), repeated(token, 4), null];
+                    items = [1, 2, 3, 4, null].map(function (amount) {
+                        return amount === null ? null : repeated(token, amount);
+                    });
                     answer = repeated(token, 5);
-                    distractors = [repeated(token, 3), repeated(token, 4), repeated(token, 6)];
-                    distractors.push(repeated(shuffled[1], 5));
+                    distractors = [repeated(token, 3), repeated(token, 4), repeated(token, 6), repeated(shuffled[1], 5)];
                 } else if (kind === "build") {
                     const sequence = shuffled.slice(0, 5);
                     items = [
@@ -2651,34 +2650,71 @@ const PuzzleProvider = {
                         [sequence[0], sequence[1], sequence[3], sequence[2], sequence[4]].join("|")
                     ];
                 } else {
-                    const start = this.randomInteger(0, rotationTokens.length - 1);
-                    items = [0, 1, 2, 3].map(function (offset) {
-                        return rotationTokens[(start + offset) % rotationTokens.length];
+                    const offset = this.randomInteger(0, rotationTokens.length - 1);
+                    items = [0, 1, 2, 3].map(function (step) {
+                        return rotationTokens[(offset + step) % rotationTokens.length];
                     });
                     items.push(null);
-                    answer = rotationTokens[start];
-                    distractors = rotationTokens.filter(function (token) { return token !== answer; }).slice(0, 3);
+                    answer = rotationTokens[offset];
+                    distractors = rotationTokens.filter(function (token) { return token !== answer; });
                 }
 
                 const key = kind + ":" + items.slice(0, -1).join("/") + "?" + answer;
-                if (used.has(key)) continue;
+                if (used.has(key)) return null;
                 used.add(key);
 
                 const options = [answer];
-                distractors.concat(shuffled).forEach(function (candidate) {
+                this.shuffle(distractors.concat(shuffled)).forEach(function (candidate) {
                     if (candidate !== answer && !options.includes(candidate) && options.length < 4) options.push(candidate);
                 });
-                result.push(this.normalizePuzzle({
+                while (options.length < 4) {
+                    const fallback = shuffled.find(function (token) { return !options.includes(token); });
+                    if (!fallback) break;
+                    options.push(fallback);
+                }
+                if (options.length !== 4) return null;
+
+                return this.normalizePuzzle({
                     type: "pattern",
                     source: "generated",
                     mode: "shapes",
                     dataType: "text",
-                    instruction: "به شکل‌ها و ترتیب تغییرشان دقت کن؛ گزینه‌ای را انتخاب کن که الگو را کامل می‌کند.",
+                    instruction: kind === "growth"
+                        ? "به تعداد شکل‌ها در هر مرحله دقت کن؛ مرحلهٔ بعدی چند شکل دارد؟"
+                        : kind === "build"
+                            ? "در هر مرحله یک شکل تازه به ترتیب اضافه می‌شود؛ کدام گزینه ادامهٔ درست است؟"
+                            : kind === "rotation"
+                                ? "جهت مثلث را دنبال کن؛ بعد از این چرخش‌ها کدام جهت می‌آید؟"
+                                : "به ترتیب و تکرار شکل‌ها دقت کن؛ کدام گزینه الگو را کامل می‌کند؟",
                     items: items,
                     missingIndex: items.length - 1,
                     answer: answer,
                     options: this.shuffle(options)
-                }));
+                });
+            };
+
+            // Guarantee coverage of every learning type before adding random questions.
+            const plannedKinds = this.shuffle(kinds.slice(0, Math.min(countRequested, kinds.length)));
+            while (plannedKinds.length < countRequested) {
+                plannedKinds.push(kinds[this.randomInteger(0, kinds.length - 1)]);
+            }
+            this.shuffle(plannedKinds);
+
+            for (const kind of plannedKinds) {
+                let question = makeQuestion(kind);
+                let retry = 0;
+                while (!question && retry < 12) {
+                    question = makeQuestion(kind);
+                    retry++;
+                }
+                if (question) result.push(question);
+            }
+
+            let fallbackAttempts = 0;
+            while (result.length < countRequested && fallbackAttempts < countRequested * 20) {
+                fallbackAttempts++;
+                const question = makeQuestion(kinds[this.randomInteger(0, kinds.length - 1)]);
+                if (question) result.push(question);
             }
 
             console.log("PuzzleProvider: Generated shape-pattern questions:", result.length);
