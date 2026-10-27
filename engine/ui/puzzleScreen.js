@@ -2069,7 +2069,7 @@ const PuzzleScreen = {
                 ".patternHeader .puzzleInstruction{max-width:650px;margin:8px auto 22px;line-height:1.9;color:var(--ui-muted,#667085);}" +
                 ".patternBoard{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;margin:10px auto 22px;padding:18px 12px;border-radius:20px;background:var(--ui-surface-soft,#f8fbff);border:1px solid var(--ui-border-soft,#e4e9f0);}" +
                 ".patternRelationBoard{display:block;max-width:100%;overflow-x:auto;padding:10px 6px;}" +
-                ".patternRelationTable{direction:ltr;border-collapse:collapse;margin:0 auto;table-layout:fixed;width:auto;}" +
+                ".patternRelationTable{direction:ltr;border-collapse:collapse;margin:0 auto;table-layout:fixed;width:100%;max-width:560px;}" +
                 ".patternRelationTable th,.patternRelationTable td{min-width:44px;padding:8px 9px;border:1px solid var(--ui-border,#dbe4ef);font-family:\"Tahouri Yekan\",\"B Yekan\",Tahoma,sans-serif;font-size:clamp(20px,4vw,28px);line-height:1.35;text-align:center;white-space:nowrap;}" +
                 ".patternRelationTable th{min-width:38px;background:#fff;font-weight:700;color:var(--ui-text,#172033);}" +
                 ".patternRelationTable td{background:#fff;font-weight:600;color:var(--ui-text,#172033);}" +
@@ -2102,7 +2102,7 @@ const PuzzleScreen = {
                 ".relationGameCard .patternRelationHint{background:#fffbeb;border-color:#fde68a;color:#92400e;text-align:right;}.relationGameCard .patternRelationHint span{font-weight:900;color:#b45309;}" +
                 ".relationGameCard .patternPrompt{font-size:18px;font-weight:900;color:#1e293b;}" +
                 ".relationSuspects{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:min(100%,420px);max-width:420px;margin-inline:auto;gap:10px;}" +
-                "@media(min-width:521px){.relationSuspects{width:min(100%,560px)!important;max-width:560px!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;align-items:stretch!important;}.relationSuspects .patternOption{box-sizing:border-box!important;width:100%!important;height:100%;min-width:0!important;justify-self:stretch!important;}}" +
+                "@media(min-width:521px){.relationSuspects .patternOption{width:100%;}}" +
                 ".relationSuspects .patternOption{position:relative;display:flex;align-items:center;justify-content:flex-start;gap:8px;min-width:0;min-height:48px;padding:6px 10px;text-align:right;border:1px solid #d5deec;border-radius:16px;background:linear-gradient(180deg,#fff,#f8fafc);box-shadow:0 4px 0 #e2e8f0;font-size:clamp(15px,2.7vw,20px);}" +
                 ".relationSuspects .patternOption:before{content:'مظنون';position:absolute;top:5px;left:8px;color:#94a3b8;font-size:9px;font-weight:800;}" +
                 ".patternOptionLetter{display:grid;place-items:center;flex:0 0 30px;height:30px;border-radius:10px;background:#e0e7ff;color:#3730a3;font-size:14px;font-weight:900;}" +
