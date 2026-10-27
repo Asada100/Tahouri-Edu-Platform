@@ -2036,8 +2036,7 @@ const PuzzleScreen = {
         }).join("");
 
         const relationMission = relationMode
-            ? "<div class=\"relationMission\"><div class=\"relationMissionIcon\">🕵️</div><div class=\"relationMissionCopy\"><strong>پروندهٔ عددی باز شد!</strong><span>۴ شاهد را بررسی کن و قانون پنهان را پیدا کن.</span></div><div class=\"relationMissionTag\">مأموریت</div></div>" +
-              "<div class=\"relationSteps\"><span class=\"relationStep active\"><b>۱</b> بررسی شواهد</span><span class=\"relationStep\"><b>۲</b> انتخاب مظنون</span><span class=\"relationStep\"><b>۳</b> حل پرونده</span></div>"
+            ? "<div class=\"relationMission\"><div class=\"relationMissionIcon\">🕵️</div><div class=\"relationMissionCopy\"><strong>پروندهٔ عددی باز شد!</strong><span>۴ شاهد را بررسی کن و قانون پنهان را پیدا کن.</span></div><div class=\"relationMissionTag\">مأموریت</div></div>"
             : "";
 
 
@@ -2056,7 +2055,6 @@ const PuzzleScreen = {
                 relationMission + relationHud +
                 "<div class=\"patternBoard" + (relationMode ? " patternRelationBoard" : "") + "\" aria-label=\"" +
                     (relationMode ? "نمونه‌های رابطه" : "الگوی عددی") + "\">" + itemsHTML + "</div>" +
-                (relationMode ? "<div class=\"patternRelationHint\" role=\"note\"><span>🔍 راهنمای حل:</span> در هر ستون، عدد دایره و مربع با هم ارتباط دارند. قاعده را پیدا کن.</div>" : "") +
                 "<div class=\"patternPrompt\"><span>" +
                     (relationMode ? "کدام قانون، همهٔ شاهدها را توضیح می‌دهد؟" : "عدد مناسب برای جای خالی را انتخاب کن") +
                 "</span></div><div class=\"patternOptions" + (relationMode ? " relationSuspects" : "") + "\">" + optionsHTML + "</div>" +
@@ -2103,7 +2101,7 @@ const PuzzleScreen = {
                 ".relationGameCard .patternRelationTable td:first-of-type{border-inline-start:2px solid #93c5fd;}" +
                 ".relationGameCard .patternRelationHint{background:#fffbeb;border-color:#fde68a;color:#92400e;text-align:right;}.relationGameCard .patternRelationHint span{font-weight:900;color:#b45309;}" +
                 ".relationGameCard .patternPrompt{font-size:18px;font-weight:900;color:#1e293b;}" +
-                ".relationSuspects{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:min(100%,520px);max-width:520px;gap:10px;}" +
+                ".relationSuspects{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:min(100%,420px);max-width:420px;margin-inline:auto;gap:10px;}" +
                 ".relationSuspects .patternOption{position:relative;display:flex;align-items:center;justify-content:flex-start;gap:10px;min-width:0;min-height:68px;padding:12px;text-align:right;border:1px solid #d5deec;border-radius:16px;background:linear-gradient(180deg,#fff,#f8fafc);box-shadow:0 4px 0 #e2e8f0;font-size:clamp(15px,2.7vw,20px);}" +
                 ".relationSuspects .patternOption:before{content:'مظنون';position:absolute;top:5px;left:8px;color:#94a3b8;font-size:9px;font-weight:800;}" +
                 ".patternOptionLetter{display:grid;place-items:center;flex:0 0 30px;height:30px;border-radius:10px;background:#e0e7ff;color:#3730a3;font-size:14px;font-weight:900;}" +
@@ -4846,5 +4844,5 @@ PuzzleScreen.init();
 
 
 console.log(
-    "Puzzle Screen v2.5 Ready"
+    "Puzzle Screen v2.6 Ready"
 );
