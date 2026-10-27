@@ -2101,6 +2101,18 @@ const PuzzleScreen = {
                 ".patternRelationTable th{min-width:38px;background:#fff;font-weight:700;color:var(--ui-text,#172033);}" +
                 ".patternRelationTable td{background:#fff;font-weight:600;color:var(--ui-text,#172033);}" +
 
+
+                ".patternStep{display:flex;align-items:center;gap:8px;direction:ltr;}" +
+                ".patternItem{direction:ltr;unicode-bidi:isolate;min-width:64px;height:64px;padding:0 12px;display:flex;align-items:center;justify-content:center;border:2px solid var(--ui-border,#dbe4ef);border-radius:16px;background:#fff;font-family:\"Tahouri Yekan\",\"B Yekan\",Tahoma,sans-serif;font-size:clamp(25px,5vw,34px);font-weight:700;color:var(--ui-text,#172033);box-shadow:0 3px 8px rgba(31,41,55,.06);}" +
+                ".patternMissing{border-style:dashed;font-size:34px;color:var(--ui-muted,#667085);background:var(--ui-surface-soft,#f8fbff);}" +
+                ".patternArrow{direction:ltr;unicode-bidi:isolate;font-size:25px;color:var(--ui-muted,#667085);line-height:1;}" +
+                ".patternRelationHint{max-width:620px;margin:0 auto 10px;padding:8px 12px;border:1px solid var(--ui-border-soft,#e4e9f0);border-radius:10px;background:var(--ui-surface-soft,#f8fbff);color:var(--ui-muted,#667085);font-size:15px;line-height:1.7;font-weight:500;}" +
+                ".patternPrompt{max-width:650px;margin:4px auto 12px;font-size:16px;line-height:1.8;color:var(--ui-text,#344054);font-weight:600;}" +
+                ".patternOptions{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin:0 auto 20px;}" +
+                ".patternOption{min-width:76px;min-height:58px;height:auto;padding:10px 14px;border:2px solid var(--ui-border,#dbe4ef);border-radius:15px;background:#fff;font-family:\"Tahouri Yekan\",\"B Yekan\",Tahoma,sans-serif;font-size:" + (relationMode ? "clamp(16px,3vw,21px)" : "24px") + ";font-weight:700;color:var(--ui-text,#172033);cursor:pointer;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease;}" +
+                ".patternOption:hover{transform:translateY(-2px);box-shadow:0 5px 12px rgba(31,41,55,.09);}" +
+                ".patternOption.selected{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.14);}" +
+                ".patternControls{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;}.patternControls button{min-width:130px;}" +
                 ".shapeGameCard{background:radial-gradient(ellipse at top left,#fff7ed 0,transparent 42%),linear-gradient(145deg,#fff 0%,#f8fbff 100%);border-color:#fed7aa;box-shadow:0 14px 34px rgba(124,58,237,.10);}" +
                 ".shapeGameCard:before{content:'';display:block;height:5px;margin:-24px -18px 18px;border-radius:24px 24px 0 0;background:linear-gradient(90deg,#f97316,#8b5cf6,#0ea5e9);}" +
                 ".shapeGameCard .patternBadge{background:#fff7ed;border-color:#fed7aa;color:#9a3412;font-weight:800;}" +
@@ -2117,17 +2129,6 @@ const PuzzleScreen = {
                 ".shapePatternOptions{gap:10px;}.shapePatternOption{width:88px;min-width:88px;min-height:68px;padding:8px;display:inline-flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:4px;}" +
                 ".shapePatternOption .shapeGlyph{flex-basis:18px;}" +
                 "@media(max-width:520px){.shapeGameCard{padding:20px 10px 24px;}.shapeGameCard:before{margin:-20px -10px 16px;}.shapePatternBoard{gap:5px;padding:10px 4px;}.shapePatternItem{width:66px;min-width:66px;height:66px;min-height:66px;padding:4px;}.shapeGlyph{flex-basis:15px;width:15px;height:15px;}.shapeTriangle{border-left-width:8px;border-right-width:8px;border-bottom-width:15px;}.shapePatternOption{width:70px;min-width:70px;min-height:60px;padding:6px;}}" +
-                ".patternStep{display:flex;align-items:center;gap:8px;direction:ltr;}" +
-                ".patternItem{direction:ltr;unicode-bidi:isolate;min-width:64px;height:64px;padding:0 12px;display:flex;align-items:center;justify-content:center;border:2px solid var(--ui-border,#dbe4ef);border-radius:16px;background:#fff;font-family:\"Tahouri Yekan\",\"B Yekan\",Tahoma,sans-serif;font-size:clamp(25px,5vw,34px);font-weight:700;color:var(--ui-text,#172033);box-shadow:0 3px 8px rgba(31,41,55,.06);}" +
-                ".patternMissing{border-style:dashed;font-size:34px;color:var(--ui-muted,#667085);background:var(--ui-surface-soft,#f8fbff);}" +
-                ".patternArrow{direction:ltr;unicode-bidi:isolate;font-size:25px;color:var(--ui-muted,#667085);line-height:1;}" +
-                ".patternRelationHint{max-width:620px;margin:0 auto 10px;padding:8px 12px;border:1px solid var(--ui-border-soft,#e4e9f0);border-radius:10px;background:var(--ui-surface-soft,#f8fbff);color:var(--ui-muted,#667085);font-size:15px;line-height:1.7;font-weight:500;}" +
-                ".patternPrompt{max-width:650px;margin:4px auto 12px;font-size:16px;line-height:1.8;color:var(--ui-text,#344054);font-weight:600;}" +
-                ".patternOptions{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin:0 auto 20px;}" +
-                ".patternOption{min-width:76px;min-height:58px;height:auto;padding:10px 14px;border:2px solid var(--ui-border,#dbe4ef);border-radius:15px;background:#fff;font-family:\"Tahouri Yekan\",\"B Yekan\",Tahoma,sans-serif;font-size:" + (relationMode ? "clamp(16px,3vw,21px)" : "24px") + ";font-weight:700;color:var(--ui-text,#172033);cursor:pointer;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease;}" +
-                ".patternOption:hover{transform:translateY(-2px);box-shadow:0 5px 12px rgba(31,41,55,.09);}" +
-                ".patternOption.selected{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.14);}" +
-                ".patternControls{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;}.patternControls button{min-width:130px;}" +
                 ".relationGameCard{position:relative;overflow:visible;background:radial-gradient(ellipse at top right,#eff6ff 0,transparent 38%),linear-gradient(145deg,#fff 0%,#f8fbff 100%);border:1px solid #cbdcf5;box-shadow:0 16px 42px rgba(35,70,130,.12);}" +
                  "html:has(.relationGameCard){height:auto!important;min-height:100%;overflow-x:clip!important;overflow-y:auto!important;}body:has(.relationGameCard){height:auto!important;min-height:100vh!important;overflow-x:clip!important;overflow-y:visible!important;}#app:has(.relationGameCard){height:auto!important;min-height:0!important;overflow:visible!important;}.patternScreen:has(.relationGameCard){height:auto!important;min-height:0!important;max-height:none!important;overflow-x:clip!important;overflow-y:visible!important;padding-bottom:calc(var(--ui-shell-bottom-space,0px) + 32px);}.relationGameCard{height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important;}.relationGameCard .patternControls{position:static;float:none;clear:both;margin:14px auto 0;}.relationGameCard #puzzleMessage{position:static;float:none;clear:both;max-height:none;overflow:visible;}" +
                 ".relationGameCard:before{content:'';position:absolute;inset:0 0 auto;height:6px;background:linear-gradient(90deg,#0f766e,#2563eb,#7c3aed);}" +
