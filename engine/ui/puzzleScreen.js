@@ -2042,9 +2042,9 @@ const PuzzleScreen = {
 
         const relationHud = relationMode
             ? '<div class="relationScoreboard"><div class="relationStat"><span>پرونده</span><strong>' + toPersianDigits(Number(state.currentQuestion || 0) + 1) + ' از ' + toPersianDigits(state.totalQuestions || 10) + '</strong></div>' +
-              '<div class="relationProgressTrack"><span style="width:' + Math.min(100, Math.round(((Number(state.currentQuestion || 0) + 1) / Math.max(1, Number(state.totalQuestions) || 10)) * 100)) + '%"></span></div>' +
               '<div class="relationStat"><span>⭐ امتیاز</span><strong>' + toPersianDigits(typeof ScoreManager === "undefined" ? 0 : (ScoreManager.score || 0)) + '</strong></div>' +
-              '<div class="relationStat"><span>🔥 زنجیرهٔ درست</span><strong>' + toPersianDigits(this.relationStreak || 0) + '</strong></div></div>'
+              '<div class="relationStat"><span>🔥 زنجیرهٔ درست</span><strong>' + toPersianDigits(this.relationStreak || 0) + '</strong></div>' +
+              '<div class="relationProgressTrack"><span style="width:' + Math.min(100, Math.round(((Number(state.currentQuestion || 0) + 1) / Math.max(1, Number(state.totalQuestions) || 10)) * 100)) + '%"></span></div></div>'
             : '';
 
         app.innerHTML =
@@ -2063,8 +2063,8 @@ const PuzzleScreen = {
                 "<button type=\"button\" id=\"puzzleResetBtn\">" + (relationMode ? "↻ پروندهٔ تازه" : "شروع دوباره") + "</button></div>" +
                 "<div id=\"puzzleMessage\" class=\"puzzleMessage\"></div></div></div>" +
             "<style>" +
-                ".patternScreen{direction:rtl;width:min(900px,100%);margin:0 auto;padding:24px 14px 40px;}" +
-                ".patternCard{width:min(820px,100%);margin:0 auto;padding:24px 18px 28px;background:var(--ui-surface,#fff);border:1px solid var(--ui-border,#dbe4ef);border-radius:24px;box-shadow:var(--ui-shadow-card,0 7px 20px rgba(31,41,55,.06));text-align:center;}" +
+                ".patternScreen{box-sizing:border-box;direction:rtl;width:100%;max-width:100%;min-width:0;margin:0 auto;padding:16px 8px 24px;overflow-x:hidden;}.patternScreen *{box-sizing:border-box;min-width:0;}" +
+                ".patternCard{box-sizing:border-box;width:min(820px,100%);max-width:100%;min-width:0;margin:0 auto;padding:24px 18px 28px;background:var(--ui-surface,#fff);border:1px solid var(--ui-border,#dbe4ef);border-radius:24px;box-shadow:var(--ui-shadow-card,0 7px 20px rgba(31,41,55,.06));text-align:center;}" +
                 ".patternHeader h1{margin:8px 0 6px;font-size:clamp(25px,4vw,34px);color:var(--ui-text,#172033);}" +
                 ".patternBadge{display:inline-block;padding:6px 14px;border-radius:999px;background:var(--ui-surface-soft,#f8fbff);border:1px solid var(--ui-border-soft,#e4e9f0);font-size:14px;color:var(--ui-muted,#667085);}" +
                 ".patternHeader .puzzleInstruction{max-width:650px;margin:8px auto 22px;line-height:1.9;color:var(--ui-muted,#667085);}" +
@@ -2089,9 +2089,9 @@ const PuzzleScreen = {
                 ".relationGameCard:before{content:'';position:absolute;inset:0 0 auto;height:6px;background:linear-gradient(90deg,#0f766e,#2563eb,#7c3aed);}" +
                 ".relationGameCard .patternBadge{background:#eaf2ff;border-color:#c8dcff;color:#1d4ed8;font-weight:800;}" +
                 ".relationMission{display:flex;align-items:center;gap:12px;text-align:right;margin:0 auto 12px;padding:13px 15px;max-width:650px;border:1px solid #c7d9f7;border-radius:18px;background:linear-gradient(110deg,#eff6ff,#f5f3ff);}" +
-                ".relationScoreboard{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:center;max-width:650px;margin:0 auto 12px;padding:10px 12px;border:1px solid #dbeafe;border-radius:15px;background:#fff;text-align:right;}" +
-                ".relationStat{display:flex;flex-direction:column;gap:3px;color:#64748b;font-size:11px;font-weight:700;white-space:nowrap;}.relationStat strong{color:#1e293b;font-size:15px;font-weight:900;}" +
-                ".relationProgressTrack{grid-column:1/-1;height:8px;overflow:hidden;border-radius:999px;background:#e2e8f0;}.relationProgressTrack span{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#0d9488,#2563eb,#7c3aed);transition:width .25s ease;}"+
+                ".relationScoreboard{box-sizing:border-box;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;align-items:stretch;width:100%;max-width:420px;min-width:0;margin:0 auto 10px;padding:7px;border:1px solid #dbeafe;border-radius:12px;background:#fff;text-align:center;}" +
+                ".relationStat{display:flex;min-width:0;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:#64748b;font-size:10px;line-height:1.25;font-weight:700;white-space:normal;overflow-wrap:anywhere;}.relationStat strong{color:#1e293b;font-size:13px;line-height:1.3;font-weight:900;white-space:normal;overflow-wrap:anywhere;}" +
+                ".relationProgressTrack{grid-column:1/-1;width:100%;min-width:0;height:5px;box-sizing:border-box;overflow:hidden;border-radius:999px;background:#e2e8f0;}.relationProgressTrack span{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#0d9488,#2563eb,#7c3aed);transition:width .25s ease;}"+
                 ".relationMissionIcon{display:grid;place-items:center;flex:0 0 48px;height:48px;border-radius:15px;background:#fff;box-shadow:0 4px 12px rgba(37,99,235,.12);font-size:27px;}" +
                 ".relationMissionCopy{display:flex;flex:1;min-width:0;flex-direction:column;gap:4px;}.relationMissionCopy strong{font-size:16px;color:#1e3a8a;}.relationMissionCopy span{font-size:13px;line-height:1.6;color:#475569;}" +
                 ".relationMissionTag{padding:5px 9px;border-radius:999px;background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:900;white-space:nowrap;}" +
@@ -2108,7 +2108,7 @@ const PuzzleScreen = {
                 ".relationSuspects .patternOption.selected{border:2px solid #2563eb;background:#eff6ff;box-shadow:0 4px 0 #bfdbfe;transform:translateY(-2px);}" +
                 ".relationGameCard #patternCheckBtn{background:linear-gradient(135deg,#2563eb,#4f46e5);color:#fff;border:0;border-radius:13px;box-shadow:0 4px 0 #c7d2fe;font-weight:900;}.relationGameCard #puzzleResetBtn{border:1px solid #cbd5e1;border-radius:13px;background:#fff;color:#475569;font-weight:800;}" +
                 ".relationGameCard #puzzleMessage{margin:14px auto 0;max-width:650px;border-radius:14px;line-height:1.8;}" +
-                "@media(max-width:520px){.relationMission{gap:8px;padding:10px}.relationMissionIcon{flex-basis:40px;height:40px;font-size:23px}.relationMissionCopy strong{font-size:14px}.relationMissionCopy span{font-size:12px}.relationMissionTag{display:none}.relationScoreboard{gap:6px;padding:9px}.relationStat{font-size:10px}.relationStat strong{font-size:13px}.relationStep{font-size:10px;padding:5px 7px}.relationSuspects{gap:8px}.relationSuspects .patternOption{min-height:62px;padding:9px 7px;gap:6px;font-size:14px}.patternOptionLetter{flex-basis:25px;height:25px;border-radius:8px}.relationSuspects .patternOption:before{font-size:8px;top:3px;left:5px}.relationGameCard .patternPrompt{font-size:16px;}}" +
+                "@media(max-width:520px){.patternScreen{padding:10px 5px 18px}.patternCard{padding:14px 8px 18px}.relationMission{box-sizing:border-box;width:100%;min-width:0;gap:8px;padding:9px;margin-bottom:8px}.relationMissionIcon{flex-basis:34px;height:34px;font-size:20px}.relationMissionCopy{overflow-wrap:anywhere}.relationMissionCopy strong{font-size:13px}.relationMissionCopy span{font-size:11px}.relationMissionTag{display:none}.relationScoreboard{grid-template-columns:repeat(3,minmax(0,1fr));gap:3px;padding:6px;margin-bottom:8px}.relationStat{font-size:9px;line-height:1.25}.relationStat strong{font-size:12px;line-height:1.2}.relationStep{font-size:9px;padding:4px 6px}.relationSuspects{gap:7px}.relationSuspects .patternOption{min-height:56px;padding:8px 6px;gap:5px;font-size:13px}.patternOptionLetter{flex-basis:23px;height:23px;border-radius:7px}.relationSuspects .patternOption:before{font-size:8px;top:3px;left:5px}.relationGameCard .patternPrompt{font-size:15px}}" +
                 "@media(max-width:600px){.patternCard{padding:18px 10px 24px;border-radius:20px}.patternBoard{gap:5px;padding:12px 4px}.patternRelationBoard{padding:8px 2px}.patternRelationTable th,.patternRelationTable td{min-width:38px;padding:7px 5px;font-size:20px}.patternStep{gap:5px}.patternItem{min-width:52px;height:54px;padding:0 8px}.patternArrow{font-size:19px}.patternOption{min-width:64px;height:52px;padding:0 14px}}"+
             "</style>";
         app.querySelectorAll(".patternOption").forEach(function (button) {
