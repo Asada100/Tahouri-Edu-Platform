@@ -12,7 +12,7 @@
     "source": "generated",
     "dataType": "text",
     "mode": "relation",
-    "instruction": "در هر ستون، عدد دایره و مربع با هم ارتباط دارند. قاعده را پیدا کن."
+    "instruction": "در هر ستون، عدد دایره و مربع با هم رابطه دارند. رابطه را پیدا کن."
   },
   "settings": {
     "questionSource": "generated",
