@@ -2596,6 +2596,95 @@ const PuzzleProvider = {
             return result;
         }
 
+        if (puzzle.mode === "shapes") {
+            const countRequested = Math.max(1, Number(count) || 10);
+            const shapeTokens = [
+                "circle-red", "square-blue", "triangle-purple",
+                "diamond-green", "circle-orange", "square-purple"
+            ];
+            const rotationTokens = ["triangle-up", "triangle-right", "triangle-down", "triangle-left"];
+            const result = [];
+            const used = new Set();
+            let attempts = 0;
+
+            const repeated = function (token, amount) {
+                return Array.from({ length: amount }, function () { return token; }).join("|");
+            };
+
+            while (result.length < countRequested && attempts < countRequested * 40) {
+                attempts++;
+                const kind = ["cycle", "alternate", "growth", "build", "rotation"][this.randomInteger(0, 4)];
+                const shuffled = this.shuffle([...shapeTokens]);
+                let items = [];
+                let answer = "";
+                let distractors = [];
+
+                if (kind === "cycle") {
+                    const a = shuffled[0], b = shuffled[1], c = shuffled[2];
+                    items = [a, b, c, a, null];
+                    answer = b;
+                    distractors = [a, c, shuffled[3]];
+                } else if (kind === "alternate") {
+                    const a = shuffled[0], b = shuffled[1];
+                    items = [a, b, a, b, null];
+                    answer = a;
+                    distractors = [b, shuffled[2], shuffled[3]];
+                } else if (kind === "growth") {
+                    const token = shuffled[0];
+                    items = [repeated(token, 1), repeated(token, 2), repeated(token, 3), repeated(token, 4), null];
+                    answer = repeated(token, 5);
+                    distractors = [repeated(token, 3), repeated(token, 4), repeated(token, 6)];
+                    distractors.push(repeated(shuffled[1], 5));
+                } else if (kind === "build") {
+                    const sequence = shuffled.slice(0, 5);
+                    items = [
+                        sequence.slice(0, 1).join("|"),
+                        sequence.slice(0, 2).join("|"),
+                        sequence.slice(0, 3).join("|"),
+                        sequence.slice(0, 4).join("|"),
+                        null
+                    ];
+                    answer = sequence.slice(0, 5).join("|");
+                    distractors = [
+                        sequence.slice(0, 4).join("|"),
+                        [sequence[0], sequence[1], sequence[2], sequence[4], sequence[3]].join("|"),
+                        [sequence[0], sequence[1], sequence[3], sequence[2], sequence[4]].join("|")
+                    ];
+                } else {
+                    const start = this.randomInteger(0, rotationTokens.length - 1);
+                    items = [0, 1, 2, 3].map(function (offset) {
+                        return rotationTokens[(start + offset) % rotationTokens.length];
+                    });
+                    items.push(null);
+                    answer = rotationTokens[start];
+                    distractors = rotationTokens.filter(function (token) { return token !== answer; }).slice(0, 3);
+                }
+
+                const key = kind + ":" + items.slice(0, -1).join("/") + "?" + answer;
+                if (used.has(key)) continue;
+                used.add(key);
+
+                const options = [answer];
+                distractors.concat(shuffled).forEach(function (candidate) {
+                    if (candidate !== answer && !options.includes(candidate) && options.length < 4) options.push(candidate);
+                });
+                result.push(this.normalizePuzzle({
+                    type: "pattern",
+                    source: "generated",
+                    mode: "shapes",
+                    dataType: "text",
+                    instruction: "به شکل‌ها و ترتیب تغییرشان دقت کن؛ گزینه‌ای را انتخاب کن که الگو را کامل می‌کند.",
+                    items: items,
+                    missingIndex: items.length - 1,
+                    answer: answer,
+                    options: this.shuffle(options)
+                }));
+            }
+
+            console.log("PuzzleProvider: Generated shape-pattern questions:", result.length);
+            return result;
+        }
+
         const numericMode = puzzle.mode === "numeric" || puzzle.dataType === "number";
 
         // Keep the existing symbol-pattern generator unchanged for non-numeric activities.
