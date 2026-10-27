@@ -142,6 +142,19 @@
     "path": "content/grades/grade6/math/chapter1/pattern"
   },
   {
+    "id": "mathShapePattern",
+    "title": "🧩 معمار الگوها",
+    "grade": "grade6",
+    "subject": "math",
+    "chapter": "chapter1",
+    "type": "puzzle",
+    "engine": "puzzle",
+    "locked": false,
+    "requires": null,
+    "path": "content/grades/grade6/math/chapter1/shapePatterns",
+    "group": "numberPatterns"
+  },
+  {
     "id": "mathPatternRelation",
     "title": "🕵️ کارآگاه رابطه‌ها",
     "grade": "grade6",
