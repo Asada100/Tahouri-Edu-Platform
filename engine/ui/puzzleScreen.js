@@ -1988,6 +1988,7 @@ const PuzzleScreen = {
         const options = Array.isArray(state.options) ? state.options : [];
         const selected = state.userAnswer === null || state.userAnswer === undefined ? "" : String(state.userAnswer);
         const relationMode = state.mode === "relation";
+        const shapeMode = state.mode === "shapes";
         const toPersianDigits = function (value) {
             return String(value === null || value === undefined ? "" : value)
                 .replace(/[0-9]/g, function (digit) { return "۰۱۲۳۴۵۶۷۸۹"[Number(digit)]; });
@@ -1995,6 +1996,25 @@ const PuzzleScreen = {
         const renderValue = function (value) {
             if (value === null || value === undefined || value === "") return "؟";
             return PuzzleScreen.escapeHTML(toPersianDigits(value));
+        };
+        const shapeClassByToken = {
+            "circle-red": "shapeCircle shapeRed",
+            "square-blue": "shapeSquare shapeBlue",
+            "triangle-purple": "shapeTriangle shapePurple",
+            "diamond-green": "shapeDiamond shapeGreen",
+            "circle-orange": "shapeCircle shapeOrange",
+            "square-purple": "shapeSquare shapePurple",
+            "triangle-up": "shapeTriangle shapeBlue",
+            "triangle-right": "shapeTriangle shapeBlue shapeRotateRight",
+            "triangle-down": "shapeTriangle shapeBlue shapeRotateDown",
+            "triangle-left": "shapeTriangle shapeBlue shapeRotateLeft"
+        };
+        const renderShapeValue = function (value) {
+            if (value === null || value === undefined || value === "") return "؟";
+            return String(value).split("|").map(function (token) {
+                const shapeClass = shapeClassByToken[token] || "shapeCircle shapeRed";
+                return '<span class="shapeGlyph ' + shapeClass + '" aria-hidden="true"></span>';
+            }).join("");
         };
 
         let itemsHTML = "";
@@ -2021,8 +2041,10 @@ const PuzzleScreen = {
             itemsHTML = items.map(function (item, index) {
                 const missing = index === Number(state.missingIndex);
                 const arrow = index < items.length - 1 ? "<span class=\"patternArrow\" aria-hidden=\"true\">→</span>" : "";
-                return "<div class=\"patternStep\"><div class=\"patternItem " + (missing ? "patternMissing" : "") + "\">" +
-                    renderValue(item) + "</div>" + arrow + "</div>";
+                const itemClass = "patternItem " + (missing ? "patternMissing" : "") + (shapeMode ? " shapePatternItem" : "");
+                const itemContent = shapeMode ? renderShapeValue(item) : renderValue(item);
+                return "<div class=\"patternStep\"><div class=\"" + itemClass + "\">" +
+                    itemContent + "</div>" + arrow + "</div>";
             }).join("");
         }
 
@@ -2031,12 +2053,17 @@ const PuzzleScreen = {
             const value = String(option);
             const selectedClass = selected === value ? " selected" : "";
             const optionLabel = relationMode ? "<span class=\"patternOptionLetter\">" + optionLetters[index % optionLetters.length] + "</span>" : "";
-            return "<button type=\"button\" class=\"patternOption" + selectedClass +
-                "\" data-pattern-value=\"" + PuzzleScreen.escapeHTML(value) + "\">" + optionLabel + renderValue(option) + "</button>";
+            const optionClass = "patternOption" + selectedClass + (shapeMode ? " shapePatternOption" : "");
+            const optionContent = shapeMode ? renderShapeValue(option) : renderValue(option);
+            return "<button type=\"button\" class=\"" + optionClass +
+                "\" data-pattern-value=\"" + PuzzleScreen.escapeHTML(value) + "\">" + optionLabel + optionContent + "</button>";
         }).join("");
 
         const relationMission = relationMode
             ? "<div class=\"relationMission\"><div class=\"relationMissionIcon\">🕵️</div><div class=\"relationMissionCopy\"><strong>پروندهٔ عددی باز شد!</strong><span>۴ شاهد را بررسی کن و قانون پنهان را پیدا کن.</span></div><div class=\"relationMissionTag\">مأموریت</div></div>"
+            : "";
+        const shapeMission = shapeMode
+            ? "<div class=\"shapeMission\"><span>🎨</span><div><strong>کارگاه معمار الگوها</strong><small>به شکل، رنگ و تعداد قطعه‌ها دقت کن.</small></div></div>"
             : "";
 
 
@@ -2048,18 +2075,18 @@ const PuzzleScreen = {
             : '';
 
         app.innerHTML =
-            "<div class=\"screen puzzleScreen patternScreen\" dir=\"rtl\"><div class=\"patternCard" + (relationMode ? " relationGameCard" : "") + "\">" +
-                "<div class=\"patternHeader\"><div class=\"patternBadge\">" + (relationMode ? "🗂️ پروندهٔ کارآگاهی" : "پازل الگو") + "</div>" +
-                "<h1>" + (relationMode ? "کارآگاه رابطه‌ها" : "الگو را کشف کن") + "</h1>" +
+            "<div class=\"screen puzzleScreen patternScreen" + (shapeMode ? " shapePatternScreen" : "") + "\" dir=\"rtl\"><div class=\"patternCard" + (relationMode ? " relationGameCard" : "") + (shapeMode ? " shapeGameCard" : "") + "\">" +
+                "<div class=\"patternHeader\"><div class=\"patternBadge\">" + (relationMode ? "🗂️ پروندهٔ کارآگاهی" : (shapeMode ? "🧩 چالش تصویری" : "پازل الگو")) + "</div>" +
+                "<h1>" + (relationMode ? "کارآگاه رابطه‌ها" : (shapeMode ? "معمار الگوها" : "الگو را کشف کن")) + "</h1>" +
                 "<p class=\"puzzleInstruction\">" + PuzzleScreen.escapeHTML(state.instruction) + "</p></div>" +
-                relationMission + relationHud +
-                "<div class=\"patternBoard" + (relationMode ? " patternRelationBoard" : "") + "\" aria-label=\"" +
-                    (relationMode ? "نمونه‌های رابطه" : "الگوی عددی") + "\">" + itemsHTML + "</div>" +
+                relationMission + shapeMission + relationHud +
+                "<div class=\"patternBoard" + (relationMode ? " patternRelationBoard" : "") + (shapeMode ? " shapePatternBoard" : "") + "\" aria-label=\"" +
+                    (relationMode ? "نمونه‌های رابطه" : (shapeMode ? "الگوی شکلی" : "الگوی عددی")) + "\">" + itemsHTML + "</div>" +
                 "<div class=\"patternPrompt\"><span>" +
-                    (relationMode ? "کدام قانون، همهٔ شاهدها را توضیح می‌دهد؟" : "عدد مناسب برای جای خالی را انتخاب کن") +
-                "</span></div><div class=\"patternOptions" + (relationMode ? " relationSuspects" : "") + "\">" + optionsHTML + "</div>" +
-                "<div class=\"puzzleControls patternControls\"><button type=\"button\" id=\"patternCheckBtn\">" + (relationMode ? "🔎 بررسی مظنون" : "بررسی پاسخ") + "</button>" +
-                "<button type=\"button\" id=\"puzzleResetBtn\">" + (relationMode ? "↻ پروندهٔ تازه" : "شروع دوباره") + "</button></div>" +
+                    (relationMode ? "کدام قانون، همهٔ شاهدها را توضیح می‌دهد؟" : (shapeMode ? "کدام گزینه الگو را کامل می‌کند؟" : "عدد مناسب برای جای خالی را انتخاب کن")) +
+                "</span></div><div class=\"patternOptions" + (relationMode ? " relationSuspects" : "") + (shapeMode ? " shapePatternOptions" : "") + "\">" + optionsHTML + "</div>" +
+                "<div class=\"puzzleControls patternControls\"><button type=\"button\" id=\"patternCheckBtn\">" + (relationMode ? "🔎 بررسی مظنون" : (shapeMode ? "✨ بررسی الگو" : "بررسی پاسخ")) + "</button>" +
+                "<button type=\"button\" id=\"puzzleResetBtn\">" + (relationMode ? "↻ پروندهٔ تازه" : (shapeMode ? "🎲 الگوی تازه" : "شروع دوباره")) + "</button></div>" +
                 "<div id=\"puzzleMessage\" class=\"puzzleMessage\"></div></div></div>" +
             "<style>" +
                 ".patternScreen{box-sizing:border-box;direction:rtl;width:100%;max-width:100%;min-width:0;margin:0 auto;padding:16px 8px 24px;overflow-x:hidden;}.patternScreen *{box-sizing:border-box;min-width:0;}" +
@@ -2073,6 +2100,23 @@ const PuzzleScreen = {
                 ".patternRelationTable th,.patternRelationTable td{min-width:44px;padding:8px 9px;border:1px solid var(--ui-border,#dbe4ef);font-family:\"Tahouri Yekan\",\"B Yekan\",Tahoma,sans-serif;font-size:clamp(20px,4vw,28px);line-height:1.35;text-align:center;white-space:nowrap;}" +
                 ".patternRelationTable th{min-width:38px;background:#fff;font-weight:700;color:var(--ui-text,#172033);}" +
                 ".patternRelationTable td{background:#fff;font-weight:600;color:var(--ui-text,#172033);}" +
+
+                ".shapeGameCard{background:radial-gradient(ellipse at top left,#fff7ed 0,transparent 42%),linear-gradient(145deg,#fff 0%,#f8fbff 100%);border-color:#fed7aa;box-shadow:0 14px 34px rgba(124,58,237,.10);}" +
+                ".shapeGameCard:before{content:'';display:block;height:5px;margin:-24px -18px 18px;border-radius:24px 24px 0 0;background:linear-gradient(90deg,#f97316,#8b5cf6,#0ea5e9);}" +
+                ".shapeGameCard .patternBadge{background:#fff7ed;border-color:#fed7aa;color:#9a3412;font-weight:800;}" +
+                ".shapeMission{display:flex;align-items:center;gap:10px;text-align:right;max-width:620px;margin:0 auto 12px;padding:11px 14px;border:1px solid #fed7aa;border-radius:16px;background:linear-gradient(100deg,#fff7ed,#f5f3ff);color:#7c2d12;}" +
+                ".shapeMission>span{font-size:28px;}.shapeMission div{display:flex;flex-direction:column;gap:3px;}.shapeMission strong{font-size:15px;}.shapeMission small{font-size:13px;color:#6b7280;}" +
+                ".shapePatternBoard{gap:7px;padding:14px 8px;}" +
+                ".shapePatternItem{width:82px;min-width:82px;height:74px;min-height:74px;padding:6px;display:flex;align-items:center;justify-content:center;align-content:center;flex-wrap:wrap;gap:3px;border-radius:15px;}" +
+                ".shapeGlyph{display:inline-block;flex:0 0 18px;width:18px;height:18px;position:relative;}" +
+                ".shapeCircle,.shapeSquare,.shapeDiamond{background:var(--shape-color);}" +
+                ".shapeCircle{border-radius:50%;}.shapeSquare{border-radius:4px;}.shapeDiamond{border-radius:3px;transform:rotate(45deg) scale(.82);}" +
+                ".shapeTriangle{width:0;height:0;flex:0 0 0;border-left:10px solid transparent;border-right:10px solid transparent;border-bottom:18px solid var(--shape-color);background:transparent!important;}" +
+                ".shapeRed{--shape-color:#ef4444;}.shapeBlue{--shape-color:#3b82f6;}.shapePurple{--shape-color:#8b5cf6;}.shapeGreen{--shape-color:#22a06b;}.shapeOrange{--shape-color:#f97316;}" +
+                ".shapeRotateRight{transform:rotate(90deg);}.shapeRotateDown{transform:rotate(180deg);}.shapeRotateLeft{transform:rotate(270deg);}" +
+                ".shapePatternOptions{gap:10px;}.shapePatternOption{width:88px;min-width:88px;min-height:68px;padding:8px;display:inline-flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:4px;}" +
+                ".shapePatternOption .shapeGlyph{flex-basis:18px;}" +
+                "@media(max-width:520px){.shapeGameCard{padding:20px 10px 24px;}.shapeGameCard:before{margin:-20px -10px 16px;}.shapePatternBoard{gap:5px;padding:10px 4px;}.shapePatternItem{width:66px;min-width:66px;height:66px;min-height:66px;padding:4px;}.shapeGlyph{flex-basis:15px;width:15px;height:15px;}.shapeTriangle{border-left-width:8px;border-right-width:8px;border-bottom-width:15px;}.shapePatternOption{width:70px;min-width:70px;min-height:60px;padding:6px;}}" +
                 ".patternStep{display:flex;align-items:center;gap:8px;direction:ltr;}" +
                 ".patternItem{direction:ltr;unicode-bidi:isolate;min-width:64px;height:64px;padding:0 12px;display:flex;align-items:center;justify-content:center;border:2px solid var(--ui-border,#dbe4ef);border-radius:16px;background:#fff;font-family:\"Tahouri Yekan\",\"B Yekan\",Tahoma,sans-serif;font-size:clamp(25px,5vw,34px);font-weight:700;color:var(--ui-text,#172033);box-shadow:0 3px 8px rgba(31,41,55,.06);}" +
                 ".patternMissing{border-style:dashed;font-size:34px;color:var(--ui-muted,#667085);background:var(--ui-surface-soft,#f8fbff);}" +
