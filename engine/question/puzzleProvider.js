@@ -2598,12 +2598,30 @@ const PuzzleProvider = {
 
         if (puzzle.mode === "shapes") {
             const countRequested = Math.max(1, Number(count) || 10);
-            const shapeTokens = [
+            const allShapeTokens = [
                 "circle-red", "square-blue", "triangle-purple",
                 "diamond-green", "circle-orange", "square-purple"
             ];
+            const gradeMatch = String(activityData.grade || "").match(/grade(\d+)/);
+            const gradeNumber = gradeMatch ? Number(gradeMatch[1]) : 6;
+            // The same shape-pattern engine scales the challenge by grade.
+            const shapeTokens = gradeNumber <= 1
+                ? allShapeTokens.slice(0, 4)
+                : gradeNumber === 2
+                    ? allShapeTokens.slice(0, 5)
+                    : allShapeTokens;
             const rotationTokens = ["triangle-up", "triangle-right", "triangle-down", "triangle-left"];
-            const kinds = ["cycle", "alternate", "growth", "build", "rotation"];
+            const kinds = gradeNumber === 1
+                ? ["cycle", "alternate"]
+                : gradeNumber === 2
+                    ? ["cycle", "alternate", "growth"]
+                    : gradeNumber === 3
+                        ? ["cycle", "alternate", "growth", "build"]
+                        : gradeNumber === 4
+                            ? ["cycle", "alternate", "growth", "build", "rotation"]
+                            : gradeNumber === 5
+                                ? ["cycle", "alternate", "growth", "build", "rotation", "growthAlternate"]
+                                : ["cycle", "alternate", "growth", "build", "rotation"];
             const result = [];
             const used = new Set();
 
@@ -2649,6 +2667,17 @@ const PuzzleProvider = {
                         [sequence[0], sequence[1], sequence[2], sequence[4], sequence[3]].join("|"),
                         [sequence[0], sequence[1], sequence[3], sequence[2], sequence[4]].join("|")
                     ];
+                } else if (kind === "growthAlternate") {
+                    // Grade 5 challenge: both the number and identity of shapes change.
+                    const a = shuffled[0], b = shuffled[1];
+                    items = [1, 2, 3, 4, null].map(function (amount) {
+                        if (amount === null) return null;
+                        return repeated(amount % 2 === 1 ? a : b, amount);
+                    });
+                    answer = repeated(a, 5);
+                    distractors = [
+                        repeated(b, 5), repeated(a, 4), repeated(a, 6), repeated(b, 4)
+                    ];
                 } else {
                     const offset = this.randomInteger(0, rotationTokens.length - 1);
                     items = [0, 1, 2, 3].map(function (step) {
@@ -2679,13 +2708,15 @@ const PuzzleProvider = {
                     source: "generated",
                     mode: "shapes",
                     dataType: "text",
-                    instruction: kind === "growth"
-                        ? "به تعداد شکل‌ها در هر مرحله دقت کن؛ مرحلهٔ بعدی چند شکل دارد؟"
-                        : kind === "build"
-                            ? "در هر مرحله یک شکل تازه به ترتیب اضافه می‌شود؛ کدام گزینه ادامهٔ درست است؟"
-                            : kind === "rotation"
-                                ? "جهت مثلث را دنبال کن؛ بعد از این چرخش‌ها کدام جهت می‌آید؟"
-                                : "به ترتیب و تکرار شکل‌ها دقت کن؛ کدام گزینه الگو را کامل می‌کند؟",
+                    instruction: kind === "growthAlternate"
+                        ? "هم تعداد شکل‌ها و هم نوع شکل در هر مرحله تغییر می‌کند؛ قانون را کشف کن."
+                        : kind === "growth"
+                            ? "به تعداد شکل‌ها در هر مرحله دقت کن؛ مرحلهٔ بعدی چند شکل دارد؟"
+                            : kind === "build"
+                                ? "در هر مرحله یک شکل تازه به ترتیب اضافه می‌شود؛ کدام گزینه ادامهٔ درست است؟"
+                                : kind === "rotation"
+                                    ? "جهت مثلث را دنبال کن؛ بعد از این چرخش‌ها کدام جهت می‌آید؟"
+                                    : "به ترتیب و تکرار شکل‌ها دقت کن؛ کدام گزینه الگو را کامل می‌کند؟",
                     items: items,
                     missingIndex: items.length - 1,
                     answer: answer,
