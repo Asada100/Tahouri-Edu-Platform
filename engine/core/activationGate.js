@@ -1,6 +1,6 @@
 // Tahouri Edu Platform
 // Activation Gate
-// Version 8.1
+// Version 8.2
 // Profile + License Binding
 // =====================================
 
@@ -1626,6 +1626,7 @@
         let result = null;
         const serviceConfig = window.TahouriServiceConfig || {};
         const productionMode = serviceConfig.mode === "production";
+        const managedCode = /^THR-GRADE[1-6]-\\d{4}-[A-F0-9]{24}$/i.test(code);
 
         if (typeof LicenseManager.activateRemote === "function") {
             try {
@@ -1635,7 +1636,17 @@
             }
         }
 
-        if (!result && !productionMode) {
+        // Codes issued by the management API must never fall through to the
+        // local demo-code validator. Otherwise a network/CORS failure is
+        // incorrectly shown as "invalid code".
+        if (!result && managedCode) {
+            result = {
+                valid: false,
+                message: "اتصال به سرویس فعال‌سازی برقرار نشد. سرویس محلی را اجرا کنید و مبدأ مجاز API را بررسی کنید."
+            };
+        }
+
+        if (!result && !productionMode && !managedCode) {
             try {
                 result = LicenseManager.activate(code, profileGrade, studentId);
             } catch (error) {
