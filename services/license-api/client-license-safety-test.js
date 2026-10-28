@@ -55,8 +55,10 @@ assert(
 
 assert(
     gate.includes('const productionMode = serviceConfig.mode === "production";') &&
-    gate.includes("if (!result && !productionMode)"),
-    "Activation gate production fallback guard is incomplete."
+    gate.includes("THR-GRADE[1-6]") &&
+    gate.includes("if (!result && managedCode)") &&
+    gate.includes("if (!result && !productionMode && !managedCode)"),
+    "Activation gate managed-code and production fallback guards are incomplete."
 );
 
 console.log("Tahouri client license safety test: PASS");
