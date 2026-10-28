@@ -2602,7 +2602,7 @@ const PuzzleProvider = {
                 "circle-red", "square-blue", "triangle-purple",
                 "diamond-green", "circle-orange", "square-purple"
             ];
-            const gradeMatch = String(activityData.grade || "").match(/grade(\\d+)/);
+            const gradeMatch = String(activityData.grade || "").match(/grade(\d+)/);
             const gradeNumber = gradeMatch ? Number(gradeMatch[1]) : 6;
             // The same shape-pattern engine scales the challenge by grade.
             const shapeTokens = gradeNumber <= 1
