@@ -1626,7 +1626,7 @@
         let result = null;
         const serviceConfig = window.TahouriServiceConfig || {};
         const productionMode = serviceConfig.mode === "production";
-        const managedCode = /^THR-GRADE[1-6]-\\d{4}-[A-F0-9]{24}$/i.test(code);
+        const managedCode = /^THR-GRADE[1-6]-\d{4}-[A-F0-9]{24}$/i.test(code);
 
         if (typeof LicenseManager.activateRemote === "function") {
             try {
