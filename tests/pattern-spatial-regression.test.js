@@ -95,6 +95,30 @@ assert.ok(registered.spatial, 'Spatial handler registers');
   assert.equal(registered.pattern.check(numericInputEngine), true,
     'numeric option selection validates against a numeric answer');
 
+  // Grade 1-5 shape-pattern activities use the same engine with age-appropriate difficulty.
+  for (let grade = 1; grade <= 5; grade++) {
+    const entry = registry.find(item => item.id === `mathShapePatternGrade${grade}`);
+    assert.ok(entry, `Grade ${grade} shape-pattern activity is registered`);
+    assert.equal(entry.grade, `grade${grade}`);
+    const data = JSON.parse(fs.readFileSync(entry.path + '/activity.json', 'utf8'));
+    assert.equal(data.grade, `grade${grade}`);
+    assert.equal(data.puzzle.mode, 'shapes');
+    const questions = context.PuzzleProvider.generatePuzzleQuestions(data);
+    assert.equal(questions.length, 10, `Grade ${grade} generates ten shape-pattern questions`);
+    assert.ok(questions.every(question =>
+      question.type === 'pattern' &&
+      question.mode === 'shapes' &&
+      question.items[question.missingIndex] === null &&
+      question.options.length === 4 &&
+      question.options.includes(question.answer)
+    ), `Grade ${grade} questions have a missing shape and four valid choices`);
+    assert.equal(
+      new Set(questions.map(question => question.items.join('/') + '|' + question.answer)).size,
+      questions.length,
+      `Grade ${grade} shape-pattern questions do not repeat within a round`
+    );
+  }
+
   const relationEntry = registry.find(item => item.id === 'mathPatternRelation');
   assert.ok(relationEntry, 'Grade 6 relation-discovery activity is registered');
   const relationData = JSON.parse(fs.readFileSync(relationEntry.path + '/activity.json', 'utf8'));
