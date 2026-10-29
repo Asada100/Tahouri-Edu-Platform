@@ -7,18 +7,36 @@ if (!Number.isFinite(intervalHours) || intervalHours < 1 || intervalHours > 168)
     throw new Error("TAHOURI_BACKUP_INTERVAL_HOURS must be between 1 and 168.");
 }
 
+let backupRunning = false;
+
 function runBackup() {
-    const child = spawn(process.execPath, ["backup-db.js"], {
-        cwd: __dirname,
-        env: process.env,
-        stdio: "inherit"
-    });
+    if (backupRunning) {
+        console.warn("Scheduled backup skipped: previous backup is still running.");
+        return;
+    }
+
+    backupRunning = true;
+    let child;
+
+    try {
+        child = spawn(process.execPath, ["backup-db.js"], {
+            cwd: __dirname,
+            env: process.env,
+            stdio: "inherit"
+        });
+    } catch (error) {
+        backupRunning = false;
+        console.error("Backup scheduler failed to start:", error.message);
+        return;
+    }
 
     child.on("error", error => {
+        backupRunning = false;
         console.error("Backup scheduler failed to start:", error.message);
     });
 
     child.on("exit", code => {
+        backupRunning = false;
         if (code !== 0) {
             console.error("Scheduled backup failed with exit code:", code);
         }
