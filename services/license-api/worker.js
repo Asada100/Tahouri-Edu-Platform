@@ -32,7 +32,8 @@ function cookieHeader(value, maxAge) {
 }
 function allowedOrigin(request, env) {
   const origin = request.headers.get("Origin");
-  const allowed = [env.ADMIN_ORIGIN, env.APP_ORIGIN].filter(Boolean);
+  const requestOrigin = new URL(request.url).origin;
+  const allowed = [requestOrigin, env.ADMIN_ORIGIN, env.APP_ORIGIN].filter(Boolean);
   return origin && allowed.includes(origin) ? origin : null;
 }
 function corsHeaders(request, env) {
