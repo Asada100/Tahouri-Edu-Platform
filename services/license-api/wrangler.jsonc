@@ -5,7 +5,9 @@
   "compatibility_date": "2026-10-29",
   "workers_dev": true,
   "vars": {
-    "SERVICE_ENVIRONMENT": "production"
+    "SERVICE_ENVIRONMENT": "production",
+    "ADMIN_ORIGIN": "https://asada100.github.io",
+    "APP_ORIGIN": "https://asada100.github.io"
   },
   "d1_databases": [
     {
