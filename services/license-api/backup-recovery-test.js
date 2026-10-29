@@ -90,6 +90,12 @@ try {
         throw new Error("Off-site replication did not copy backup and signature.");
     }
 
+    // Verify and restore the copy from the off-site destination, not the source.
+    const offsiteBackup = path.join(offsiteDir, path.basename(backup));
+    execFileSync(process.execPath, ["verify-backup.js", offsiteBackup], { cwd: __dirname, env, stdio: "inherit" });
+    execFileSync(process.execPath, ["restore-rehearsal.js", offsiteBackup], { cwd: __dirname, env, stdio: "inherit" });
+
+    // Also keep coverage for the original local backup.
     execFileSync(process.execPath, ["restore-rehearsal.js", backup], { cwd: __dirname, env, stdio: "inherit" });
 
     const tampered = path.join(root, "tampered.sqlite.enc");
