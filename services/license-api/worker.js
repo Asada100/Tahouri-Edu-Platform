@@ -314,7 +314,7 @@ export default {
       }
       if (url.pathname === "/api/health" && request.method === "GET")
         return await health(env, headers, requestId);
-      if (url.pathname.startsWith("/api/admin/"))
+      if (url.pathname.startsWith("/api/admin/") || url.pathname === "/api/metrics" || url.pathname === "/api/metrics/alerts")
         return await adminRoute(request, env, url, headers);
       if (url.pathname.startsWith("/api/"))
         return json({ ok: false, error: "not_implemented",
