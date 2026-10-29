@@ -11,9 +11,7 @@ const root = fs.mkdtempSync(path.join(os.tmpdir(), "tahouri-backup-test-"));
 const dbFile = path.join(root, "live", "license.sqlite");
 const backupDir = path.join(root, "backups");
 const keyDir = path.join(root, "keys");
-const fakeBin = path.join(root, "bin");
 fs.mkdirSync(keyDir, { recursive: true });
-fs.mkdirSync(fakeBin, { recursive: true });
 
 const { privateKey, publicKey } = crypto.generateKeyPairSync("rsa", {
     modulusLength: 2048,
@@ -34,12 +32,21 @@ fs.writeFileSync(knownHostsFile, "# test known_hosts\n");
 const offsiteDir = path.join(root, "offsite");
 fs.mkdirSync(offsiteDir, { recursive: true });
 
-const fakeScp = path.join(fakeBin, "scp");
-fs.writeFileSync(
-    fakeScp,
-    "#!/bin/sh\nfor arg in \"$@\"; do case \"$arg\" in *.sqlite.enc|*.sqlite.enc.sig) if [ -f \"$arg\" ]; then cp \"$arg\" \"$TAHOURI_TEST_OFFSITE/\"; fi;; esac; done\n",
-    { mode: 0o755 }
-);
+// Node-based fake scp works on Windows and POSIX and never opens a network
+// connection. offsite-backup.js invokes it only in NODE_ENV=test.
+const fakeScp = path.join(keyDir, "fake-scp.js");
+fs.writeFileSync(fakeScp, `"use strict";
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+const destination = process.env.TAHOURI_TEST_OFFSITE;
+if (!destination) throw new Error("TAHOURI_TEST_OFFSITE is required");
+for (const arg of args) {
+    if ((arg.endsWith(".sqlite.enc") || arg.endsWith(".sqlite.enc.sig")) && fs.existsSync(arg)) {
+        fs.copyFileSync(arg, path.join(destination, path.basename(arg)));
+    }
+}
+`);
 
 fs.mkdirSync(path.dirname(dbFile), { recursive: true });
 fs.mkdirSync(backupDir, { recursive: true });
@@ -65,8 +72,8 @@ try {
         TAHOURI_BACKUP_OFFSITE_DIR: "/offsite",
         TAHOURI_BACKUP_OFFSITE_SSH_KEY_FILE: offsiteSshKeyFile,
         TAHOURI_BACKUP_OFFSITE_KNOWN_HOSTS_FILE: knownHostsFile,
-        TAHOURI_TEST_OFFSITE: offsiteDir,
-        PATH: fakeBin + path.delimiter + process.env.PATH
+        TAHOURI_BACKUP_SCP_TEST_SCRIPT: fakeScp,
+        TAHOURI_TEST_OFFSITE: offsiteDir
     };
 
     execFileSync(process.execPath, ["backup-db.js"], { cwd: __dirname, env, stdio: "inherit" });
