@@ -25,7 +25,7 @@ function json(data, status = 200, extraHeaders = {}) {
     },
   });
 }
-function error(message, status = 400) { return json({ ok: false, message }, status); }
+function error(message, status = 400, headers = {}) { return json({ ok: false, message }, status, headers); }
 function nowIso() { return new Date().toISOString(); }
 function cookieHeader(value, maxAge) {
   return `${COOKIE_NAME}=${value}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${maxAge}`;
@@ -189,12 +189,12 @@ async function adminRoute(request, env, url, headers) {
     const renewalMode = String(body.renewalMode || "promotion").toLowerCase();
     const currentYear = iranianYear();
     if (!/^[0-9]{4}$/.test(academicYear) || Number(academicYear) < currentYear || Number(academicYear) > currentYear + 1)
-      return error("سال تحصیلی باید سال جاری یا سال تحصیلی بعد باشد.", 400);
-    if (!["promotion", "repeat"].includes(renewalMode)) return error("نوع رزرو معتبر نیست.", 400);
+      return error("سال تحصیلی باید سال جاری یا سال تحصیلی بعد باشد.", 400, headers);
+    if (!["promotion", "repeat"].includes(renewalMode)) return error("نوع رزرو معتبر نیست.", 400, headers);
     if (Number(academicYear) === currentYear && renewalMode === "repeat")
-      return error("کد تکرار پایه فقط برای سال تحصیلی بعد قابل ساخت است.", 400);
+      return error("کد تکرار پایه فقط برای سال تحصیلی بعد قابل ساخت است.", 400, headers);
     const count = Math.min(Math.max(Number(body.count || 1), 1), 100);
-    if (!Number.isInteger(count)) return error("تعداد کد نامعتبر است.", 400);
+    if (!Number.isInteger(count)) return error("تعداد کد نامعتبر است.", 400, headers);
     const created = [];
     const statements = [];
     for (let i = 0; i < count; i++) {
@@ -214,7 +214,7 @@ async function adminRoute(request, env, url, headers) {
     const code = bounded(body.code, 256, "code").toUpperCase();
     const result = await env.DB.prepare(`UPDATE activation_codes SET status = 'revoked'
       WHERE code_hash = ? AND status = 'active' AND used_at IS NULL`).bind(await sha256(code)).run();
-    if (!result.meta?.changes) return error("کد فعال و قابل لغو پیدا نشد.", 404);
+    if (!result.meta?.changes) return error("کد فعال و قابل لغو پیدا نشد.", 404, headers);
     await audit(env, "code.revoked", "admin", { codeHash: await sha256(code) });
     return json({ ok: true }, 200, headers);
   }
@@ -238,12 +238,12 @@ async function adminRoute(request, env, url, headers) {
     const licenseId = validIdentifier(body.licenseId, "licenseId");
     const result = await env.DB.prepare(`UPDATE licenses SET status = 'revoked', revoked_at = ?
       WHERE license_id = ? AND status = 'active'`).bind(nowIso(), licenseId).run();
-    if (!result.meta?.changes) return error("مجوز فعال پیدا نشد.", 404);
+    if (!result.meta?.changes) return error("مجوز فعال پیدا نشد.", 404, headers);
     await audit(env, "license.revoked", "admin", { licenseId });
     return json({ ok: true }, 200, headers);
   }
   if (path === "/api/admin/licenses/extend" && request.method === "POST") {
-    return error("تمدید تا زمان انتقال و آزمون امضای امن مجوز غیرفعال است.", 501);
+    return error("تمدید تا زمان انتقال و آزمون امضای امن مجوز غیرفعال است.", 501, headers);
   }
   if (path === "/api/admin/payments" && request.method === "GET") {
     const payments = await listRows(env, `SELECT payment_id AS paymentId, provider, authority, status,
@@ -260,7 +260,7 @@ async function adminRoute(request, env, url, headers) {
   }
   if (path === "/api/admin/search" && request.method === "GET") {
     const q = (url.searchParams.get("q") || "").trim();
-    if (!q) return error("عبارت جستجو الزامی است.", 400);
+    if (!q) return error("عبارت جستجو الزامی است.", 400, headers);
     const like = "%" + q.replace(/[%_]/g, "") + "%";
     const licenses = await listRows(env, `SELECT license_id AS licenseId, student_id AS studentId,
       grade_id AS gradeId, academic_year AS academicYear, valid_from AS validFrom,
