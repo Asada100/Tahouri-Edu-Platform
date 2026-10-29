@@ -117,11 +117,15 @@ async function login(request, env, headers) {
   }
   const origin = request.headers.get("Origin");
   if (origin && !allowedOrigin(request, env)) return json({ ok: false, message: "مبدأ درخواست مجاز نیست." }, 403, headers);
+  const ipHash = await sha256(request.headers.get("CF-Connecting-IP") || "unknown");
+  const prior = await env.DB.prepare("SELECT attempts, window_started_at, locked_until FROM admin_login_attempts WHERE ip_hash = ?").bind(ipHash).first();
+  if (Number(prior?.locked_until || 0) > Date.now()) {
+    return json({ ok: false, message: "ورود موقتاً قفل شده است. بعداً دوباره تلاش کنید." }, 429, headers);
+  }
   const body = await bodyJson(request);
   const suppliedHash = await sha256(String(body.password || ""));
   const expectedHash = await sha256(env.ADMIN_PASSWORD);
   if (!constantTimeEqual(suppliedHash, expectedHash)) {
-    const ipHash = await sha256(request.headers.get("CF-Connecting-IP") || "unknown");
     await env.DB.prepare(`INSERT INTO admin_login_attempts (ip_hash, attempts, window_started_at, locked_until)
       VALUES (?, 1, ?, 0)
       ON CONFLICT(ip_hash) DO UPDATE SET
