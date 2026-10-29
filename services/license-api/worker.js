@@ -148,8 +148,8 @@ async function login(request, env, headers) {
   const expiresAt = Date.now() + SESSION_TTL_MS;
   await env.DB.prepare("INSERT INTO admin_sessions (session_hash, expires_at, created_at) VALUES (?, ?, ?)")
     .bind(await sha256(id), expiresAt, nowIso()).run();
-  const ipHash = await sha256(request.headers.get("CF-Connecting-IP") || "unknown");
-  await env.DB.prepare("DELETE FROM admin_login_attempts WHERE ip_hash = ?").bind(ipHash).run();
+  const successIpHash = await sha256(request.headers.get("CF-Connecting-IP") || "unknown");
+  await env.DB.prepare("DELETE FROM admin_login_attempts WHERE ip_hash = ?").bind(successIpHash).run();
   await audit(env, "admin.login.success", "admin");
   return json({ ok: true }, 200, { ...headers, "set-cookie": cookieHeader(id, SESSION_TTL_MS / 1000) });
 }
