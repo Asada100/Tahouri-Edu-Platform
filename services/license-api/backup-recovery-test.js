@@ -105,6 +105,31 @@ try {
     }
     if (!tamperRejected) throw new Error("Tampered signed backup was accepted.");
 
+    // The restore rehearsal must enforce the same signature check as verification.
+    let tamperedRestoreRejected = false;
+    try {
+        execFileSync(process.execPath, ["restore-rehearsal.js", tampered], { cwd: __dirname, env, stdio: "pipe" });
+    } catch {
+        tamperedRestoreRejected = true;
+    }
+    if (!tamperedRestoreRejected) throw new Error("Restore rehearsal accepted a tampered signed backup.");
+
+    // A public verification key makes a detached signature mandatory.
+    const unsigned = path.join(root, "unsigned.sqlite.enc");
+    fs.copyFileSync(backup, unsigned);
+    for (const [script, label] of [
+        ["verify-backup.js", "verification"],
+        ["restore-rehearsal.js", "restore rehearsal"]
+    ]) {
+        let unsignedRejected = false;
+        try {
+            execFileSync(process.execPath, [script, unsigned], { cwd: __dirname, env, stdio: "pipe" });
+        } catch {
+            unsignedRejected = true;
+        }
+        if (!unsignedRejected) throw new Error(label + " accepted a backup without its signature.");
+    }
+
     const malformed = path.join(root, "malformed.sqlite.enc");
     const bad = new DatabaseSync(malformed);
     try {
