@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "services/license-api/worker.js"
+      - "services/license-api/admin/**"
       - "services/license-api/wrangler.jsonc"
       - "services/license-api/migrations/**"
       - ".github/workflows/license-worker-check.yml"
