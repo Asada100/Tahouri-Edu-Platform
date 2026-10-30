@@ -143,18 +143,27 @@
     // =====================================
 
     async function refreshRemoteLicenseStatus() {
-        if (!verifiedRemoteEntitlement || !verifiedRemoteEntitlement.claims) {
+        const claims = verifiedRemoteEntitlement;
+        if (!claims) {
             return { valid: false, reason: "no_remote_entitlement" };
         }
 
-        const licenseId = verifiedRemoteEntitlement.claims.licenseId;
-        if (!licenseId || !window.TahouriLicenseClient ||
+        if (!window.TahouriLicenseClient ||
             typeof window.TahouriLicenseClient.status !== "function") {
             return { valid: false, reason: "status_client_unavailable" };
         }
 
+        const licenseId = claims.licenseId;
+        const studentId = getActiveStudentId();
+        const installationId = getOrCreateInstallationId();
+        if (!licenseId || !studentId || !installationId) {
+            return { valid: false, reason: "binding_information_unavailable" };
+        }
+
         try {
-            const result = await window.TahouriLicenseClient.status(licenseId);
+            const result = await window.TahouriLicenseClient.status(
+                licenseId, studentId, installationId
+            );
 
             if (!result.valid) {
                 verifiedRemoteEntitlement = null;
@@ -162,8 +171,13 @@
 
             return result;
         } catch (error) {
-            console.warn("License Manager: Remote status check failed.", error);
-            return { valid: false, reason: "network_error", error: error.message };
+            console.warn("License Manager: Remote status check failed; cached offline entitlement is retained.", error);
+            return {
+                valid: false,
+                reason: "network_error",
+                offlineEntitlementRetained: true,
+                error: error.message
+            };
         }
     }
 
