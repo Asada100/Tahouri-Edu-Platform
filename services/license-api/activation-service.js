@@ -116,12 +116,12 @@ export async function activateStudentBoundCode(env, body) {
     env.DB.prepare(`UPDATE activation_codes SET status = 'used', used_at = ?, license_id = ?
       WHERE code_hash = ? AND student_id = ? AND product_id = ?
       AND status = 'active' AND used_at IS NULL AND license_id IS NULL
-      AND (? = 0 OR NOT EXISTS (
+      AND NOT EXISTS (
         SELECT 1 FROM licenses WHERE product_id = ? AND student_id = ?
           AND grade_id = ? AND academic_year = ? AND status IN ('active', 'future')
       ))`)
       .bind(now, licenseId, codeHash, studentId, PRODUCT_ID,
-        future ? 1 : 0, PRODUCT_ID, studentId, gradeId, period.academicYear),
+        PRODUCT_ID, studentId, gradeId, period.academicYear),
     env.DB.prepare(`INSERT INTO licenses
       (license_id, code_hash, product_id, student_id, grade_id, academic_year,
        valid_from, valid_until, installation_binding, status, entitlement_json, created_at)
