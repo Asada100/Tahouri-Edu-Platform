@@ -39,6 +39,9 @@ jobs:
       - name: Client license safety test
         run: node client-license-safety-test.js
 
+      - name: Client entitlement acceptance test
+        run: node client-entitlement-acceptance-test.js
+
       - name: Integration test
         run: npm run integration-test
       - name: Migration verification
