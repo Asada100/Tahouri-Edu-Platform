@@ -139,6 +139,44 @@ test("preflight allows same-origin and rejects foreign origin", async () => {
 });
 
 import { signEntitlementClaims } from "./entitlement-crypto.js";
+import { readFile } from "node:fs/promises";
+import { runInNewContext } from "node:vm";
+
+test("Worker public-key route and browser verifier complete a signed entitlement round trip", async () => {
+  const pair = await crypto.subtle.generateKey({
+    name: "RSASSA-PKCS1-v1_5", modulusLength: 2048,
+    publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256"
+  }, true, ["sign", "verify"]);
+  const privatePem = pemFromDer(await crypto.subtle.exportKey("pkcs8", pair.privateKey), "PRIVATE KEY");
+  const publicPem = pemFromDer(await crypto.subtle.exportKey("spki", pair.publicKey), "PUBLIC KEY");
+  const claims = {
+    licenseId: "lic_roundtrip-1", productId: "tahouri-edu", academicYear: "1405",
+    gradeScope: "grade6", studentId: "student-roundtrip",
+    validFrom: new Date(Date.now() - 60_000).toISOString(),
+    validUntil: new Date(Date.now() + 86_400_000).toISOString(),
+    installationBinding: "install-roundtrip", entitlementVersion: 1
+  };
+  const signature = await signEntitlementClaims(privatePem, claims);
+  const apiBaseUrl = "https://api.example.workers.dev/api";
+  const fetchMock = async (url, init = {}) => worker.fetch(
+    new Request(String(url), init),
+    { LICENSE_SIGNING_PUBLIC_KEY_PEM: publicPem }
+  );
+  const window = { TahouriServiceConfig: {
+    mode: "test", apiBaseUrl, productId: "tahouri-edu", entitlementVersion: 1
+  } };
+  const verifierSource = await readFile(new URL("../engine/core/tahouriEntitlementVerifier.js", import.meta.url), "utf8");
+  runInNewContext(verifierSource, { window, crypto, atob, TextEncoder, fetch: fetchMock, console });
+  const envelope = { claims, signature, algorithm: "RSASSA-PKCS1-v1_5-SHA256" };
+  const verified = await window.TahouriEntitlementVerifier.verifyEnvelope(envelope);
+  assert.equal(verified.valid, true, verified.reason);
+  assert.equal(verified.claims.studentId, "student-roundtrip");
+  const tampered = { ...envelope, claims: { ...claims, studentId: "student-attacker" } };
+  const rejected = await window.TahouriEntitlementVerifier.verifyEnvelope(tampered);
+  assert.equal(rejected.valid, false);
+  assert.match(rejected.reason, /امضای مجوز معتبر نیست/);
+});
+
 
 function pemFromDer(bytes, label) {
   let binary = "";
