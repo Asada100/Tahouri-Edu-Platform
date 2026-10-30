@@ -322,7 +322,7 @@ export default {
           .bind(licenseId, PRODUCT_ID).first();
         if (!license || license.studentId !== studentId ||
             license.installationBinding !== installationId) {
-          return json({ valid: false, reason: "not_found" }, 404, headers);
+          return json({ valid: false, reason: "not_found" }, 200, headers);
         }
         if (license.status === "revoked") return json({ valid: false, status: "revoked", reason: "revoked" }, 200, headers);
         const from = Date.parse(license.validFrom), until = Date.parse(license.validUntil);
