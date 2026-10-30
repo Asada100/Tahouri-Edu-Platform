@@ -171,3 +171,108 @@ test("Worker entitlement signer rejects non-object claims", async () => {
     /claims must be an object/
   );
 });
+
+import { activateStudentBoundCode } from "./activation-service.js";
+
+function activationEnv(codeRow, batchResult = [
+  { meta: { changes: 1 } }, { meta: { changes: 1 } }, { meta: { changes: 1 } }
+]) {
+  const batches = [];
+  return {
+    batches,
+    LICENSE_SIGNING_PRIVATE_KEY_PEM: "test-private-key",
+    DB: {
+      prepare(sql) {
+        let values = [];
+        return {
+          bind(...args) { values = args; return this; },
+          async first() {
+            if (sql.includes("FROM activation_codes WHERE code_hash")) return codeRow;
+            return null;
+          },
+          async all() { return { results: [] }; },
+          async run() { return { meta: { changes: 1 } }; },
+          _sql: sql,
+          _values: () => values
+        };
+      },
+      async batch(statements) {
+        batches.push(statements.map(statement => ({ sql: statement._sql, values: statement._values() })));
+        return batchResult;
+      }
+    }
+  };
+}
+
+function thisAcademicYear() {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-US-u-ca-persian", {
+    timeZone: "Asia/Tehran", year: "numeric", month: "numeric"
+  }).formatToParts(new Date()).filter(x => x.type !== "literal").map(x => [x.type, Number(x.value)]));
+  return String(p.month >= 7 ? p.year : p.year - 1);
+}
+
+test("activation rejects a code bound to a different student before any D1 write", async () => {
+  const env = activationEnv({
+    studentId: "student-A", gradeId: "grade6", academicYear: thisAcademicYear(),
+    renewalMode: "promotion", status: "active", usedAt: null, productId: "tahouri-edu"
+  });
+  await assert.rejects(
+    () => activateStudentBoundCode(env, {
+      code: "THR-TEST-CODE", gradeId: "grade6", studentId: "student-B",
+      installationId: "install-A"
+    }),
+    error => error.status === 400
+  );
+  assert.equal(env.batches.length, 0);
+});
+
+test("activation rejects legacy unbound and already-consumed codes", async () => {
+  const base = {
+    gradeId: "grade6", academicYear: thisAcademicYear(), renewalMode: "promotion",
+    status: "active", usedAt: null, productId: "tahouri-edu"
+  };
+  const unbound = activationEnv({ ...base, studentId: null });
+  await assert.rejects(() => activateStudentBoundCode(unbound, {
+    code: "THR-TEST-CODE", gradeId: "grade6", studentId: "student-A", installationId: "install-A"
+  }), error => error.status === 400);
+  const used = activationEnv({ ...base, studentId: "student-A", status: "used", usedAt: "2026-01-01" });
+  await assert.rejects(() => activateStudentBoundCode(used, {
+    code: "THR-TEST-CODE", gradeId: "grade6", studentId: "student-A", installationId: "install-A"
+  }), error => error.status === 409);
+  assert.equal(unbound.batches.length, 0);
+  assert.equal(used.batches.length, 0);
+});
+
+test("activation claims code, creates license and audit in one conditional D1 batch", async () => {
+  const env = activationEnv({
+    studentId: "student-A", gradeId: "grade6", academicYear: thisAcademicYear(),
+    renewalMode: "promotion", status: "active", usedAt: null, productId: "tahouri-edu"
+  });
+  // The signing function is exercised separately by the cryptographic tests;
+  // this test focuses on the atomic D1 statement ordering and exact bindings.
+  const result = await activateStudentBoundCode(env, {
+    code: "THR-TEST-CODE", gradeId: "grade6", studentId: "student-A",
+    installationId: "install-A"
+  });
+  assert.equal(result.valid, true);
+  assert.equal(result.entitlement.claims.studentId, "student-A");
+  assert.equal(result.entitlement.claims.gradeScope, "grade6");
+  assert.equal(env.batches.length, 1);
+  const statements = env.batches[0];
+  assert.equal(statements.length, 3);
+  assert.match(statements[0].sql, /student_id = \?/);
+  assert.ok(statements[0].values.includes("student-A"));
+  assert.match(statements[1].sql, /INSERT INTO licenses/);
+  assert.match(statements[2].sql, /INSERT INTO audit_log/);
+});
+
+test("activation fails closed when the atomic code claim loses a race", async () => {
+  const env = activationEnv({
+    studentId: "student-A", gradeId: "grade6", academicYear: thisAcademicYear(),
+    renewalMode: "promotion", status: "active", usedAt: null, productId: "tahouri-edu"
+  }, [{ meta: { changes: 0 } }, { meta: { changes: 0 } }, { meta: { changes: 0 } }]);
+  await assert.rejects(() => activateStudentBoundCode(env, {
+    code: "THR-TEST-CODE", gradeId: "grade6", studentId: "student-A",
+    installationId: "install-A"
+  }), error => error.status === 409);
+});
