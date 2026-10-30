@@ -232,8 +232,8 @@ async function adminRoute(request, env, url, headers) {
     const body = await bodyJson(request);
     const licenseId = validIdentifier(body.licenseId, "licenseId");
     const result = await env.DB.prepare(`UPDATE licenses SET status = 'revoked', revoked_at = ?
-      WHERE license_id = ? AND status = 'active'`).bind(nowIso(), licenseId).run();
-    if (!result.meta?.changes) return error("مجوز فعال پیدا نشد.", 404, headers);
+      WHERE license_id = ? AND status IN ('active', 'future')`).bind(nowIso(), licenseId).run();
+    if (!result.meta?.changes) return error("مجوز فعال یا رزروشده پیدا نشد.", 404, headers);
     await audit(env, "license.revoked", "admin", { licenseId });
     return json({ ok: true }, 200, headers);
   }
@@ -311,6 +311,31 @@ export default {
       }
       if (url.pathname === "/api/health" && request.method === "GET")
         return await health(env, headers, requestId);
+      if (url.pathname === "/api/licenses/status" && request.method === "GET") {
+        const licenseId = validIdentifier(url.searchParams.get("licenseId"), "licenseId");
+        const studentId = validIdentifier(url.searchParams.get("studentId"), "studentId");
+        const installationId = validIdentifier(url.searchParams.get("installationId"), "installationId");
+        const license = await env.DB.prepare(`SELECT status, student_id AS studentId,
+          installation_binding AS installationBinding, valid_from AS validFrom,
+          valid_until AS validUntil FROM licenses
+          WHERE license_id = ? AND product_id = ? LIMIT 1`)
+          .bind(licenseId, PRODUCT_ID).first();
+        if (!license || license.studentId !== studentId ||
+            license.installationBinding !== installationId) {
+          return json({ valid: false, reason: "not_found" }, 404, headers);
+        }
+        if (license.status === "revoked") return json({ valid: false, status: "revoked", reason: "revoked" }, 200, headers);
+        const from = Date.parse(license.validFrom), until = Date.parse(license.validUntil);
+        if (!Number.isFinite(from) || !Number.isFinite(until))
+          return json({ valid: false, reason: "invalid_period" }, 200, headers);
+        if (Date.now() < from || license.status === "future")
+          return json({ valid: false, status: "future", reason: "not_yet_valid" }, 200, headers);
+        if (Date.now() >= until || license.status === "expired")
+          return json({ valid: false, status: "expired", reason: "expired" }, 200, headers);
+        if (license.status !== "active")
+          return json({ valid: false, status: license.status, reason: "inactive" }, 200, headers);
+        return json({ valid: true, status: "active", validUntil: license.validUntil }, 200, headers);
+      }
       if (url.pathname === "/api/public-key" && request.method === "GET") {
         if (!env.LICENSE_SIGNING_PUBLIC_KEY_PEM)
           return json({ ok: false, message: "کلید عمومی اعتبارسنجی در Worker تنظیم نشده است." }, 503, headers);
