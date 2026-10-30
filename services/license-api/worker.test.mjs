@@ -486,6 +486,11 @@ test("admin revocation immediately invalidates the same bound entitlement status
             return { meta: { changes: 1 } };
           }
         };
+      },
+      async batch(statements) {
+        const results = [];
+        for (const statement of statements) results.push(await statement.run());
+        return results;
       }
     }
   };
