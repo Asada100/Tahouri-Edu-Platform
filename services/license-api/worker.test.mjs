@@ -418,5 +418,5 @@ test("administrator can revoke a future-reserved license", async () => {
   assert.equal(response.status, 200);
   const update = calls.find(call => call.sql.includes("UPDATE licenses"));
   assert.ok(update);
-  assert.match(update.sql, /status IN \\(\'active\', \'future\'\\)/);
+  assert.ok(update.sql.includes("status IN ('active', 'future')"));
 });
