@@ -473,3 +473,40 @@ test("admin revocation immediately invalidates the same bound entitlement status
   assert.equal(body.valid, false);
   assert.equal(body.status, "revoked");
 });
+
+
+test("expired admin session is rejected and removed from D1", async () => {
+  const calls = [];
+  const env = {
+    DB: {
+      prepare(sql) {
+        let values = [];
+        return {
+          bind(...args) { values = args; return this; },
+          async first() {
+            if (sql.includes("SELECT expires_at FROM admin_sessions")) return { expires_at: Date.now() - 1 };
+            return null;
+          },
+          async run() { calls.push({ sql, values }); return { meta: { changes: 1 } }; },
+          async all() { return { results: [] }; }
+        };
+      }
+    }
+  };
+  const response = await worker.fetch(new Request("https://api.example.workers.dev/api/admin/licenses", {
+    headers: { Cookie: "tahouri_admin_session=expired-session" }
+  }), env);
+  assert.equal(response.status, 401);
+  assert.ok(calls.some(call => call.sql.includes("DELETE FROM admin_sessions")));
+});
+
+test("admin mutation is rejected when no session cookie is supplied", async () => {
+  const calls = [];
+  const response = await worker.fetch(new Request("https://api.example.workers.dev/api/admin/licenses/revoke", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ licenseId: "lic_no_session" })
+  }), adminEnv(calls));
+  assert.equal(response.status, 401);
+  assert.equal(calls.some(call => call.sql.includes("UPDATE licenses SET status = 'revoked'")), false);
+});
