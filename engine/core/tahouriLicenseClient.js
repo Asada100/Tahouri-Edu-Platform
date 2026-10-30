@@ -51,7 +51,7 @@
     }
 
     async function activate(payload) {
-        return request("/licenses/activate", {
+        return request("/activate", {
             method: "POST",
             body: JSON.stringify(payload)
         });
