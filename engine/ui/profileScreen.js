@@ -60,6 +60,12 @@ const ProfileScreen = {
             <h3>📅 تاریخ ایجاد پروفایل</h3>
             <p>${this.formatDate(profile.createdAt)}</p>
         </div>
+        <div class="profile-item">
+            <h3>🔐 شناسهٔ اختصاصی پروفایل</h3>
+            <p id="profileStudentId" dir="ltr"></p>
+            <button id="copyStudentIdBtn" type="button">کپی شناسه برای ثبت فعال‌سازی</button>
+            <p id="copyStudentIdMessage" aria-live="polite"></p>
+        </div>
     </div>
 
     <hr>
@@ -118,6 +124,25 @@ const ProfileScreen = {
     </div>
 </div>
         `;
+
+        const studentIdElement = document.getElementById("profileStudentId");
+        const copyStudentIdButton = document.getElementById("copyStudentIdBtn");
+        const copyStudentIdMessage = document.getElementById("copyStudentIdMessage");
+        if (studentIdElement) studentIdElement.textContent = profile.studentId || "";
+        if (copyStudentIdButton) {
+            copyStudentIdButton.onclick = async function () {
+                try {
+                    if (!profile.studentId) throw new Error("شناسهٔ پروفایل موجود نیست.");
+                    if (!navigator.clipboard || typeof navigator.clipboard.writeText !== "function") {
+                        throw new Error("کپی خودکار در این مرورگر در دسترس نیست؛ شناسه را انتخاب و کپی کنید.");
+                    }
+                    await navigator.clipboard.writeText(profile.studentId);
+                    copyStudentIdMessage.textContent = "شناسه کپی شد؛ آن را فقط برای صدور کد اختصاصی به مدیر بدهید.";
+                } catch (error) {
+                    copyStudentIdMessage.textContent = error.message || "کپی شناسه انجام نشد.";
+                }
+            };
+        }
 
         document.getElementById("editProfileBtn").onclick = function () {
             ProfileScreen.showEdit();
