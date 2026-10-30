@@ -1,3 +1,4 @@
+import { activateStudentBoundCode } from "./activation-service.js";
 /**
  * Tahouri License API — Cloudflare Workers + D1.
  *
@@ -288,7 +289,7 @@ async function health(env, headers, requestId) {
   return json({ ok: ready, status: ready ? "healthy" : "not_ready",
     service: "tahouri-license-api", version: SERVICE_VERSION, runtime: "cloudflare-workers",
     database, schemaVersion, capabilities: { adminApi: true, codeManagement: true,
-      licenseActivation: false, licenseVerification: false, paymentVerification: false,
+      licenseActivation: Number(schemaVersion) >= 3 && Boolean(env.LICENSE_SIGNING_PRIVATE_KEY_PEM), licenseVerification: false, paymentVerification: false,
       studentBoundCodeIssuance: Number(schemaVersion) >= 3,
       signedEntitlementExtension: false }, requestId }, ready ? 200 : 503,
     { ...headers, "x-request-id": requestId });
@@ -310,6 +311,14 @@ export default {
       }
       if (url.pathname === "/api/health" && request.method === "GET")
         return await health(env, headers, requestId);
+      if (url.pathname === "/api/activate" && request.method === "POST") {
+        const schema = await env.DB.prepare("SELECT MAX(version) AS version FROM schema_migrations").first();
+        if (Number(schema?.version || 0) < 3)
+          return json({ ok: false, message: "ساختار پایگاه داده برای فعال‌سازی آماده نیست." }, 503, headers);
+        const body = await bodyJson(request);
+        const result = await activateStudentBoundCode(env, body);
+        return json(result, 200, headers);
+      }
       if (url.pathname.startsWith("/api/admin/") || url.pathname === "/api/metrics" || url.pathname === "/api/metrics/alerts")
         return await adminRoute(request, env, url, headers);
       if (url.pathname.startsWith("/api/"))
