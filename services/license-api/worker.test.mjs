@@ -38,6 +38,19 @@ test("activation fails closed when the signing secret is not configured", async 
   assert.equal(response.status, 503);
   assert.match((await response.json()).message, /کلید امضای مجوز/);
 });
+test("public key endpoint returns only the configured public key", async () => {
+  const publicKeyPem = "-----BEGIN PUBLIC KEY-----\\nTEST\\n-----END PUBLIC KEY-----";
+  const response = await worker.fetch(new Request("https://api.example.workers.dev/api/public-key"), { LICENSE_SIGNING_PUBLIC_KEY_PEM: publicKeyPem });
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.publicKeyPem, publicKeyPem);
+  assert.equal("privateKeyPem" in body, false);
+});
+
+test("public key endpoint fails closed when no public key is configured", async () => {
+  const response = await worker.fetch(new Request("https://api.example.workers.dev/api/public-key"), {});
+  assert.equal(response.status, 503);
+});
 
 test("admin UI is served from the Assets binding", async () => {
   let called = false;
