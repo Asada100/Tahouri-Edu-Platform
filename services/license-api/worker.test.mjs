@@ -338,3 +338,85 @@ test("activation fails closed when the atomic code claim loses a race", async ()
     installationId: "install-A"
   }), error => error.status === 409);
 });
+
+
+function licenseStatusEnv(license) {
+  let captured = null;
+  return {
+    get captured() { return captured; },
+    DB: {
+      prepare(sql) {
+        let values = [];
+        return {
+          bind(...args) { values = args; return this; },
+          async first() {
+            captured = { sql, values };
+            return license;
+          }
+        };
+      }
+    }
+  };
+}
+
+test("license status requires the exact student and installation bindings", async () => {
+  const env = licenseStatusEnv({
+    status: "active", studentId: "student-A", installationBinding: "install-A",
+    validFrom: new Date(Date.now() - 60_000).toISOString(),
+    validUntil: new Date(Date.now() + 60_000).toISOString()
+  });
+  const url = "https://api.example.workers.dev/api/licenses/status?licenseId=lic_A&studentId=student-A&installationId=install-A";
+  const response = await worker.fetch(new Request(url), env);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.valid, true);
+  assert.equal(body.status, "active");
+  assert.deepEqual(env.captured.values, ["lic_A", "tahouri-edu"]);
+});
+
+test("license status does not disclose a license to a different student or installation", async () => {
+  for (const query of [
+    "licenseId=lic_A&studentId=student-B&installationId=install-A",
+    "licenseId=lic_A&studentId=student-A&installationId=install-B"
+  ]) {
+    const env = licenseStatusEnv({
+      status: "active", studentId: "student-A", installationBinding: "install-A",
+      validFrom: new Date(Date.now() - 60_000).toISOString(),
+      validUntil: new Date(Date.now() + 60_000).toISOString()
+    });
+    const response = await worker.fetch(new Request(
+      "https://api.example.workers.dev/api/licenses/status?" + query
+    ), env);
+    assert.equal(response.status, 404);
+    assert.equal((await response.json()).reason, "not_found");
+  }
+});
+
+test("license status reports revoked licenses as invalid", async () => {
+  const env = licenseStatusEnv({
+    status: "revoked", studentId: "student-A", installationBinding: "install-A",
+    validFrom: new Date(Date.now() - 60_000).toISOString(),
+    validUntil: new Date(Date.now() + 60_000).toISOString()
+  });
+  const response = await worker.fetch(new Request(
+    "https://api.example.workers.dev/api/licenses/status?licenseId=lic_A&studentId=student-A&installationId=install-A"
+  ), env);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.valid, false);
+  assert.equal(body.status, "revoked");
+});
+
+test("administrator can revoke a future-reserved license", async () => {
+  const calls = [];
+  const env = adminEnv(calls);
+  const response = await worker.fetch(new Request("https://api.example.workers.dev/api/admin/licenses/revoke", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: "tahouri_admin_session=test-session" },
+    body: JSON.stringify({ licenseId: "lic_future_A" })
+  }), env);
+  assert.equal(response.status, 200);
+  const update = calls.find(call => call.sql.includes("UPDATE licenses"));
+  assert.ok(update);
+  assert.match(update.sql, /status IN \\(\'active\', \'future\'\\)/);
+});
