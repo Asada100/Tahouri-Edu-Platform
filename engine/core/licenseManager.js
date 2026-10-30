@@ -1716,6 +1716,17 @@
                 if (binding && binding !== installationId) continue;
 
                 verifiedRemoteEntitlement = claims;
+
+                // Recheck revocation when online, but keep the signed entitlement
+                // available for offline use if the status service cannot be reached.
+                const remoteStatus = await refreshRemoteLicenseStatus();
+                if (!remoteStatus.valid &&
+                    !["network_error", "status_client_unavailable", "binding_information_unavailable"]
+                        .includes(remoteStatus.reason)) {
+                    verifiedRemoteEntitlement = null;
+                    continue;
+                }
+
                 return true;
             }
 
