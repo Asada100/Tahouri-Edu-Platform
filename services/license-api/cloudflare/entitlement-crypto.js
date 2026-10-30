@@ -51,6 +51,7 @@ function serializeClaims(claims) {
 }
 
 export async function signEntitlement(claims, privateKeyPem) {
+  const payload = serializeClaims(claims);
   const keyData = decodePem(privateKeyPem, "PRIVATE KEY");
   const key = await crypto.subtle.importKey(
     "pkcs8",
@@ -62,7 +63,7 @@ export async function signEntitlement(claims, privateKeyPem) {
   const signature = await crypto.subtle.sign(
     ALGORITHM,
     key,
-    serializeClaims(claims)
+    payload
   );
   return {
     claims,
@@ -73,6 +74,7 @@ export async function signEntitlement(claims, privateKeyPem) {
 
 export async function verifyEntitlement(claims, signature, publicKeyPem) {
   if (typeof signature !== "string" || !signature.trim()) return false;
+  const payload = serializeClaims(claims);
   const keyData = decodePem(publicKeyPem, "PUBLIC KEY");
   const key = await crypto.subtle.importKey(
     "spki",
@@ -92,6 +94,6 @@ export async function verifyEntitlement(claims, signature, publicKeyPem) {
     ALGORITHM,
     key,
     signatureBytes,
-    serializeClaims(claims)
+    payload
   );
 }
