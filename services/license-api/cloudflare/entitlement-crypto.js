@@ -22,7 +22,7 @@ function decodePem(pem, label) {
   }
   const encoded = normalized
     .slice(begin.length, normalized.length - end.length)
-    .replace(/\\s+/g, "");
+    .replace(/\s+/g, "");
   if (!encoded || !/^[A-Za-z0-9+/]+={0,2}$/.test(encoded)) {
     throw new TypeError("PEM key contains invalid base64.");
   }
