@@ -124,3 +124,50 @@ test("preflight allows same-origin and rejects foreign origin", async () => {
   }), {});
   assert.equal(bad.status, 403);
 });
+
+import { signEntitlementClaims } from "./entitlement-crypto.js";
+
+function pemFromDer(bytes, label) {
+  let binary = "";
+  for (const byte of new Uint8Array(bytes)) binary += String.fromCharCode(byte);
+  const encoded = btoa(binary).match(/.{1,64}/g).join("\n");
+  return `-----BEGIN ${label}-----\n${encoded}\n-----END ${label}-----`;
+}
+
+test("Worker entitlement signer produces a verifiable RSA-SHA256 signature", async () => {
+  const pair = await crypto.subtle.generateKey({
+    name: "RSASSA-PKCS1-v1_5", modulusLength: 2048,
+    publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256"
+  }, true, ["sign", "verify"]);
+  const privatePem = pemFromDer(await crypto.subtle.exportKey("pkcs8", pair.privateKey), "PRIVATE KEY");
+  const claims = {
+    licenseId: "lic_test-1", studentId: "student-123",
+    gradeScope: "grade6", academicYear: "1405"
+  };
+  const signature = await signEntitlementClaims(privatePem, claims);
+  const valid = await crypto.subtle.verify(
+    "RSASSA-PKCS1-v1_5", pair.publicKey,
+    Uint8Array.from(atob(signature), character => character.charCodeAt(0)),
+    new TextEncoder().encode(JSON.stringify(claims))
+  );
+  assert.equal(valid, true);
+  const tampered = { ...claims, studentId: "student-other" };
+  const tamperedValid = await crypto.subtle.verify(
+    "RSASSA-PKCS1-v1_5", pair.publicKey,
+    Uint8Array.from(atob(signature), character => character.charCodeAt(0)),
+    new TextEncoder().encode(JSON.stringify(tampered))
+  );
+  assert.equal(tamperedValid, false);
+});
+
+test("Worker entitlement signer fails closed for a missing or malformed key", async () => {
+  await assert.rejects(() => signEntitlementClaims("", { licenseId: "lic_test" }));
+  await assert.rejects(() => signEntitlementClaims("not-a-private-key", { licenseId: "lic_test" }));
+});
+
+test("Worker entitlement signer rejects non-object claims", async () => {
+  await assert.rejects(
+    () => signEntitlementClaims("-----BEGIN PRIVATE KEY-----\nAA==\n-----END PRIVATE KEY-----", null),
+    /claims must be an object/
+  );
+});
