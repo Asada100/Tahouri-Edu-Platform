@@ -387,8 +387,10 @@ test("license status does not disclose a license to a different student or insta
     const response = await worker.fetch(new Request(
       "https://api.example.workers.dev/api/licenses/status?" + query
     ), env);
-    assert.equal(response.status, 404);
-    assert.equal((await response.json()).reason, "not_found");
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.valid, false);
+    assert.equal(body.reason, "not_found");
   }
 });
 
