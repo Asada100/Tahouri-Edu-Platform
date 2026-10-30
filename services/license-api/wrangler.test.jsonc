@@ -15,7 +15,8 @@
       "binding": "DB",
       "database_name": "tahouri-license-ownership-test-20261030",
       "database_id": "0600a724-949c-4ca8-828c-be18b797ad54",
-      "migrations_dir": "migrations"
+      "migrations_dir": "migrations",
+      "remote": true
     }
   ],
   "assets": {

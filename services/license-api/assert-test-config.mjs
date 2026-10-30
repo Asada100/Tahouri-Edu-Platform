@@ -26,6 +26,7 @@ if (testDb?.database_id !== TEST_DATABASE_ID) errors.push("Test DB ID is not the
 if (testDb?.database_name !== TEST_DATABASE_NAME) errors.push("Test DB name is incorrect.");
 if (testDbs.length !== 1 || testDb?.binding !== "DB") errors.push("Test config must contain exactly one DB binding.");
 if (testDb?.database_id === PRODUCTION_DATABASE_ID) errors.push("BLOCKED: test config points to Production D1.");
+if (testDb?.remote !== true) errors.push("Test D1 binding must use remote:true so local Worker requests reach the isolated test database.");
 if (test.workers_dev !== false) errors.push("Test Worker must not publish a workers.dev endpoint.");
 if (test.preview_urls !== false) errors.push("Test Worker preview URLs must remain disabled.");
 if (test.routes?.length || test.route || test.custom_domains?.length) {
@@ -43,4 +44,5 @@ if (errors.length) {
 
 console.log("Tahouri isolated-test configuration: PASS");
 console.log("Production D1 ID is excluded from the test config.");
+console.log("Test D1 uses a remote binding while Worker execution remains local.");
 console.log("No public Worker route or preview URL is configured.");
