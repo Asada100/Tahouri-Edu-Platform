@@ -9,11 +9,14 @@ on:
       - "services/license-api/cloudflare/activation-policy.js"
       - "services/license-api/cloudflare/entitlement-crypto.js"
       - "services/license-api/cloudflare/worker.crypto-test.js"
+      - "services/license-api/cloudflare/entitlement-crypto.js"
       - "services/license-api/cloudflare/migrations/*.sql"
       - ".github/workflows/license-crypto-test.yml"
   pull_request:
     paths:
       - "services/license-api/cloudflare/tests/*.test.mjs"
+      - "services/license-api/cloudflare/worker.crypto-test.js"
+      - "services/license-api/cloudflare/entitlement-crypto.js"
       - "services/license-api/cloudflare/migrations/*.sql"
       - ".github/workflows/license-crypto-test.yml"
 
