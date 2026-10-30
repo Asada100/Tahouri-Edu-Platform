@@ -1,22 +1,24 @@
-name: License entitlement crypto test
+name: License entitlement and D1 migration tests
 
 on:
   push:
     branches:
       - chore/cloudflare-worker-source-baseline
     paths:
-      - "services/license-api/cloudflare/tests/entitlement-crypto.test.mjs"
+      - "services/license-api/cloudflare/tests/*.test.mjs"
+      - "services/license-api/cloudflare/migrations/*.sql"
       - ".github/workflows/license-crypto-test.yml"
   pull_request:
     paths:
-      - "services/license-api/cloudflare/tests/entitlement-crypto.test.mjs"
+      - "services/license-api/cloudflare/tests/*.test.mjs"
+      - "services/license-api/cloudflare/migrations/*.sql"
       - ".github/workflows/license-crypto-test.yml"
 
 permissions:
   contents: read
 
 jobs:
-  entitlement-crypto:
+  license-safety-tests:
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
@@ -25,5 +27,5 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "24"
-      - name: Run isolated signing and tamper-detection test
-        run: node --test services/license-api/cloudflare/tests/entitlement-crypto.test.mjs
+      - name: Run isolated license safety tests
+        run: node --test services/license-api/cloudflare/tests/*.test.mjs
