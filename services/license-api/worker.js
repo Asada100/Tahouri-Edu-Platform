@@ -264,8 +264,9 @@ async function adminRoute(request, env, url, headers) {
       q, q, q, like, like, like);
     const codes = await listRows(env, `SELECT code_preview AS codePreview, student_id AS studentId, grade_id AS gradeId,
       academic_year AS academicYear, status, created_at AS createdAt, used_at AS usedAt,
-      license_id AS licenseId FROM activation_codes WHERE code_preview LIKE ? OR grade_id LIKE ?
-      ORDER BY created_at DESC LIMIT 100`, like, like);
+      license_id AS licenseId FROM activation_codes
+      WHERE code_preview LIKE ? OR grade_id LIKE ? OR student_id LIKE ?
+      ORDER BY created_at DESC LIMIT 100`, like, like, like);
     return json({ ok: true, licenses, codes }, 200, headers);
   }
   if (path === "/api/health" && request.method === "GET") {
