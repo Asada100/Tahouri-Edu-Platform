@@ -165,7 +165,7 @@ test("Worker public-key route and browser verifier complete a signed entitlement
   const window = { TahouriServiceConfig: {
     mode: "test", apiBaseUrl, productId: "tahouri-edu", entitlementVersion: 1
   } };
-  const verifierSource = await readFile(new URL("../engine/core/tahouriEntitlementVerifier.js", import.meta.url), "utf8");
+  const verifierSource = await readFile(new URL("../../engine/core/tahouriEntitlementVerifier.js", import.meta.url), "utf8");
   runInNewContext(verifierSource, { window, crypto, atob, TextEncoder, fetch: fetchMock, console });
   const envelope = { claims, signature, algorithm: "RSASSA-PKCS1-v1_5-SHA256" };
   const verified = await window.TahouriEntitlementVerifier.verifyEnvelope(envelope);
