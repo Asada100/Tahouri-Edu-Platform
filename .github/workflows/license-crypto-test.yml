@@ -8,6 +8,7 @@ on:
       - "services/license-api/cloudflare/tests/*.test.mjs"
       - "services/license-api/cloudflare/activation-policy.js"
       - "services/license-api/cloudflare/entitlement-crypto.js"
+      - "services/license-api/cloudflare/worker.crypto-test.js"
       - "services/license-api/cloudflare/migrations/*.sql"
       - ".github/workflows/license-crypto-test.yml"
   pull_request:
@@ -29,5 +30,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "24"
+      - name: Check isolated Worker entrypoint syntax
+        run: node --check services/license-api/cloudflare/worker.crypto-test.js
       - name: Run isolated license safety tests
         run: node --test services/license-api/cloudflare/tests/*.test.mjs
