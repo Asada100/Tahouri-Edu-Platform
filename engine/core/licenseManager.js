@@ -1603,54 +1603,114 @@
     // Remote Activation Bridge
     // =====================================
     async function activateRemote(code, gradeId, studentId, renewalMode = "promotion") {
-        if (!window.TahouriLicenseClient || !window.TahouriEntitlementVerifier || !window.TahouriEntitlementStore) return null;
+        if (!window.TahouriLicenseClient || !window.TahouriEntitlementVerifier || !window.TahouriEntitlementStore) {
+            return { valid: false, message: "اجزای فعال‌سازی آنلاین در دسترس نیستند." };
+        }
+
         const installationId = getOrCreateInstallationId();
+        const activeStudentId = getActiveStudentId();
+        const normalizedStudentId = String(studentId || activeStudentId || "").trim();
+
+        if (!activeStudentId || normalizedStudentId !== activeStudentId) {
+            return { valid: false, message: "پروفایل فعال برای این درخواست معتبر نیست." };
+        }
+        if (!gradeId || !installationId || installationId.startsWith("ephemeral_")) {
+            return { valid: false, message: "شناسه نصب یا پایه تحصیلی معتبر نیست." };
+        }
+
         try {
-            const normalizedStudentId = String(studentId || getActiveStudentId() || "").trim();
-            const response = await window.TahouriLicenseClient.activate({code, gradeId, studentId: normalizedStudentId, installationId, renewalMode});
-            if (!response || !response.valid || !response.entitlement) return response || {valid:false,message:"فعال‌سازی آنلاین انجام نشد."};
+            const response = await window.TahouriLicenseClient.activate({
+                code,
+                gradeId,
+                studentId: normalizedStudentId,
+                installationId,
+                renewalMode
+            });
+
+            if (!response || !response.valid || !response.entitlement) {
+                return response || { valid: false, message: "فعال‌سازی آنلاین انجام نشد." };
+            }
+
             const verified = await window.TahouriEntitlementVerifier.verifyEnvelope(
                 response.entitlement,
                 { allowFuture: true }
             );
-            if (!verified.valid) return {valid:false,message:verified.reason || "مجوز آنلاین معتبر نیست."};
+            if (!verified.valid || !verified.claims) {
+                return { valid: false, message: verified.reason || "مجوز آنلاین معتبر نیست." };
+            }
+
             const claims = verified.claims;
-            if (claims.gradeScope && claims.gradeScope !== gradeId) return {valid:false,message:"مجوز مربوط به این پایه نیست."};
-            if (claims.studentId && claims.studentId !== String(studentId || getActiveStudentId()).trim()) return {valid:false,message:"این مجوز متعلق به پروفایل دیگری است."};
-            if (!window.TahouriEntitlementStore.write(response.entitlement)) return {valid:false,message:"ذخیره مجوز امن انجام نشد."};
+            const requiredStringClaims = [
+                "licenseId", "productId", "academicYear", "gradeScope",
+                "studentId", "installationBinding", "validFrom", "validUntil"
+            ];
             if (
-                claims.productId !== "tahouri-edu" ||
-                claims.entitlementVersion !== 1 ||
-                claims.licenseId === undefined ||
-                claims.academicYear === undefined ||
-                claims.validFrom === undefined ||
-                claims.validUntil === undefined
+                requiredStringClaims.some(key =>
+                    typeof claims[key] !== "string" || !claims[key].trim()
+                ) ||
+                Number(claims.entitlementVersion) !== 1 ||
+                claims.productId !== "tahouri-edu"
             ) {
-                return {
-                    valid: false,
-                    message: "اطلاعات مجوز دریافتی کامل نیست."
-                };
+                return { valid: false, message: "اطلاعات مجوز دریافتی کامل نیست." };
+            }
+
+            if (claims.gradeScope !== gradeId) {
+                return { valid: false, message: "مجوز مربوط به این پایه نیست." };
+            }
+            if (claims.studentId !== normalizedStudentId) {
+                return { valid: false, message: "این مجوز متعلق به پروفایل دیگری است." };
+            }
+            if (claims.installationBinding !== installationId) {
+                return { valid: false, message: "این مجوز به نصب فعلی تعلق ندارد." };
             }
 
             const validFrom = new Date(claims.validFrom);
-            const isFutureRenewal =
-                !Number.isNaN(validFrom.getTime()) &&
-                Date.now() < validFrom.getTime();
+            const validUntil = new Date(claims.validUntil);
+            if (
+                Number.isNaN(validFrom.getTime()) ||
+                Number.isNaN(validUntil.getTime()) ||
+                validUntil.getTime() <= validFrom.getTime() ||
+                Date.now() >= validUntil.getTime()
+            ) {
+                return { valid: false, message: "بازه اعتبار مجوز معتبر نیست." };
+            }
+
+            const isFutureRenewal = Date.now() < validFrom.getTime();
+
+            // A future entitlement may be stored only when the current,
+            // already-stored entitlement is still verifiable and selected.
+            if (isFutureRenewal && !await initializeRemoteEntitlement()) {
+                return {
+                    valid: false,
+                    message: "برای ثبت تمدید سال آینده، مجوز فعال فعلی تأیید نشد."
+                };
+            }
+
+            // Persist only after signature, identity, grade, installation,
+            // claim-schema and date checks have all passed.
+            if (!window.TahouriEntitlementStore.write(response.entitlement)) {
+                return { valid: false, message: "ذخیره مجوز امن انجام نشد." };
+            }
 
             if (isFutureRenewal) {
-                await initializeRemoteEntitlement();
                 return {
                     valid: true,
                     remote: true,
                     renewalStored: true,
                     entitlement: response.entitlement,
                     license: claims,
-                    studentId
+                    studentId: normalizedStudentId
                 };
             }
 
             verifiedRemoteEntitlement = claims;
-            return {valid:true,remote:true,entitlement:response.entitlement,license:claims,studentId};
+            return {
+                valid: true,
+                remote: true,
+                entitlement: response.entitlement,
+                license: claims,
+                studentId: normalizedStudentId
+            };
         } catch (error) {
             console.warn("License Manager: Remote activation unavailable.", error);
             if (isRemoteProductionMode()) {
@@ -1689,16 +1749,30 @@
                 : [window.TahouriEntitlementStore.read()].filter(Boolean);
 
             const installationId = getOrCreateInstallationId();
+            const activeStudentId = getActiveStudentId();
+            const profile = getActiveProfile();
+            const profileGradeId = profile && typeof profile.gradeId === "string"
+                ? profile.gradeId
+                : "";
+
+            if (!installationId || installationId.startsWith("ephemeral_") || !activeStudentId) {
+                return false;
+            }
 
             for (const envelope of all) {
                 const result = await window.TahouriEntitlementVerifier.verifyEnvelope(envelope);
-
-                if (!result.valid) continue;
+                if (!result.valid || !result.claims) continue;
 
                 const claims = result.claims;
-                const binding = claims.installationBinding;
-
-                if (binding && binding !== installationId) continue;
+                if (
+                    claims.productId !== "tahouri-edu" ||
+                    claims.studentId !== activeStudentId ||
+                    claims.installationBinding !== installationId ||
+                    !claims.gradeScope ||
+                    (profileGradeId && claims.gradeScope !== profileGradeId)
+                ) {
+                    continue;
+                }
 
                 verifiedRemoteEntitlement = claims;
                 return true;
