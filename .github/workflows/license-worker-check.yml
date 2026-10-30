@@ -28,6 +28,10 @@ jobs:
           node-version: "24"
       - name: Check Worker module syntax
         run: node --input-type=module --check < services/license-api/worker.js
+      - name: Check admin and profile UI syntax
+        run: |
+          node --check services/license-api/admin/admin.js
+          node --check engine/ui/profileScreen.js
       - name: Run Worker smoke tests
         run: node --test services/license-api/worker.test.mjs
       - name: Validate Wrangler JSON configuration
