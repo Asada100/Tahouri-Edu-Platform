@@ -33,10 +33,10 @@ test("health fails closed if the schema is missing", async () => {
   assert.equal(body.ok, false);
 });
 
-test("unsupported activation returns 501 instead of false success", async () => {
+test("activation fails closed when the signing secret is not configured", async () => {
   const response = await worker.fetch(new Request("https://api.example.workers.dev/api/activate", { method: "POST" }), {});
-  assert.equal(response.status, 501);
-  assert.equal((await response.json()).error, "not_implemented");
+  assert.equal(response.status, 503);
+  assert.match((await response.json()).message, /کلید امضای مجوز/);
 });
 
 test("admin UI is served from the Assets binding", async () => {
