@@ -12,8 +12,8 @@ const encoder = new TextEncoder();
 const algorithm = { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" };
 
 function pem(label, bytes) {
-  const body = Buffer.from(bytes).toString("base64").match(/.{1,64}/g).join("\\n");
-  return `-----BEGIN ${label}-----\\n${body}\\n-----END ${label}-----`;
+  const body = Buffer.from(bytes).toString("base64").match(/.{1,64}/g).join("\n");
+  return `-----BEGIN ${label}-----\n${body}\n-----END ${label}-----`;
 }
 
 function verifierPemToArrayBuffer(publicKeyPem) {
@@ -21,7 +21,7 @@ function verifierPemToArrayBuffer(publicKeyPem) {
   const encoded = publicKeyPem
     .replace(/-----BEGIN PUBLIC KEY-----/g, "")
     .replace(/-----END PUBLIC KEY-----/g, "")
-    .replace(/\\s+/g, "");
+    .replace(/\s+/g, "");
   return Uint8Array.from(Buffer.from(encoded, "base64")).buffer;
 }
 
