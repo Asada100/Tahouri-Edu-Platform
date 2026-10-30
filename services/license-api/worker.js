@@ -176,7 +176,7 @@ async function adminRoute(request, env, url, headers) {
   }
   if (path === "/api/metrics/alerts" && request.method === "GET") return json({ ok: true, alerts: [] }, 200, headers);
   if (path === "/api/admin/codes" && request.method === "GET") {
-    const codes = await listRows(env, `SELECT code_preview AS codePreview, product_id AS productId,
+    const codes = await listRows(env, `SELECT code_preview AS codePreview, product_id AS productId, student_id AS studentId,
       grade_id AS gradeId, academic_year AS academicYear, renewal_mode AS renewalMode, status,
       created_at AS createdAt, used_at AS usedAt, license_id AS licenseId
       FROM activation_codes ORDER BY created_at DESC LIMIT 500`);
@@ -185,6 +185,7 @@ async function adminRoute(request, env, url, headers) {
   if (path === "/api/admin/codes" && request.method === "POST") {
     const body = await bodyJson(request);
     const gradeId = validIdentifier(body.gradeId, "gradeId");
+    const studentId = validIdentifier(body.studentId, "studentId");
     const academicYear = String(body.academicYear || iranianYear()).trim();
     const renewalMode = String(body.renewalMode || "promotion").toLowerCase();
     const currentYear = iranianYear();
@@ -193,21 +194,14 @@ async function adminRoute(request, env, url, headers) {
     if (!["promotion", "repeat"].includes(renewalMode)) return error("نوع رزرو معتبر نیست.", 400, headers);
     if (Number(academicYear) === currentYear && renewalMode === "repeat")
       return error("کد تکرار پایه فقط برای سال تحصیلی بعد قابل ساخت است.", 400, headers);
-    const count = Math.min(Math.max(Number(body.count || 1), 1), 100);
-    if (!Number.isInteger(count)) return error("تعداد کد نامعتبر است.", 400, headers);
-    const created = [];
-    const statements = [];
-    for (let i = 0; i < count; i++) {
-      const code = makeCode(gradeId, academicYear);
-      created.push(code);
-      statements.push(env.DB.prepare(`INSERT INTO activation_codes
-        (code_hash, code_preview, product_id, grade_id, academic_year, renewal_mode, status, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, 'active', ?)`)
-        .bind(await sha256(code.toUpperCase()), preview(code), PRODUCT_ID, gradeId, academicYear, renewalMode, nowIso()));
-    }
-    await env.DB.batch(statements);
-    await audit(env, "codes.created", "admin", { metadata: { gradeId, academicYear, renewalMode, count } });
-    return json({ ok: true, codes: created }, 201, headers);
+    const code = makeCode(gradeId, academicYear);
+    const codeHash = await sha256(code.toUpperCase());
+    await env.DB.prepare(`INSERT INTO activation_codes
+      (code_hash, code_preview, product_id, student_id, grade_id, academic_year, renewal_mode, status, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?)`)
+      .bind(codeHash, preview(code), PRODUCT_ID, studentId, gradeId, academicYear, renewalMode, nowIso()).run();
+    await audit(env, "codes.created", "admin", { codeHash, metadata: { gradeId, studentId, academicYear, renewalMode } });
+    return json({ ok: true, codes: [code], studentId }, 201, headers);
   }
   if (path === "/api/admin/codes/revoke" && request.method === "POST") {
     const body = await bodyJson(request);
@@ -268,7 +262,7 @@ async function adminRoute(request, env, url, headers) {
       WHERE license_id = ? OR student_id = ? OR grade_id = ? OR LOWER(license_id) LIKE LOWER(?)
       OR LOWER(student_id) LIKE LOWER(?) OR LOWER(grade_id) LIKE LOWER(?) ORDER BY created_at DESC LIMIT 100`,
       q, q, q, like, like, like);
-    const codes = await listRows(env, `SELECT code_preview AS codePreview, grade_id AS gradeId,
+    const codes = await listRows(env, `SELECT code_preview AS codePreview, student_id AS studentId, grade_id AS gradeId,
       academic_year AS academicYear, status, created_at AS createdAt, used_at AS usedAt,
       license_id AS licenseId FROM activation_codes WHERE code_preview LIKE ? OR grade_id LIKE ?
       ORDER BY created_at DESC LIMIT 100`, like, like);
@@ -294,6 +288,7 @@ async function health(env, headers, requestId) {
     service: "tahouri-license-api", version: SERVICE_VERSION, runtime: "cloudflare-workers",
     database, schemaVersion, capabilities: { adminApi: true, codeManagement: true,
       licenseActivation: false, licenseVerification: false, paymentVerification: false,
+      studentBoundCodeIssuance: Number(schemaVersion) >= 3,
       signedEntitlementExtension: false }, requestId }, ready ? 200 : 503,
     { ...headers, "x-request-id": requestId });
 }
