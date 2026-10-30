@@ -311,6 +311,11 @@ export default {
       }
       if (url.pathname === "/api/health" && request.method === "GET")
         return await health(env, headers, requestId);
+      if (url.pathname === "/api/public-key" && request.method === "GET") {
+        if (!env.LICENSE_SIGNING_PUBLIC_KEY_PEM)
+          return json({ ok: false, message: "کلید عمومی اعتبارسنجی در Worker تنظیم نشده است." }, 503, headers);
+        return json({ ok: true, publicKeyPem: env.LICENSE_SIGNING_PUBLIC_KEY_PEM }, 200, headers);
+      }
       if (url.pathname === "/api/activate" && request.method === "POST") {
         if (!env.LICENSE_SIGNING_PRIVATE_KEY_PEM)
           return json({ ok: false, message: "کلید امضای مجوز در Worker تنظیم نشده است." }, 503, headers);
