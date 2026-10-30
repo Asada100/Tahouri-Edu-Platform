@@ -1,0 +1,29 @@
+name: License entitlement crypto test
+
+on:
+  push:
+    branches:
+      - chore/cloudflare-worker-source-baseline
+    paths:
+      - "services/license-api/cloudflare/tests/entitlement-crypto.test.mjs"
+      - ".github/workflows/license-crypto-test.yml"
+  pull_request:
+    paths:
+      - "services/license-api/cloudflare/tests/entitlement-crypto.test.mjs"
+      - ".github/workflows/license-crypto-test.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  entitlement-crypto:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Run isolated signing and tamper-detection test
+        run: node --test services/license-api/cloudflare/tests/entitlement-crypto.test.mjs
