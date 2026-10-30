@@ -510,3 +510,64 @@ test("admin mutation is rejected when no session cookie is supplied", async () =
   assert.equal(response.status, 401);
   assert.equal(calls.some(call => call.sql.includes("UPDATE licenses SET status = 'revoked'")), false);
 });
+
+
+test("admin login locks after five failed attempts within one minute", async () => {
+  const state = { attempts: 0, window_started_at: Date.now(), locked_until: 0 };
+  const calls = [];
+  const env = {
+    ADMIN_PASSWORD: "test-password-that-is-long-enough",
+    DB: {
+      prepare(sql) {
+        let values = [];
+        return {
+          bind(...args) { values = args; return this; },
+          async first() {
+            if (sql.includes("SELECT attempts, window_started_at, locked_until FROM admin_login_attempts")) {
+              return state.attempts ? { ...state } : null;
+            }
+            if (sql.includes("SELECT attempts, locked_until FROM admin_login_attempts")) {
+              return { attempts: state.attempts, locked_until: state.locked_until };
+            }
+            return null;
+          },
+          async run() {
+            calls.push({ sql, values });
+            if (sql.includes("INSERT INTO admin_login_attempts")) {
+              const now = values[1];
+              if (now - state.window_started_at >= 60_000) {
+                state.attempts = 1;
+                state.window_started_at = now;
+              } else {
+                state.attempts += 1;
+              }
+              if (state.attempts >= 5 && now - state.window_started_at < 60_000) {
+                state.locked_until = now + 900_000;
+              }
+            }
+            return { meta: { changes: 1 } };
+          },
+          async all() { return { results: [] }; }
+        };
+      }
+    }
+  };
+  for (let i = 0; i < 4; i++) {
+    const response = await worker.fetch(new Request("https://api.example.workers.dev/api/admin/login", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: "wrong-password" })
+    }), env);
+    assert.equal(response.status, 401);
+  }
+  const fifth = await worker.fetch(new Request("https://api.example.workers.dev/api/admin/login", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password: "wrong-password" })
+  }), env);
+  assert.equal(fifth.status, 429);
+  assert.ok(state.locked_until > Date.now());
+  const sixth = await worker.fetch(new Request("https://api.example.workers.dev/api/admin/login", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password: "test-password-that-is-long-enough" })
+  }), env);
+  assert.equal(sixth.status, 429);
+});
