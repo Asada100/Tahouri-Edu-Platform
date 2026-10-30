@@ -120,14 +120,26 @@
                 return { valid: false, reason: "نسخه مجوز پشتیبانی نمی‌شود." };
             }
 
-            if (!claims.licenseId || !claims.validFrom || !claims.validUntil || !claims.academicYear || !claims.studentId) {
+            const requiredStringClaims = [
+                "licenseId", "productId", "academicYear", "gradeScope",
+                "studentId", "installationBinding", "validFrom", "validUntil"
+            ];
+            if (
+                requiredStringClaims.some(name =>
+                    typeof claims[name] !== "string" || !claims[name].trim()
+                )
+            ) {
                 return { valid: false, reason: "اطلاعات مجوز کامل نیست." };
             }
 
             const validFrom = new Date(claims.validFrom);
             const validUntil = new Date(claims.validUntil);
 
-            if (Number.isNaN(validFrom.getTime()) || Number.isNaN(validUntil.getTime())) {
+            if (
+                Number.isNaN(validFrom.getTime()) ||
+                Number.isNaN(validUntil.getTime()) ||
+                validUntil.getTime() <= validFrom.getTime()
+            ) {
                 return { valid: false, reason: "تاریخ اعتبار مجوز معتبر نیست." };
             }
 
