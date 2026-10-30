@@ -66,27 +66,34 @@ test("admin UI is served from the Assets binding", async () => {
 
 
 function adminEnv(calls) {
-  return {
-    DB: {
-      prepare(sql) {
-        return {
-          values: [],
-          bind(...values) { this.values = values; return this; },
-          async first() {
-            if (sql.includes("SELECT expires_at FROM admin_sessions")) {
-              return { expires_at: Date.now() + 60_000 };
-            }
-            return null;
-          },
-          async run() {
-            calls.push({ sql, values: this.values });
-            return { meta: { changes: 1 } };
-          },
-          async all() { return { results: [] }; }
-        };
-      }
+  const batches = [];
+  const DB = {
+    prepare(sql) {
+      return {
+        sql,
+        values: [],
+        bind(...values) { this.values = values; return this; },
+        async first() {
+          if (sql.includes("SELECT expires_at FROM admin_sessions")) {
+            return { expires_at: Date.now() + 60_000 };
+          }
+          return null;
+        },
+        async run() {
+          calls.push({ sql, values: this.values });
+          return { meta: { changes: 1 } };
+        },
+        async all() { return { results: [] }; }
+      };
+    },
+    async batch(statements) {
+      batches.push(statements.map(statement => ({ sql: statement.sql, values: statement.values })));
+      const results = [];
+      for (const statement of statements) results.push(await statement.run());
+      return results;
     }
   };
+  return { batches, DB };
 }
 
 test("admin code issuance requires a student ID", async () => {
@@ -125,6 +132,10 @@ test("admin issues exactly one activation code bound to the requested student", 
   const audit = calls.find(call => call.sql.includes("INSERT INTO audit_log"));
   assert.ok(audit);
   assert.match(audit.values.at(-1), /student-123/);
+  assert.equal(env.batches.length, 1);
+  assert.equal(env.batches[0].length, 2);
+  assert.match(env.batches[0][0].sql, /INSERT INTO activation_codes/);
+  assert.match(env.batches[0][1].sql, /INSERT INTO audit_log/);
 });
 
 test("preflight allows same-origin and rejects foreign origin", async () => {
@@ -422,8 +433,28 @@ test("administrator can revoke a future-reserved license", async () => {
   const update = calls.find(call => call.sql.includes("UPDATE licenses"));
   assert.ok(update);
   assert.ok(update.sql.includes("status IN ('active', 'future')"));
+  assert.equal(env.batches.length, 1);
+  assert.equal(env.batches[0].length, 2);
+  assert.match(env.batches[0][0].sql, /INSERT INTO audit_log/);
+  assert.match(env.batches[0][1].sql, /UPDATE licenses/);
 });
 
+
+
+test("admin code revocation writes audit and status in one D1 batch", async () => {
+  const calls = [];
+  const env = adminEnv(calls);
+  const response = await worker.fetch(new Request("https://api.example.workers.dev/api/admin/codes/revoke", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: "tahouri_admin_session=test-session" },
+    body: JSON.stringify({ code: "THR-GRADE6-1405-TESTCODE" })
+  }), env);
+  assert.equal(response.status, 200);
+  assert.equal(env.batches.length, 1);
+  assert.equal(env.batches[0].length, 2);
+  assert.match(env.batches[0][0].sql, /INSERT INTO audit_log/);
+  assert.match(env.batches[0][1].sql, /UPDATE activation_codes/);
+});
 
 test("admin revocation immediately invalidates the same bound entitlement status", async () => {
   const license = {
