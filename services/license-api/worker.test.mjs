@@ -18,6 +18,14 @@ test("health is ready only after a D1 migration exists", async () => {
   assert.equal(body.capabilities.licenseActivation, false);
 });
 
+test("health advertises student-bound code issuance only with schema version 3", async () => {
+  const response = await worker.fetch(new Request("https://api.example.workers.dev/api/health"), envWithVersion(3));
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.schemaVersion, 3);
+  assert.equal(body.capabilities.studentBoundCodeIssuance, true);
+});
+
 test("health fails closed if the schema is missing", async () => {
   const response = await worker.fetch(new Request("https://api.example.workers.dev/api/health"), envWithVersion(null));
   const body = await response.json();
