@@ -119,7 +119,7 @@ export async function activateStudentBoundCode(env, body) {
       AND NOT EXISTS (
         SELECT 1 FROM licenses WHERE product_id = ? AND student_id = ?
           AND grade_id = ? AND academic_year = ? AND status IN ('active', 'future')
-      ))`)
+      )`)
       .bind(now, licenseId, codeHash, studentId, PRODUCT_ID,
         PRODUCT_ID, studentId, gradeId, period.academicYear),
     env.DB.prepare(`INSERT INTO licenses
