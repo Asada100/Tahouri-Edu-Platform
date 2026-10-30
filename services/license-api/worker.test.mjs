@@ -422,3 +422,54 @@ test("administrator can revoke a future-reserved license", async () => {
   assert.ok(update);
   assert.ok(update.sql.includes("status IN ('active', 'future')"));
 });
+
+
+test("admin revocation immediately invalidates the same bound entitlement status", async () => {
+  const license = {
+    status: "active",
+    studentId: "student-lifecycle",
+    installationBinding: "install-lifecycle",
+    validFrom: new Date(Date.now() - 60_000).toISOString(),
+    validUntil: new Date(Date.now() + 60_000).toISOString()
+  };
+  const env = {
+    DB: {
+      prepare(sql) {
+        let values = [];
+        return {
+          bind(...args) { values = args; return this; },
+          async first() {
+            if (sql.includes("SELECT expires_at FROM admin_sessions")) {
+              return { expires_at: Date.now() + 60_000 };
+            }
+            if (sql.includes("FROM licenses") && sql.includes("WHERE license_id = ?")) {
+              return { ...license };
+            }
+            return null;
+          },
+          async run() {
+            if (sql.includes("UPDATE licenses SET status = 'revoked'")) {
+              license.status = "revoked";
+            }
+            return { meta: { changes: 1 } };
+          }
+        };
+      }
+    }
+  };
+
+  const revoke = await worker.fetch(new Request("https://api.example.workers.dev/api/admin/licenses/revoke", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: "tahouri_admin_session=test-session" },
+    body: JSON.stringify({ licenseId: "lic_lifecycle" })
+  }), env);
+  assert.equal(revoke.status, 200);
+
+  const status = await worker.fetch(new Request(
+    "https://api.example.workers.dev/api/licenses/status?licenseId=lic_lifecycle&studentId=student-lifecycle&installationId=install-lifecycle"
+  ), env);
+  const body = await status.json();
+  assert.equal(status.status, 200);
+  assert.equal(body.valid, false);
+  assert.equal(body.status, "revoked");
+});
