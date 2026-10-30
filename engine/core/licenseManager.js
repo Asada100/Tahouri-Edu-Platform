@@ -1615,6 +1615,7 @@
             );
             if (!verified.valid) return {valid:false,message:verified.reason || "مجوز آنلاین معتبر نیست."};
             const claims = verified.claims;
+            if (claims.installationBinding !== installationId) return {valid:false,message:"این مجوز برای نصب دیگری صادر شده است."};
             if (claims.gradeScope && claims.gradeScope !== gradeId) return {valid:false,message:"مجوز مربوط به این پایه نیست."};
             if (claims.studentId && claims.studentId !== String(studentId || getActiveStudentId()).trim()) return {valid:false,message:"این مجوز متعلق به پروفایل دیگری است."};
             if (!window.TahouriEntitlementStore.write(response.entitlement)) return {valid:false,message:"ذخیره مجوز امن انجام نشد."};
