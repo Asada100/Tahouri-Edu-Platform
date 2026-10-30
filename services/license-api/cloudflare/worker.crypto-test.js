@@ -46,8 +46,7 @@ export default {
         ok, runtime: "cloudflare-workers",
         crypto: { module: "entitlement-crypto.js", algorithm: envelope.algorithm,
           signAndVerify: valid, tamperRejected: !tamperedAccepted },
-        d1: { readOnly: true, tableCount: tables.results.length,
-          tables: tables.results.map(row => row.name) }
+        d1: { readOnly: true, connected: Array.isArray(tables.results), tableCount: tables.results.length }
       }, { status: ok ? 200 : 500, headers: { "cache-control": "no-store" } });
     } catch {
       return Response.json({ ok: false, error: "runtime_test_failed" }, { status: 500 });
