@@ -2,6 +2,17 @@ import { activateStudentBoundCode } from "./activation-service.js";
 /**
  * Tahouri License API — Cloudflare Workers + D1.
  *
+ * Implemented: health, admin session/login/logout and lockout, student-bound
+ * code management, activation with signed entitlements, student/installation-
+ * bound license status, public-key delivery, license revocation, and audit views.
+ *
+ * Not yet production-ready: isolated-D1 end-to-end concurrency/failure tests,
+ * payment gateway verification, durable metrics/alerts, and entitlement renewal.
+ * Keep Production activation disabled until the remaining validation is complete.
+ */
+/**
+ * Tahouri License API — Cloudflare Workers + D1.
+ *
  * Implemented here: health, admin session/login/logout, code management,
  * license/payment/audit read views, license revocation, and admin search.
  * License activation/verification and signed entitlement extension remain

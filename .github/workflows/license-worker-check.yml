@@ -5,8 +5,10 @@ on:
     paths:
       - "services/license-api/worker.js"
       - "services/license-api/admin/**"
-      - "services/license-api/admin/**"
       - "services/license-api/wrangler.jsonc"
+      - "services/license-api/wrangler.test.jsonc"
+      - "services/license-api/assert-test-config.mjs"
+      - "services/license-api/package.json"
       - "services/license-api/migrations/**"
       - ".github/workflows/license-worker-check.yml"
   push:
@@ -15,6 +17,9 @@ on:
       - "services/license-api/worker.js"
       - "services/license-api/admin/**"
       - "services/license-api/wrangler.jsonc"
+      - "services/license-api/wrangler.test.jsonc"
+      - "services/license-api/assert-test-config.mjs"
+      - "services/license-api/package.json"
       - "services/license-api/migrations/**"
       - ".github/workflows/license-worker-check.yml"
 
@@ -33,9 +38,12 @@ jobs:
           node --check services/license-api/admin/admin.js
           node --check engine/ui/profileScreen.js
       - name: Run Worker smoke tests
-        run: node --test services/license-api/worker.test.mjs
-      - name: Validate Wrangler JSON configuration
-        run: node -e "JSON.parse(require('node:fs').readFileSync('services/license-api/wrangler.jsonc', 'utf8')); console.log('Wrangler JSON valid')"
+        working-directory: services/license-api
+        run: npm run test:worker
+      - name: Validate both Wrangler configurations
+        run: |
+          node -e "JSON.parse(require('node:fs').readFileSync('services/license-api/wrangler.jsonc', 'utf8')); JSON.parse(require('node:fs').readFileSync('services/license-api/wrangler.test.jsonc', 'utf8')); console.log('Wrangler JSON configs valid')"
+          node services/license-api/assert-test-config.mjs
       - name: Verify expected D1 schema tables are present
         shell: bash
         run: |
