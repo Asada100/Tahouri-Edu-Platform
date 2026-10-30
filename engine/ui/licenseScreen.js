@@ -2111,6 +2111,12 @@
                 isGradeActivated(activeProfile.grade)
             );
 
+        const remoteProduction =
+            Boolean(
+                window.TahouriServiceConfig &&
+                window.TahouriServiceConfig.mode === "production"
+            );
+
         let result =
             null;
 
@@ -2118,14 +2124,23 @@
         try {
 
             if (
-                hasActiveProfileLicense &&
-                typeof LicenseManager.activateRemote ===
-                    "function"
+                remoteProduction ||
+                hasActiveProfileLicense
             ) {
 
                 if (!activeProfile || !activeProfile.studentId) {
                     showManagementError(
-                        "پروفایل فعال برای تمدید مجوز پیدا نشد."
+                        "شناسهٔ پروفایل فعال برای صدور مجوز پیدا نشد."
+                    );
+                    return;
+                }
+
+                if (
+                    typeof LicenseManager.activateRemote !==
+                    "function"
+                ) {
+                    showManagementError(
+                        "سرویس فعال‌سازی آنلاین در دسترس نیست."
                     );
                     return;
                 }
