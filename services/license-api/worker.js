@@ -312,6 +312,8 @@ export default {
       if (url.pathname === "/api/health" && request.method === "GET")
         return await health(env, headers, requestId);
       if (url.pathname === "/api/activate" && request.method === "POST") {
+        if (!env.LICENSE_SIGNING_PRIVATE_KEY_PEM)
+          return json({ ok: false, message: "کلید امضای مجوز در Worker تنظیم نشده است." }, 503, headers);
         const schema = await env.DB.prepare("SELECT MAX(version) AS version FROM schema_migrations").first();
         if (Number(schema?.version || 0) < 3)
           return json({ ok: false, message: "ساختار پایگاه داده برای فعال‌سازی آماده نیست." }, 503, headers);
