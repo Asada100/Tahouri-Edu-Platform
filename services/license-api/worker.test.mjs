@@ -162,7 +162,7 @@ test("Worker public-key route and browser verifier complete a signed entitlement
     new Request(String(url), init),
     { LICENSE_SIGNING_PUBLIC_KEY_PEM: publicPem }
   );
-  const window = { TahouriServiceConfig: {
+  const window = { crypto, TahouriServiceConfig: {
     mode: "test", apiBaseUrl, productId: "tahouri-edu", entitlementVersion: 1
   } };
   const verifierSource = await readFile(new URL("../../engine/core/tahouriEntitlementVerifier.js", import.meta.url), "utf8");
