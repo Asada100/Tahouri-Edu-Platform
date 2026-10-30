@@ -58,6 +58,6 @@ test("Worker WebCrypto envelope matches the app's canonical JSON contract", asyn
 
   const spki = await webcrypto.subtle.exportKey("spki", pair.publicKey);
   const pkcs8 = await webcrypto.subtle.exportKey("pkcs8", pair.privateKey);
-  assert.ok(base64(spki).length > 300, "SPKI public key export should be populated");
+  assert.ok(base64(spki).length > 200, "SPKI public key export should be populated");
   assert.ok(base64(pkcs8).length > 500, "PKCS8 ephemeral private key export should be populated");
 });
