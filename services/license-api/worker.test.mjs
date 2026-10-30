@@ -180,7 +180,7 @@ function activationEnv(codeRow, batchResult = [
   const batches = [];
   return {
     batches,
-    LICENSE_SIGNING_PRIVATE_KEY_PEM: "test-private-key",
+    LICENSE_SIGNING_PRIVATE_KEY_PEM: "",
     DB: {
       prepare(sql) {
         let values = [];
@@ -202,6 +202,14 @@ function activationEnv(codeRow, batchResult = [
       }
     }
   };
+}
+
+async function makeTestSigningPem() {
+  const pair = await crypto.subtle.generateKey({
+    name: "RSASSA-PKCS1-v1_5", modulusLength: 2048,
+    publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256"
+  }, true, ["sign", "verify"]);
+  return pemFromDer(await crypto.subtle.exportKey("pkcs8", pair.privateKey), "PRIVATE KEY");
 }
 
 function thisAcademicYear() {
@@ -248,6 +256,7 @@ test("activation claims code, creates license and audit in one conditional D1 ba
     studentId: "student-A", gradeId: "grade6", academicYear: thisAcademicYear(),
     renewalMode: "promotion", status: "active", usedAt: null, productId: "tahouri-edu"
   });
+  env.LICENSE_SIGNING_PRIVATE_KEY_PEM = await makeTestSigningPem();
   // The signing function is exercised separately by the cryptographic tests;
   // this test focuses on the atomic D1 statement ordering and exact bindings.
   const result = await activateStudentBoundCode(env, {
@@ -271,6 +280,7 @@ test("activation fails closed when the atomic code claim loses a race", async ()
     studentId: "student-A", gradeId: "grade6", academicYear: thisAcademicYear(),
     renewalMode: "promotion", status: "active", usedAt: null, productId: "tahouri-edu"
   }, [{ meta: { changes: 0 } }, { meta: { changes: 0 } }, { meta: { changes: 0 } }]);
+  env.LICENSE_SIGNING_PRIVATE_KEY_PEM = await makeTestSigningPem();
   await assert.rejects(() => activateStudentBoundCode(env, {
     code: "THR-TEST-CODE", gradeId: "grade6", studentId: "student-A",
     installationId: "install-A"
