@@ -40,4 +40,6 @@ jobs:
             grep -q "CREATE TABLE IF NOT EXISTS ${table}" services/license-api/migrations/0001_initial_schema.sql
           done
           grep -q "CREATE TABLE IF NOT EXISTS admin_login_attempts" services/license-api/migrations/0002_admin_login_attempts.sql
+          grep -q "ALTER TABLE activation_codes ADD COLUMN student_id TEXT" services/license-api/migrations/0003_student_bound_activation_codes.sql
+          grep -q "VALUES (3," services/license-api/migrations/0003_student_bound_activation_codes.sql
           echo "D1 schema checks passed"
