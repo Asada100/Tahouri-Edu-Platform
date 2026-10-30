@@ -200,20 +200,38 @@ async function adminRoute(request, env, url, headers) {
       return error("کد تکرار پایه فقط برای سال تحصیلی بعد قابل ساخت است.", 400, headers);
     const code = makeCode(gradeId, academicYear);
     const codeHash = await sha256(code.toUpperCase());
-    await env.DB.prepare(`INSERT INTO activation_codes
-      (code_hash, code_preview, product_id, student_id, grade_id, academic_year, renewal_mode, status, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?)`)
-      .bind(codeHash, preview(code), PRODUCT_ID, studentId, gradeId, academicYear, renewalMode, nowIso()).run();
-    await audit(env, "codes.created", "admin", { codeHash, metadata: { gradeId, studentId, academicYear, renewalMode } });
+    const createdAt = nowIso();
+    const results = await env.DB.batch([
+      env.DB.prepare(`INSERT INTO activation_codes
+        (code_hash, code_preview, product_id, student_id, grade_id, academic_year, renewal_mode, status, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?)`)
+        .bind(codeHash, preview(code), PRODUCT_ID, studentId, gradeId, academicYear, renewalMode, createdAt),
+      env.DB.prepare(`INSERT INTO audit_log
+        (event_type, actor, license_id, code_hash, created_at, metadata_json)
+        VALUES ('codes.created', 'admin', NULL, ?, ?, ?)`)
+        .bind(codeHash, createdAt, JSON.stringify({ gradeId, studentId, academicYear, renewalMode }))
+    ]);
+    if (!results?.[0]?.meta?.changes || !results?.[1]?.meta?.changes)
+      return error("ثبت کد و گزارش عملیات کامل نشد.", 500, headers);
     return json({ ok: true, codes: [code], studentId }, 201, headers);
   }
   if (path === "/api/admin/codes/revoke" && request.method === "POST") {
     const body = await bodyJson(request);
     const code = bounded(body.code, 256, "code").toUpperCase();
-    const result = await env.DB.prepare(`UPDATE activation_codes SET status = 'revoked'
-      WHERE code_hash = ? AND status = 'active' AND used_at IS NULL`).bind(await sha256(code)).run();
-    if (!result.meta?.changes) return error("کد فعال و قابل لغو پیدا نشد.", 404, headers);
-    await audit(env, "code.revoked", "admin", { codeHash: await sha256(code) });
+    const codeHash = await sha256(code);
+    const revokedAt = nowIso();
+    const results = await env.DB.batch([
+      env.DB.prepare(`INSERT INTO audit_log
+        (event_type, actor, license_id, code_hash, created_at, metadata_json)
+        SELECT 'code.revoked', 'admin', NULL, ?, ?, '{}'
+        WHERE EXISTS (SELECT 1 FROM activation_codes
+          WHERE code_hash = ? AND status = 'active' AND used_at IS NULL)`)
+        .bind(codeHash, revokedAt, codeHash),
+      env.DB.prepare(`UPDATE activation_codes SET status = 'revoked'
+        WHERE code_hash = ? AND status = 'active' AND used_at IS NULL`).bind(codeHash)
+    ]);
+    if (!results?.[0]?.meta?.changes || !results?.[1]?.meta?.changes)
+      return error("کد فعال و قابل لغو پیدا نشد.", 404, headers);
     return json({ ok: true }, 200, headers);
   }
   if (path === "/api/admin/licenses" && request.method === "GET") {
@@ -234,10 +252,19 @@ async function adminRoute(request, env, url, headers) {
   if (path === "/api/admin/licenses/revoke" && request.method === "POST") {
     const body = await bodyJson(request);
     const licenseId = validIdentifier(body.licenseId, "licenseId");
-    const result = await env.DB.prepare(`UPDATE licenses SET status = 'revoked', revoked_at = ?
-      WHERE license_id = ? AND status IN ('active', 'future')`).bind(nowIso(), licenseId).run();
-    if (!result.meta?.changes) return error("مجوز فعال یا رزروشده پیدا نشد.", 404, headers);
-    await audit(env, "license.revoked", "admin", { licenseId });
+    const revokedAt = nowIso();
+    const results = await env.DB.batch([
+      env.DB.prepare(`INSERT INTO audit_log
+        (event_type, actor, license_id, code_hash, created_at, metadata_json)
+        SELECT 'license.revoked', 'admin', ?, NULL, ?, '{}'
+        WHERE EXISTS (SELECT 1 FROM licenses
+          WHERE license_id = ? AND status IN ('active', 'future'))`)
+        .bind(licenseId, revokedAt, licenseId),
+      env.DB.prepare(`UPDATE licenses SET status = 'revoked', revoked_at = ?
+        WHERE license_id = ? AND status IN ('active', 'future')`).bind(revokedAt, licenseId)
+    ]);
+    if (!results?.[0]?.meta?.changes || !results?.[1]?.meta?.changes)
+      return error("مجوز فعال یا رزروشده پیدا نشد.", 404, headers);
     return json({ ok: true }, 200, headers);
   }
   if (path === "/api/admin/licenses/extend" && request.method === "POST") {
