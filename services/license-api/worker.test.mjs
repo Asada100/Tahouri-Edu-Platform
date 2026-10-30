@@ -270,6 +270,7 @@ test("activation claims code, creates license and audit in one conditional D1 ba
   const statements = env.batches[0];
   assert.equal(statements.length, 3);
   assert.match(statements[0].sql, /student_id = \?/);
+  assert.match(statements[0].sql, /NOT EXISTS \([\\s\\S]*FROM licenses/);
   assert.ok(statements[0].values.includes("student-A"));
   assert.match(statements[1].sql, /INSERT INTO licenses/);
   assert.match(statements[2].sql, /INSERT INTO audit_log/);
