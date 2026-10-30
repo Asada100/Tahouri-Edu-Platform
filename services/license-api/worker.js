@@ -10,7 +10,7 @@ import { activateStudentBoundCode } from "./activation-service.js";
  * payment gateway verification, durable metrics/alerts, and entitlement renewal.
  * Keep Production activation disabled until the remaining validation is complete.
  */
-const SERVICE_VERSION = "0.2.0-worker-admin";
+const SERVICE_VERSION = "0.3.0-worker-student-bound-activation";
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 const COOKIE_NAME = "tahouri_admin_session";
 const PRODUCT_ID = "tahouri-edu";
