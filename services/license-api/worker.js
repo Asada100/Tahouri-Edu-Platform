@@ -10,14 +10,6 @@ import { activateStudentBoundCode } from "./activation-service.js";
  * payment gateway verification, durable metrics/alerts, and entitlement renewal.
  * Keep Production activation disabled until the remaining validation is complete.
  */
-/**
- * Tahouri License API — Cloudflare Workers + D1.
- *
- * Implemented here: health, admin session/login/logout, code management,
- * license/payment/audit read views, license revocation, and admin search.
- * License activation/verification and signed entitlement extension remain
- * disabled until their signing and lifecycle logic is ported and tested.
- */
 const SERVICE_VERSION = "0.2.0-worker-admin";
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 const COOKIE_NAME = "tahouri_admin_session";
