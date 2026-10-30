@@ -32,15 +32,14 @@ assert(
     "Multi-entitlement store support is incomplete."
 );
 
+assert(
+    manager.includes("if (isFutureRenewal && !await initializeRemoteEntitlement())"),
+    "Future renewal must require successful re-selection of the currently active entitlement."
+);
 const futureBlock = manager.match(
     /if \(isFutureRenewal\) \{([\s\S]*?)\n\s*\}/
 );
-
-assert(futureBlock, "Future renewal branch is missing.");
-assert(
-    futureBlock[1].includes("await initializeRemoteEntitlement()"),
-    "Future renewal must re-select the currently active entitlement."
-);
+assert(futureBlock, "Future renewal response branch is missing.");
 assert(
     !futureBlock[1].includes("verifiedRemoteEntitlement = claims"),
     "Future renewal must not replace the active entitlement."
