@@ -29,11 +29,22 @@
   <section class="stats" id="stats"></section>
   <section class="card" id="alertsCard" hidden><h2>هشدارهای عملیاتی</h2><div id="alerts"></div></section>
 
+  <section class="card">
+    <h2>ثبت حساب دانش‌آموز</h2>
+    <p class="muted">برای هر دانش‌آموز یک شناسهٔ ثابت ساخته می‌شود. همین شناسه مبنای صدور کد و ثبت مجوز خواهد بود.</p>
+    <div class="form-grid">
+      <label>نام دانش‌آموز<input id="studentFullName" maxlength="160" autocomplete="off" placeholder="نام و نام خانوادگی"></label>
+      <label>پایه<select id="studentGrade"><option value="grade1">اول</option><option value="grade2">دوم</option><option value="grade3">سوم</option><option value="grade4">چهارم</option><option value="grade5">پنجم</option><option value="grade6" selected>ششم</option></select></label>
+    </div>
+    <button onclick="createStudent()">ثبت حساب</button>
+    <div id="students"></div>
+  </section>
+
   <section class="grid">
     <div class="card">
       <h2>ساخت کد فعال‌سازی</h2>
       <div class="form-grid">
-        <label>شناسهٔ دانش‌آموز<input id="studentId" maxlength="128" autocomplete="off" placeholder="شناسهٔ دقیق پروفایل"></label>
+        <label>حساب دانش‌آموز<select id="studentId"><option value="">ابتدا حساب را ثبت کنید</option></select></label>
         <label>پایه<input id="grade" value="grade6"></label>
         <label>سال تحصیلی<input id="year" value="1405"></label>
         <label>نوع کد<select id="renewalMode"><option value="promotion" selected>پایه سال بعد</option><option value="repeat">تکرار پایه (مردودی)</option></select></label>
