@@ -687,8 +687,18 @@ createProfile: function (data) {
     }
 
 
+    const requestedStudentId = typeof data.studentId === "string" ? data.studentId.trim() : "";
+
+    if (requestedStudentId && this.profiles.some(function (item) { return item.studentId === requestedStudentId; })) {
+        console.error("Student ID Already Exists:", requestedStudentId);
+        return null;
+    }
+
     const profile =
         this.buildProfile({
+
+            studentId:
+                requestedStudentId || null,
 
             name:
                 name,
