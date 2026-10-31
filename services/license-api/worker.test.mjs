@@ -65,7 +65,7 @@ test("admin UI is served from the Assets binding", async () => {
 });
 
 
-function adminEnv(calls) {
+function adminEnv(calls, studentRecord = { student_id: "student-123" }) {
   const batches = [];
   const DB = {
     prepare(sql) {
@@ -78,7 +78,7 @@ function adminEnv(calls) {
             return { expires_at: Date.now() + 60_000 };
           }
           if (sql.includes("FROM student_accounts")) {
-            return { student_id: "student-123" };
+            return studentRecord;
           }
           return null;
         },
@@ -727,4 +727,23 @@ test("worker route activates a student-bound code, returns a signed entitlement,
   }), env);
   assert.equal(replay.status, 409);
   assert.equal(batchCalls, 2);
+});
+
+test("admin refuses to issue a code when the student account is missing or grade-mismatched", async () => {
+  for (const studentRecord of [null, { student_id: "student-123", grade_id: "grade5", status: "active" }]) {
+    const calls = [];
+    const response = await worker.fetch(new Request("https://api.example.workers.dev/api/admin/codes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Cookie: "tahouri_admin_session=test-session" },
+      body: JSON.stringify({ studentId: "student-123", gradeId: "grade6", academicYear: "1405", renewalMode: "promotion" })
+    }), adminEnv(calls, studentRecord));
+    assert.equal(response.status, 409);
+    assert.equal(calls.some(call => call.sql.includes("INSERT INTO activation_codes")), false);
+    assert.equal(calls.some(call => call.sql.includes("INSERT INTO audit_log")), false);
+  }
+});
+
+test("student registry listing rejects requests without an admin session", async () => {
+  const response = await worker.fetch(new Request("https://api.example.workers.dev/api/admin/students"), adminEnv([]));
+  assert.equal(response.status, 401);
 });
