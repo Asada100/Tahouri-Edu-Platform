@@ -217,7 +217,9 @@ async function adminRoute(request, env, url, headers) {
         WHERE EXISTS (SELECT 1 FROM student_accounts WHERE student_id = ? AND status = 'active')`)
         .bind(updatedAt, JSON.stringify({ studentId }), studentId),
       env.DB.prepare("UPDATE student_accounts SET status = 'archived', updated_at = ? WHERE student_id = ? AND status = 'active'")
-        .bind(updatedAt, studentId)
+        .bind(updatedAt, studentId),
+      env.DB.prepare("UPDATE activation_codes SET status = 'revoked' WHERE student_id = ? AND status = 'active' AND used_at IS NULL")
+        .bind(studentId)
     ]);
     if (!results?.[0]?.meta?.changes || !results?.[1]?.meta?.changes)
       return error("حساب فعال دانش‌آموز پیدا نشد.", 404, headers);
