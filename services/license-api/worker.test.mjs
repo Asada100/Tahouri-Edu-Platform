@@ -65,7 +65,7 @@ test("admin UI is served from the Assets binding", async () => {
 });
 
 
-function adminEnv(calls, studentRecord = { student_id: "student-123" }) {
+function adminEnv(calls, studentRecord = { student_id: "student-123", grade_id: "grade6", status: "active" }) {
   const batches = [];
   const DB = {
     prepare(sql) {
@@ -78,7 +78,10 @@ function adminEnv(calls, studentRecord = { student_id: "student-123" }) {
             return { expires_at: Date.now() + 60_000 };
           }
           if (sql.includes("FROM student_accounts")) {
-            return studentRecord;
+            return studentRecord &&
+              studentRecord.student_id === this.values[0] &&
+              studentRecord.grade_id === this.values[1] &&
+              studentRecord.status === "active" ? studentRecord : null;
           }
           return null;
         },
