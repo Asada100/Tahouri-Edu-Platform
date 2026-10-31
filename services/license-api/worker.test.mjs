@@ -77,6 +77,9 @@ function adminEnv(calls) {
           if (sql.includes("SELECT expires_at FROM admin_sessions")) {
             return { expires_at: Date.now() + 60_000 };
           }
+          if (sql.includes("FROM student_accounts")) {
+            return { student_id: "student-123" };
+          }
           return null;
         },
         async run() {
@@ -95,6 +98,35 @@ function adminEnv(calls) {
   };
   return { batches, DB };
 }
+
+test("admin can register a student account and writes its audit event atomically", async () => {
+  const calls = [];
+  const env = adminEnv(calls);
+  const response = await worker.fetch(new Request("https://api.example.workers.dev/api/admin/students", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: "tahouri_admin_session=test-session" },
+    body: JSON.stringify({ fullName: "دانش‌آموز آزمایشی", gradeId: "grade6" })
+  }), env);
+  const body = await response.json();
+  assert.equal(response.status, 201);
+  assert.match(body.student.studentId, /^stu_[a-f0-9]{32}$/);
+  assert.equal(body.student.fullName, "دانش‌آموز آزمایشی");
+  assert.equal(body.student.gradeId, "grade6");
+  assert.equal(env.batches.length, 1);
+  assert.equal(env.batches[0].length, 2);
+  assert.match(env.batches[0][0].sql, /INSERT INTO student_accounts/);
+  assert.match(env.batches[0][1].sql, /student.created/);
+});
+
+test("admin student registry rejects invalid grades", async () => {
+  const calls = [];
+  const response = await worker.fetch(new Request("https://api.example.workers.dev/api/admin/students", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: "tahouri_admin_session=test-session" },
+    body: JSON.stringify({ fullName: "Test", gradeId: "grade7" })
+  }), adminEnv(calls));
+  assert.equal(response.status, 400);
+});
 
 test("admin code issuance requires a student ID", async () => {
   const calls = [];
