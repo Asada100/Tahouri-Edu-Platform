@@ -321,6 +321,11 @@ const ProfileScreen = {
     <input id="newProfileName" type="text" placeholder="مثلاً محمد">
     <br><br>
 
+    <label for="newProfileStudentId">شناسهٔ حساب ثبت‌شده (در صورت صدور از پنل مدیریت)</label>
+    <br>
+    <input id="newProfileStudentId" type="text" maxlength="128" autocomplete="off" placeholder="شناسهٔ دریافتی از مدیر؛ برای حساب محلی خالی بماند" dir="ltr">
+    <br><br>
+
     <label for="newProfileGrade">پایه</label>
     <br>
     <select id="newProfileGrade">
@@ -339,10 +344,12 @@ const ProfileScreen = {
         document.getElementById("saveNewProfileBtn").onclick = function () {
             const nameInput = document.getElementById("newProfileName");
             const gradeInput = document.getElementById("newProfileGrade");
+            const studentIdInput = document.getElementById("newProfileStudentId");
             const message = document.getElementById("createProfileMessage");
 
             const name = nameInput.value.trim();
             const grade = gradeInput.value;
+            const studentId = studentIdInput.value.trim();
 
             if (!name) {
                 message.innerHTML = "⚠ لطفاً نام دانش‌آموز را وارد کنید.";
@@ -357,7 +364,13 @@ const ProfileScreen = {
             }
 
             try {
-                const profile = ProfileManager.createProfile({ name: name, grade: grade });
+                if (studentId && !/^[A-Za-z0-9._:-]{1,128}$/.test(studentId)) {
+                    message.textContent = "⚠ شناسهٔ حساب معتبر نیست.";
+                    studentIdInput.focus();
+                    return;
+                }
+
+                const profile = ProfileManager.createProfile({ name: name, grade: grade, studentId: studentId || null });
 
                 if (!profile) {
                     message.innerHTML = "⚠ ایجاد پروفایل انجام نشد.";
