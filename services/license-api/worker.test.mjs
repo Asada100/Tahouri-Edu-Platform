@@ -608,3 +608,74 @@ test("admin login locks after five failed attempts within one minute", async () 
   }), env);
   assert.equal(sixth.status, 429);
 });
+
+
+test("worker route activates a student-bound code, returns a signed entitlement, and rejects replay", async () => {
+  const keyPair = await crypto.subtle.generateKey({
+    name: "RSASSA-PKCS1-v1_5", modulusLength: 2048,
+    publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256"
+  }, true, ["sign", "verify"]);
+  const privatePem = pemFromDer(await crypto.subtle.exportKey("pkcs8", keyPair.privateKey), "PRIVATE KEY");
+  const publicPem = pemFromDer(await crypto.subtle.exportKey("spki", keyPair.publicKey), "PUBLIC KEY");
+  const currentYear = thisAcademicYear();
+  const codeRow = {
+    studentId: "route-student", gradeId: "grade6", academicYear: currentYear,
+    renewalMode: "promotion", status: "active", usedAt: null, productId: "tahouri-edu"
+  };
+  let batchCalls = 0;
+  const env = {
+    LICENSE_SIGNING_PRIVATE_KEY_PEM: privatePem,
+    DB: {
+      prepare(sql) {
+        let values = [];
+        return {
+          bind(...args) { values = args; return this; },
+          async first() {
+            if (sql.includes("schema_migrations")) return { version: 3 };
+            if (sql.includes("FROM activation_codes WHERE code_hash")) return codeRow;
+            return null;
+          },
+          async all() { return { results: [] }; },
+          async run() { return { meta: { changes: 1 } }; },
+          _sql: sql,
+          _values: () => values
+        };
+      },
+      async batch() {
+        batchCalls++;
+        const changes = batchCalls === 1 ? 1 : 0;
+        return [{ meta: { changes } }, { meta: { changes } }, { meta: { changes } }];
+      }
+    }
+  };
+  const body = {
+    code: "THR-ROUTE-TEST", gradeId: "grade6", studentId: "route-student",
+    installationId: "route-installation"
+  };
+  const first = await worker.fetch(new Request("https://api.example.workers.dev/api/activate", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
+  }), env);
+  const activation = await first.json();
+  assert.equal(first.status, 200);
+  assert.equal(activation.valid, true);
+  assert.equal(activation.entitlement.claims.studentId, "route-student");
+  assert.equal(activation.entitlement.claims.gradeScope, "grade6");
+  assert.equal(activation.entitlement.algorithm, "RSASSA-PKCS1-v1_5-SHA256");
+  const publicKey = await crypto.subtle.importKey(
+    "spki",
+    Uint8Array.from(atob(publicPem.replace(/-----[^-]+-----/g, "").replace(/\\s+/g, "")), c => c.charCodeAt(0)),
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["verify"]
+  );
+  const signature = Uint8Array.from(atob(activation.entitlement.signature), c => c.charCodeAt(0));
+  const payload = new TextEncoder().encode(JSON.stringify(activation.entitlement.claims));
+  assert.equal(await crypto.subtle.verify("RSASSA-PKCS1-v1_5", publicKey, signature, payload), true);
+  const tamperedClaims = { ...activation.entitlement.claims, studentId: "attacker-student" };
+  assert.equal(await crypto.subtle.verify(
+    "RSASSA-PKCS1-v1_5", publicKey, signature, new TextEncoder().encode(JSON.stringify(tamperedClaims))
+  ), false);
+  const replay = await worker.fetch(new Request("https://api.example.workers.dev/api/activate", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
+  }), env);
+  assert.equal(replay.status, 409);
+  assert.equal(batchCalls, 2);
+});
