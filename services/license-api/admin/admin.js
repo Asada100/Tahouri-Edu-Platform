@@ -19,8 +19,9 @@ async function loadStudents(){
   const previous=select.value;
   select.innerHTML='<option value="">انتخاب دانش‌آموز ثبت‌شده</option>'+active.map(x=>'<option value="'+e(x.studentId)+'" data-grade="'+e(x.gradeId)+'">'+e(x.fullName)+' — '+e(x.gradeId)+' — '+e(x.studentId)+'</option>').join("");
   if(active.some(x=>x.studentId===previous))select.value=previous;
-  document.getElementById("students").innerHTML=table(["نام دانش‌آموز","شناسهٔ حساب","پایه","وضعیت","تاریخ ثبت"],d.students.map(x=>[x.fullName,x.studentId,x.gradeId,x.status==="active"?"فعال":"بایگانی‌شده",x.createdAt])) + d.students.filter(x=>x.status==="active").map(x=>"<button class='danger' data-archive-student='"+e(x.studentId)+"'>بایگانی "+e(x.fullName)+"</button>").join("");
+  document.getElementById("students").innerHTML=table(["نام دانش‌آموز","شناسهٔ حساب","پایه","وضعیت","تاریخ ثبت"],d.students.map(x=>[x.fullName,x.studentId,x.gradeId,x.status==="active"?"فعال":"بایگانی‌شده",x.createdAt])) + d.students.map(x=>"<button data-copy-student='"+e(x.studentId)+"'>کپی شناسهٔ "+e(x.fullName)+"</button>"+(x.status==="active"?" <button class='danger' data-archive-student='"+e(x.studentId)+"'>بایگانی</button>":"")).join("");
   document.getElementById("students").querySelectorAll("[data-archive-student]").forEach(button=>button.addEventListener("click",()=>archiveStudent(button.dataset.archiveStudent)));
+  document.getElementById("students").querySelectorAll("[data-copy-student]").forEach(button=>button.addEventListener("click",async()=>{try{await navigator.clipboard.writeText(button.dataset.copyStudent);button.textContent="شناسه کپی شد";}catch{button.textContent="کپی خودکار در دسترس نیست؛ شناسه را از جدول انتخاب کنید";}}));
   select.onchange=()=>{const opt=select.selectedOptions[0];if(opt?.dataset.grade)document.getElementById("grade").value=opt.dataset.grade};
 }
 async function createStudent(){
