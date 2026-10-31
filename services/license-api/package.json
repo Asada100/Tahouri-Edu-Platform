@@ -19,6 +19,9 @@
     "migration-test": "node migration-test.js",
     "backup-recovery-test": "node backup-recovery-test.js",
     "offsite-backup": "node offsite-backup.js",
-    "backup-scheduler": "node backup-scheduler.js"
+    "backup-scheduler": "node backup-scheduler.js",
+    "test:config": "node assert-test-config.mjs",
+    "test:worker": "npm run test:config && node --test worker.test.mjs",
+    "dev:test": "npm run test:config && wrangler dev --config wrangler.test.jsonc"
   }
 }

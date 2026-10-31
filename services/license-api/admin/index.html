@@ -33,12 +33,13 @@
     <div class="card">
       <h2>ساخت کد فعال‌سازی</h2>
       <div class="form-grid">
+        <label>شناسهٔ دانش‌آموز<input id="studentId" maxlength="128" autocomplete="off" placeholder="شناسهٔ دقیق پروفایل"></label>
         <label>پایه<input id="grade" value="grade6"></label>
         <label>سال تحصیلی<input id="year" value="1405"></label>
-        <label>تعداد<input id="count" type="number" min="1" max="100" value="5"></label>
         <label>نوع کد<select id="renewalMode"><option value="promotion" selected>پایه سال بعد</option><option value="repeat">تکرار پایه (مردودی)</option></select></label>
       </div>
-      <button onclick="createCodes()">ساخت کدهای جدید</button>
+      <p class="muted">هر کد فقط برای همین شناسه صادر می‌شود. کدهای قدیمیِ بدون اتصال به دانش‌آموز برای فعال‌سازی امن قابل استفاده نخواهند بود.</p>
+      <button onclick="createCodes()">ساخت کد اختصاصی</button>
       <div id="newCodes" class="code-box" hidden></div>
     </div>
 

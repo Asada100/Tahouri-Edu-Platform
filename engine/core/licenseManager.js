@@ -143,18 +143,27 @@
     // =====================================
 
     async function refreshRemoteLicenseStatus() {
-        if (!verifiedRemoteEntitlement || !verifiedRemoteEntitlement.claims) {
+        const claims = verifiedRemoteEntitlement;
+        if (!claims) {
             return { valid: false, reason: "no_remote_entitlement" };
         }
 
-        const licenseId = verifiedRemoteEntitlement.claims.licenseId;
-        if (!licenseId || !window.TahouriLicenseClient ||
+        if (!window.TahouriLicenseClient ||
             typeof window.TahouriLicenseClient.status !== "function") {
             return { valid: false, reason: "status_client_unavailable" };
         }
 
+        const licenseId = claims.licenseId;
+        const studentId = getActiveStudentId();
+        const installationId = getOrCreateInstallationId();
+        if (!licenseId || !studentId || !installationId) {
+            return { valid: false, reason: "binding_information_unavailable" };
+        }
+
         try {
-            const result = await window.TahouriLicenseClient.status(licenseId);
+            const result = await window.TahouriLicenseClient.status(
+                licenseId, studentId, installationId
+            );
 
             if (!result.valid) {
                 verifiedRemoteEntitlement = null;
@@ -162,8 +171,13 @@
 
             return result;
         } catch (error) {
-            console.warn("License Manager: Remote status check failed.", error);
-            return { valid: false, reason: "network_error", error: error.message };
+            console.warn("License Manager: Remote status check failed; cached offline entitlement is retained.", error);
+            return {
+                valid: false,
+                reason: "network_error",
+                offlineEntitlementRetained: true,
+                error: error.message
+            };
         }
     }
 
@@ -1615,6 +1629,7 @@
             );
             if (!verified.valid) return {valid:false,message:verified.reason || "مجوز آنلاین معتبر نیست."};
             const claims = verified.claims;
+            if (claims.installationBinding !== installationId) return {valid:false,message:"این مجوز برای نصب دیگری صادر شده است."};
             if (claims.gradeScope && claims.gradeScope !== gradeId) return {valid:false,message:"مجوز مربوط به این پایه نیست."};
             if (claims.studentId && claims.studentId !== String(studentId || getActiveStudentId()).trim()) return {valid:false,message:"این مجوز متعلق به پروفایل دیگری است."};
             if (!window.TahouriEntitlementStore.write(response.entitlement)) return {valid:false,message:"ذخیره مجوز امن انجام نشد."};
@@ -1701,6 +1716,17 @@
                 if (binding && binding !== installationId) continue;
 
                 verifiedRemoteEntitlement = claims;
+
+                // Recheck revocation when online, but keep the signed entitlement
+                // available for offline use if the status service cannot be reached.
+                const remoteStatus = await refreshRemoteLicenseStatus();
+                if (!remoteStatus.valid &&
+                    !["network_error", "status_client_unavailable", "binding_information_unavailable"]
+                        .includes(remoteStatus.reason)) {
+                    verifiedRemoteEntitlement = null;
+                    continue;
+                }
+
                 return true;
             }
 

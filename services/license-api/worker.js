@@ -1,12 +1,16 @@
+import { activateStudentBoundCode } from "./activation-service.js";
 /**
  * Tahouri License API — Cloudflare Workers + D1.
  *
- * Implemented here: health, admin session/login/logout, code management,
- * license/payment/audit read views, license revocation, and admin search.
- * License activation/verification and signed entitlement extension remain
- * disabled until their signing and lifecycle logic is ported and tested.
+ * Implemented: health, admin session/login/logout and lockout, student-bound
+ * code management, activation with signed entitlements, student/installation-
+ * bound license status, public-key delivery, license revocation, and audit views.
+ *
+ * Not yet production-ready: isolated-D1 end-to-end concurrency/failure tests,
+ * payment gateway verification, durable metrics/alerts, and entitlement renewal.
+ * Keep Production activation disabled until the remaining validation is complete.
  */
-const SERVICE_VERSION = "0.2.0-worker-admin";
+const SERVICE_VERSION = "0.3.0-worker-student-bound-activation";
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 const COOKIE_NAME = "tahouri_admin_session";
 const PRODUCT_ID = "tahouri-edu";
@@ -176,7 +180,7 @@ async function adminRoute(request, env, url, headers) {
   }
   if (path === "/api/metrics/alerts" && request.method === "GET") return json({ ok: true, alerts: [] }, 200, headers);
   if (path === "/api/admin/codes" && request.method === "GET") {
-    const codes = await listRows(env, `SELECT code_preview AS codePreview, product_id AS productId,
+    const codes = await listRows(env, `SELECT code_preview AS codePreview, product_id AS productId, student_id AS studentId,
       grade_id AS gradeId, academic_year AS academicYear, renewal_mode AS renewalMode, status,
       created_at AS createdAt, used_at AS usedAt, license_id AS licenseId
       FROM activation_codes ORDER BY created_at DESC LIMIT 500`);
@@ -185,6 +189,7 @@ async function adminRoute(request, env, url, headers) {
   if (path === "/api/admin/codes" && request.method === "POST") {
     const body = await bodyJson(request);
     const gradeId = validIdentifier(body.gradeId, "gradeId");
+    const studentId = validIdentifier(body.studentId, "studentId");
     const academicYear = String(body.academicYear || iranianYear()).trim();
     const renewalMode = String(body.renewalMode || "promotion").toLowerCase();
     const currentYear = iranianYear();
@@ -193,29 +198,40 @@ async function adminRoute(request, env, url, headers) {
     if (!["promotion", "repeat"].includes(renewalMode)) return error("نوع رزرو معتبر نیست.", 400, headers);
     if (Number(academicYear) === currentYear && renewalMode === "repeat")
       return error("کد تکرار پایه فقط برای سال تحصیلی بعد قابل ساخت است.", 400, headers);
-    const count = Math.min(Math.max(Number(body.count || 1), 1), 100);
-    if (!Number.isInteger(count)) return error("تعداد کد نامعتبر است.", 400, headers);
-    const created = [];
-    const statements = [];
-    for (let i = 0; i < count; i++) {
-      const code = makeCode(gradeId, academicYear);
-      created.push(code);
-      statements.push(env.DB.prepare(`INSERT INTO activation_codes
-        (code_hash, code_preview, product_id, grade_id, academic_year, renewal_mode, status, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, 'active', ?)`)
-        .bind(await sha256(code.toUpperCase()), preview(code), PRODUCT_ID, gradeId, academicYear, renewalMode, nowIso()));
-    }
-    await env.DB.batch(statements);
-    await audit(env, "codes.created", "admin", { metadata: { gradeId, academicYear, renewalMode, count } });
-    return json({ ok: true, codes: created }, 201, headers);
+    const code = makeCode(gradeId, academicYear);
+    const codeHash = await sha256(code.toUpperCase());
+    const createdAt = nowIso();
+    const results = await env.DB.batch([
+      env.DB.prepare(`INSERT INTO activation_codes
+        (code_hash, code_preview, product_id, student_id, grade_id, academic_year, renewal_mode, status, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?)`)
+        .bind(codeHash, preview(code), PRODUCT_ID, studentId, gradeId, academicYear, renewalMode, createdAt),
+      env.DB.prepare(`INSERT INTO audit_log
+        (event_type, actor, license_id, code_hash, created_at, metadata_json)
+        VALUES ('codes.created', 'admin', NULL, ?, ?, ?)`)
+        .bind(codeHash, createdAt, JSON.stringify({ gradeId, studentId, academicYear, renewalMode }))
+    ]);
+    if (!results?.[0]?.meta?.changes || !results?.[1]?.meta?.changes)
+      return error("ثبت کد و گزارش عملیات کامل نشد.", 500, headers);
+    return json({ ok: true, codes: [code], studentId }, 201, headers);
   }
   if (path === "/api/admin/codes/revoke" && request.method === "POST") {
     const body = await bodyJson(request);
     const code = bounded(body.code, 256, "code").toUpperCase();
-    const result = await env.DB.prepare(`UPDATE activation_codes SET status = 'revoked'
-      WHERE code_hash = ? AND status = 'active' AND used_at IS NULL`).bind(await sha256(code)).run();
-    if (!result.meta?.changes) return error("کد فعال و قابل لغو پیدا نشد.", 404, headers);
-    await audit(env, "code.revoked", "admin", { codeHash: await sha256(code) });
+    const codeHash = await sha256(code);
+    const revokedAt = nowIso();
+    const results = await env.DB.batch([
+      env.DB.prepare(`INSERT INTO audit_log
+        (event_type, actor, license_id, code_hash, created_at, metadata_json)
+        SELECT 'code.revoked', 'admin', NULL, ?, ?, '{}'
+        WHERE EXISTS (SELECT 1 FROM activation_codes
+          WHERE code_hash = ? AND status = 'active' AND used_at IS NULL)`)
+        .bind(codeHash, revokedAt, codeHash),
+      env.DB.prepare(`UPDATE activation_codes SET status = 'revoked'
+        WHERE code_hash = ? AND status = 'active' AND used_at IS NULL`).bind(codeHash)
+    ]);
+    if (!results?.[0]?.meta?.changes || !results?.[1]?.meta?.changes)
+      return error("کد فعال و قابل لغو پیدا نشد.", 404, headers);
     return json({ ok: true }, 200, headers);
   }
   if (path === "/api/admin/licenses" && request.method === "GET") {
@@ -236,10 +252,19 @@ async function adminRoute(request, env, url, headers) {
   if (path === "/api/admin/licenses/revoke" && request.method === "POST") {
     const body = await bodyJson(request);
     const licenseId = validIdentifier(body.licenseId, "licenseId");
-    const result = await env.DB.prepare(`UPDATE licenses SET status = 'revoked', revoked_at = ?
-      WHERE license_id = ? AND status = 'active'`).bind(nowIso(), licenseId).run();
-    if (!result.meta?.changes) return error("مجوز فعال پیدا نشد.", 404, headers);
-    await audit(env, "license.revoked", "admin", { licenseId });
+    const revokedAt = nowIso();
+    const results = await env.DB.batch([
+      env.DB.prepare(`INSERT INTO audit_log
+        (event_type, actor, license_id, code_hash, created_at, metadata_json)
+        SELECT 'license.revoked', 'admin', ?, NULL, ?, '{}'
+        WHERE EXISTS (SELECT 1 FROM licenses
+          WHERE license_id = ? AND status IN ('active', 'future'))`)
+        .bind(licenseId, revokedAt, licenseId),
+      env.DB.prepare(`UPDATE licenses SET status = 'revoked', revoked_at = ?
+        WHERE license_id = ? AND status IN ('active', 'future')`).bind(revokedAt, licenseId)
+    ]);
+    if (!results?.[0]?.meta?.changes || !results?.[1]?.meta?.changes)
+      return error("مجوز فعال یا رزروشده پیدا نشد.", 404, headers);
     return json({ ok: true }, 200, headers);
   }
   if (path === "/api/admin/licenses/extend" && request.method === "POST") {
@@ -268,10 +293,11 @@ async function adminRoute(request, env, url, headers) {
       WHERE license_id = ? OR student_id = ? OR grade_id = ? OR LOWER(license_id) LIKE LOWER(?)
       OR LOWER(student_id) LIKE LOWER(?) OR LOWER(grade_id) LIKE LOWER(?) ORDER BY created_at DESC LIMIT 100`,
       q, q, q, like, like, like);
-    const codes = await listRows(env, `SELECT code_preview AS codePreview, grade_id AS gradeId,
+    const codes = await listRows(env, `SELECT code_preview AS codePreview, student_id AS studentId, grade_id AS gradeId,
       academic_year AS academicYear, status, created_at AS createdAt, used_at AS usedAt,
-      license_id AS licenseId FROM activation_codes WHERE code_preview LIKE ? OR grade_id LIKE ?
-      ORDER BY created_at DESC LIMIT 100`, like, like);
+      license_id AS licenseId FROM activation_codes
+      WHERE code_preview LIKE ? OR grade_id LIKE ? OR student_id LIKE ?
+      ORDER BY created_at DESC LIMIT 100`, like, like, like);
     return json({ ok: true, licenses, codes }, 200, headers);
   }
   if (path === "/api/health" && request.method === "GET") {
@@ -293,7 +319,8 @@ async function health(env, headers, requestId) {
   return json({ ok: ready, status: ready ? "healthy" : "not_ready",
     service: "tahouri-license-api", version: SERVICE_VERSION, runtime: "cloudflare-workers",
     database, schemaVersion, capabilities: { adminApi: true, codeManagement: true,
-      licenseActivation: false, licenseVerification: false, paymentVerification: false,
+      licenseActivation: Number(schemaVersion) >= 3 && Boolean(env.LICENSE_SIGNING_PRIVATE_KEY_PEM), licenseVerification: false, paymentVerification: false,
+      studentBoundCodeIssuance: Number(schemaVersion) >= 3,
       signedEntitlementExtension: false }, requestId }, ready ? 200 : 503,
     { ...headers, "x-request-id": requestId });
 }
@@ -314,6 +341,46 @@ export default {
       }
       if (url.pathname === "/api/health" && request.method === "GET")
         return await health(env, headers, requestId);
+      if (url.pathname === "/api/licenses/status" && request.method === "GET") {
+        const licenseId = validIdentifier(url.searchParams.get("licenseId"), "licenseId");
+        const studentId = validIdentifier(url.searchParams.get("studentId"), "studentId");
+        const installationId = validIdentifier(url.searchParams.get("installationId"), "installationId");
+        const license = await env.DB.prepare(`SELECT status, student_id AS studentId,
+          installation_binding AS installationBinding, valid_from AS validFrom,
+          valid_until AS validUntil FROM licenses
+          WHERE license_id = ? AND product_id = ? LIMIT 1`)
+          .bind(licenseId, PRODUCT_ID).first();
+        if (!license || license.studentId !== studentId ||
+            license.installationBinding !== installationId) {
+          return json({ valid: false, reason: "not_found" }, 200, headers);
+        }
+        if (license.status === "revoked") return json({ valid: false, status: "revoked", reason: "revoked" }, 200, headers);
+        const from = Date.parse(license.validFrom), until = Date.parse(license.validUntil);
+        if (!Number.isFinite(from) || !Number.isFinite(until))
+          return json({ valid: false, reason: "invalid_period" }, 200, headers);
+        if (Date.now() < from || license.status === "future")
+          return json({ valid: false, status: "future", reason: "not_yet_valid" }, 200, headers);
+        if (Date.now() >= until || license.status === "expired")
+          return json({ valid: false, status: "expired", reason: "expired" }, 200, headers);
+        if (license.status !== "active")
+          return json({ valid: false, status: license.status, reason: "inactive" }, 200, headers);
+        return json({ valid: true, status: "active", validUntil: license.validUntil }, 200, headers);
+      }
+      if (url.pathname === "/api/public-key" && request.method === "GET") {
+        if (!env.LICENSE_SIGNING_PUBLIC_KEY_PEM)
+          return json({ ok: false, message: "کلید عمومی اعتبارسنجی در Worker تنظیم نشده است." }, 503, headers);
+        return json({ ok: true, publicKeyPem: env.LICENSE_SIGNING_PUBLIC_KEY_PEM }, 200, headers);
+      }
+      if (url.pathname === "/api/activate" && request.method === "POST") {
+        if (!env.LICENSE_SIGNING_PRIVATE_KEY_PEM)
+          return json({ ok: false, message: "کلید امضای مجوز در Worker تنظیم نشده است." }, 503, headers);
+        const schema = await env.DB.prepare("SELECT MAX(version) AS version FROM schema_migrations").first();
+        if (Number(schema?.version || 0) < 3)
+          return json({ ok: false, message: "ساختار پایگاه داده برای فعال‌سازی آماده نیست." }, 503, headers);
+        const body = await bodyJson(request);
+        const result = await activateStudentBoundCode(env, body);
+        return json(result, 200, headers);
+      }
       if (url.pathname.startsWith("/api/admin/") || url.pathname === "/api/metrics" || url.pathname === "/api/metrics/alerts")
         return await adminRoute(request, env, url, headers);
       if (url.pathname.startsWith("/api/"))
