@@ -19,10 +19,8 @@ async function loadStudents(){
   const previous=select.value;
   select.innerHTML='<option value="">انتخاب دانش‌آموز ثبت‌شده</option>'+active.map(x=>'<option value="'+e(x.studentId)+'" data-grade="'+e(x.gradeId)+'">'+e(x.fullName)+' — '+e(x.gradeId)+' — '+e(x.studentId)+'</option>').join("");
   if(active.some(x=>x.studentId===previous))select.value=previous;
-  document.getElementById("students").innerHTML=table(["نام دانش‌آموز","شناسهٔ حساب","پایه","وضعیت","تاریخ ثبت","عملیات"],d.students.map(x=>[
-    x.fullName,x.studentId,x.gradeId,x.status==="active"?"فعال":"بایگانی‌شده",x.createdAt,
-    x.status==="active"?"<button class='danger' onclick='archiveStudent("+JSON.stringify(x.studentId)+")'>بایگانی</button>":"—"
-  ]));
+  document.getElementById("students").innerHTML=table(["نام دانش‌آموز","شناسهٔ حساب","پایه","وضعیت","تاریخ ثبت"],d.students.map(x=>[x.fullName,x.studentId,x.gradeId,x.status==="active"?"فعال":"بایگانی‌شده",x.createdAt])) + d.students.filter(x=>x.status==="active").map(x=>"<button class='danger' data-archive-student='"+e(x.studentId)+"'>بایگانی "+e(x.fullName)+"</button>").join("");
+  document.getElementById("students").querySelectorAll("[data-archive-student]").forEach(button=>button.addEventListener("click",()=>archiveStudent(button.dataset.archiveStudent)));
   select.onchange=()=>{const opt=select.selectedOptions[0];if(opt?.dataset.grade)document.getElementById("grade").value=opt.dataset.grade};
 }
 async function createStudent(){
