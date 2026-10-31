@@ -118,6 +118,23 @@ test("admin can register a student account and writes its audit event atomically
   assert.match(env.batches[0][1].sql, /student.created/);
 });
 
+test("archiving a student also revokes every unused active activation code", async () => {
+  const calls = [];
+  const env = adminEnv(calls);
+  const response = await worker.fetch(new Request("https://api.example.workers.dev/api/admin/students/archive", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: "tahouri_admin_session=test-session" },
+    body: JSON.stringify({ studentId: "student-123" })
+  }), env);
+  assert.equal(response.status, 200);
+  assert.equal(env.batches.length, 1);
+  assert.equal(env.batches[0].length, 3);
+  assert.match(env.batches[0][0].sql, /student.archived/);
+  assert.match(env.batches[0][1].sql, /UPDATE student_accounts/);
+  assert.match(env.batches[0][2].sql, /UPDATE activation_codes SET status = 'revoked'/);
+  assert.match(env.batches[0][2].sql, /used_at IS NULL/);
+});
+
 test("admin student registry rejects invalid grades", async () => {
   const calls = [];
   const response = await worker.fetch(new Request("https://api.example.workers.dev/api/admin/students", {
