@@ -663,7 +663,7 @@ test("worker route activates a student-bound code, returns a signed entitlement,
   assert.equal(activation.entitlement.algorithm, "RSASSA-PKCS1-v1_5-SHA256");
   const publicKey = await crypto.subtle.importKey(
     "spki",
-    Uint8Array.from(atob(publicPem.replace(/-----[^-]+-----/g, "").replace(/\\s+/g, "")), c => c.charCodeAt(0)),
+    Uint8Array.from(atob(publicPem.replace(/-----[^-]+-----/g, "").replace(/\s+/g, "")), c => c.charCodeAt(0)),
     { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["verify"]
   );
   const signature = Uint8Array.from(atob(activation.entitlement.signature), c => c.charCodeAt(0));
