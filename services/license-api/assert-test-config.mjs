@@ -2,8 +2,8 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const PRODUCTION_DATABASE_ID = "bc958420-184a-43ff-b728-069654f58058";
-const TEST_DATABASE_ID = "0600a724-949c-4ca8-828c-be18b797ad54";
-const TEST_DATABASE_NAME = "tahouri-license-ownership-test-20261030";
+const TEST_DATABASE_ID = "693662d0-6343-4846-8cb3-3391b1f27c89";
+const TEST_DATABASE_NAME = "tahouri-license-migration-chain-20261103";
 
 function readConfig(file) {
   return JSON.parse(readFileSync(resolve(import.meta.dirname, file), "utf8"));
