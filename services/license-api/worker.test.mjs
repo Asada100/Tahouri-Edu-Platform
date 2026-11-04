@@ -65,7 +65,7 @@ test("admin UI is served from the Assets binding", async () => {
 });
 
 
-function adminEnv(calls) {
+function adminEnv(calls, studentRecord = { student_id: "student-123", grade_id: "grade6", status: "active" }) {
   const batches = [];
   const DB = {
     prepare(sql) {
@@ -76,6 +76,12 @@ function adminEnv(calls) {
         async first() {
           if (sql.includes("SELECT expires_at FROM admin_sessions")) {
             return { expires_at: Date.now() + 60_000 };
+          }
+          if (sql.includes("FROM student_accounts")) {
+            return studentRecord &&
+              studentRecord.student_id === this.values[0] &&
+              studentRecord.grade_id === this.values[1] &&
+              studentRecord.status === "active" ? studentRecord : null;
           }
           return null;
         },
@@ -95,6 +101,52 @@ function adminEnv(calls) {
   };
   return { batches, DB };
 }
+
+test("admin can register a student account and writes its audit event atomically", async () => {
+  const calls = [];
+  const env = adminEnv(calls);
+  const response = await worker.fetch(new Request("https://api.example.workers.dev/api/admin/students", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: "tahouri_admin_session=test-session" },
+    body: JSON.stringify({ fullName: "دانش‌آموز آزمایشی", gradeId: "grade6" })
+  }), env);
+  const body = await response.json();
+  assert.equal(response.status, 201);
+  assert.match(body.student.studentId, /^stu_[a-f0-9]{32}$/);
+  assert.equal(body.student.fullName, "دانش‌آموز آزمایشی");
+  assert.equal(body.student.gradeId, "grade6");
+  assert.equal(env.batches.length, 1);
+  assert.equal(env.batches[0].length, 2);
+  assert.match(env.batches[0][0].sql, /INSERT INTO student_accounts/);
+  assert.match(env.batches[0][1].sql, /student.created/);
+});
+
+test("archiving a student also revokes every unused active activation code", async () => {
+  const calls = [];
+  const env = adminEnv(calls);
+  const response = await worker.fetch(new Request("https://api.example.workers.dev/api/admin/students/archive", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: "tahouri_admin_session=test-session" },
+    body: JSON.stringify({ studentId: "student-123" })
+  }), env);
+  assert.equal(response.status, 200);
+  assert.equal(env.batches.length, 1);
+  assert.equal(env.batches[0].length, 3);
+  assert.match(env.batches[0][0].sql, /student.archived/);
+  assert.match(env.batches[0][1].sql, /UPDATE student_accounts/);
+  assert.match(env.batches[0][2].sql, /UPDATE activation_codes SET status = 'revoked'/);
+  assert.match(env.batches[0][2].sql, /used_at IS NULL/);
+});
+
+test("admin student registry rejects invalid grades", async () => {
+  const calls = [];
+  const response = await worker.fetch(new Request("https://api.example.workers.dev/api/admin/students", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: "tahouri_admin_session=test-session" },
+    body: JSON.stringify({ fullName: "Test", gradeId: "grade7" })
+  }), adminEnv(calls));
+  assert.equal(response.status, 400);
+});
 
 test("admin code issuance requires a student ID", async () => {
   const calls = [];
@@ -678,4 +730,41 @@ test("worker route activates a student-bound code, returns a signed entitlement,
   }), env);
   assert.equal(replay.status, 409);
   assert.equal(batchCalls, 2);
+});
+
+test("admin refuses to issue a code when the student account is missing or grade-mismatched", async () => {
+  for (const studentRecord of [null, { student_id: "student-123", grade_id: "grade5", status: "active" }]) {
+    const calls = [];
+    const response = await worker.fetch(new Request("https://api.example.workers.dev/api/admin/codes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Cookie: "tahouri_admin_session=test-session" },
+      body: JSON.stringify({ studentId: "student-123", gradeId: "grade6", academicYear: "1405", renewalMode: "promotion" })
+    }), adminEnv(calls, studentRecord));
+    assert.equal(response.status, 409);
+    assert.equal(calls.some(call => call.sql.includes("INSERT INTO activation_codes")), false);
+    assert.equal(calls.some(call => call.sql.includes("INSERT INTO audit_log")), false);
+  }
+});
+
+test("student registry listing rejects requests without an admin session", async () => {
+  const response = await worker.fetch(new Request("https://api.example.workers.dev/api/admin/students"), adminEnv([]));
+  assert.equal(response.status, 401);
+});
+
+
+test("entitlement signer accepts PEM secrets with escaped newlines and a UTF-8 BOM", async () => {
+  const pair = await crypto.subtle.generateKey({
+    name: "RSASSA-PKCS1-v1_5", modulusLength: 2048,
+    publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256"
+  }, true, ["sign", "verify"]);
+  const privatePem = pemFromDer(await crypto.subtle.exportKey("pkcs8", pair.privateKey), "PRIVATE KEY");
+  const claims = { licenseId: "lic_pem-format", studentId: "student-pem-format" };
+  const dashboardSecret = "\uFEFF" + privatePem.replace(/\n/g, "\\n");
+  const signature = await signEntitlementClaims(dashboardSecret, claims);
+  const valid = await crypto.subtle.verify(
+    "RSASSA-PKCS1-v1_5", pair.publicKey,
+    Uint8Array.from(atob(signature), character => character.charCodeAt(0)),
+    new TextEncoder().encode(JSON.stringify(claims))
+  );
+  assert.equal(valid, true);
 });

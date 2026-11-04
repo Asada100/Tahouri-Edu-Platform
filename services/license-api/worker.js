@@ -179,6 +179,52 @@ async function adminRoute(request, env, url, headers) {
       licenseRevocations: 0, responses5xx: 0, note: "آمار لحظه‌ای درخواست‌ها در این نسخه نگهداری نمی‌شود." } }, 200, headers);
   }
   if (path === "/api/metrics/alerts" && request.method === "GET") return json({ ok: true, alerts: [] }, 200, headers);
+  if (path === "/api/admin/students" && request.method === "GET") {
+    const students = await listRows(env, `SELECT student_id AS studentId, full_name AS fullName,
+      grade_id AS gradeId, status, created_at AS createdAt, updated_at AS updatedAt
+      FROM student_accounts ORDER BY created_at DESC LIMIT 1000`);
+    return json({ ok: true, students }, 200, headers);
+  }
+  if (path === "/api/admin/students" && request.method === "POST") {
+    const body = await bodyJson(request);
+    const fullName = bounded(body.fullName, 160, "نام دانش‌آموز");
+    const gradeId = validIdentifier(body.gradeId, "gradeId");
+    if (!/^grade[1-6]$/.test(gradeId)) return error("پایهٔ دانش‌آموز معتبر نیست.", 400, headers);
+    const studentId = "stu_" + randomHex(16);
+    const createdAt = nowIso();
+    const results = await env.DB.batch([
+      env.DB.prepare(`INSERT INTO student_accounts
+        (student_id, full_name, grade_id, status, created_at, updated_at)
+        VALUES (?, ?, ?, 'active', ?, ?)`)
+        .bind(studentId, fullName, gradeId, createdAt, createdAt),
+      env.DB.prepare(`INSERT INTO audit_log
+        (event_type, actor, license_id, code_hash, created_at, metadata_json)
+        VALUES ('student.created', 'admin', NULL, NULL, ?, ?)`)
+        .bind(createdAt, JSON.stringify({ studentId, gradeId }))
+    ]);
+    if (!results?.[0]?.meta?.changes || !results?.[1]?.meta?.changes)
+      return error("ثبت حساب دانش‌آموز انجام نشد.", 500, headers);
+    return json({ ok: true, student: { studentId, fullName, gradeId, status: "active", createdAt } }, 201, headers);
+  }
+  if (path === "/api/admin/students/archive" && request.method === "POST") {
+    const body = await bodyJson(request);
+    const studentId = validIdentifier(body.studentId, "studentId");
+    const updatedAt = nowIso();
+    const results = await env.DB.batch([
+      env.DB.prepare(`INSERT INTO audit_log
+        (event_type, actor, license_id, code_hash, created_at, metadata_json)
+        SELECT 'student.archived', 'admin', NULL, NULL, ?, ?
+        WHERE EXISTS (SELECT 1 FROM student_accounts WHERE student_id = ? AND status = 'active')`)
+        .bind(updatedAt, JSON.stringify({ studentId }), studentId),
+      env.DB.prepare("UPDATE student_accounts SET status = 'archived', updated_at = ? WHERE student_id = ? AND status = 'active'")
+        .bind(updatedAt, studentId),
+      env.DB.prepare("UPDATE activation_codes SET status = 'revoked' WHERE student_id = ? AND status = 'active' AND used_at IS NULL")
+        .bind(studentId)
+    ]);
+    if (!results?.[0]?.meta?.changes || !results?.[1]?.meta?.changes)
+      return error("حساب فعال دانش‌آموز پیدا نشد.", 404, headers);
+    return json({ ok: true }, 200, headers);
+  }
   if (path === "/api/admin/codes" && request.method === "GET") {
     const codes = await listRows(env, `SELECT code_preview AS codePreview, product_id AS productId, student_id AS studentId,
       grade_id AS gradeId, academic_year AS academicYear, renewal_mode AS renewalMode, status,
@@ -198,6 +244,9 @@ async function adminRoute(request, env, url, headers) {
     if (!["promotion", "repeat"].includes(renewalMode)) return error("نوع رزرو معتبر نیست.", 400, headers);
     if (Number(academicYear) === currentYear && renewalMode === "repeat")
       return error("کد تکرار پایه فقط برای سال تحصیلی بعد قابل ساخت است.", 400, headers);
+    const student = await env.DB.prepare("SELECT student_id FROM student_accounts WHERE student_id = ? AND grade_id = ? AND status = 'active'")
+      .bind(studentId, gradeId).first();
+    if (!student) return error("ابتدا حساب فعال دانش‌آموز را ثبت کنید و پایهٔ آن را مطابق انتخاب کنید.", 409, headers);
     const code = makeCode(gradeId, academicYear);
     const codeHash = await sha256(code.toUpperCase());
     const createdAt = nowIso();
@@ -391,8 +440,21 @@ export default {
         headers: { "content-type": "text/plain; charset=utf-8" } });
     } catch (e) {
       const status = Number(e?.status) || 500;
-      return json({ ok: false, message: status >= 500 ? "خطای داخلی سرویس." : e.message,
-        requestId }, status, { ...headers, "x-request-id": requestId });
+      const internal = status >= 500;
+      // Keep secrets and request bodies out of logs; retain enough context to
+      // correlate an internal failure with the x-request-id returned to client.
+      console.error("[TahouriWorker] request failed", {
+        requestId,
+        method: request.method,
+        path: url.pathname,
+        status,
+        errorName: String(e?.name || "Error").slice(0, 80),
+        errorMessage: String(e?.message || "Unknown error").slice(0, 500),
+        stack: internal && typeof e?.stack === "string" ? e.stack.slice(0, 2000) : undefined
+      });
+      return json({ ok: false, ...(internal ? { error: "internal_error" } : {}),
+        message: internal ? "خطای داخلی سرویس." : e.message, requestId },
+        status, { ...headers, "x-request-id": requestId });
     }
   }
 };

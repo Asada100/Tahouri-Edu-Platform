@@ -11,7 +11,7 @@
     const CONFIG = {
         enabled: true,
         mode: "test",
-        apiBaseUrl: "http://localhost:8787/api",
+        apiBaseUrl: "https://tahouri-license-api-isolated-test.asadtahouri1986.workers.dev/api",
         requestTimeoutMs: 8000,
         appVersion: "5.1.0",
         updateManifestUrl: "",
@@ -19,8 +19,8 @@
         entitlementVersion: 1,
 
         // Production: pin the real public key here.
-        // Test mode obtains the development public key
-        // from the local development license API.
+        // Isolated test mode obtains the public key
+        // from the separately deployed test Worker.
         publicKeyPem: ""
     };
 
