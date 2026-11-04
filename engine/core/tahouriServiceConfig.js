@@ -11,7 +11,7 @@
     const CONFIG = {
         enabled: true,
         mode: "test",
-        apiBaseUrl: "https://tahouri-license-api-pr93-e2e.asadtahouri1986.workers.dev/api",
+        apiBaseUrl: "https://tahouri-license-api-isolated-test.asadtahouri1986.workers.dev/api",
         requestTimeoutMs: 8000,
         appVersion: "5.1.0",
         updateManifestUrl: "",
