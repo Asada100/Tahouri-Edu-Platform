@@ -750,3 +750,21 @@ test("student registry listing rejects requests without an admin session", async
   const response = await worker.fetch(new Request("https://api.example.workers.dev/api/admin/students"), adminEnv([]));
   assert.equal(response.status, 401);
 });
+
+
+test("entitlement signer accepts PEM secrets with escaped newlines and a UTF-8 BOM", async () => {
+  const pair = await crypto.subtle.generateKey({
+    name: "RSASSA-PKCS1-v1_5", modulusLength: 2048,
+    publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256"
+  }, true, ["sign", "verify"]);
+  const privatePem = pemFromDer(await crypto.subtle.exportKey("pkcs8", pair.privateKey), "PRIVATE KEY");
+  const claims = { licenseId: "lic_pem-format", studentId: "student-pem-format" };
+  const dashboardSecret = "\uFEFF" + privatePem.replace(/\n/g, "\\n");
+  const signature = await signEntitlementClaims(dashboardSecret, claims);
+  const valid = await crypto.subtle.verify(
+    "RSASSA-PKCS1-v1_5", pair.publicKey,
+    Uint8Array.from(atob(signature), character => character.charCodeAt(0)),
+    new TextEncoder().encode(JSON.stringify(claims))
+  );
+  assert.equal(valid, true);
+});
