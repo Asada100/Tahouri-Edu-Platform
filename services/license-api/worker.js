@@ -440,8 +440,21 @@ export default {
         headers: { "content-type": "text/plain; charset=utf-8" } });
     } catch (e) {
       const status = Number(e?.status) || 500;
-      return json({ ok: false, message: status >= 500 ? "خطای داخلی سرویس." : e.message,
-        requestId }, status, { ...headers, "x-request-id": requestId });
+      const internal = status >= 500;
+      // Keep secrets and request bodies out of logs; retain enough context to
+      // correlate an internal failure with the x-request-id returned to client.
+      console.error("[TahouriWorker] request failed", {
+        requestId,
+        method: request.method,
+        path: url.pathname,
+        status,
+        errorName: String(e?.name || "Error").slice(0, 80),
+        errorMessage: String(e?.message || "Unknown error").slice(0, 500),
+        stack: internal && typeof e?.stack === "string" ? e.stack.slice(0, 2000) : undefined
+      });
+      return json({ ok: false, ...(internal ? { error: "internal_error" } : {}),
+        message: internal ? "خطای داخلی سرویس." : e.message, requestId },
+        status, { ...headers, "x-request-id": requestId });
     }
   }
 };
