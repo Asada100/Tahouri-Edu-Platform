@@ -73,16 +73,16 @@ function randomHex(bytes = 16) {
 
 function decodePublicKeyPem(pem) {
   if (typeof pem !== "string") throw new Error("Public signing key is not configured.");
-  const normalized = pem.replace(/^\\uFEFF/, "")
-    .replace(/\\\\r\\\\n/g, "\n")
-    .replace(/\\\\n/g, "\n")
-    .replace(/\\\\r/g, "\n")
+  const normalized = pem.replace(/^\uFEFF/, "")
+    .replace(/\\r\\n/g, "\n")
+    .replace(/\\n/g, "\n")
+    .replace(/\\r/g, "\n")
     .trim();
   const begin = "-----BEGIN PUBLIC KEY-----";
   const end = "-----END PUBLIC KEY-----";
   if (!normalized.includes(begin) || !normalized.includes(end))
     throw new Error("The public signing key must use SPKI PEM format.");
-  const encoded = normalized.replace(begin, "").replace(end, "").replace(/\\s+/g, "");
+  const encoded = normalized.replace(begin, "").replace(end, "").replace(/\s+/g, "");
   if (!encoded || !/^[A-Za-z0-9+/]+={0,2}$/.test(encoded))
     throw new Error("The public signing key is malformed.");
   let binary;
@@ -90,7 +90,6 @@ function decodePublicKeyPem(pem) {
   catch { throw new Error("The public signing key contains invalid base64 data."); }
   return Uint8Array.from(binary, character => character.charCodeAt(0));
 }
-
 async function signatureSelfTest(env, headers, requestId) {
   if (env.SERVICE_ENVIRONMENT !== "test")
     return json({ ok: false, message: "not_found" }, 404, headers);
