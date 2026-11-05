@@ -3,7 +3,7 @@
   "name": "tahouri-license-api-isolated-test",
   "main": "worker.js",
   "compatibility_date": "2026-10-29",
-  "workers_dev": false,
+  "workers_dev": true,
   "preview_urls": false,
   "vars": {
     "SERVICE_ENVIRONMENT": "test",
