@@ -1,4 +1,5 @@
 import { activateStudentBoundCode } from "./activation-service.js";
+import { signEntitlementClaims } from "./entitlement-crypto.js";
 /**
  * Tahouri License API — Cloudflare Workers + D1.
  *
@@ -68,6 +69,62 @@ function constantTimeEqual(a, b) {
 function randomHex(bytes = 16) {
   const data = crypto.getRandomValues(new Uint8Array(bytes));
   return [...data].map(x => x.toString(16).padStart(2, "0")).join("");
+}
+
+function decodePublicKeyPem(pem) {
+  if (typeof pem !== "string") throw new Error("Public signing key is not configured.");
+  const normalized = pem.replace(/^\\uFEFF/, "")
+    .replace(/\\\\r\\\\n/g, "\n")
+    .replace(/\\\\n/g, "\n")
+    .replace(/\\\\r/g, "\n")
+    .trim();
+  const begin = "-----BEGIN PUBLIC KEY-----";
+  const end = "-----END PUBLIC KEY-----";
+  if (!normalized.includes(begin) || !normalized.includes(end))
+    throw new Error("The public signing key must use SPKI PEM format.");
+  const encoded = normalized.replace(begin, "").replace(end, "").replace(/\\s+/g, "");
+  if (!encoded || !/^[A-Za-z0-9+/]+={0,2}$/.test(encoded))
+    throw new Error("The public signing key is malformed.");
+  let binary;
+  try { binary = atob(encoded); }
+  catch { throw new Error("The public signing key contains invalid base64 data."); }
+  return Uint8Array.from(binary, character => character.charCodeAt(0));
+}
+
+async function signatureSelfTest(env, headers, requestId) {
+  if (env.SERVICE_ENVIRONMENT !== "test")
+    return json({ ok: false, message: "not_found" }, 404, headers);
+  if (!env.LICENSE_SIGNING_PRIVATE_KEY_PEM || !env.LICENSE_SIGNING_PUBLIC_KEY_PEM)
+    return json({ ok: false, test: "signature", error: "key_configuration_missing", requestId }, 503,
+      { ...headers, "x-request-id": requestId });
+
+  const claims = {
+    purpose: "tahouri-worker-signature-self-test",
+    nonce: randomHex(16),
+    issuedAt: nowIso()
+  };
+  const signatureBase64 = await signEntitlementClaims(env.LICENSE_SIGNING_PRIVATE_KEY_PEM, claims);
+  const signatureBinary = atob(signatureBase64);
+  const signature = Uint8Array.from(signatureBinary, character => character.charCodeAt(0));
+  const publicKey = await crypto.subtle.importKey(
+    "spki",
+    decodePublicKeyPem(env.LICENSE_SIGNING_PUBLIC_KEY_PEM),
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    false,
+    ["verify"]
+  );
+  const encoder = new TextEncoder();
+  const valid = await crypto.subtle.verify(
+    "RSASSA-PKCS1-v1_5", publicKey, signature, encoder.encode(JSON.stringify(claims))
+  );
+  const tamperedRejected = !(await crypto.subtle.verify(
+    "RSASSA-PKCS1-v1_5", publicKey, signature,
+    encoder.encode(JSON.stringify({ ...claims, tampered: true }))
+  ));
+  const passed = valid && tamperedRejected;
+  return json({ ok: passed, test: "signature", signatureValid: valid,
+    tamperRejected: tamperedRejected, requestId }, passed ? 200 : 503,
+    { ...headers, "x-request-id": requestId });
 }
 async function bodyJson(request) {
   const text = await request.text();
@@ -387,6 +444,13 @@ export default {
           "access-control-allow-methods": "GET,POST,OPTIONS",
           "access-control-allow-headers": "Content-Type",
           "access-control-max-age": "600" } });
+      }
+      if (url.pathname === "/api/test/signature" && env.SERVICE_ENVIRONMENT !== "test")
+        return json({ ok: false, message: "not_found" }, 404, headers);
+      if (url.pathname === "/api/test/signature") {
+        if (request.method !== "POST")
+          return json({ ok: false, message: "method_not_allowed" }, 405, { ...headers, allow: "POST" });
+        return await signatureSelfTest(env, headers, requestId);
       }
       if (url.pathname === "/api/health" && request.method === "GET")
         return await health(env, headers, requestId);
