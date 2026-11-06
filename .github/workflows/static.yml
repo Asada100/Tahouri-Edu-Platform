@@ -31,6 +31,16 @@ jobs:
         run: node scripts/platform-integrity-check.js
       - name: Test push notification navigation and URL safety
         run: node tests/service-worker-notification-click.test.js
+      - name: Run learning-engine regression tests
+        run: |
+          node tests/composite-matching-lifecycle.test.js
+          node tests/animal-composite-integration.test.js
+          node tests/progress-tracker-best-results.test.js
+          node tests/composite-report-best-score.test.js
+          node tests/composite-audio-prompt.test.js
+          node tests/multistage-classification-engine.test.js
+          node tests/pattern-spatial-regression.test.js
+          node tests/word-puzzle-drag-path.test.js
 
   deploy:
     if: github.event_name != 'pull_request'
