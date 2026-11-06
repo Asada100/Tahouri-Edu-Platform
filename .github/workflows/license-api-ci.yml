@@ -37,6 +37,9 @@ jobs:
       - name: Release artifact check
         run: npm run release-check
 
+      - name: Validate Cloudflare Worker module syntax
+        run: node --input-type=module --check < worker.js
+
       - name: Production admin CSP validation
         run: |
           node --check admin/admin.js
