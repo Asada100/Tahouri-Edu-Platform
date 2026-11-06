@@ -24,6 +24,7 @@ const requiredFiles = [
     "services/license-api/wrangler.toml",
     "services/license-api/migrations/0001_initial_schema.sql",
     "services/license-api/migrations/0002_admin_login_attempts.sql",
+    "services/license-api/migrations/0003_activation_integrity_indexes.sql",
     ".github/workflows/license-api-ci.yml"
 ];
 
