@@ -47,15 +47,13 @@ if (!config) {
 
 const requiredFiles = [
     "services/license-api/worker.js",
-    "services/license-api/activation-service.js",
-    "services/license-api/entitlement-crypto.js",
-    "services/license-api/student-profile-service.js",
+    "services/license-api/server.js",
+    "services/license-api/wrangler.toml",
     "services/license-api/migrations/0001_initial_schema.sql",
     "services/license-api/migrations/0002_admin_login_attempts.sql",
-    "services/license-api/migrations/0003_student_bound_activation_codes.sql",
-    "services/license-api/migrations/0004_student_accounts.sql",
-    "services/license-api/migrations/0005_student_profiles.sql",
-    "services/license-api/migrations/0006_activation_requests.sql"
+    "engine/core/tahouriLicenseClient.js",
+    "engine/core/tahouriEntitlementStore.js",
+    "engine/core/tahouriEntitlementVerifier.js"
 ];
 
 for (const relative of requiredFiles) {
@@ -68,11 +66,6 @@ const licenseManagerSource = fs.readFileSync(
     path.join(root, "engine/core/licenseManager.js"),
     "utf8"
 );
-const activeLicenseStart = licenseManagerSource.indexOf("function getActiveLicenses()");
-const activeLicenseEnd = licenseManagerSource.indexOf("\n    }", activeLicenseStart);
-const activeLicenseBody = activeLicenseStart >= 0 && activeLicenseEnd > activeLicenseStart
-    ? licenseManagerSource.slice(activeLicenseStart, activeLicenseEnd)
-    : "";
 function functionBody(source, signature) {
     const start = source.indexOf(signature);
     if (start < 0) return "";
@@ -94,11 +87,15 @@ if (!isGradeActivatedBody.includes("hasValidRemoteEntitlement(gradeId)") ||
 const workerPath = path.join(root, "services/license-api/worker.js");
 if (fs.existsSync(workerPath)) {
     const worker = fs.readFileSync(workerPath, "utf8");
-    if (!worker.includes("activateStudentBoundCode") || !worker.includes("/api/activate")) {
-        blockers.push("Version-controlled Worker does not expose the student-bound activation flow.");
+    if (!worker.includes("async function activateLicense") ||
+        !worker.includes('url.pathname === "/api/licenses/activate"') ||
+        !worker.includes('url.pathname === "/api/licenses/status"') ||
+        !worker.includes("async function signEntitlement")) {
+        blockers.push("Version-controlled Worker is missing the signed activation/status endpoints.");
     }
-    if (worker.includes("licenseActivation: false") || worker.includes("licenseActivation:false")) {
-        blockers.push("Worker health contract still reports license activation disabled.");
+    if (!worker.includes("LICENSE_PRIVATE_KEY_PEM") ||
+        !worker.includes("licenseActivation: signingReady")) {
+        blockers.push("Worker does not require a private signing key before advertising activation readiness.");
     }
 }
 
