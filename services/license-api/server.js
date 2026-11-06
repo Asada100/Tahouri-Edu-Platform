@@ -664,7 +664,8 @@ function cleanupAdminSessions() {
 setInterval(cleanupAdminSessions, 10 * 60 * 1000).unref();
 
 function getClientIp(req) {
-    if (IS_PRODUCTION) {
+    const trustForwarded = IS_PRODUCTION || process.env.TAHOURI_TEST_TRUST_PROXY === "true";
+    if (trustForwarded) {
         const forwarded = String(req.headers["x-forwarded-for"] || "").trim();
         if (forwarded) return forwarded.split(",")[0].trim();
     }
