@@ -285,6 +285,19 @@ async function main() {
         });
         assert(wrongProfileRenewal.status === 409, "Future renewal must not be activatable by another profile.");
 
+        const codeRevoked = await request("POST", "/api/admin/codes/revoke", {
+            code: promotionCodes.data.codes[2]
+        }, { Cookie: cookie });
+        assert(codeRevoked.status === 200 && codeRevoked.data.ok, "Activation code revocation failed.");
+        const revokedCodeReuse = await request("POST", "/api/licenses/activate", {
+            code: promotionCodes.data.codes[2],
+            gradeId: "grade7",
+            studentId: "integration-student",
+            installationId: "integration-installation",
+            renewalMode: "promotion"
+        });
+        assert(revokedCodeReuse.status === 409, "A revoked activation code was reusable.");
+
         const auditAfterRenewal = await request("GET", "/api/admin/audit?limit=100", undefined, { Cookie: cookie });
         assert(auditAfterRenewal.status === 200 && Array.isArray(auditAfterRenewal.data.audit), "Audit endpoint failed after renewal.");
         const renewalAuditEvents = auditAfterRenewal.data.audit.map(item => item.event_type || item.eventType);
