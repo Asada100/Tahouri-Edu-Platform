@@ -92,7 +92,7 @@ async function main() {
 
     const publicKeyResponse = await request(worker, env, "/api/public-key", "GET");
     assert.equal(publicKeyResponse.status, 200);
-    assert.equal((await publicKeyResponse.json()).publicKeyPem, publicPem);
+    assert.equal((await publicKeyResponse.json()).publicKeyPem, publicPem.trim());
 
     const adminLogin = await worker.fetch(new Request("https://api.example.test/api/admin/login", {
         method: "POST",
