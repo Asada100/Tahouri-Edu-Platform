@@ -63,6 +63,17 @@ for (const relative of requiredFiles) {
     }
 }
 
+const licenseManagerSource = fs.readFileSync(
+    path.join(root, "engine/core/licenseManager.js"),
+    "utf8"
+);
+const activeLicenseMatch = licenseManagerSource.match(
+    /function getActiveLicenses\\(\\)\\s*\\{([\\s\\S]*?)\\n\\s*\\}/
+);
+if (!activeLicenseMatch || !activeLicenseMatch[1].includes("isRemoteProductionMode")) {
+    blockers.push("LocalStorage license records are still trusted without a production-mode remote-entitlement guard.");
+}
+
 const workerPath = path.join(root, "services/license-api/worker.js");
 if (fs.existsSync(workerPath)) {
     const worker = fs.readFileSync(workerPath, "utf8");
