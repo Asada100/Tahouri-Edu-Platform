@@ -61,12 +61,12 @@ function functionSection(source, signature, nextSignature) {
 }
 const activatedBody = functionSection(manager, "function isActivated(", "function isGradeActivated(");
 const gradeActivatedBody = functionSection(manager, "function isGradeActivated(", "function isProfileActivated(");
-assert(activatedBody && activatedBody[0].includes("isRemoteProductionMode()"),
+assert(activatedBody && activatedBody.includes("isRemoteProductionMode()"),
     "isActivated must not trust unsigned local licenses in production.");
 assert(gradeActivatedBody &&
-    gradeActivatedBody[0].includes("hasValidRemoteEntitlement(gradeId)") &&
-    gradeActivatedBody[0].includes("if (isRemoteProductionMode())") &&
-    gradeActivatedBody[0].includes("return false;"),
+    gradeActivatedBody.includes("hasValidRemoteEntitlement(gradeId)") &&
+    gradeActivatedBody.includes("if (isRemoteProductionMode())") &&
+    gradeActivatedBody.includes("return false;"),
     "isGradeActivated must fail closed when remote entitlement validation fails in production.");
 
 assert(
