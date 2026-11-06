@@ -17,6 +17,12 @@
     let selectedGradeId = null;
     let licenseStatusReason = null;
 
+    function escapeHTML(value) {
+        return String(value ?? "").replace(/[&<>"']/g, function (character) {
+            return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character];
+        });
+    }
+
 
     // =====================================
     // Profile
@@ -812,7 +818,7 @@
                 profileOptions += `
 
                     <option
-                        value="${item.studentId || ""}"
+                        value="${escapeHTML(item.studentId || "")}"
                         ${selected}
                     >
                         ${
@@ -882,7 +888,7 @@
                                 line-height:1.9;
                                 font-size:13px;
                             ">
-                                ${licenseNotice}
+                                ${escapeHTML(licenseNotice)}
                             </div>
                         ` : ""}
 
