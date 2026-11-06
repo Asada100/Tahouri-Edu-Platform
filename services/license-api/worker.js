@@ -2,11 +2,11 @@
  * Tahouri License API — Cloudflare Workers + D1.
  *
  * Implemented here: health, admin session/login/logout, code management,
- * license/payment/audit read views, license revocation, and admin search.
- * License activation/verification and signed entitlement extension remain
- * disabled until their signing and lifecycle logic is ported and tested.
+ * signed student-bound activation/status, license/payment/audit read views,
+ * license revocation, and admin search. Payment verification and signed
+ * entitlement extension remain disabled until separately ported and tested.
  */
-const SERVICE_VERSION = "0.2.1-worker-admin-login-fix";
+const SERVICE_VERSION = "0.3.0-worker-signed-activation";
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 const COOKIE_NAME = "tahouri_admin_session";
 const PRODUCT_ID = "tahouri-edu";
