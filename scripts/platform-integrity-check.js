@@ -74,6 +74,60 @@ counts.scripts = scriptRefs.length;
 counts.styles = styleRefs.length;
 counts.links = linkRefs.length;
 
+const assetPattern = /\\.(?:png|jpe?g|svg|webp|gif|mp3|wav|ogg|m4a|mp4|ttf|woff2?)(?:[?#].*)?$/i;
+let assetReferences = 0;
+
+function assetExists(reference, sourceFile) {
+    const value = String(reference || "").trim();
+    if (!value || /^(?:https?:|data:|blob:|\\/\\/|#|var\\()/i.test(value)) return true;
+    const clean = value.replace(/^["']|["']$/g, "").split(/[?#]/, 1)[0];
+    const candidates = [
+        path.resolve(path.dirname(path.join(root, sourceFile)), clean),
+        path.resolve(root, clean.replace(/^\\.\\//, "")),
+        ...(clean.startsWith("/") ? [path.resolve(root, clean.slice(1))] : [])
+    ];
+    return candidates.some(candidate => fs.existsSync(candidate));
+}
+
+function collectAssetStrings(value, output) {
+    if (typeof value === "string") {
+        if (assetPattern.test(value)) output.push(value);
+    } else if (Array.isArray(value)) {
+        value.forEach(item => collectAssetStrings(item, output));
+    } else if (value && typeof value === "object") {
+        Object.values(value).forEach(item => collectAssetStrings(item, output));
+    }
+}
+
+for (const file of files) {
+    const relative = path.relative(root, file).split(path.sep).join("/");
+    if (/\\.css$/i.test(relative)) {
+        const css = fs.readFileSync(file, "utf8");
+        const refs = [...css.matchAll(/url\\(\\s*["']?([^)"']+)["']?\\s*\\)/gi)].map(match => match[1]);
+        for (const ref of refs) {
+            if (!assetPattern.test(ref)) continue;
+            assetReferences++;
+            if (!assetExists(ref, relative)) failures.push(relative + ": missing CSS asset " + ref);
+        }
+    }
+
+    if (/\\.json$/i.test(relative)) {
+        try {
+            const value = JSON.parse(fs.readFileSync(file, "utf8"));
+            const refs = [];
+            collectAssetStrings(value, refs);
+            for (const ref of refs) {
+                if (/^(?:https?:|data:|blob:|\\/\\/)/i.test(ref)) continue;
+                assetReferences++;
+                if (!assetExists(ref, relative)) failures.push(relative + ": missing data asset " + ref);
+            }
+        } catch {
+            // The JSON validation pass above reports malformed files.
+        }
+    }
+}
+counts.assetReferences = assetReferences;
+
 const grades = readJson("data/grades.json") || [];
 const subjects = readJson("data/subjects.json") || [];
 const chapters = readJson("data/chapters.json") || [];
