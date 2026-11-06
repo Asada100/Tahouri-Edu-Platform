@@ -6,7 +6,6 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { DatabaseSync } = require("node:sqlite");
 
-globalThis.crypto = crypto.webcrypto;
 const db = new DatabaseSync(":memory:");
 for (const file of ["migrations/0001_initial_schema.sql", "migrations/0002_admin_login_attempts.sql"]) {
     db.exec(fs.readFileSync(path.join(__dirname, file), "utf8"));
