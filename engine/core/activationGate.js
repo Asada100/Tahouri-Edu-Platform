@@ -821,10 +821,7 @@
                         value="${escapeHTML(item.studentId || "")}"
                         ${selected}
                     >
-                        ${
-                            item.name ||
-                            "دانش‌آموز"
-                        }
+                        ${escapeHTML(item.name || "دانش‌آموز")}
                     </option>
 
                 `;
