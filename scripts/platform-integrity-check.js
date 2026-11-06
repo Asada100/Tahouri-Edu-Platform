@@ -137,7 +137,7 @@ for (const activity of activities) {
 
 if (locksSource && typeof locksSource === "object") {
     let lockData = locksSource;
-    if (!Array.isArray(lockData) && typeof locksData.content === "string") {
+    if (!Array.isArray(lockData) && typeof locksSource.content === "string") {
         try {
             lockData = JSON.parse(locksSource.content);
         } catch (error) {
