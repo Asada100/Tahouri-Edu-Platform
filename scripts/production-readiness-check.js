@@ -67,10 +67,12 @@ const licenseManagerSource = fs.readFileSync(
     path.join(root, "engine/core/licenseManager.js"),
     "utf8"
 );
-const activeLicenseMatch = licenseManagerSource.match(
-    /function getActiveLicenses\\(\\)\\s*\\{([\\s\\S]*?)\\n\\s*\\}/
-);
-if (!activeLicenseMatch || !activeLicenseMatch[1].includes("isRemoteProductionMode")) {
+const activeLicenseStart = licenseManagerSource.indexOf("function getActiveLicenses()");
+const activeLicenseEnd = licenseManagerSource.indexOf("\\n    }", activeLicenseStart);
+const activeLicenseBody = activeLicenseStart >= 0 && activeLicenseEnd > activeLicenseStart
+    ? licenseManagerSource.slice(activeLicenseStart, activeLicenseEnd)
+    : "";
+if (!activeLicenseBody.includes("isRemoteProductionMode") || !activeLicenseBody.includes("return []")) {
     blockers.push("LocalStorage license records are still trusted without a production-mode remote-entitlement guard.");
 }
 
