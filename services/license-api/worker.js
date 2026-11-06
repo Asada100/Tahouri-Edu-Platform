@@ -246,6 +246,7 @@ async function activateLicense(request, env, headers) {
   const body = await bodyJson(request);
   const code = bounded(body.code, 256, "code").toUpperCase();
   const gradeId = validIdentifier(body.gradeId, "gradeId");
+  if (!/^grade[1-6]$/.test(gradeId)) return error("پایه انتخاب‌شده معتبر نیست.", 400, headers);
   const studentId = validIdentifier(body.studentId, "studentId");
   const installationId = validIdentifier(body.installationId, "installationId");
   const renewalMode = String(body.renewalMode || "promotion").trim().toLowerCase();
@@ -348,6 +349,7 @@ async function adminRoute(request, env, url, headers) {
   if (path === "/api/admin/codes" && request.method === "POST") {
     const body = await bodyJson(request);
     const gradeId = validIdentifier(body.gradeId, "gradeId");
+    if (!/^grade[1-6]$/.test(gradeId)) return error("پایه انتخاب‌شده معتبر نیست.", 400, headers);
     const academicYear = String(body.academicYear || iranianYear()).trim();
     const renewalMode = String(body.renewalMode || "promotion").toLowerCase();
     const currentYear = iranianYear();
@@ -360,25 +362,43 @@ async function adminRoute(request, env, url, headers) {
     if (!Number.isInteger(count)) return error("تعداد کد نامعتبر است.", 400, headers);
     const created = [];
     const statements = [];
+    const createdAt = nowIso();
     for (let i = 0; i < count; i++) {
       const code = makeCode(gradeId, academicYear);
       created.push(code);
       statements.push(env.DB.prepare(`INSERT INTO activation_codes
         (code_hash, code_preview, product_id, grade_id, academic_year, renewal_mode, status, created_at)
         VALUES (?, ?, ?, ?, ?, ?, 'active', ?)`)
-        .bind(await sha256(code.toUpperCase()), preview(code), PRODUCT_ID, gradeId, academicYear, renewalMode, nowIso()));
+        .bind(await sha256(code.toUpperCase()), preview(code), PRODUCT_ID, gradeId, academicYear, renewalMode, createdAt));
     }
-    await env.DB.batch(statements);
-    await audit(env, "codes.created", "admin", { metadata: { gradeId, academicYear, renewalMode, count } });
+    statements.push(env.DB.prepare(`INSERT INTO audit_log
+      (event_type, actor, license_id, code_hash, created_at, metadata_json)
+      VALUES ('codes.created', 'admin', NULL, NULL, ?, ?)`)
+      .bind(createdAt, JSON.stringify({ gradeId, academicYear, renewalMode, count })));
+    const results = await env.DB.batch(statements);
+    if (results.length !== count + 1 || results.some(result => Number(result?.meta?.changes || 0) !== 1)) {
+      return error("ثبت کدها و گزارش عملیات کامل نشد.", 500, headers);
+    }
     return json({ ok: true, codes: created }, 201, headers);
   }
   if (path === "/api/admin/codes/revoke" && request.method === "POST") {
     const body = await bodyJson(request);
     const code = bounded(body.code, 256, "code").toUpperCase();
-    const result = await env.DB.prepare(`UPDATE activation_codes SET status = 'revoked'
-      WHERE code_hash = ? AND status = 'active' AND used_at IS NULL`).bind(await sha256(code)).run();
-    if (!result.meta?.changes) return error("کد فعال و قابل لغو پیدا نشد.", 404, headers);
-    await audit(env, "code.revoked", "admin", { codeHash: await sha256(code) });
+    const codeHash = await sha256(code);
+    const revokedAt = nowIso();
+    const results = await env.DB.batch([
+      env.DB.prepare(`INSERT INTO audit_log
+        (event_type, actor, license_id, code_hash, created_at, metadata_json)
+        SELECT 'code.revoked', 'admin', NULL, ?, ?, '{}'
+        WHERE EXISTS (SELECT 1 FROM activation_codes
+          WHERE code_hash = ? AND status = 'active' AND used_at IS NULL)`)
+        .bind(codeHash, revokedAt, codeHash),
+      env.DB.prepare(`UPDATE activation_codes SET status = 'revoked'
+        WHERE code_hash = ? AND status = 'active' AND used_at IS NULL`).bind(codeHash)
+    ]);
+    if (!results?.[0]?.meta?.changes || !results?.[1]?.meta?.changes) {
+      return error("کد فعال و قابل لغو پیدا نشد.", 404, headers);
+    }
     return json({ ok: true }, 200, headers);
   }
   if (path === "/api/admin/licenses" && request.method === "GET") {
