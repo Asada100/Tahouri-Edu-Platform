@@ -302,6 +302,7 @@ async function main() {
         assert(auditAfterRenewal.status === 200 && Array.isArray(auditAfterRenewal.data.audit), "Audit endpoint failed after renewal.");
         const renewalAuditEvents = auditAfterRenewal.data.audit.map(item => item.event_type || item.eventType);
         assert(renewalAuditEvents.includes("license.renewal_reserved"), "Missing audit event: license.renewal_reserved");
+        assert(renewalAuditEvents.includes("code.revoked"), "Missing audit event: code.revoked");
 
         const revoked = await request("POST", "/api/admin/licenses/revoke", { licenseId }, { Cookie: cookie });
         assert(revoked.status === 200 && revoked.data.ok, "License revoke failed.");
