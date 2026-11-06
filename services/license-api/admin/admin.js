@@ -23,4 +23,25 @@ async function revokeLicense(){try{const licenseId=document.getElementById("lice
 async function extendLicense(){try{const licenseId=document.getElementById("licenseIdAction").value.trim(),v=document.getElementById("extendUntil").value;if(!licenseId||!v)throw Error("License ID و تاریخ پایان را وارد کنید.");await api("/api/admin/licenses/extend",{method:"POST",body:JSON.stringify({licenseId,validUntil:new Date(v).toISOString()})});await loadLicenses();alert("مجوز تمدید شد.")}catch(x){alert(x.message)}}
 async function searchAll(){try{const q=document.getElementById("searchQ").value.trim();if(!q)throw Error("عبارت جستجو را وارد کنید.");const d=await api("/api/admin/search?q="+encodeURIComponent(q));document.getElementById("searchResults").innerHTML="<h3>مجوزها</h3>"+table(["مجوز","پروفایل","پایه","سال","وضعیت"],d.licenses.map(v=>[v.licenseId,v.studentId,v.gradeId,v.academicYear,v.status]))+"<h3>کدها</h3>"+table(["کد","پایه","سال","وضعیت","مجوز"],d.codes.map(v=>[v.codePreview,v.gradeId,v.academicYear,v.status,v.licenseId||"—"]))}catch(x){alert(x.message)}}
 async function loadAll(){await loadHealth();await Promise.all([loadMetrics(),loadAlerts(),loadCodes(),loadLicenses(),loadPayments(),loadAudit()])}
-loadHealth();checkSession();
+function bindUIEvents(){
+ const bind=(id,handler)=>{const element=document.getElementById(id);if(element)element.addEventListener("click",handler)};
+ bind("loginButton",login);
+ bind("refreshAllButton",loadAll);
+ bind("logoutButton",logout);
+ bind("createCodesButton",createCodes);
+ bind("revokeCodeButton",revokeCode);
+ bind("searchButton",searchAll);
+ bind("loadCodesButton",loadCodes);
+ bind("loadLicensesButton",loadLicenses);
+ bind("extendLicenseButton",extendLicense);
+ bind("revokeLicenseButton",revokeLicense);
+ bind("loadPaymentsButton",loadPayments);
+ bind("loadAuditButton",loadAudit);
+ const passwordInput=document.getElementById("adminKey");
+ if(passwordInput)passwordInput.addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();login()}});
+ const searchInput=document.getElementById("searchQ");
+ if(searchInput)searchInput.addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();searchAll()}});
+}
+bindUIEvents();
+loadHealth();
+checkSession();
