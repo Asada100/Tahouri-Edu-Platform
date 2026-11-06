@@ -14,6 +14,7 @@ if (!source.includes("X-Content-Type-Options") || !source.includes("X-Frame-Opti
 }
 
 const caddySecurityMarkers = [
+    "{$TAHOURI_API_DOMAIN} {",
     'Strict-Transport-Security "max-age=31536000; includeSubDomains"',
     "Content-Security-Policy \"default-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'; object-src 'none'; connect-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'\"",
     'X-Content-Type-Options "nosniff"',
