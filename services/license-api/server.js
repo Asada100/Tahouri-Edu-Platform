@@ -792,10 +792,6 @@ async function activate(req, res) {
     const body = await readBody(req);
     const code = String(body.code || "").trim().toUpperCase();
     const gradeId = validateIdentifier(body.gradeId, "gradeId");
-    if (!/^grade[1-6]$/.test(gradeId)) {
-        recordMetric("activationFailures");
-        return send(res, 400, { valid: false, message: "پایه انتخاب‌شده معتبر نیست." });
-    }
     const installationId = validateIdentifier(body.installationId, "installationId");
     const studentId = validateIdentifier(body.studentId, "studentId");
     const renewalMode = String(body.renewalMode || "promotion").trim().toLowerCase();
@@ -1095,9 +1091,6 @@ async function adminCreateCodes(req, res) {
     if (!requireAdmin(req, res)) return;
     const body = await readBody(req);
     const gradeId = validateIdentifier(body.gradeId, "gradeId");
-    if (!/^grade[1-6]$/.test(gradeId)) {
-        return send(res, 400, { ok: false, message: "پایه انتخاب‌شده معتبر نیست." });
-    }
     const academicYear = String(body.academicYear || academicPeriod().academicYear).trim();
     const renewalMode = String(body.renewalMode || "promotion").trim().toLowerCase();
     if (!["promotion", "repeat"].includes(renewalMode)) {
