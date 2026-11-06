@@ -291,8 +291,9 @@ D1 binding:
 Versioned D1 migrations:
   migrations/0001_initial_schema.sql
   migrations/0002_admin_login_attempts.sql
+  migrations/0003_activation_integrity_indexes.sql
 
-The production D1 database was inspected and currently reports schema version 2.
+The production D1 database was inspected and currently reports schema version 2; migration 0003 adds the activation uniqueness and rate-limit indexes required before the new Worker can report ready.
 Its activation_codes, licenses, audit_log, payments, admin_sessions,
 admin_login_attempts and schema_migrations tables match this migration baseline.
 Do not run experimental student-account/profile migrations against production.
@@ -332,7 +333,7 @@ IMPORTANT CURRENT STATE:
   - It has not yet been deployed to the live Cloudflare Worker.
   - The live Worker remains admin-only until that deployment.
   - The application service config remains in test mode and still points to localhost.
-  - The production D1 database has no activation codes or licenses at present.
+  - The production D1 database has no activation codes or licenses at present. Apply migration 0003 before deploying the Worker; the health endpoint intentionally remains not-ready until schema version 3 and all required indexes exist.
   - Payment verification and signed entitlement extension remain disabled in the Worker.
   - Health returns not-ready until a valid LICENSE_PRIVATE_KEY_PEM secret is configured.
 
