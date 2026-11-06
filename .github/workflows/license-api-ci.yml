@@ -33,6 +33,11 @@ jobs:
       - name: Release artifact check
         run: npm run release-check
 
+      - name: Production admin CSP validation
+        run: |
+          node --check admin/admin.js
+          node admin-csp-test.js
+
       - name: Security test
         run: npm run security-test
 
@@ -40,8 +45,10 @@ jobs:
         run: node client-license-safety-test.js
 
       - name: Integration test
-        run: npm run integration-test
+        run: node integration-test.js
+
       - name: Migration verification
-        run: npm run migration-test
+        run: node migration-test.js
+
       - name: Backup and recovery verification
-        run: npm run backup-recovery-test
+        run: node backup-recovery-test.js
