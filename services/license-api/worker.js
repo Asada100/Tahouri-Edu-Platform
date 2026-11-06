@@ -427,7 +427,11 @@ async function health(env, headers, requestId) {
     const requiredTables = await env.DB.prepare(
       "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name IN ('activation_codes','licenses','audit_log','payments','admin_sessions','admin_login_attempts','schema_migrations')"
     ).first();
-    database = schemaVersion >= 2 && Number(requiredTables?.count || 0) === 7
+    const requiredIndexes = await env.DB.prepare(
+      "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'index' AND name IN ('idx_audit_actor_event_created','idx_licenses_code_hash_unique','idx_activation_grade_year_status')"
+    ).first();
+    database = schemaVersion >= 3 && Number(requiredTables?.count || 0) === 7 &&
+      Number(requiredIndexes?.count || 0) === 3
       ? "connected" : "schema_incomplete";
   } catch { database = "unavailable_or_unmigrated"; }
   let signingReady = false;
