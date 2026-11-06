@@ -29,6 +29,8 @@ jobs:
           node-version: "24"
       - name: Validate all JavaScript, JSON, and platform references
         run: node scripts/platform-integrity-check.js
+      - name: Test push notification navigation and URL safety
+        run: node tests/service-worker-notification-click.test.js
 
   deploy:
     if: github.event_name != 'pull_request'
