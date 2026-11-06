@@ -20,6 +20,7 @@ const requiredFiles = [
     "services/license-api/release-smoke-test.js",
     "services/license-api/worker.js",
     "services/license-api/worker-activation-test.js",
+    "services/license-api/license-manager-mode-test.js",
     "services/license-api/wrangler.toml",
     "services/license-api/migrations/0001_initial_schema.sql",
     "services/license-api/migrations/0002_admin_login_attempts.sql",
