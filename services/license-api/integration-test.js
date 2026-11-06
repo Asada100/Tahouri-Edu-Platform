@@ -291,6 +291,17 @@ async function main() {
             code: promotionCodes.data.codes[2]
         }, { Cookie: cookie });
         assert(codeRevoked.status === 200 && codeRevoked.data.ok, "Activation code revocation failed.");
+        const revocationCheckDb = new DatabaseSync(dbFile);
+        try {
+            const revokedHash = crypto.createHash("sha256")
+                .update(promotionCodes.data.codes[2].trim().toUpperCase(), "utf8").digest("hex");
+            const revokedRow = revocationCheckDb.prepare(
+                "SELECT status, used_at AS usedAt FROM activation_codes WHERE code_hash = ?"
+            ).get(revokedHash);
+            assert(revokedRow?.status === "revoked" && !revokedRow.usedAt,
+                "Code revocation did not persist in SQLite: " + JSON.stringify(revokedRow));
+        } finally { revocationCheckDb.close(); }
+
         const revokedCodeReuse = await request("POST", "/api/licenses/activate", {
             code: promotionCodes.data.codes[2],
             gradeId: "grade7",
@@ -298,7 +309,7 @@ async function main() {
             installationId: "integration-installation",
             renewalMode: "promotion"
         });
-        assert(revokedCodeReuse.status === 409, "A revoked activation code was reusable.");
+        assert(revokedCodeReuse.status === 409, "A revoked activation code was reusable; HTTP " + revokedCodeReuse.status + ": " + JSON.stringify(revokedCodeReuse.data));
 
         const auditAfterRenewal = await request("GET", "/api/admin/audit?limit=100", undefined, { Cookie: cookie });
         assert(auditAfterRenewal.status === 200 && Array.isArray(auditAfterRenewal.data.audit), "Audit endpoint failed after renewal.");
