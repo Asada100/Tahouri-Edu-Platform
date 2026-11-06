@@ -31,13 +31,30 @@ const ActivityManager = {
         console.log("Loading Activity:", activityData);
         if (!activityData) { console.error("Activity Data Missing"); return null; }
 
-        if (
+        // Enforce locks at the engine boundary as well as in the activity
+        // picker. This protects alternate navigation and direct load callers.
+        const hasLockManager =
             typeof ContentLockManager !== "undefined" &&
+            typeof ContentLockManager.isLocked === "function";
+        const isProgressionActivity =
+            hasLockManager &&
             typeof ContentLockManager.isProgressionActivity === "function" &&
-            ContentLockManager.isProgressionActivity(activityData.id) &&
-            ContentLockManager.isLocked(activityData.id)
-        ) {
-            console.warn("ActivityManager: Parity progression requirement not met.", activityData.id);
+            ContentLockManager.isProgressionActivity(activityData.id);
+        const isLocked = isProgressionActivity
+            ? ContentLockManager.isLocked(activityData.id)
+            : activityData.locked === false
+                ? false
+                : hasLockManager
+                    ? ContentLockManager.isLocked(activityData.id)
+                    : activityData.locked === true;
+
+        if (isLocked) {
+            console.warn(
+                isProgressionActivity
+                    ? "ActivityManager: Parity progression requirement not met."
+                    : "ActivityManager: Locked activity start rejected.",
+                activityData.id
+            );
             return null;
         }
 
