@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Push Service Worker
-// Version 1.1
+// Version 1.2
 // =====================================
 
 self.addEventListener("install", function () {
@@ -50,14 +50,17 @@ self.addEventListener("notificationclick", function (event) {
             ? event.notification.data.url
             : "./";
 
+    const scopeUrl = new URL(self.registration.scope || "./", self.location.href);
     let destination;
+
     try {
-        const requested = new URL(targetUrl, self.location.href);
-        destination = requested.origin === self.location.origin
+        const requested = new URL(targetUrl, scopeUrl.href);
+        destination = requested.origin === scopeUrl.origin &&
+            requested.pathname.startsWith(scopeUrl.pathname)
             ? requested.href
-            : new URL("./", self.location.href).href;
+            : scopeUrl.href;
     } catch (error) {
-        destination = new URL("./", self.location.href).href;
+        destination = scopeUrl.href;
     }
 
     event.waitUntil(
@@ -65,7 +68,9 @@ self.addEventListener("notificationclick", function (event) {
             .then(async function (clients) {
                 const client = clients.find(function (item) {
                     try {
-                        return new URL(item.url).origin === self.location.origin;
+                        const clientUrl = new URL(item.url);
+                        return clientUrl.origin === scopeUrl.origin &&
+                            clientUrl.pathname.startsWith(scopeUrl.pathname);
                     } catch (error) {
                         return false;
                     }
@@ -94,4 +99,4 @@ self.addEventListener("notificationclick", function (event) {
     );
 });
 
-console.log("Tahouri Push Service Worker v1.1 Ready");
+console.log("Tahouri Push Service Worker v1.2 Ready");
