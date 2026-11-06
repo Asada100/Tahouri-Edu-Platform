@@ -13,6 +13,7 @@ const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "tahouri-license-test-"));
 const dbFile = path.join(tempDir, "license.sqlite");
 const keyFile = path.join(tempDir, "private.pem");
 const base = "http://127.0.0.1:" + port;
+let requestIpSequence = 0;
 
 function request(method, route, body, headers = {}) {
     return new Promise((resolve, reject) => {
@@ -21,6 +22,7 @@ function request(method, route, body, headers = {}) {
             method,
             headers: {
                 ...(payload ? { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(payload) } : {}),
+                "X-Forwarded-For": "198.51.100." + ((requestIpSequence++ % 200) + 1),
                 ...headers
             }
         }, res => {
@@ -81,6 +83,7 @@ async function main() {
             PORT: String(port),
             HOST: "127.0.0.1",
             NODE_ENV: "development",
+            TAHOURI_TEST_TRUST_PROXY: "true",
             TAHOURI_TEST_CODES: "true",
             TAHOURI_TEST_MODE: "true",
             TAHOURI_LICENSE_DB_FILE: dbFile,
@@ -343,6 +346,20 @@ async function main() {
             assert(license && license.student_id === "integration-student", "License was not persisted.");
             assert(license.status === "revoked", "Persisted license is not revoked.");
         } finally { db.close(); }
+
+        let rateLimitResponses = [];
+        for (let attempt = 0; attempt < 11; attempt++) {
+            rateLimitResponses.push(await request("POST", "/api/licenses/activate", {
+                code: "INVALID-RATE-LIMIT-" + attempt,
+                gradeId: "grade6",
+                studentId: "rate-limit-student",
+                installationId: "rate-limit-installation"
+            }, { "X-Forwarded-For": "198.51.100.250" }));
+        }
+        assert(rateLimitResponses.slice(0, 10).every(response => response.status === 400),
+            "The activation rate limit rejected requests before the configured threshold.");
+        assert(rateLimitResponses[10].status === 429,
+            "The activation endpoint did not enforce its per-IP rate limit.");
 
         console.log("Tahouri License API integration test: PASS");
     } finally {
