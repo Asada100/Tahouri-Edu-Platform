@@ -1,0 +1,9 @@
+name = "tahouri-license-api"
+main = "worker.js"
+compatibility_date = "2026-11-06"
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "tahouri-license-db"
+database_id = "bc958420-184a-43ff-b728-069654f58058"
