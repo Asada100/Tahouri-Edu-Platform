@@ -16,7 +16,7 @@ function loadGlobal(relativePath, globalName) {
     };
     const source = fs.readFileSync(path.join(root, relativePath), "utf8");
     vm.runInNewContext(source, context);
-    return context.window[globalName];
+    return context.window[globalName] || vm.runInNewContext(globalName, context);
 }
 
 for (const [file, name] of [
