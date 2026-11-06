@@ -218,8 +218,8 @@ async function main() {
         const promotionActivation = await request("POST", "/api/licenses/activate", {
             code: promotionCodes.data.codes[0],
             gradeId: "grade7",
-            studentId: "integration_student",
-            installationId: "integration_installation",
+            studentId: "integration-student",
+            installationId: "integration-installation",
             renewalMode: "promotion"
         });
         assert(promotionActivation.status === 200 && promotionActivation.data.valid, "Grade 6 → Grade 7 next-year promotion failed.");
