@@ -246,7 +246,6 @@ async function activateLicense(request, env, headers) {
   const body = await bodyJson(request);
   const code = bounded(body.code, 256, "code").toUpperCase();
   const gradeId = validIdentifier(body.gradeId, "gradeId");
-  if (!/^grade[1-6]$/.test(gradeId)) return error("پایه انتخاب‌شده معتبر نیست.", 400, headers);
   const studentId = validIdentifier(body.studentId, "studentId");
   const installationId = validIdentifier(body.installationId, "installationId");
   const renewalMode = String(body.renewalMode || "promotion").trim().toLowerCase();
@@ -349,7 +348,6 @@ async function adminRoute(request, env, url, headers) {
   if (path === "/api/admin/codes" && request.method === "POST") {
     const body = await bodyJson(request);
     const gradeId = validIdentifier(body.gradeId, "gradeId");
-    if (!/^grade[1-6]$/.test(gradeId)) return error("پایه انتخاب‌شده معتبر نیست.", 400, headers);
     const academicYear = String(body.academicYear || iranianYear()).trim();
     const renewalMode = String(body.renewalMode || "promotion").toLowerCase();
     const currentYear = iranianYear();
