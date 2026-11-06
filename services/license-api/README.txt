@@ -301,11 +301,20 @@ Do not run experimental student-account/profile migrations against production.
 Worker activation routes:
   POST /api/licenses/activate
   GET  /api/licenses/status?licenseId=<license-id>
+  GET  /api/public-key
   GET  /api/health
 
 The Worker signs profile-bound entitlements with RSASSA-PKCS1-v1_5-SHA256.
 The private key must be a PKCS#8 PEM stored as the Cloudflare Worker secret:
   LICENSE_PRIVATE_KEY_PEM
+
+Also set the non-secret Worker variable:
+  LICENSE_PUBLIC_KEY_PEM=<matching PKCS#8 key pair's SPKI public PEM>
+
+The Worker health endpoint cryptographically signs and verifies a challenge and
+will report not-ready if the private/public key pair does not match. The public-key
+endpoint exposes only LICENSE_PUBLIC_KEY_PEM so the Pages release gate can compare
+it byte-for-byte (ignoring whitespace) with the pinned application public key.
 
 Set the existing Worker variables:
   ADMIN_ORIGIN=https://asada100.github.io
@@ -322,8 +331,8 @@ pair have been verified:
 Never use dev-private-key.pem as a production signing key. Do not paste a
 private key into chat, GitHub, a source file, or a committed .env file.
 
-The public key corresponding to the Worker secret must be pinned in
-engine/core/tahouriServiceConfig.js. The public app must not be switched to
+The public key corresponding to the Worker secret must be set as LICENSE_PUBLIC_KEY_PEM
+and pinned in engine/core/tahouriServiceConfig.js. The public app must not be switched to
 production mode until the public key is verified against the Worker key and
 existing local licenses have been safely migrated or explicitly classified
 as test data.
