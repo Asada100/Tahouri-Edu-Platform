@@ -95,6 +95,8 @@ if (fs.existsSync(workerPath)) {
         blockers.push("Version-controlled Worker is missing the signed activation/status endpoints.");
     }
     if (!worker.includes("LICENSE_PRIVATE_KEY_PEM") ||
+        !worker.includes("LICENSE_PUBLIC_KEY_PEM") ||
+        !worker.includes('url.pathname === "/api/public-key"') ||
         !worker.includes("licenseActivation: signingReady")) {
         blockers.push("Worker does not require a private signing key before advertising activation readiness.");
     }
