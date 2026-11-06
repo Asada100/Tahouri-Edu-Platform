@@ -184,7 +184,7 @@ async function loadPublicKey(env) {
   }
   if (publicKeyPromise && publicKeyPemCache === pem) return publicKeyPromise;
   publicKeyPemCache = pem;
-  const b64 = pem.replace(/-----BEGIN PUBLIC KEY-----|-----END PUBLIC KEY-----|\\s/g, "");
+  const b64 = pem.replace(/-----BEGIN PUBLIC KEY-----|-----END PUBLIC KEY-----|\s/g, "");
   const binary = atob(b64);
   const der = Uint8Array.from(binary, ch => ch.charCodeAt(0));
   publicKeyPromise = crypto.subtle.importKey("spki", der,
