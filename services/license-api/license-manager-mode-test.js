@@ -49,7 +49,7 @@ async function main() {
     const claims = {
         licenseId: "lic_remote_test",
         productId: "tahouri-edu",
-        academicYear: "1405",
+        academicYear: String(manager.getAcademicYear()),
         gradeScope: "grade6",
         studentId: profile.studentId,
         validFrom: new Date(Date.now() - 60000).toISOString(),
