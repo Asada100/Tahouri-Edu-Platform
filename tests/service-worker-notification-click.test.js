@@ -15,7 +15,10 @@ function loadWorker(windowClients) {
     const openedUrls = [];
     const scope = {
         location: { origin, href: scriptUrl },
-        registration: { showNotification: async () => undefined },
+        registration: {
+            scope: appRoot,
+            showNotification: async () => undefined
+        },
         clients: {
             claim: async () => undefined,
             matchAll: async () => windowClients,
@@ -68,6 +71,10 @@ async function run() {
     const noClientWorker = loadWorker([]);
     await clickNotification(noClientWorker, "https://evil.example/phishing");
     assert.deepEqual(noClientWorker.openedUrls, [appRoot]);
+
+    const sameOriginOutsideApp = loadWorker([]);
+    await clickNotification(sameOriginOutsideApp, "https://school.example/private/");
+    assert.deepEqual(sameOriginOutsideApp.openedUrls, [appRoot]);
 
     console.log("Service worker notification navigation: PASS");
 }
