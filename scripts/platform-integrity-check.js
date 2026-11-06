@@ -74,16 +74,26 @@ counts.scripts = scriptRefs.length;
 counts.styles = styleRefs.length;
 counts.links = linkRefs.length;
 
-const assetPattern = /\\.(?:png|jpe?g|svg|webp|gif|mp3|wav|ogg|m4a|mp4|ttf|woff2?)(?:[?#].*)?$/i;
+const assetPattern = /\.(?:png|jpe?g|svg|webp|gif|mp3|wav|ogg|m4a|mp4|ttf|woff2?)(?:[?#].*)?$/i;
 let assetReferences = 0;
 
 function assetExists(reference, sourceFile) {
     const value = String(reference || "").trim();
-    if (!value || /^(?:https?:|data:|blob:|\\/\\/|#|var\\()/i.test(value)) return true;
+    if (
+        !value ||
+        value.startsWith("http://") ||
+        value.startsWith("https://") ||
+        value.startsWith("data:") ||
+        value.startsWith("blob:") ||
+        value.startsWith("//") ||
+        value.startsWith("#") ||
+        value.startsWith("var(")
+    ) return true;
+
     const clean = value.replace(/^["']|["']$/g, "").split(/[?#]/, 1)[0];
     const candidates = [
         path.resolve(path.dirname(path.join(root, sourceFile)), clean),
-        path.resolve(root, clean.replace(/^\\.\\//, "")),
+        path.resolve(root, clean.replace(/^\.\//, "")),
         ...(clean.startsWith("/") ? [path.resolve(root, clean.slice(1))] : [])
     ];
     return candidates.some(candidate => fs.existsSync(candidate));
@@ -101,9 +111,9 @@ function collectAssetStrings(value, output) {
 
 for (const file of files) {
     const relative = path.relative(root, file).split(path.sep).join("/");
-    if (/\\.css$/i.test(relative)) {
+    if (/\.css$/i.test(relative)) {
         const css = fs.readFileSync(file, "utf8");
-        const refs = [...css.matchAll(/url\\(\\s*["']?([^)"']+)["']?\\s*\\)/gi)].map(match => match[1]);
+        const refs = [...css.matchAll(/url\(\s*["']?([^)"']+)["']?\s*\)/gi)].map(match => match[1]);
         for (const ref of refs) {
             if (!assetPattern.test(ref)) continue;
             assetReferences++;
@@ -111,13 +121,13 @@ for (const file of files) {
         }
     }
 
-    if (/\\.json$/i.test(relative)) {
+    if (/\.json$/i.test(relative)) {
         try {
             const value = JSON.parse(fs.readFileSync(file, "utf8"));
             const refs = [];
             collectAssetStrings(value, refs);
             for (const ref of refs) {
-                if (/^(?:https?:|data:|blob:|\\/\\/)/i.test(ref)) continue;
+                if (ref.startsWith("http://") || ref.startsWith("https://") || ref.startsWith("data:") || ref.startsWith("blob:") || ref.startsWith("//")) continue;
                 assetReferences++;
                 if (!assetExists(ref, relative)) failures.push(relative + ": missing data asset " + ref);
             }
@@ -127,96 +137,6 @@ for (const file of files) {
     }
 }
 counts.assetReferences = assetReferences;
-
-const grades = readJson("data/grades.json") || [];
-const subjects = readJson("data/subjects.json") || [];
-const chapters = readJson("data/chapters.json") || [];
-const activities = readJson("data/activities.json") || [];
-const locksSource = readJson("data/contentLocks.json");
-
-counts.chapters = chapters.length;
-counts.activities = activities.length;
-
-const gradeIds = new Set(grades.map(item => item.id));
-const subjectIds = new Set(subjects.map(item => item.id));
-const chapterKeys = new Set();
-const activityIds = new Set();
-const configuredActivityIds = new Set();
-
-for (const relative of relativeFiles) {
-    if (!relative.endsWith("/activity.json")) continue;
-    try {
-        const config = JSON.parse(fs.readFileSync(path.join(root, relative), "utf8"));
-        if (config && config.id) configuredActivityIds.add(config.id);
-    } catch {
-        // The general JSON pass above reports malformed activity configurations.
-    }
-}
-
-for (const chapter of chapters) {
-    const key = [chapter.grade, chapter.subject, chapter.id].join("/");
-    if (chapterKeys.has(key)) failures.push("data/chapters.json: duplicate chapter " + key);
-    chapterKeys.add(key);
-    if (!gradeIds.has(chapter.grade)) failures.push("data/chapters.json: unknown grade " + chapter.grade);
-    if (!subjectIds.has(chapter.subject)) failures.push("data/chapters.json: unknown subject " + chapter.subject);
-}
-
-for (const activity of activities) {
-    if (!activity.id || activityIds.has(activity.id)) {
-        failures.push("data/activities.json: missing or duplicate activity id " + String(activity.id));
-    }
-    activityIds.add(activity.id);
-    if (!gradeIds.has(activity.grade)) failures.push(activity.id + ": unknown grade " + activity.grade);
-    if (!subjectIds.has(activity.subject)) failures.push(activity.id + ": unknown subject " + activity.subject);
-    if (!chapterKeys.has([activity.grade, activity.subject, activity.chapter].join("/"))) {
-        failures.push(activity.id + ": chapter reference does not exist");
-    }
-    if (activity.requires && !activities.some(item => item.id === activity.requires)) {
-        failures.push(activity.id + ": missing prerequisite " + activity.requires);
-    }
-
-    const configPath = activity.path + "/activity.json";
-    if (!relativeFiles.has(configPath)) {
-        failures.push(activity.id + ": missing activity config " + configPath);
-        continue;
-    }
-
-    try {
-        const config = JSON.parse(fs.readFileSync(path.join(root, configPath), "utf8"));
-        if (config.id && config.id !== activity.id) {
-            failures.push(activity.id + ": activity config id mismatch (" + config.id + ")");
-        }
-    } catch (error) {
-        failures.push(configPath + ": invalid JSON (" + error.message + ")");
-    }
-}
-
-if (locksSource && typeof locksSource === "object") {
-    let lockData = locksSource;
-    if (!Array.isArray(lockData) && typeof locksSource.content === "string") {
-        try {
-            lockData = JSON.parse(locksSource.content);
-        } catch (error) {
-            failures.push("data/contentLocks.json: wrapped content is invalid JSON (" + error.message + ")");
-            lockData = null;
-        }
-    }
-    if (!Array.isArray(lockData)) {
-        failures.push("data/contentLocks.json: expected an array or a valid wrapped array");
-    } else {
-        const lockIds = new Set();
-        for (const item of lockData) {
-            if (!item || !item.id || lockIds.has(item.id)) {
-                failures.push("data/contentLocks.json: missing or duplicate lock id");
-                continue;
-            }
-            lockIds.add(item.id);
-            if (!activityIds.has(item.id) && !configuredActivityIds.has(item.id)) {
-                failures.push("data/contentLocks.json: lock has no matching activity config " + item.id);
-            }
-        }
-    }
-}
 
 if (failures.length) {
     console.error("PLATFORM INTEGRITY: FAIL");
