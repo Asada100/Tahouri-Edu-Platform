@@ -792,6 +792,10 @@ async function activate(req, res) {
     const body = await readBody(req);
     const code = String(body.code || "").trim().toUpperCase();
     const gradeId = validateIdentifier(body.gradeId, "gradeId");
+    if (!/^grade[1-6]$/.test(gradeId)) {
+        recordMetric("activationFailures");
+        return send(res, 400, { valid: false, message: "پایه انتخاب‌شده معتبر نیست." });
+    }
     const installationId = validateIdentifier(body.installationId, "installationId");
     const studentId = validateIdentifier(body.studentId, "studentId");
     const renewalMode = String(body.renewalMode || "promotion").trim().toLowerCase();
@@ -1091,6 +1095,9 @@ async function adminCreateCodes(req, res) {
     if (!requireAdmin(req, res)) return;
     const body = await readBody(req);
     const gradeId = validateIdentifier(body.gradeId, "gradeId");
+    if (!/^grade[1-6]$/.test(gradeId)) {
+        return send(res, 400, { ok: false, message: "پایه انتخاب‌شده معتبر نیست." });
+    }
     const academicYear = String(body.academicYear || academicPeriod().academicYear).trim();
     const renewalMode = String(body.renewalMode || "promotion").trim().toLowerCase();
     if (!["promotion", "repeat"].includes(renewalMode)) {
@@ -1166,18 +1173,26 @@ async function adminRevokeCode(req, res) {
     if (!code) return send(res, 400, { ok: false, message: "کد الزامی است." });
 
     const codeHash = hashCode(code);
-    const result = db.prepare(`
-        UPDATE activation_codes
-        SET status = 'revoked'
-        WHERE code_hash = ? AND status = 'active' AND used_at IS NULL
-    `).run(codeHash);
+    db.exec("BEGIN IMMEDIATE");
+    try {
+        const result = db.prepare(`
+            UPDATE activation_codes
+            SET status = 'revoked'
+            WHERE code_hash = ? AND status = 'active' AND used_at IS NULL
+        `).run(codeHash);
 
-    if (!result.changes) {
-        return send(res, 404, { ok: false, message: "کد فعال و قابل لغو پیدا نشد." });
+        if (!result.changes) {
+            db.exec("ROLLBACK");
+            return send(res, 404, { ok: false, message: "کد فعال و قابل لغو پیدا نشد." });
+        }
+
+        audit("code.revoked", "admin", { codeHash });
+        db.exec("COMMIT");
+        return send(res, 200, { ok: true });
+    } catch (error) {
+        try { db.exec("ROLLBACK"); } catch {}
+        throw error;
     }
-
-    audit("code.revoked", "admin", { codeHash });
-    return send(res, 200, { ok: true });
 }
 
 async function adminDiagnostics(req, res) {
