@@ -41,6 +41,11 @@ jobs:
       - name: Security test
         run: npm run security-test
 
+      - name: Build and verify non-root production image
+        run: |
+          docker build --file Dockerfile --tag tahouri-license-api:ci ../..
+          docker run --rm --entrypoint node tahouri-license-api:ci -e "process.exit(process.getuid() === 0 ? 1 : 0)"
+
       - name: Client license safety test
         run: node client-license-safety-test.js
 
