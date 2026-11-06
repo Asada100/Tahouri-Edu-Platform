@@ -759,28 +759,28 @@ function createEntitlement({ licenseId, gradeId, studentId, installationId, acad
 }
 
 function seedTestCodes() {
+    const academicYear = academicPeriod().academicYear;
     const codes = [
-        ["GRADE1-1405-TEST", "grade1"],
-        ["GRADE2-1405-TEST", "grade2"],
-        ["GRADE3-1405-TEST", "grade3"],
-        ["GRADE4-1405-TEST", "grade4"],
-        ["GRADE5-1405-TEST", "grade5"],
-        ["GRADE6-1405-TEST", "grade6"],
-        ["GRADE6-1405-TEST-A", "grade6"],
-        ["GRADE6-1405-TEST-B", "grade6"],
-        ["GRADE6-1405-TEST-C", "grade6"]
+        [`GRADE1-${academicYear}-TEST`, "grade1"],
+        [`GRADE2-${academicYear}-TEST`, "grade2"],
+        [`GRADE3-${academicYear}-TEST`, "grade3"],
+        [`GRADE4-${academicYear}-TEST`, "grade4"],
+        [`GRADE5-${academicYear}-TEST`, "grade5"],
+        [`GRADE6-${academicYear}-TEST`, "grade6"],
+        [`GRADE6-${academicYear}-TEST-A`, "grade6"],
+        [`GRADE6-${academicYear}-TEST-B`, "grade6"],
+        [`GRADE6-${academicYear}-TEST-C`, "grade6"]
     ];
 
     const statement = db.prepare(`
         INSERT OR IGNORE INTO activation_codes
             (code_hash, code_preview, product_id, grade_id, academic_year, status, created_at)
-        VALUES (?, ?, ?, ?, '1405', 'active', ?)
+        VALUES (?, ?, ?, ?, ?, 'active', ?)
     `);
 
     const now = new Date().toISOString();
-
     for (const [code, gradeId] of codes) {
-        statement.run(hashCode(code), codePreview(code), PRODUCT_ID, gradeId, now);
+        statement.run(hashCode(code), codePreview(code), PRODUCT_ID, gradeId, academicYear, now);
     }
 }
 
