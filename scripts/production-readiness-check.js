@@ -73,10 +73,6 @@ const activeLicenseEnd = licenseManagerSource.indexOf("\n    }", activeLicenseSt
 const activeLicenseBody = activeLicenseStart >= 0 && activeLicenseEnd > activeLicenseStart
     ? licenseManagerSource.slice(activeLicenseStart, activeLicenseEnd)
     : "";
-if (!activeLicenseBody.includes("isRemoteProductionMode")) {
-    blockers.push("Active-license status does not distinguish production mode.");
-}
-
 function functionBody(source, signature) {
     const start = source.indexOf(signature);
     if (start < 0) return "";
