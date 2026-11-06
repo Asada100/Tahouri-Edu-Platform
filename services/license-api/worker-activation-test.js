@@ -124,6 +124,38 @@ async function main() {
     const revoked = await request(worker, env, "/api/licenses/status?licenseId=" + encodeURIComponent(stored.license_id), "GET");
     assert.equal((await revoked.json()).valid, false);
 
+    const futureStudent = "student-future";
+    const now = Date.now();
+    db.prepare("INSERT INTO licenses (license_id, product_id, student_id, grade_id, academic_year, valid_from, valid_until, installation_binding, status, entitlement_json, created_at) VALUES (?, 'tahouri-edu', ?, 'grade6', ?, ?, ?, ?, 'active', '{}', ?)")
+        .run("lic_current_future_test", futureStudent, String(year),
+            new Date(now - 86400000).toISOString(), new Date(now + 86400000).toISOString(),
+            "install-future", new Date().toISOString());
+
+    const futureCode = "THR-GRADE7-" + (year + 1) + "-FUTURE-TEST";
+    const futureHash = await sha256(futureCode);
+    db.prepare("INSERT INTO activation_codes (code_hash, code_preview, product_id, grade_id, academic_year, renewal_mode, status, created_at) VALUES (?, ?, 'tahouri-edu', 'grade7', ?, 'promotion', 'active', ?)")
+        .run(futureHash, futureCode.slice(0, 7) + "…" + futureCode.slice(-6),
+            String(year + 1), new Date().toISOString());
+
+    const wrongRenewalMode = await request(worker, env, "/api/licenses/activate", "POST", {
+        code: futureCode, gradeId: "grade7", studentId: futureStudent,
+        installationId: "install-future", renewalMode: "repeat"
+    });
+    assert.equal(wrongRenewalMode.status, 409, "Future renewal mode must match the code's issued mode.");
+    assert.equal(db.prepare("SELECT status FROM activation_codes WHERE code_hash = ?").get(futureHash).status,
+        "active", "A renewal-mode mismatch must not consume the code.");
+
+    const futureActivation = await request(worker, env, "/api/licenses/activate", "POST", {
+        code: futureCode, gradeId: "grade7", studentId: futureStudent,
+        installationId: "install-future", renewalMode: "promotion"
+    });
+    assert.equal(futureActivation.status, 200, "A valid next-grade reservation must succeed.");
+    const futureBody = await futureActivation.json();
+    assert.equal(futureBody.renewalStored, true);
+    const futureLicense = db.prepare("SELECT status FROM licenses WHERE license_id = ?")
+        .get(futureBody.entitlement.claims.licenseId);
+    assert.equal(futureLicense.status, "future");
+
     const noKey = { DB: D1, ADMIN_ORIGIN: env.ADMIN_ORIGIN, APP_ORIGIN: env.APP_ORIGIN };
     assert.equal((await request(worker, noKey, "/api/health", "GET")).status, 503);
     const malformedKey = { ...env, LICENSE_PRIVATE_KEY_PEM: "-----BEGIN PRIVATE KEY-----\\ninvalid\\n-----END PRIVATE KEY-----" };
