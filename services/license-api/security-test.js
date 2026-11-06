@@ -91,6 +91,14 @@ if (!backupDb.includes('const { encryptFile, readEncryptionKey } = require("./ba
     throw new Error("Backup encryption implementation is missing.");
 }
 
+if (!licenseManager.includes("DEMO_ACADEMIC_YEAR") ||
+    !source.includes("const academicYear = academicPeriod().academicYear;")) {
+    throw new Error("Test activation codes must follow the current Iranian academic year.");
+}
+if (/GRADE[1-6]-1405-TEST/.test(licenseManager) || /GRADE[1-6]-1405-TEST/.test(source)) {
+    throw new Error("Stale fixed-year demo activation codes remain in the license client or API.");
+}
+
 const productionLicenseMarkers = [
     "function isRemoteProductionMode",
     "if (isRemoteProductionMode())",
