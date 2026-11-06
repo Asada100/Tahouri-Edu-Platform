@@ -69,12 +69,30 @@ const licenseManagerSource = fs.readFileSync(
     "utf8"
 );
 const activeLicenseStart = licenseManagerSource.indexOf("function getActiveLicenses()");
-const activeLicenseEnd = licenseManagerSource.indexOf("\\n    }", activeLicenseStart);
+const activeLicenseEnd = licenseManagerSource.indexOf("\n    }", activeLicenseStart);
 const activeLicenseBody = activeLicenseStart >= 0 && activeLicenseEnd > activeLicenseStart
     ? licenseManagerSource.slice(activeLicenseStart, activeLicenseEnd)
     : "";
-if (!activeLicenseBody.includes("isRemoteProductionMode") || !activeLicenseBody.includes("return []")) {
-    blockers.push("LocalStorage license records are still trusted without a production-mode remote-entitlement guard.");
+if (!activeLicenseBody.includes("isRemoteProductionMode")) {
+    blockers.push("Active-license status does not distinguish production mode.");
+}
+
+function functionBody(source, signature) {
+    const start = source.indexOf(signature);
+    if (start < 0) return "";
+    const end = source.indexOf("\n    }", start);
+    return end > start ? source.slice(start, end) : "";
+}
+
+const isActivatedBody = functionBody(licenseManagerSource, "function isActivated(");
+const isGradeActivatedBody = functionBody(licenseManagerSource, "function isGradeActivated(");
+if (!isActivatedBody.includes("isRemoteProductionMode()")) {
+    blockers.push("isActivated does not reject unsigned LocalStorage licenses in production.");
+}
+if (!isGradeActivatedBody.includes("hasValidRemoteEntitlement(gradeId)") ||
+    !isGradeActivatedBody.includes("if (isRemoteProductionMode())") ||
+    !isGradeActivatedBody.includes("return false;")) {
+    blockers.push("isGradeActivated does not fail closed when remote entitlement validation fails in production.");
 }
 
 const workerPath = path.join(root, "services/license-api/worker.js");
