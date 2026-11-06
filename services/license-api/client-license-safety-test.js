@@ -53,14 +53,14 @@ assert(
     "Production local-license fallback guard is incomplete."
 );
 
-function functionBody(source, signature) {
+function functionSection(source, signature, nextSignature) {
     const start = source.indexOf(signature);
     if (start < 0) return "";
-    const end = source.indexOf("\n    }", start);
-    return end > start ? source.slice(start, end) : "";
+    const end = source.indexOf(nextSignature, start + signature.length);
+    return end > start ? source.slice(start, end) : source.slice(start);
 }
-const activatedBody = functionBody(manager, "function isActivated(");
-const gradeActivatedBody = functionBody(manager, "function isGradeActivated(");
+const activatedBody = functionSection(manager, "function isActivated(", "function isGradeActivated(");
+const gradeActivatedBody = functionSection(manager, "function isGradeActivated(", "function isProfileActivated(");
 assert(activatedBody && activatedBody[0].includes("isRemoteProductionMode()"),
     "isActivated must not trust unsigned local licenses in production.");
 assert(gradeActivatedBody &&
