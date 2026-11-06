@@ -85,6 +85,17 @@ const gradeIds = new Set(grades.map(item => item.id));
 const subjectIds = new Set(subjects.map(item => item.id));
 const chapterKeys = new Set();
 const activityIds = new Set();
+const configuredActivityIds = new Set();
+
+for (const relative of relativeFiles) {
+    if (!relative.endsWith("/activity.json")) continue;
+    try {
+        const config = JSON.parse(fs.readFileSync(path.join(root, relative), "utf8"));
+        if (config && config.id) configuredActivityIds.add(config.id);
+    } catch {
+        // The general JSON pass above reports malformed activity configurations.
+    }
+}
 
 for (const chapter of chapters) {
     const key = [chapter.grade, chapter.subject, chapter.id].join("/");
@@ -126,9 +137,9 @@ for (const activity of activities) {
 
 if (locksSource && typeof locksSource === "object") {
     let lockData = locksSource;
-    if (!Array.isArray(lockData) && typeof lockData.content === "string") {
+    if (!Array.isArray(lockData) && typeof locksData.content === "string") {
         try {
-            lockData = JSON.parse(lockData.content);
+            lockData = JSON.parse(locksSource.content);
         } catch (error) {
             failures.push("data/contentLocks.json: wrapped content is invalid JSON (" + error.message + ")");
             lockData = null;
@@ -144,7 +155,9 @@ if (locksSource && typeof locksSource === "object") {
                 continue;
             }
             lockIds.add(item.id);
-            if (!activityIds.has(item.id)) failures.push("data/contentLocks.json: lock references unknown activity " + item.id);
+            if (!activityIds.has(item.id) && !configuredActivityIds.has(item.id)) {
+                failures.push("data/contentLocks.json: lock has no matching activity config " + item.id);
+            }
         }
     }
 }
