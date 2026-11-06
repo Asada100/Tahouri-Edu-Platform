@@ -230,7 +230,6 @@ async function activateLicense(request, env, headers) {
   const since = new Date(Date.now() - 60000).toISOString();
   const attempts = await env.DB.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'activation.attempt' AND actor = ? AND created_at >= ?").bind(actor, since).first();
   if (Number(attempts?.count || 0) >= 10) {
-    await audit(env, "activation.rate_limited", "security", { metadata: { ipHash: ipHash.slice(0, 16) } });
     return error("تعداد تلاش‌های فعال‌سازی بیش از حد مجاز است.", 429, headers);
   }
   await audit(env, "activation.attempt", actor, { metadata: { gradeId } });
