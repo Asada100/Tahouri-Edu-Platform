@@ -54,7 +54,8 @@ const requiredFiles = [
     "services/license-api/migrations/0002_admin_login_attempts.sql",
     "services/license-api/migrations/0003_student_bound_activation_codes.sql",
     "services/license-api/migrations/0004_student_accounts.sql",
-    "services/license-api/migrations/0005_student_profiles.sql"
+    "services/license-api/migrations/0005_student_profiles.sql",
+    "services/license-api/migrations/0006_activation_requests.sql"
 ];
 
 for (const relative of requiredFiles) {
