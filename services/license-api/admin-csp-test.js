@@ -23,6 +23,9 @@ for (const directive of [
 }
 
 assert.doesNotMatch(html, /\son[a-z]+\s*=/i, "Inline event handlers are blocked by the production CSP.");
+assert.doesNotMatch(html, /\\sstyle\\s*=/i, "Inline style attributes are blocked by the production CSP.");
+assert.doesNotMatch(html, /<style\\b/i, "Inline style blocks are blocked by the production CSP.");
+assert.doesNotMatch(html, /<script(?![^>]*\\bsrc=)[^>]*>/i, "Inline script blocks are blocked by the production CSP.");
 
 const scriptSources = [...html.matchAll(/<script\b[^>]*\bsrc=["']([^"']+)["']/gi)].map(match => match[1]);
 const styleSources = [...html.matchAll(/<link\b[^>]*\bhref=["']([^"']+\.css)["']/gi)].map(match => match[1]);
