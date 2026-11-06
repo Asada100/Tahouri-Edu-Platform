@@ -156,6 +156,18 @@ async function main() {
         .get(futureBody.entitlement.claims.licenseId);
     assert.equal(futureLicense.status, "future");
 
+    const repeatCode = "THR-GRADE6-" + (year + 1) + "-REPEAT-TEST";
+    const repeatHash = await sha256(repeatCode);
+    db.prepare("INSERT INTO activation_codes (code_hash, code_preview, product_id, grade_id, academic_year, renewal_mode, status, created_at) VALUES (?, ?, 'tahouri-edu', 'grade6', ?, 'repeat', 'active', ?)")
+        .run(repeatHash, repeatCode.slice(0, 7) + "…" + repeatCode.slice(-6),
+            String(year + 1), new Date().toISOString());
+    const repeatActivation = await request(worker, env, "/api/licenses/activate", "POST", {
+        code: repeatCode, gradeId: "grade6", studentId: futureStudent,
+        installationId: "install-future", renewalMode: "repeat"
+    });
+    assert.equal(repeatActivation.status, 200, "A valid same-grade repeat reservation must succeed.");
+    assert.equal((await repeatActivation.json()).renewalStored, true);
+
     const noKey = { DB: D1, ADMIN_ORIGIN: env.ADMIN_ORIGIN, APP_ORIGIN: env.APP_ORIGIN };
     assert.equal((await request(worker, noKey, "/api/health", "GET")).status, 503);
     const malformedKey = { ...env, LICENSE_PRIVATE_KEY_PEM: "-----BEGIN PRIVATE KEY-----\\ninvalid\\n-----END PRIVATE KEY-----" };
