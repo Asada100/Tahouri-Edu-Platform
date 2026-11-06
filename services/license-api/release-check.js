@@ -80,6 +80,13 @@ for (const marker of [
     if (!worker.includes(marker)) throw new Error("Cloudflare Worker capability missing: " + marker);
 }
 
+if (/\\son[a-z]+\\s*=/i.test(worker) || /\\sstyle\\s*=/i.test(worker)) {
+    throw new Error("Cloudflare admin HTML contains inline event or style attributes.");
+}
+if (!worker.includes("content-security-policy") || !worker.includes("document.addEventListener")) {
+    throw new Error("Cloudflare admin HTML is missing its strict CSP or delegated event handlers.");
+}
+
 const wrangler = fs.readFileSync(path.join(__dirname, "wrangler.toml"), "utf8");
 for (const marker of ['name = "tahouri-license-api"', 'binding = "DB"', 'database_id = "bc958420-184a-43ff-b728-069654f58058"']) {
     if (!wrangler.includes(marker)) throw new Error("Cloudflare Worker configuration marker missing: " + marker);
