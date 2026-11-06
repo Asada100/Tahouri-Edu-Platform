@@ -57,7 +57,20 @@ function assert(condition, message) {
     if (!condition) throw new Error(message);
 }
 
+function currentIranianAcademicYear() {
+    const parts = new Intl.DateTimeFormat("en-US-u-ca-persian", {
+        timeZone: "Asia/Tehran",
+        year: "numeric",
+        month: "numeric"
+    }).formatToParts(new Date());
+    const values = Object.fromEntries(
+        parts.filter(part => part.type !== "literal").map(part => [part.type, Number(part.value)])
+    );
+    return String(values.month >= 7 ? values.year : values.year - 1);
+}
+
 async function main() {
+    const activeAcademicYear = currentIranianAcademicYear();
     const sourceServer = path.join(__dirname, "server.js");
     const key = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
     fs.writeFileSync(keyFile, key.privateKey.export({ type: "pkcs8", format: "pem" }));
@@ -83,7 +96,7 @@ async function main() {
         await waitForServer(child);
 
         const activation = await request("POST", "/api/licenses/activate", {
-            code: "GRADE6-1405-TEST-A",
+            code: `GRADE6-${activeAcademicYear}-TEST-A`,
             gradeId: "grade6",
             studentId: "integration-student",
             installationId: "integration-installation"
@@ -117,12 +130,12 @@ async function main() {
         assert(extended.data.entitlement.claims.validUntil === extension, "Extended expiry was not signed.");
 
         const reuse = await request("POST", "/api/licenses/activate", {
-            code: "GRADE6-1405-TEST-A", gradeId: "grade6", studentId: "second-student", installationId: "second-installation"
+            code: `GRADE6-${activeAcademicYear}-TEST-A`, gradeId: "grade6", studentId: "second-student", installationId: "second-installation"
         });
         assert(reuse.status === 409, "Used activation code was reusable.");
 
         const wrongGrade = await request("POST", "/api/licenses/activate", {
-            code: "GRADE6-1405-TEST-B", gradeId: "grade5", studentId: "wrong-grade-student", installationId: "wrong-grade-installation"
+            code: `GRADE6-${activeAcademicYear}-TEST-B`, gradeId: "grade5", studentId: "wrong-grade-student", installationId: "wrong-grade-installation"
         });
         assert(wrongGrade.status === 400, "Grade mismatch was accepted.");
 
@@ -141,7 +154,7 @@ async function main() {
         } finally { expiryDb.close(); }
 
         const payment = await request("POST", "/api/payments", {
-            gradeId: "grade6", academicYear: "1405", amount: 100000, currency: "IRR"
+            gradeId: "grade6", academicYear: activeAcademicYear, amount: 100000, currency: "IRR"
         });
         assert(payment.status === 201 && payment.data.status === "pending", "Payment creation failed.");
 
@@ -180,25 +193,14 @@ async function main() {
         assert(badCode.status === 400, "Invalid activation code input was accepted.");
 
         const badStudent = await request("POST", "/api/licenses/activate", {
-            code: "GRADE6-1405-TEST-B", gradeId: "grade6", studentId: "student with spaces", installationId: "integration-installation"
+            code: `GRADE6-${activeAcademicYear}-TEST-B`, gradeId: "grade6", studentId: "student with spaces", installationId: "integration-installation"
         });
         assert(badStudent.status === 400, "Invalid student identifier was accepted.");
 
         const badStatus = await request("GET", "/api/licenses/status?licenseId=" + encodeURIComponent("license id with spaces"));
         assert(badStatus.status === 400, "Invalid license identifier was accepted.");
 
-        const iranParts = Object.fromEntries(
-            new Intl.DateTimeFormat("en-US-u-ca-persian", {
-                timeZone: "Asia/Tehran",
-                year: "numeric",
-                month: "numeric",
-                day: "numeric"
-            }).formatToParts(new Date())
-              .filter(part => part.type !== "literal")
-              .map(part => [part.type, Number(part.value)])
-        );
-        const activeAcademicYear = iranParts.month >= 7 ? iranParts.year : iranParts.year - 1;
-        const nextAcademicYear = String(activeAcademicYear + 1);
+        const nextAcademicYear = String(Number(activeAcademicYear) + 1);
 
         const promotionCodes = await request("POST", "/api/admin/codes", {
             gradeId: "grade7",
