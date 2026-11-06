@@ -93,8 +93,17 @@ if (!worker.includes("content-security-policy") || !worker.includes("document.ad
 }
 
 const wrangler = fs.readFileSync(path.join(__dirname, "wrangler.toml"), "utf8");
-for (const marker of ['name = "tahouri-license-api"', 'binding = "DB"', 'database_id = "bc958420-184a-43ff-b728-069654f58058"']) {
-    if (!wrangler.includes(marker)) throw new Error("Cloudflare Worker configuration marker missing: " + marker);
+for (const marker of [
+    'name = "tahouri-license-api-audit-test"',
+    'database_name = "tahouri-license-db-audit-test"',
+    'binding = "DB"',
+    'database_id = "00000000-0000-0000-0000-000000000000"'
+]) {
+    if (!wrangler.includes(marker)) throw new Error("Isolated audit Worker configuration marker missing: " + marker);
+}
+if (wrangler.includes('name = "tahouri-license-api"') ||
+    wrangler.includes('database_id = "bc958420-184a-43ff-b728-069654f58058"')) {
+    throw new Error("Audit Worker configuration must never target production Worker or D1.");
 }
 
 console.log("Tahouri License API release artifact check: PASS");
