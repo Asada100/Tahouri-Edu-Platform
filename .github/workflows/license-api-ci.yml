@@ -12,6 +12,10 @@ on:
   pull_request:
     paths:
       - "services/license-api/**"
+      - "engine/core/licenseManager.js"
+      - "engine/core/activationGate.js"
+      - "engine/core/tahouriEntitlementStore.js"
+      - "engine/core/tahouriEntitlementVerifier.js"
       - ".github/workflows/license-api-ci.yml"
 
 jobs:
