@@ -284,69 +284,62 @@ The version-controlled Cloudflare Worker implementation is:
 Its deployment configuration is:
   services/license-api/wrangler.toml
 
-D1 binding:
-  DB -> tahouri-license-db
-  Database ID: bc958420-184a-43ff-b728-069654f58058
+SAFE TEST CONFIGURATION (AUDIT BRANCH)
 
-Versioned D1 migrations:
-  migrations/0001_initial_schema.sql
-  migrations/0002_admin_login_attempts.sql
-  migrations/0003_activation_integrity_indexes.sql
+The audit branch's services/license-api/wrangler.toml is deliberately configured
+with:
+  Worker name: tahouri-license-api-audit-test
+  D1 name: tahouri-license-db-audit-test
+  D1 ID: 00000000-0000-0000-0000-000000000000 (non-deployable placeholder)
 
-The production D1 database was inspected and migration 0003 has been applied and verified. It now reports schema version 3, with all three activation-integrity and rate-limit indexes present.
-Its activation_codes, licenses, audit_log, payments, admin_sessions,
-admin_login_attempts and schema_migrations tables match this migration baseline.
-Do not run experimental student-account/profile migrations against production.
+This is a safety lock. It must not be replaced with the production D1 ID.
+Before any test deployment, create a separate, empty Cloudflare D1 database
+for testing, apply migrations 0001–0003 to that test database, and replace
+the placeholder with that test database's ID only on this audit branch.
 
-Worker activation routes:
+Never deploy this audit branch to the production Worker or production D1.
+Never use production signing keys or production activation codes in tests.
+Use a test-only RSA key pair and a separately named test Worker.
+
+The production D1 database is a separate resource. The historical production
+migration state is documented in deployment records; this audit task does not
+authorize further production D1 changes, production Worker deployment, or
+Pages production release.
+
+Worker activation routes implemented in source:
   POST /api/licenses/activate
   GET  /api/licenses/status?licenseId=<license-id>
   GET  /api/public-key
   GET  /api/health
 
 The Worker signs profile-bound entitlements with RSASSA-PKCS1-v1_5-SHA256.
-The private key must be a PKCS#8 PEM stored as the Cloudflare Worker secret:
-  LICENSE_PRIVATE_KEY_PEM
+A test-only PKCS#8 private key belongs in the isolated test Worker's secret
+LICENSE_PRIVATE_KEY_PEM. Its matching SPKI public PEM is configured as the
+non-secret LICENSE_PUBLIC_KEY_PEM variable.
 
-Also set the non-secret Worker variable:
-  LICENSE_PUBLIC_KEY_PEM=<matching PKCS#8 key pair's SPKI public PEM>
+The health endpoint signs and verifies a challenge and remains not-ready if
+the key pair does not match. The public-key endpoint exposes only the public
+key so a test client can compare it with the pinned test key.
 
-The Worker health endpoint cryptographically signs and verifies a challenge and
-will report not-ready if the private/public key pair does not match. The public-key
-endpoint exposes only LICENSE_PUBLIC_KEY_PEM so the Pages release gate can compare
-it byte-for-byte (ignoring whitespace) with the pinned application public key.
+For the audit branch, do not run wrangler secret put or wrangler deploy until:
+  1. An isolated test D1 exists and its ID replaces the placeholder.
+  2. A test-only RSA key pair has been generated.
+  3. The Cloudflare API token is restricted to the test resources.
+  4. The audit-test Worker name and test origins have been reviewed.
 
-Set the existing Worker variables:
-  ADMIN_ORIGIN=https://asada100.github.io
-  APP_ORIGIN=https://asada100.github.io
+CURRENT RELEASE BLOCKERS
+  - The audit Worker source has not been deployed to an isolated test Worker.
+  - The Cloudflare API token secret CLOUDFLARE_API_TOKEN was not configured
+    when the previous test deployment was attempted.
+  - The live Worker remains the earlier admin-only version.
+  - The production application configuration remains in test mode and points
+    to localhost; it has no pinned production public key.
+  - Production signing-key configuration and migration of existing local
+    licenses have not been approved or verified.
+  - Payment verification and signed entitlement extension remain disabled.
+  - Real browser/device activation and status tests remain outstanding.
 
-To set the signing secret from Windows PowerShell without printing its contents:
-  Get-Content -Raw "PATH_TO_EXISTING_PRODUCTION_PRIVATE_KEY.pem" |
-    npx wrangler secret put LICENSE_PRIVATE_KEY_PEM --config services/license-api/wrangler.toml
-
-To deploy the version-controlled Worker after the signing key and public-key
-pair have been verified:
-  npx wrangler deploy --config services/license-api/wrangler.toml
-
-Never use dev-private-key.pem as a production signing key. Do not paste a
-private key into chat, GitHub, a source file, or a committed .env file.
-
-The public key corresponding to the Worker secret must be set as LICENSE_PUBLIC_KEY_PEM
-and pinned in engine/core/tahouriServiceConfig.js. The public app must not be switched to
-production mode until the public key is verified against the Worker key and
-existing local licenses have been safely migrated or explicitly classified
-as test data.
-
-IMPORTANT CURRENT STATE:
-  - The new Worker activation implementation is committed on the audit PR branch.
-  - It has not yet been deployed to the live Cloudflare Worker.
-  - The live Worker remains admin-only until that deployment.
-  - Current Cloudflare Worker settings contain ADMIN_PASSWORD only; LICENSE_PRIVATE_KEY_PEM and LICENSE_PUBLIC_KEY_PEM are not configured.
-  - The application service config remains in test mode and still points to localhost.
-  - The production D1 database has no activation codes or licenses at present. Migration 0003 is already applied to the production D1 database. The Worker health endpoint requires schema version 3 and all required indexes.
-  - Payment verification and signed entitlement extension remain disabled in the Worker.
-  - Health returns not-ready until a valid LICENSE_PRIVATE_KEY_PEM secret is configured.
-
-Do not announce customer activation as ready until the Worker deployment,
-public-key match, existing-license migration decision, activation/status tests,
-and real-browser tests have all passed.
+Do not announce customer activation as ready until isolated Worker/D1 tests,
+production key and data-migration decisions, release-gate verification, and
+real-browser tests have all passed. Production deployment is a separate,
+explicitly approved task and is not part of this audit-branch work.
