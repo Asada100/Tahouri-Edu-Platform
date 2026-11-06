@@ -205,6 +205,14 @@ async function main() {
         .get(futureBody.entitlement.claims.licenseId);
     assert.equal(futureLicense.status, "future");
 
+    const futureStatus = await request(worker, env,
+        "/api/licenses/status?licenseId=" + encodeURIComponent(futureBody.entitlement.claims.licenseId), "GET");
+    assert.equal(futureStatus.status, 200);
+    const futureStatusBody = await futureStatus.json();
+    assert.equal(futureStatusBody.valid, false);
+    assert.equal(futureStatusBody.reason, "future",
+        "A future-dated reservation must not be reported as currently active.");
+
     const repeatCode = "THR-GRADE6-" + (year + 1) + "-REPEAT-TEST";
     const repeatHash = await sha256(repeatCode);
     db.prepare("INSERT INTO activation_codes (code_hash, code_preview, product_id, grade_id, academic_year, renewal_mode, status, created_at) VALUES (?, ?, 'tahouri-edu', 'grade6', ?, 'repeat', 'active', ?)")
