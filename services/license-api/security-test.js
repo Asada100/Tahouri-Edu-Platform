@@ -103,6 +103,16 @@ if (!activationGate.includes('const productionMode = serviceConfig.mode === "pro
     throw new Error("Activation gate production mode guard is missing.");
 }
 
+const revokeStart = source.indexOf("async function adminRevokeCode(");
+const revokeEnd = source.indexOf("async function adminDiagnostics", revokeStart);
+const revokeSection = revokeStart >= 0 && revokeEnd > revokeStart
+    ? source.slice(revokeStart, revokeEnd) : "";
+if (!revokeSection.includes('db.exec("BEGIN IMMEDIATE")') ||
+    !revokeSection.includes('db.exec("COMMIT")') ||
+    !revokeSection.includes('db.exec("ROLLBACK")')) {
+    throw new Error("Activation-code revocation and its audit event must share one database transaction.");
+}
+
 const workerMarkers = [
     "async function activateLicense",
     'url.pathname === "/api/licenses/activate"',
