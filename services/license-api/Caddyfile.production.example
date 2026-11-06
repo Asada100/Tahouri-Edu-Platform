@@ -1,4 +1,4 @@
-{env.TAHOURI_API_DOMAIN} {
+{$TAHOURI_API_DOMAIN} {
     reverse_proxy tahouri-license-api:8787
     encode gzip
     header {
