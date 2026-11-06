@@ -423,11 +423,20 @@ async function health(env, headers, requestId) {
   let database = "unavailable", schemaVersion = null;
   try {
     const result = await env.DB.prepare("SELECT MAX(version) AS version FROM schema_migrations").first();
-    schemaVersion = result?.version ?? null;
-    database = schemaVersion === null ? "connected_schema_missing" : "connected";
+    schemaVersion = Number(result?.version || 0);
+    const requiredTables = await env.DB.prepare(
+      "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name IN ('activation_codes','licenses','audit_log','payments','admin_sessions','admin_login_attempts','schema_migrations')"
+    ).first();
+    database = schemaVersion >= 2 && Number(requiredTables?.count || 0) === 7
+      ? "connected" : "schema_incomplete";
   } catch { database = "unavailable_or_unmigrated"; }
-  const signingReady = typeof env.LICENSE_PRIVATE_KEY_PEM === "string" &&
-    env.LICENSE_PRIVATE_KEY_PEM.includes("-----BEGIN PRIVATE KEY-----");
+  let signingReady = false;
+  try {
+    await loadSigningKey(env);
+    signingReady = true;
+  } catch {
+    signingReady = false;
+  }
   const ready = database === "connected" && signingReady;
   return json({ ok: ready, status: ready ? "healthy" : "not_ready",
     service: "tahouri-license-api", version: SERVICE_VERSION, runtime: "cloudflare-workers",
