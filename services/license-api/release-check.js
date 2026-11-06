@@ -18,6 +18,11 @@ const requiredFiles = [
     "services/license-api/backup-crypto.js",
     "services/license-api/integration-test.js",
     "services/license-api/release-smoke-test.js",
+    "services/license-api/worker.js",
+    "services/license-api/worker-activation-test.js",
+    "services/license-api/wrangler.toml",
+    "services/license-api/migrations/0001_initial_schema.sql",
+    "services/license-api/migrations/0002_admin_login_attempts.sql",
     ".github/workflows/license-api-ci.yml"
 ];
 
@@ -62,6 +67,22 @@ for (const marker of envMarkers) {
     if (!envExample.includes(marker)) {
         throw new Error("Production environment template marker missing: " + marker);
     }
+}
+
+const worker = fs.readFileSync(path.join(__dirname, "worker.js"), "utf8");
+for (const marker of [
+    "async function activateLicense",
+    'url.pathname === "/api/licenses/activate"',
+    'url.pathname === "/api/licenses/status"',
+    "async function signEntitlement",
+    "LICENSE_PRIVATE_KEY_PEM"
+]) {
+    if (!worker.includes(marker)) throw new Error("Cloudflare Worker capability missing: " + marker);
+}
+
+const wrangler = fs.readFileSync(path.join(__dirname, "wrangler.toml"), "utf8");
+for (const marker of ['name = "tahouri-license-api"', 'binding = "DB"', 'database_id = "bc958420-184a-43ff-b728-069654f58058"']) {
+    if (!wrangler.includes(marker)) throw new Error("Cloudflare Worker configuration marker missing: " + marker);
 }
 
 console.log("Tahouri License API release artifact check: PASS");
