@@ -60,7 +60,7 @@ for (const file of files) {
 
 const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
 const scriptRefs = [...index.matchAll(/<script\b[^>]*\bsrc=["']([^"']+)["']/gi)].map(match => match[1]);
-const styleRefs = [...index.matchAll(/<link\b[^>]*\bhref=["']([^"']+\.css)["']/gi)].map(match => match[1]);
+const styleRefs = [...index.matchAll(/<link\b[^>]*\bhref=["']([^"']+\.css(?:\?[^"']*)?)["']/gi)].map(match => match[1]);
 
 for (const [kind, refs] of [["script", scriptRefs], ["style", styleRefs]]) {
     for (const ref of refs) {
