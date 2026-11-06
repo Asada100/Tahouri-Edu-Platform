@@ -16,14 +16,14 @@
 <section class="card" id="loginCard">
   <h2>ورود مدیر</h2>
   <p class="muted">دسترسی این صفحه فقط برای مدیر سرویس است.</p>
-  <div class="form-row"><input id="adminKey" type="password" autocomplete="current-password" placeholder="رمز مدیریت"><button onclick="login()">ورود</button></div>
+  <div class="form-row"><input id="adminKey" type="password" autocomplete="current-password" placeholder="رمز مدیریت"><button id="loginButton" type="button">ورود</button></div>
   <div id="loginError" class="error" hidden></div>
 </section>
 
 <section id="panel" hidden>
   <div class="toolbar">
-    <button onclick="loadAll()">↻ به‌روزرسانی همه</button>
-    <button class="secondary" onclick="logout()">خروج</button>
+    <button id="refreshAllButton" type="button">↻ به‌روزرسانی همه</button>
+    <button id="logoutButton" class="secondary" type="button">خروج</button>
   </div>
 
   <section class="stats" id="stats"></section>
@@ -38,38 +38,38 @@
         <label>تعداد<input id="count" type="number" min="1" max="100" value="5"></label>
         <label>نوع کد<select id="renewalMode"><option value="promotion" selected>پایه سال بعد</option><option value="repeat">تکرار پایه (مردودی)</option></select></label>
       </div>
-      <button onclick="createCodes()">ساخت کدهای جدید</button>
+      <button id="createCodesButton" type="button">ساخت کدهای جدید</button>
       <div id="newCodes" class="code-box" hidden></div>
     </div>
 
     <div class="card">
       <h2>لغو کد فعال‌سازی</h2>
       <p class="muted">کد کامل را وارد کنید. کدهای استفاده‌شده قابل لغو نیستند.</p>
-      <div class="form-row"><input id="revokeCode" placeholder="THR-GRADE6-1405-..."><button class="danger" onclick="revokeCode()">لغو کد</button></div>
+      <div class="form-row"><input id="revokeCode" placeholder="THR-GRADE6-1405-..."><button id="revokeCodeButton" class="danger" type="button">لغو کد</button></div>
     </div>
   </section>
 
   <section class="card">
-    <div class="section-head"><h2>جست‌وجو</h2><button class="secondary" onclick="searchAll()">جست‌وجو</button></div>
-    <div class="form-row"><input id="searchQ" placeholder="شناسه مجوز، پروفایل یا پایه" onkeydown="if(event.key==='Enter')searchAll()"></div>
+    <div class="section-head"><h2>جست‌وجو</h2><button id="searchButton" class="secondary" type="button">جست‌وجو</button></div>
+    <div class="form-row"><input id="searchQ" placeholder="شناسه مجوز، پروفایل یا پایه"></div>
     <div id="searchResults"></div>
   </section>
 
-  <section class="card"><div class="section-head"><h2>کدهای فعال‌سازی</h2><button class="secondary" onclick="loadCodes()">به‌روزرسانی</button></div><div id="codes"></div></section>
+  <section class="card"><div class="section-head"><h2>کدهای فعال‌سازی</h2><button id="loadCodesButton" class="secondary" type="button">به‌روزرسانی</button></div><div id="codes"></div></section>
 
   <section class="card">
-    <div class="section-head"><h2>مجوزها</h2><button class="secondary" onclick="loadLicenses()">به‌روزرسانی</button></div>
+    <div class="section-head"><h2>مجوزها</h2><button id="loadLicensesButton" class="secondary" type="button">به‌روزرسانی</button></div>
     <div id="licenses"></div>
     <div class="action-box">
       <input id="licenseIdAction" placeholder="License ID">
       <input id="extendUntil" type="datetime-local">
-      <button onclick="extendLicense()">تمدید</button>
-      <button class="danger" onclick="revokeLicense()">لغو مجوز</button>
+      <button id="extendLicenseButton" type="button">تمدید</button>
+      <button id="revokeLicenseButton" class="danger" type="button">لغو مجوز</button>
     </div>
   </section>
 
-  <section class="card"><div class="section-head"><h2>پرداخت‌ها</h2><button class="secondary" onclick="loadPayments()">به‌روزرسانی</button></div><div id="payments"></div></section>
-  <section class="card"><div class="section-head"><h2>گزارش عملیات</h2><button class="secondary" onclick="loadAudit()">به‌روزرسانی</button></div><div id="audit"></div></section>
+  <section class="card"><div class="section-head"><h2>پرداخت‌ها</h2><button id="loadPaymentsButton" class="secondary" type="button">به‌روزرسانی</button></div><div id="payments"></div></section>
+  <section class="card"><div class="section-head"><h2>گزارش عملیات</h2><button id="loadAuditButton" class="secondary" type="button">به‌روزرسانی</button></div><div id="audit"></div></section>
 </section>
 </main>
 <script src="/admin/admin.js"></script>

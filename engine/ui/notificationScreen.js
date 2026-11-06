@@ -6,6 +6,12 @@
 
 const NotificationScreen = {
 
+    escapeHTML: function (value) {
+        return String(value ?? "").replace(/[&<>"']/g, function (character) {
+            return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character];
+        });
+    },
+
     open: function () {
         const app = document.getElementById("app");
         if (!app) return;
@@ -63,12 +69,12 @@ const NotificationScreen = {
             const date = item.createdAt ? new Date(item.createdAt).toLocaleString("fa-IR") : "";
 
             return `
-                <button class="notification-item${unreadClass}" data-notification-id="${item.id}" type="button">
+                <button class="notification-item${unreadClass}" data-notification-id="${NotificationScreen.escapeHTML(item.id)}" type="button">
                     <span class="notification-item-icon">${icon}</span>
                     <span class="notification-item-content">
-                        <strong>${item.title || "اعلان طهوری"}</strong>
-                        <span>${item.body || ""}</span>
-                        <small>${date}</small>
+                        <strong>${NotificationScreen.escapeHTML(item.title || "اعلان طهوری")}</strong>
+                        <span>${NotificationScreen.escapeHTML(item.body || "")}</span>
+                        <small>${NotificationScreen.escapeHTML(date)}</small>
                     </span>
                     ${item.read ? "" : '<span class="notification-dot" aria-label="خوانده نشده"></span>'}
                 </button>

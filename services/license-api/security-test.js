@@ -1,34 +1,26 @@
 "use strict";
 
-const fs = require("fs");
-const path = require("path");
+const fs = require("node:fs");
+const path = require("node:path");
 
-const serverPath = path.join(__dirname, "server.js");
-const source = fs.readFileSync(serverPath, "utf8");
-const composePath = path.join(__dirname, "../../docker-compose.production.yml");
-const compose = fs.readFileSync(composePath, "utf8");
-const gitignorePath = path.join(__dirname, "../../.gitignore");
-const gitignore = fs.readFileSync(gitignorePath, "utf8");
-const caddyPath = path.join(__dirname, "Caddyfile.production.example");
-const caddy = fs.readFileSync(caddyPath, "utf8");
-const backupCryptoPath = path.join(__dirname, "backup-crypto.js");
-const backupCrypto = fs.readFileSync(backupCryptoPath, "utf8");
-const backupDbPath = path.join(__dirname, "backup-db.js");
-const backupDb = fs.readFileSync(backupDbPath, "utf8");
-
-const licenseManagerPath = path.join(__dirname, "../../engine/core/licenseManager.js");
-const activationGatePath = path.join(__dirname, "../../engine/core/activationGate.js");
-const licenseManager = fs.readFileSync(licenseManagerPath, "utf8");
-const activationGate = fs.readFileSync(activationGatePath, "utf8");
+const root = path.resolve(__dirname, "../..");
+const source = fs.readFileSync(path.join(__dirname, "server.js"), "utf8");
+const worker = fs.readFileSync(path.join(__dirname, "worker.js"), "utf8");
+const compose = fs.readFileSync(path.join(root, "docker-compose.production.yml"), "utf8");
+const gitignore = fs.readFileSync(path.join(root, ".gitignore"), "utf8");
+const caddy = fs.readFileSync(path.join(__dirname, "Caddyfile.production.example"), "utf8");
+const dockerfile = fs.readFileSync(path.join(__dirname, "Dockerfile"), "utf8");
+const backupCrypto = fs.readFileSync(path.join(__dirname, "backup-crypto.js"), "utf8");
+const backupDb = fs.readFileSync(path.join(__dirname, "backup-db.js"), "utf8");
+const licenseManager = fs.readFileSync(path.join(root, "engine/core/licenseManager.js"), "utf8");
+const activationGate = fs.readFileSync(path.join(root, "engine/core/activationGate.js"), "utf8");
 
 const forbidden = [
     /console\.log\([^\n]*(?:password|secret|token|authority|private.?key|api.?key)/i,
     /TAHOURI_ADMIN_PASSWORD\s*=\s*["'][^"']+["']/i,
-    /TAHOURI_LICENSE_PRIVATE_KEY_FILE\s*=\s*["'][^"']+["']/i
+    /TAHOURI_LICENSE_PRIVATE_KEY_FILE\s*=\s*["'][^"']+["']/
 ];
-
-const failures = forbidden.filter(pattern => pattern.test(source));
-if (failures.length) {
+if (forbidden.some(pattern => pattern.test(source))) {
     throw new Error("Potential secret/logging leak detected in server.js.");
 }
 
@@ -39,50 +31,48 @@ const rateLimitMarkers = [
     "requestAllowedWithLimit(req, ADMIN_LOGIN_RATE_LIMIT, adminLoginRateBuckets)",
     "x-forwarded-for"
 ];
-
 for (const marker of rateLimitMarkers) {
-    if (!source.includes(marker)) {
-        throw new Error("Rate limiting hardening marker missing: " + marker);
-    }
+    if (!source.includes(marker)) throw new Error("Rate limiting hardening marker missing: " + marker);
 }
 
-if (!source.includes("X-Content-Type-Options") || !source.includes("X-Frame-Options") || !source.includes("Referrer-Policy")) {
+if (!source.includes("X-Content-Type-Options") ||
+    !source.includes("X-Frame-Options") ||
+    !source.includes("Referrer-Policy")) {
     throw new Error("Required API security headers are missing.");
 }
 
 const caddySecurityMarkers = [
+    "{$TAHOURI_API_DOMAIN} {",
     'Strict-Transport-Security "max-age=31536000; includeSubDomains"',
-    'Content-Security-Policy "default-src \'none\'; frame-ancestors \'none\'; base-uri \'none\'"',
+    "Content-Security-Policy \"default-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'; object-src 'none'; connect-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'\"",
     'X-Content-Type-Options "nosniff"',
     'X-Frame-Options "DENY"',
     'Referrer-Policy "no-referrer"'
 ];
-
 for (const marker of caddySecurityMarkers) {
-    if (!caddy.includes(marker)) {
-        throw new Error("Required Caddy security header missing: " + marker);
-    }
+    if (!caddy.includes(marker)) throw new Error("Required Caddy security header missing: " + marker);
 }
 
-if (compose.includes('8787:8787')) {
-    throw new Error("License API port 8787 must not be publicly published.");
-}
+if (compose.includes("8787:8787")) throw new Error("License API port 8787 must not be publicly published.");
 if (!compose.includes("tahouri_backup_encryption_key:") ||
     !compose.includes("TAHOURI_BACKUP_ENCRYPTION_KEY_FILE: /run/secrets/tahouri_backup_encryption_key")) {
     throw new Error("Production backup encryption key must use a Docker secret.");
 }
-
-if (!compose.includes("tahouri_private_key:")) {
-    throw new Error("Production signing key must use a Docker secret.");
-}
-if (!compose.includes("TAHOURI_LICENSE_PRIVATE_KEY_FILE: /run/secrets/tahouri_private_key")) {
-    throw new Error("Production signing key path must use the Docker secret mount.");
+if (!compose.includes("tahouri_private_key:") ||
+    !compose.includes("TAHOURI_LICENSE_PRIVATE_KEY_FILE: /run/secrets/tahouri_private_key")) {
+    throw new Error("Production signing key must use a Docker secret mount.");
 }
 if (!gitignore.includes("*.pem") || !gitignore.includes("secrets/")) {
     throw new Error("Production secret files must be ignored by Git.");
 }
 
-const required = [
+if (!dockerfile.includes("USER node") ||
+    !dockerfile.includes("chown -R node:node /data /backups") ||
+    !dockerfile.includes("COPY --chown=node:node")) {
+    throw new Error("Production API container must run as non-root with writable, correctly owned data paths.");
+}
+
+const requiredServerMarkers = [
     "function safeLog",
     "function startupRecoveryCheck",
     "function migrateDatabase",
@@ -90,18 +80,23 @@ const required = [
     "/api/ready",
     "/api/metrics/alerts"
 ];
-
-for (const marker of required) {
-    if (!source.includes(marker)) {
-        throw new Error("Required production hardening marker missing: " + marker);
-    }
+for (const marker of requiredServerMarkers) {
+    if (!source.includes(marker)) throw new Error("Required production hardening marker missing: " + marker);
 }
 
 if (!backupDb.includes('const { encryptFile, readEncryptionKey } = require("./backup-crypto")') ||
-    !backupCrypto.includes('aes-256-gcm') ||
-    !backupCrypto.includes('crypto.createCipheriv') ||
-    !backupCrypto.includes('crypto.createDecipheriv')) {
+    !backupCrypto.includes("aes-256-gcm") ||
+    !backupCrypto.includes("crypto.createCipheriv") ||
+    !backupCrypto.includes("crypto.createDecipheriv")) {
     throw new Error("Backup encryption implementation is missing.");
+}
+
+if (!licenseManager.includes("DEMO_ACADEMIC_YEAR") ||
+    !source.includes("const academicYear = academicPeriod().academicYear;")) {
+    throw new Error("Test activation codes must follow the current Iranian academic year.");
+}
+if (/GRADE[1-6]-1405-TEST/.test(licenseManager) || /GRADE[1-6]-1405-TEST/.test(source)) {
+    throw new Error("Stale fixed-year demo activation codes remain in the license client or API.");
 }
 
 const productionLicenseMarkers = [
@@ -109,15 +104,37 @@ const productionLicenseMarkers = [
     "if (isRemoteProductionMode())",
     "فعال‌سازی محلی در نسخه production مجاز نیست."
 ];
-
 for (const marker of productionLicenseMarkers) {
-    if (!licenseManager.includes(marker)) {
-        throw new Error("Production license safety marker missing: " + marker);
-    }
+    if (!licenseManager.includes(marker)) throw new Error("Production license safety marker missing: " + marker);
 }
-
 if (!activationGate.includes('const productionMode = serviceConfig.mode === "production";')) {
     throw new Error("Activation gate production mode guard is missing.");
 }
 
-console.log("Tahouri License API security test: PASS");
+const revokeStart = source.indexOf("async function adminRevokeCode(");
+const revokeEnd = source.indexOf("async function adminDiagnostics", revokeStart);
+const revokeSection = revokeStart >= 0 && revokeEnd > revokeStart
+    ? source.slice(revokeStart, revokeEnd) : "";
+if (!revokeSection.includes('db.exec("BEGIN IMMEDIATE")') ||
+    !revokeSection.includes('db.exec("COMMIT")') ||
+    !revokeSection.includes('db.exec("ROLLBACK")')) {
+    throw new Error("Activation-code revocation and its audit event must share one database transaction.");
+}
+
+const workerMarkers = [
+    "async function activateLicense",
+    'url.pathname === "/api/licenses/activate"',
+    'url.pathname === "/api/licenses/status"',
+    "async function signEntitlement",
+    "LICENSE_PRIVATE_KEY_PEM",
+    "licenseActivation: signingReady",
+    "content-security-policy"
+];
+for (const marker of workerMarkers) {
+    if (!worker.includes(marker)) throw new Error("Cloudflare Worker security/capability marker missing: " + marker);
+}
+if (/onclick=/i.test(worker) || /onkeydown=/i.test(worker) || /\sstyle\s*=/i.test(worker)) {
+    throw new Error("Cloudflare admin HTML contains inline event or style attributes.");
+}
+
+console.log("Tahouri License API and Cloudflare Worker security tests: PASS");

@@ -1,23 +1,61 @@
-# Simple workflow for deploying static content to GitHub Pages
+# Validate the platform before deploying static content to GitHub Pages.
 name: Deploy static content to Pages
 
 on:
   push:
     branches: ["master"]
-
+  pull_request:
+    branches: ["master"]
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: "pages-production"
+  group: "pages-${{ github.event.pull_request.number || github.ref }}"
   cancel-in-progress: true
 
 jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Validate all JavaScript, JSON, and platform references
+        run: node scripts/platform-integrity-check.js
+      - name: Report production licensing blockers without deploying
+        run: node scripts/production-readiness-check.js
+        continue-on-error: true
+      - name: Test push notification navigation and URL safety
+        run: node tests/service-worker-notification-click.test.js
+      - name: Test activity lock enforcement at engine boundary
+        run: node tests/activity-lock-boundary.test.js
+      - name: Test profile-scoped content lock progression and reset
+        run: node tests/content-lock-progression-reset.test.js
+      - name: Test stored profile-name XSS escaping
+        run: node tests/profile-rendering-xss.test.js
+      - name: Run learning-engine regression tests
+        run: |
+          node tests/composite-matching-lifecycle.test.js
+          node tests/animal-composite-integration.test.js
+          node tests/progress-tracker-best-results.test.js
+          node tests/composite-report-best-score.test.js
+          node tests/composite-audio-prompt.test.js
+          node tests/multistage-classification-engine.test.js
+          node tests/pattern-spatial-regression.test.js
+          node tests/word-puzzle-drag-path.test.js
+
   deploy:
+    if: github.event_name != 'pull_request'
+    needs: validate
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -25,7 +63,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
+      - name: Verify production licensing readiness
+        run: node scripts/production-readiness-check.js
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact

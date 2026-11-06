@@ -664,7 +664,8 @@ function cleanupAdminSessions() {
 setInterval(cleanupAdminSessions, 10 * 60 * 1000).unref();
 
 function getClientIp(req) {
-    if (IS_PRODUCTION) {
+    const trustForwarded = IS_PRODUCTION || process.env.TAHOURI_TEST_TRUST_PROXY === "true";
+    if (trustForwarded) {
         const forwarded = String(req.headers["x-forwarded-for"] || "").trim();
         if (forwarded) return forwarded.split(",")[0].trim();
     }
@@ -759,28 +760,28 @@ function createEntitlement({ licenseId, gradeId, studentId, installationId, acad
 }
 
 function seedTestCodes() {
+    const academicYear = academicPeriod().academicYear;
     const codes = [
-        ["GRADE1-1405-TEST", "grade1"],
-        ["GRADE2-1405-TEST", "grade2"],
-        ["GRADE3-1405-TEST", "grade3"],
-        ["GRADE4-1405-TEST", "grade4"],
-        ["GRADE5-1405-TEST", "grade5"],
-        ["GRADE6-1405-TEST", "grade6"],
-        ["GRADE6-1405-TEST-A", "grade6"],
-        ["GRADE6-1405-TEST-B", "grade6"],
-        ["GRADE6-1405-TEST-C", "grade6"]
+        [`GRADE1-${academicYear}-TEST`, "grade1"],
+        [`GRADE2-${academicYear}-TEST`, "grade2"],
+        [`GRADE3-${academicYear}-TEST`, "grade3"],
+        [`GRADE4-${academicYear}-TEST`, "grade4"],
+        [`GRADE5-${academicYear}-TEST`, "grade5"],
+        [`GRADE6-${academicYear}-TEST`, "grade6"],
+        [`GRADE6-${academicYear}-TEST-A`, "grade6"],
+        [`GRADE6-${academicYear}-TEST-B`, "grade6"],
+        [`GRADE6-${academicYear}-TEST-C`, "grade6"]
     ];
 
     const statement = db.prepare(`
         INSERT OR IGNORE INTO activation_codes
             (code_hash, code_preview, product_id, grade_id, academic_year, status, created_at)
-        VALUES (?, ?, ?, ?, '1405', 'active', ?)
+        VALUES (?, ?, ?, ?, ?, 'active', ?)
     `);
 
     const now = new Date().toISOString();
-
     for (const [code, gradeId] of codes) {
-        statement.run(hashCode(code), codePreview(code), PRODUCT_ID, gradeId, now);
+        statement.run(hashCode(code), codePreview(code), PRODUCT_ID, gradeId, academicYear, now);
     }
 }
 
@@ -1166,18 +1167,26 @@ async function adminRevokeCode(req, res) {
     if (!code) return send(res, 400, { ok: false, message: "کد الزامی است." });
 
     const codeHash = hashCode(code);
-    const result = db.prepare(`
-        UPDATE activation_codes
-        SET status = 'revoked'
-        WHERE code_hash = ? AND status = 'active' AND used_at IS NULL
-    `).run(codeHash);
+    db.exec("BEGIN IMMEDIATE");
+    try {
+        const result = db.prepare(`
+            UPDATE activation_codes
+            SET status = 'revoked'
+            WHERE code_hash = ? AND status = 'active' AND used_at IS NULL
+        `).run(codeHash);
 
-    if (!result.changes) {
-        return send(res, 404, { ok: false, message: "کد فعال و قابل لغو پیدا نشد." });
+        if (!result.changes) {
+            db.exec("ROLLBACK");
+            return send(res, 404, { ok: false, message: "کد فعال و قابل لغو پیدا نشد." });
+        }
+
+        audit("code.revoked", "admin", { codeHash });
+        db.exec("COMMIT");
+        return send(res, 200, { ok: true });
+    } catch (error) {
+        try { db.exec("ROLLBACK"); } catch {}
+        throw error;
     }
-
-    audit("code.revoked", "admin", { codeHash });
-    return send(res, 200, { ok: true });
 }
 
 async function adminDiagnostics(req, res) {

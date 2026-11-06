@@ -19,6 +19,12 @@
     let overlayMode = false;
     let returnToGate = false;
 
+    function escapeHTML(value) {
+        return String(value ?? "").replace(/[&<>"']/g, function (character) {
+            return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character];
+        });
+    }
+
 
     // =========================================================
     // Styles
@@ -1044,13 +1050,10 @@
                 profileOptions += `
 
                     <option
-                        value="${profile.studentId || ""}"
+                        value="${escapeHTML(profile.studentId || "")}"
                         ${selected}
                     >
-                        ${
-                            profile.name ||
-                            "دانش‌آموز"
-                        }
+                        ${escapeHTML(profile.name || "دانش‌آموز")}
                         -
                         ${
                             getGradeTitle(

@@ -53,6 +53,22 @@ assert(
     "Production local-license fallback guard is incomplete."
 );
 
+function functionSection(source, signature, nextSignature) {
+    const start = source.indexOf(signature);
+    if (start < 0) return "";
+    const end = source.indexOf(nextSignature, start + signature.length);
+    return end > start ? source.slice(start, end) : source.slice(start);
+}
+const activatedBody = functionSection(manager, "function isActivated(", "function isGradeActivated(");
+const gradeActivatedBody = functionSection(manager, "function isGradeActivated(", "function isProfileActivated(");
+assert(activatedBody && activatedBody.includes("isRemoteProductionMode()"),
+    "isActivated must not trust unsigned local licenses in production.");
+assert(gradeActivatedBody &&
+    gradeActivatedBody.includes("hasValidRemoteEntitlement(gradeId)") &&
+    gradeActivatedBody.includes("if (isRemoteProductionMode())") &&
+    gradeActivatedBody.includes("return false;"),
+    "isGradeActivated must fail closed when remote entitlement validation fails in production.");
+
 assert(
     gate.includes('const productionMode = serviceConfig.mode === "production";') &&
     gate.includes("THR-GRADE[1-6]") &&
