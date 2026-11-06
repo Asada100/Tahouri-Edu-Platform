@@ -341,6 +341,7 @@ IMPORTANT CURRENT STATE:
   - The new Worker activation implementation is committed on the audit PR branch.
   - It has not yet been deployed to the live Cloudflare Worker.
   - The live Worker remains admin-only until that deployment.
+  - Current Cloudflare Worker settings contain ADMIN_PASSWORD only; LICENSE_PRIVATE_KEY_PEM and LICENSE_PUBLIC_KEY_PEM are not configured.
   - The application service config remains in test mode and still points to localhost.
   - The production D1 database has no activation codes or licenses at present. Migration 0003 is already applied to the production D1 database. The Worker health endpoint requires schema version 3 and all required indexes.
   - Payment verification and signed entitlement extension remain disabled in the Worker.
