@@ -6,7 +6,7 @@ const { execFileSync } = require("node:child_process");
 
 const root = path.resolve(__dirname, "..");
 const failures = [];
-const counts = { javascript: 0, json: 0, scripts: 0, styles: 0, activities: 0, chapters: 0 };
+const counts = { javascript: 0, json: 0, scripts: 0, styles: 0, links: 0, activities: 0, chapters: 0 };
 
 function walk(dir) {
     const entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -60,9 +60,10 @@ for (const file of files) {
 
 const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
 const scriptRefs = [...index.matchAll(/<script\b[^>]*\bsrc=["']([^"']+)["']/gi)].map(match => match[1]);
-const styleRefs = [...index.matchAll(/<link\b[^>]*\bhref=["']([^"']+\.css(?:\?[^"']*)?)["']/gi)].map(match => match[1]);
+const linkRefs = [...index.matchAll(/<link\b[^>]*\bhref=["']([^"']+)["']/gi)].map(match => match[1]);
+const styleRefs = linkRefs.filter(ref => /\.css(?:[?#]|$)/i.test(ref));
 
-for (const [kind, refs] of [["script", scriptRefs], ["style", styleRefs]]) {
+for (const [kind, refs] of [["script", scriptRefs], ["link", linkRefs]]) {
     for (const ref of refs) {
         if (/^(?:https?:|data:|\/\/)/i.test(ref)) continue;
         const clean = ref.split(/[?#]/, 1)[0].replace(/^\.\//, "");
@@ -71,6 +72,7 @@ for (const [kind, refs] of [["script", scriptRefs], ["style", styleRefs]]) {
 }
 counts.scripts = scriptRefs.length;
 counts.styles = styleRefs.length;
+counts.links = linkRefs.length;
 
 const grades = readJson("data/grades.json") || [];
 const subjects = readJson("data/subjects.json") || [];
