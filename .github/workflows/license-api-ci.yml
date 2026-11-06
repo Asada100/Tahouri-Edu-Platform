@@ -46,6 +46,13 @@ jobs:
           docker build --file Dockerfile --tag tahouri-license-api:ci ../..
           docker run --rm --entrypoint node tahouri-license-api:ci -e "process.exit(process.getuid() === 0 ? 1 : 0)"
 
+      - name: Validate production Caddy configuration
+        run: |
+          docker run --rm \
+            -e TAHOURI_API_DOMAIN=api.example.com \
+            -v "$PWD/Caddyfile.production.example:/etc/caddy/Caddyfile:ro" \
+            caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+
       - name: Client license safety test
         run: node client-license-safety-test.js
 
