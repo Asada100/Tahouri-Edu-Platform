@@ -151,6 +151,18 @@ const gradeIds = new Set(grades.map(item => item.id));
 const subjectIds = new Set(subjects.map(item => item.id));
 const chapterKeys = new Set();
 const activityIds = new Set();
+const engineManagerSource = fs.readFileSync(path.join(root, "engine/core/engineManager.js"), "utf8");
+const registeredEngineIds = new Set(
+    [...engineManagerSource.matchAll(/this\.register\s*\(\s*["']([^"']+)["']/g)].map(match => match[1])
+);
+const scriptPaths = scriptRefs.map(ref => ref.split(/[?#]/, 1)[0]);
+const engineManagerIndex = scriptPaths.indexOf("engine/core/engineManager.js");
+if (engineManagerIndex < 0) failures.push("index.html: EngineManager script is not loaded.");
+for (let i = 0; i < scriptPaths.length; i++) {
+    if (/Engine\.js$/i.test(scriptPaths[i]) && i > engineManagerIndex) {
+        failures.push("index.html: engine script loads after EngineManager: " + scriptPaths[i]);
+    }
+}
 const configuredActivityIds = new Set();
 
 for (const relative of relativeFiles) {
@@ -176,6 +188,14 @@ for (const activity of activities) {
         failures.push("data/activities.json: missing or duplicate activity id " + String(activity.id));
     }
     activityIds.add(activity.id);
+    if (!activity.engine) {
+        failures.push(activity.id + ": missing engine id");
+    } else {
+        const normalizedEngine = String(activity.engine).replace(/Engine$/, "").toLowerCase();
+        if (!registeredEngineIds.has(activity.engine) && !registeredEngineIds.has(normalizedEngine)) {
+            failures.push(activity.id + ": engine is not registered (" + activity.engine + ")");
+        }
+    }
     if (!gradeIds.has(activity.grade)) failures.push(activity.id + ": unknown grade " + activity.grade);
     if (!subjectIds.has(activity.subject)) failures.push(activity.id + ": unknown subject " + activity.subject);
     if (!chapterKeys.has([activity.grade, activity.subject, activity.chapter].join("/"))) {
