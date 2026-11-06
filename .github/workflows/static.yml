@@ -35,6 +35,8 @@ jobs:
         run: node tests/activity-lock-boundary.test.js
       - name: Test profile-scoped content lock progression and reset
         run: node tests/content-lock-progression-reset.test.js
+      - name: Test stored profile-name XSS escaping
+        run: node tests/profile-rendering-xss.test.js
       - name: Run learning-engine regression tests
         run: |
           node tests/composite-matching-lifecycle.test.js
