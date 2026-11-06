@@ -77,7 +77,10 @@ for (const marker of [
     'url.pathname === "/api/licenses/activate"',
     'url.pathname === "/api/licenses/status"',
     "async function signEntitlement",
-    "LICENSE_PRIVATE_KEY_PEM"
+    "async function verifySigningPair",
+    "LICENSE_PRIVATE_KEY_PEM",
+    "LICENSE_PUBLIC_KEY_PEM",
+    'url.pathname === "/api/public-key"'
 ]) {
     if (!worker.includes(marker)) throw new Error("Cloudflare Worker capability missing: " + marker);
 }
