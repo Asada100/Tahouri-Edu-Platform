@@ -81,12 +81,12 @@ async function main() {
     assert.equal(adminPage.status, 200, "Cloudflare admin page must remain reachable.");
     assert.match(adminPage.headers.get("content-security-policy") || "", /script-src 'self'/);
     const adminHtml = await adminPage.text();
-    assert.doesNotMatch(adminHtml, /\\son[a-z]+\\s*=/i);
+    assert.doesNotMatch(adminHtml, /\son[a-z]+\s*=/i);
     assert.match(adminHtml, /data-action="login"/);
 
     const adminScript = await worker.fetch(new Request("https://api.example.test/admin.js"), env);
     assert.equal(adminScript.status, 200);
-    assert.match(await adminScript.text(), /document\\.addEventListener/);
+    assert.match(await adminScript.text(), /document\.addEventListener/);
 
     const health = await request(worker, env, "/api/health", "GET");
     assert.equal(health.status, 200, "Health must be ready with D1 schema and signing key.");
