@@ -274,3 +274,68 @@ GitHub Actions runs the production release artifact check, security test,
 and integration test for changes under services/license-api.
 The production release smoke test is intentionally separate because it
 requires a deployed HTTPS API and must be run against the real deployment.
+
+
+14. CLOUDFLARE WORKER + D1 ACTIVATION API
+
+The version-controlled Cloudflare Worker implementation is:
+  services/license-api/worker.js
+
+Its deployment configuration is:
+  services/license-api/wrangler.toml
+
+D1 binding:
+  DB -> tahouri-license-db
+  Database ID: bc958420-184a-43ff-b728-069654f58058
+
+Versioned D1 migrations:
+  migrations/0001_initial_schema.sql
+  migrations/0002_admin_login_attempts.sql
+
+The production D1 database was inspected and currently reports schema version 2.
+Its activation_codes, licenses, audit_log, payments, admin_sessions,
+admin_login_attempts and schema_migrations tables match this migration baseline.
+Do not run experimental student-account/profile migrations against production.
+
+Worker activation routes:
+  POST /api/licenses/activate
+  GET  /api/licenses/status?licenseId=<license-id>
+  GET  /api/health
+
+The Worker signs profile-bound entitlements with RSASSA-PKCS1-v1_5-SHA256.
+The private key must be a PKCS#8 PEM stored as the Cloudflare Worker secret:
+  LICENSE_PRIVATE_KEY_PEM
+
+Set the existing Worker variables:
+  ADMIN_ORIGIN=https://asada100.github.io
+  APP_ORIGIN=https://asada100.github.io
+
+To set the signing secret from Windows PowerShell without printing its contents:
+  Get-Content -Raw "PATH_TO_EXISTING_PRODUCTION_PRIVATE_KEY.pem" |
+    npx wrangler secret put LICENSE_PRIVATE_KEY_PEM --config services/license-api/wrangler.toml
+
+To deploy the version-controlled Worker after the signing key and public-key
+pair have been verified:
+  npx wrangler deploy --config services/license-api/wrangler.toml
+
+Never use dev-private-key.pem as a production signing key. Do not paste a
+private key into chat, GitHub, a source file, or a committed .env file.
+
+The public key corresponding to the Worker secret must be pinned in
+engine/core/tahouriServiceConfig.js. The public app must not be switched to
+production mode until the public key is verified against the Worker key and
+existing local licenses have been safely migrated or explicitly classified
+as test data.
+
+IMPORTANT CURRENT STATE:
+  - The new Worker activation implementation is committed on the audit PR branch.
+  - It has not yet been deployed to the live Cloudflare Worker.
+  - The live Worker remains admin-only until that deployment.
+  - The application service config remains in test mode and still points to localhost.
+  - The production D1 database has no activation codes or licenses at present.
+  - Payment verification and signed entitlement extension remain disabled in the Worker.
+  - Health returns not-ready until a valid LICENSE_PRIVATE_KEY_PEM secret is configured.
+
+Do not announce customer activation as ready until the Worker deployment,
+public-key match, existing-license migration decision, activation/status tests,
+and real-browser tests have all passed.
