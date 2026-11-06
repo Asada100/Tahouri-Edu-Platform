@@ -11,6 +11,12 @@
 const DashboardScreen = {
     calendarState: null,
 
+    escapeHTML: function (value) {
+        return String(value ?? "").replace(/[&<>"']/g, function (character) {
+            return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character];
+        });
+    },
+
     dateKey: function (date) {
         return date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0");
     },
@@ -115,7 +121,7 @@ const DashboardScreen = {
         const overall = data.overall || {};
         const continueLearning = data.continueLearning || {};
         const profile = window.ProfileManager && typeof window.ProfileManager.get === "function" ? window.ProfileManager.get() : {};
-        const studentName = profile.name || "دانش‌آموز";
+        const studentName = this.escapeHTML(profile.name || "دانش‌آموز");
         const totalActivities = Number(data.totalGradeActivities ?? overall.totalActivities ?? 0);
         const completedCount = Number(data.completedCount || 0);
         const progressPercentage = Number(data.progressPercentage || 0);
@@ -127,7 +133,7 @@ const DashboardScreen = {
         }
         this.calendarState = null;
 
-        const continueCard = continueLearning && continueLearning.activityId ? `<div class="dashboard-card dashboard-continue-card"><h2>🧭 ادامه مسیر من</h2><div class="dashboard-next-learning"><span>🎯</span><div><strong>${continueLearning.activityTitle || "فعالیت بعدی"}</strong>${continueLearning.subject ? `<small>${this.subjectTitle(continueLearning.subject)}</small>` : ""}</div></div><div id="dashboardContinueBtn" class="dashboard-small-action" role="button" tabindex="0">▶️ ${continueLearning.mode === "resume" ? "ادامه فعالیت" : "شروع فعالیت بعدی"}</div></div>` : `<div class="dashboard-card dashboard-continue-card"><h2>🧭 ادامه مسیر من</h2><div class="dashboard-empty">🎉 مسیر فعلی را کامل کردی!</div></div>`;
+        const continueCard = continueLearning && continueLearning.activityId ? `<div class="dashboard-card dashboard-continue-card"><h2>🧭 ادامه مسیر من</h2><div class="dashboard-next-learning"><span>🎯</span><div><strong>${this.escapeHTML(continueLearning.activityTitle || "فعالیت بعدی")}</strong>${continueLearning.subject ? `<small>${this.subjectTitle(continueLearning.subject)}</small>` : ""}</div></div><div id="dashboardContinueBtn" class="dashboard-small-action" role="button" tabindex="0">▶️ ${continueLearning.mode === "resume" ? "ادامه فعالیت" : "شروع فعالیت بعدی"}</div></div>` : `<div class="dashboard-card dashboard-continue-card"><h2>🧭 ادامه مسیر من</h2><div class="dashboard-empty">🎉 مسیر فعلی را کامل کردی!</div></div>`;
 
         app.innerHTML = `<div class="screen dashboard-screen"><div class="dashboard-welcome"><h1>👋 سلام ${studentName}</h1></div>${continueCard}<hr><div class="dashboard-card learning-calendar-card"><div class="learning-calendar-heading"><h2>📅 تقویم مسیر یادگیری</h2><div class="streak-badge">🔥 <strong>${streak}</strong><span>روز</span></div></div><div id="learningCalendarContainer">${this.calendar()}</div></div><div class="dashboard-card"><h2>💬 یک جمله برای تو</h2><div class="dashboard-message"><span aria-hidden="true">🚀</span><p>قدم‌به‌قدم داری جلو می‌ری. با همین تمرکز ادامه بده!</p></div></div><div class="dashboard-card"><h2>🏅 وضعیت من</h2><p class="dashboard-status-text">${completedCount} فعالیت از ${totalActivities} فعالیت کامل شده است — <strong>${progressPercentage}%</strong></p></div></div>`;
 
