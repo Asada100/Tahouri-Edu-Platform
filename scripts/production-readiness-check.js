@@ -32,7 +32,7 @@ if (!config) {
 
     try {
         const api = new URL(config.apiBaseUrl);
-        if (api.protocol !== "https:" || /^(localhost|127\\.0\\.0\\.1)$/i.test(api.hostname)) {
+        if (api.protocol !== "https:" || api.hostname === "localhost" || api.hostname === "127.0.0.1") {
             blockers.push("Production API URL must be HTTPS and must not point to localhost.");
         }
     } catch {
@@ -69,7 +69,7 @@ if (fs.existsSync(workerPath)) {
     if (!worker.includes("activateStudentBoundCode") || !worker.includes("/api/activate")) {
         blockers.push("Version-controlled Worker does not expose the student-bound activation flow.");
     }
-    if (/licenseActivation\\s*:\\s*false/.test(worker)) {
+    if (worker.includes("licenseActivation: false") || worker.includes("licenseActivation:false")) {
         blockers.push("Worker health contract still reports license activation disabled.");
     }
 }
