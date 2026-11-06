@@ -100,11 +100,55 @@ if (fs.existsSync(workerPath)) {
     }
 }
 
-if (blockers.length) {
-    console.error("PRODUCTION READINESS: BLOCKED");
-    for (const blocker of blockers) console.error("- " + blocker);
-    console.error("Do not publish the Pages build until the Worker, D1 migrations, and public key are aligned and tested.");
-    process.exitCode = 1;
-} else {
-    console.log("PRODUCTION READINESS: PASS");
+async function verifyDeployedWorker() {
+    const base = String(config.apiBaseUrl).replace(/\/+$/, "");
+    const healthResponse = await fetch(base + "/health", {
+        cache: "no-store",
+        signal: AbortSignal.timeout(8000)
+    });
+    if (!healthResponse.ok) {
+        throw new Error("Cloudflare Worker health endpoint returned HTTP " + healthResponse.status + ".");
+    }
+    const health = await healthResponse.json();
+    if (!health.ok || health.database !== "connected" || Number(health.schemaVersion) < 3 ||
+        !health.capabilities?.licenseActivation || !health.capabilities?.licenseVerification) {
+        throw new Error("Cloudflare Worker is not ready: signing key pair or D1 schema version 3 is unavailable.");
+    }
+
+    const keyResponse = await fetch(base + "/public-key", {
+        cache: "no-store",
+        signal: AbortSignal.timeout(8000)
+    });
+    if (!keyResponse.ok) {
+        throw new Error("Cloudflare Worker public-key endpoint returned HTTP " + keyResponse.status + ".");
+    }
+    const keyPayload = await keyResponse.json();
+    const normalizePem = value => String(value || "").replace(/\s/g, "");
+    if (!keyPayload.publicKeyPem ||
+        normalizePem(keyPayload.publicKeyPem) !== normalizePem(config.publicKeyPem)) {
+        throw new Error("Pinned Pages public key does not match the public key exposed by the deployed Worker.");
+    }
 }
+
+(async function main() {
+    if (blockers.length === 0) {
+        try {
+            await verifyDeployedWorker();
+        } catch (error) {
+            blockers.push(error.message || "Deployed Worker verification failed.");
+        }
+    }
+
+    if (blockers.length) {
+        console.error("PRODUCTION READINESS: BLOCKED");
+        for (const blocker of blockers) console.error("- " + blocker);
+        console.error("Do not publish until the deployed Worker, D1 schema, and pinned signing key pair are verified.");
+        process.exitCode = 1;
+    } else {
+        console.log("PRODUCTION READINESS: PASS");
+    }
+})().catch(error => {
+    console.error("PRODUCTION READINESS: BLOCKED");
+    console.error("- " + (error.message || "Unexpected readiness-check failure."));
+    process.exitCode = 1;
+});
