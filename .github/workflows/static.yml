@@ -31,6 +31,8 @@ jobs:
         run: node scripts/platform-integrity-check.js
       - name: Test push notification navigation and URL safety
         run: node tests/service-worker-notification-click.test.js
+      - name: Test activity lock enforcement at engine boundary
+        run: node tests/activity-lock-boundary.test.js
       - name: Run learning-engine regression tests
         run: |
           node tests/composite-matching-lifecycle.test.js
