@@ -126,6 +126,9 @@ async function main() {
 
     const noKey = { DB: D1, ADMIN_ORIGIN: env.ADMIN_ORIGIN, APP_ORIGIN: env.APP_ORIGIN };
     assert.equal((await request(worker, noKey, "/api/health", "GET")).status, 503);
+    const malformedKey = { ...env, LICENSE_PRIVATE_KEY_PEM: "-----BEGIN PRIVATE KEY-----\\ninvalid\\n-----END PRIVATE KEY-----" };
+    assert.equal((await request(worker, malformedKey, "/api/health", "GET")).status, 503,
+        "Health must reject a malformed private signing key.");
 
     const blockedOrigin = await request(worker, env, "/api/licenses/activate", "POST", {
         code: "invalid", gradeId: "grade6", studentId: "student-3", installationId: "install-3"
