@@ -51,10 +51,10 @@ async function sha256(value) {
     const digest = await crypto.webcrypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
     return Buffer.from(digest).toString("hex");
 }
-async function request(worker, env, pathName, method, body, origin = "https://asada100.github.io") {
+async function request(worker, env, pathName, method, body, origin = "https://asada100.github.io", ip = "203.0.113.10") {
     return worker.fetch(new Request("https://api.example.test" + pathName, {
         method,
-        headers: { "content-type": "application/json", "origin": origin, "cf-connecting-ip": "203.0.113.10" },
+        headers: { "content-type": "application/json", "origin": origin, "cf-connecting-ip": ip },
         body: body === undefined ? undefined : JSON.stringify(body)
     }), env);
 }
@@ -242,6 +242,20 @@ async function main() {
         code: "invalid", gradeId: "grade6", studentId: "student-3", installationId: "install-3"
     }, "https://evil.example");
     assert.equal(blockedOrigin.status, 403);
+
+    const rateLimitResponses = [];
+    for (let attempt = 0; attempt < 11; attempt++) {
+        rateLimitResponses.push(await request(worker, env, "/api/licenses/activate", "POST", {
+            code: "INVALID-WORKER-RATE-" + attempt,
+            gradeId: "grade6",
+            studentId: "rate-limit-student",
+            installationId: "rate-limit-installation"
+        }, "https://asada100.github.io", "203.0.113.250"));
+    }
+    assert(rateLimitResponses.slice(0, 10).every(response => response.status === 400),
+        "Worker rate limit rejected requests before its configured threshold.");
+    assert.equal(rateLimitResponses[10].status, 429,
+        "Worker activation endpoint did not enforce its per-IP rate limit.");
 
     db.close();
     console.log("Cloudflare Worker activation integration test: PASS");
