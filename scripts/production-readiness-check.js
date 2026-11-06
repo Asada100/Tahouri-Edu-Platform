@@ -66,15 +66,15 @@ const licenseManagerSource = fs.readFileSync(
     path.join(root, "engine/core/licenseManager.js"),
     "utf8"
 );
-function functionBody(source, signature) {
+function functionSection(source, signature, nextSignature) {
     const start = source.indexOf(signature);
     if (start < 0) return "";
-    const end = source.indexOf("\n    }", start);
-    return end > start ? source.slice(start, end) : "";
+    const end = source.indexOf(nextSignature, start + signature.length);
+    return end > start ? source.slice(start, end) : source.slice(start);
 }
 
-const isActivatedBody = functionBody(licenseManagerSource, "function isActivated(");
-const isGradeActivatedBody = functionBody(licenseManagerSource, "function isGradeActivated(");
+const isActivatedBody = functionSection(licenseManagerSource, "function isActivated(", "function isGradeActivated(");
+const isGradeActivatedBody = functionSection(licenseManagerSource, "function isGradeActivated(", "function isProfileActivated(");
 if (!isActivatedBody.includes("isRemoteProductionMode()")) {
     blockers.push("isActivated does not reject unsigned LocalStorage licenses in production.");
 }
