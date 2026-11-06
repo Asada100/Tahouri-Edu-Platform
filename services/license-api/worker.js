@@ -175,6 +175,32 @@ async function loadSigningKey(env) {
     { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"]);
   return signingKeyPromise;
 }
+let publicKeyPromise = null;
+let publicKeyPemCache = null;
+async function loadPublicKey(env) {
+  const pem = String(env.LICENSE_PUBLIC_KEY_PEM || "").trim();
+  if (!pem || !pem.includes("-----BEGIN PUBLIC KEY-----") || !pem.includes("-----END PUBLIC KEY-----")) {
+    throw Object.assign(new Error("کلید عمومی مجوز در سرویس تعریف نشده است."), { status: 503 });
+  }
+  if (publicKeyPromise && publicKeyPemCache === pem) return publicKeyPromise;
+  publicKeyPemCache = pem;
+  const b64 = pem.replace(/-----BEGIN PUBLIC KEY-----|-----END PUBLIC KEY-----|\\s/g, "");
+  const binary = atob(b64);
+  const der = Uint8Array.from(binary, ch => ch.charCodeAt(0));
+  publicKeyPromise = crypto.subtle.importKey("spki", der,
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["verify"]);
+  return publicKeyPromise;
+}
+async function verifySigningPair(env) {
+  const privateKey = await loadSigningKey(env);
+  const publicKey = await loadPublicKey(env);
+  const message = new TextEncoder().encode("tahouri-license-signing-key-pair-check-v1");
+  const signature = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", privateKey, message);
+  const valid = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", publicKey, signature, message);
+  if (!valid) throw Object.assign(new Error("کلید خصوصی و عمومی مجوز با هم مطابقت ندارند."), { status: 503 });
+  return true;
+}
+
 async function signEntitlement(claims, env) {
   const key = await loadSigningKey(env);
   const sig = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key,
@@ -436,7 +462,7 @@ async function health(env, headers, requestId) {
   } catch { database = "unavailable_or_unmigrated"; }
   let signingReady = false;
   try {
-    await loadSigningKey(env);
+    await verifySigningPair(env);
     signingReady = true;
   } catch {
     signingReady = false;
@@ -468,6 +494,11 @@ export default {
           "access-control-allow-methods": "GET,POST,OPTIONS",
           "access-control-allow-headers": "Content-Type",
           "access-control-max-age": "600" } });
+      }
+      if (url.pathname === "/api/public-key" && request.method === "GET") {
+        const publicKeyPem = String(env.LICENSE_PUBLIC_KEY_PEM || "").trim();
+        if (!publicKeyPem) return error("کلید عمومی مجوز تعریف نشده است.", 503, headers);
+        return json({ publicKeyPem }, 200, headers);
       }
       if (url.pathname === "/api/health" && request.method === "GET")
         return await health(env, headers, requestId);
