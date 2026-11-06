@@ -32,8 +32,9 @@ async function main() {
     const manager = window.LicenseManager;
     assert(manager, "LicenseManager must initialize.");
 
+    const demoCode = "GRADE6-" + manager.getAcademicYear() + "-TEST";
     const localActivation = manager.activate(
-        "GRADE6-1405-TEST", "grade6", profile.studentId
+        demoCode, "grade6", profile.studentId
     );
     assert.equal(localActivation.valid, true, "The existing test-mode activation path must remain functional.");
     assert.equal(manager.isGradeActivated("grade6", profile.studentId), true);
