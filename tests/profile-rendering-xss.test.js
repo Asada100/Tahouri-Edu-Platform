@@ -32,6 +32,7 @@ const profileSource = fs.readFileSync(path.join(root, "engine/ui/profileScreen.j
 const dashboardSource = fs.readFileSync(path.join(root, "engine/ui/dashboardScreen.js"), "utf8");
 const screenSource = fs.readFileSync(path.join(root, "engine/ui/screen.js"), "utf8");
 const activationSource = fs.readFileSync(path.join(root, "engine/core/activationGate.js"), "utf8");
+const licenseSource = fs.readFileSync(path.join(root, "engine/ui/licenseScreen.js"), "utf8");
 
 assert.match(profileSource, /this\.escapeHTML\(profile\.name/);
 assert.match(profileSource, /ProfileScreen\.escapeHTML\(profile\.name/);
@@ -43,5 +44,7 @@ assert.match(screenSource, /this\.escapeHTML\(dailyMessage\.text/);
 assert.ok(activationSource.includes('escapeHTML(item.name || "دانش‌آموز")'));
 assert.ok(activationSource.includes('escapeHTML(item.studentId || "")'));
 assert.ok(activationSource.includes("escapeHTML(licenseNotice)"));
+assert.ok(licenseSource.includes('escapeHTML(profile.name || "دانش‌آموز")'));
+assert.ok(licenseSource.includes('escapeHTML(profile.studentId || "")'));
 
 console.log("Profile rendering XSS protections: PASS");
