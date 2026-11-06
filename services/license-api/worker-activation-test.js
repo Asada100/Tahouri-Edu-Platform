@@ -75,6 +75,7 @@ async function main() {
     const worker = (await import(moduleUrl)).default;
     const env = {
         DB: D1, LICENSE_PRIVATE_KEY_PEM: privatePem, LICENSE_PUBLIC_KEY_PEM: publicPem,
+        ADMIN_PASSWORD: "worker-test-admin-password-strong",
         ADMIN_ORIGIN: "https://asada100.github.io", APP_ORIGIN: "https://asada100.github.io"
     };
 
@@ -92,6 +93,38 @@ async function main() {
     const publicKeyResponse = await request(worker, env, "/api/public-key", "GET");
     assert.equal(publicKeyResponse.status, 200);
     assert.equal((await publicKeyResponse.json()).publicKeyPem, publicPem);
+
+    const adminLogin = await worker.fetch(new Request("https://api.example.test/api/admin/login", {
+        method: "POST",
+        headers: { "content-type": "application/json", "origin": env.ADMIN_ORIGIN, "cf-connecting-ip": "203.0.113.11" },
+        body: JSON.stringify({ password: env.ADMIN_PASSWORD })
+    }), env);
+    assert.equal(adminLogin.status, 200, "Worker admin login must succeed with its configured password.");
+    const adminCookie = String(adminLogin.headers.get("set-cookie") || "").split(";")[0];
+    assert.match(adminCookie, /^tahouri_admin_session=/);
+
+    const createCodes = await worker.fetch(new Request("https://api.example.test/api/admin/codes", {
+        method: "POST",
+        headers: { "content-type": "application/json", "origin": env.ADMIN_ORIGIN, "cookie": adminCookie },
+        body: JSON.stringify({ gradeId: "grade7", academicYear: String(currentIranianYear() + 1), renewalMode: "promotion", count: 2 })
+    }), env);
+    assert.equal(createCodes.status, 201, "Worker admin code creation must succeed.");
+    const createdCodes = await createCodes.json();
+    assert.equal(createdCodes.codes.length, 2);
+    const createdHash = await sha256(createdCodes.codes[0]);
+    assert.equal(db.prepare("SELECT status FROM activation_codes WHERE code_hash = ?").get(createdHash).status, "active");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'codes.created'").get().count), 1,
+        "Code creation must write its audit event in the same D1 batch.");
+
+    const revokeCode = await worker.fetch(new Request("https://api.example.test/api/admin/codes/revoke", {
+        method: "POST",
+        headers: { "content-type": "application/json", "origin": env.ADMIN_ORIGIN, "cookie": adminCookie },
+        body: JSON.stringify({ code: createdCodes.codes[0] })
+    }), env);
+    assert.equal(revokeCode.status, 200, "Worker admin code revocation must succeed.");
+    assert.equal(db.prepare("SELECT status FROM activation_codes WHERE code_hash = ?").get(createdHash).status, "revoked");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'code.revoked'").get().count), 1,
+        "Code revocation must write its audit event atomically.");
 
     const health = await request(worker, env, "/api/health", "GET");
     assert.equal(health.status, 200, "Health must be ready with D1 schema and signing key.");
