@@ -1,7 +1,7 @@
 // =====================================
 // Tahouri Edu Platform
 // Push Service Worker
-// Version 1.0
+// Version 1.1
 // =====================================
 
 self.addEventListener("install", function () {
@@ -50,17 +50,43 @@ self.addEventListener("notificationclick", function (event) {
             ? event.notification.data.url
             : "./";
 
+    let destination;
+    try {
+        const requested = new URL(targetUrl, self.location.href);
+        destination = requested.origin === self.location.origin
+            ? requested.href
+            : new URL("./", self.location.href).href;
+    } catch (error) {
+        destination = new URL("./", self.location.href).href;
+    }
+
     event.waitUntil(
         self.clients.matchAll({ type: "window", includeUncontrolled: true })
-            .then(function (clients) {
-                for (const client of clients) {
-                    if ("focus" in client) {
+            .then(async function (clients) {
+                const client = clients.find(function (item) {
+                    try {
+                        return new URL(item.url).origin === self.location.origin;
+                    } catch (error) {
+                        return false;
+                    }
+                });
+
+                if (client) {
+                    if (typeof client.navigate === "function") {
+                        try {
+                            await client.navigate(destination);
+                        } catch (error) {
+                            // Focusing the existing app window is still useful.
+                        }
+                    }
+
+                    if (typeof client.focus === "function") {
                         return client.focus();
                     }
                 }
 
                 if (self.clients.openWindow) {
-                    return self.clients.openWindow(targetUrl);
+                    return self.clients.openWindow(destination);
                 }
 
                 return null;
@@ -68,4 +94,4 @@ self.addEventListener("notificationclick", function (event) {
     );
 });
 
-console.log("Tahouri Push Service Worker v1.0 Ready");
+console.log("Tahouri Push Service Worker v1.1 Ready");
