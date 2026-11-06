@@ -67,6 +67,10 @@ async function main() {
     const privatePem = pair.privateKey.export({ type: "pkcs8", format: "pem" });
     const source = fs.readFileSync(path.join(__dirname, "worker.js"), "utf8");
     const moduleUrl = "data:text/javascript;base64," + Buffer.from(source).toString("base64");
+    assert.equal((source.match(/onclick=/gi) || []).length, 0, "Cloudflare admin HTML must not contain inline click handlers.");
+    assert.equal((source.match(/onkeydown=/gi) || []).length, 0, "Cloudflare admin HTML must not contain inline keyboard handlers.");
+    assert(source.includes("content-security-policy"), "Cloudflare admin route must set a strict CSP.");
+    assert(source.includes("document.addEventListener"), "Admin actions must use delegated external JavaScript handlers.");
     const worker = (await import(moduleUrl)).default;
     const env = {
         DB: D1, LICENSE_PRIVATE_KEY_PEM: privatePem,
