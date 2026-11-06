@@ -27,6 +27,9 @@ jobs:
           node-version: "24"
       - name: Validate all JavaScript, JSON, and platform references
         run: node scripts/platform-integrity-check.js
+      - name: Report production licensing blockers without deploying
+        run: node scripts/production-readiness-check.js
+        continue-on-error: true
       - name: Test push notification navigation and URL safety
         run: node tests/service-worker-notification-click.test.js
       - name: Test activity lock enforcement at engine boundary
