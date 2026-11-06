@@ -65,6 +65,7 @@ async function main() {
 
     const pair = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
     const privatePem = pair.privateKey.export({ type: "pkcs8", format: "pem" });
+    const publicPem = pair.publicKey.export({ type: "spki", format: "pem" });
     const source = fs.readFileSync(path.join(__dirname, "worker.js"), "utf8");
     const moduleUrl = "data:text/javascript;base64," + Buffer.from(source).toString("base64");
     assert.equal((source.match(/onclick=/gi) || []).length, 0, "Cloudflare admin HTML must not contain inline click handlers.");
@@ -73,7 +74,7 @@ async function main() {
     assert(source.includes("document.addEventListener"), "Admin actions must use delegated external JavaScript handlers.");
     const worker = (await import(moduleUrl)).default;
     const env = {
-        DB: D1, LICENSE_PRIVATE_KEY_PEM: privatePem,
+        DB: D1, LICENSE_PRIVATE_KEY_PEM: privatePem, LICENSE_PUBLIC_KEY_PEM: publicPem,
         ADMIN_ORIGIN: "https://asada100.github.io", APP_ORIGIN: "https://asada100.github.io"
     };
 
@@ -87,6 +88,10 @@ async function main() {
     const adminScript = await worker.fetch(new Request("https://api.example.test/admin.js"), env);
     assert.equal(adminScript.status, 200);
     assert.match(await adminScript.text(), /document\.addEventListener/);
+
+    const publicKeyResponse = await request(worker, env, "/api/public-key", "GET");
+    assert.equal(publicKeyResponse.status, 200);
+    assert.equal((await publicKeyResponse.json()).publicKeyPem, publicPem);
 
     const health = await request(worker, env, "/api/health", "GET");
     assert.equal(health.status, 200, "Health must be ready with D1 schema and signing key.");
@@ -184,6 +189,13 @@ async function main() {
     const malformedKey = { ...env, LICENSE_PRIVATE_KEY_PEM: "-----BEGIN PRIVATE KEY-----\\ninvalid\\n-----END PRIVATE KEY-----" };
     assert.equal((await request(worker, malformedKey, "/api/health", "GET")).status, 503,
         "Health must reject a malformed private signing key.");
+    const otherPair = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
+    const mismatchedKey = {
+        ...env,
+        LICENSE_PUBLIC_KEY_PEM: otherPair.publicKey.export({ type: "spki", format: "pem" })
+    };
+    assert.equal((await request(worker, mismatchedKey, "/api/health", "GET")).status, 503,
+        "Health must reject a public key that does not match the signing private key.");
 
     const blockedOrigin = await request(worker, env, "/api/licenses/activate", "POST", {
         code: "invalid", gradeId: "grade6", studentId: "student-3", installationId: "install-3"
