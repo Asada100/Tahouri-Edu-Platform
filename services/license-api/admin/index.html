@@ -30,13 +30,20 @@
   <section class="card" id="alertsCard" hidden><h2>هشدارهای عملیاتی</h2><div id="alerts"></div></section>
 
   <section class="card">
-    <h2>ثبت حساب دانش‌آموز</h2>
-    <p class="muted">برای هر دانش‌آموز یک شناسهٔ ثابت ساخته می‌شود. همین شناسه مبنای صدور کد و ثبت مجوز خواهد بود.</p>
+    <h2>اتصال پروفایل‌های موجود بازی</h2>
+    <p class="muted">شناسهٔ پروفایل‌های فعلی حفظ می‌شود؛ این بخش حساب تازه یا شناسهٔ جایگزین نمی‌سازد.</p>
     <div class="form-grid">
       <label>نام دانش‌آموز<input id="studentFullName" maxlength="160" autocomplete="off" placeholder="نام و نام خانوادگی"></label>
       <label>پایه<select id="studentGrade"><option value="grade1">اول</option><option value="grade2">دوم</option><option value="grade3">سوم</option><option value="grade4">چهارم</option><option value="grade5">پنجم</option><option value="grade6" selected>ششم</option></select></label>
+      <label>شناسهٔ دقیق پروفایل موجود<input id="studentExistingId" maxlength="128" autocomplete="off" placeholder="شناسه را از پروفایل بازی کپی کنید" dir="ltr"></label>
     </div>
-    <button onclick="createStudent()">ثبت حساب</button>
+    <button onclick="createStudent()">اتصال پروفایل موجود</button>
+    <hr>
+    <label>ورود یک‌جای فهرست پروفایل‌های موجود (فایل JSON)
+      <input id="studentProfilesFile" type="file" accept=".json,application/json">
+    </label>
+    <button class="secondary" onclick="importStudentsFile()">وارد کردن فهرست پروفایل‌ها</button>
+    <p class="muted">فایل را از صفحهٔ «پروفایل‌های دانش‌آموزان» در بازی دریافت کنید. نمره‌ها و تنظیمات شخصی منتقل نمی‌شوند.</p>
     <div id="students"></div>
   </section>
 
