@@ -19,7 +19,15 @@
     try { return JSON.parse(localStorage.getItem(KEY) || "null"); } catch (_) { return null; }
   }
   function save(account) {
-    const profile = window.ProfileManager && ProfileManager.get ? ProfileManager.get() : null;
+    let profile = window.ProfileManager && ProfileManager.get ? ProfileManager.get() : null;
+    if ((!profile || !profile.studentId) && window.ProfileManager && typeof ProfileManager.createProfile === "function") {
+      ProfileManager.createProfile({
+        studentId: account.studentId,
+        name: account.fullName || "",
+        grade: account.gradeId || null
+      });
+      profile = ProfileManager.get();
+    }
     const value = {
       studentId: account.studentId,
       fullName: account.fullName || "",
@@ -168,10 +176,7 @@
         }
         try {
           const data = await request(mode === "register" ? "/students/register" : "/students/login", "POST", payload);
-          const linked = save(data.student);
-          if (window.ProfileManager && ProfileManager.get && ProfileManager.get() && ProfileManager.updateProfile) {
-            try { ProfileManager.updateProfile({ cloudStudentId: linked.studentId }); } catch (_) {}
-          }
+          save(data.student);
           showMessage("حساب با موفقیت آماده شد. شناسهٔ دائمی شما: " + data.student.studentId);
           renderAccount(content);
         } catch (error) {
