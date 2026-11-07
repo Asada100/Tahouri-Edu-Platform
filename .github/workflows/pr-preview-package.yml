@@ -2,7 +2,7 @@ name: PR Preview Package
 
 on:
   pull_request:
-    branches: [master]
+    branches: [master, audit/platform-full-review-2026-11-06]
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
@@ -28,7 +28,7 @@ jobs:
       - name: Upload preview package
         uses: actions/upload-artifact@v4
         with:
-          name: tahouri-even-odd-sum-preview
+          name: tahouri-student-profile-import-preview
           path: ${{ runner.temp }}/tahouri-preview.zip
           if-no-files-found: error
           retention-days: 7
