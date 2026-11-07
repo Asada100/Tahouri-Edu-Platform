@@ -206,6 +206,7 @@ async function main() {
         const nextAcademicYear = String(Number(activeAcademicYear) + 1);
 
         const promotionCodes = await request("POST", "/api/admin/codes", {
+            studentId: "integration-student",
             gradeId: "grade7",
             academicYear: nextAcademicYear,
             count: 3
@@ -213,6 +214,7 @@ async function main() {
         assert(promotionCodes.status === 201 && promotionCodes.data.codes?.length === 3, "Grade 7 next-year promotion codes were not created.");
 
         const repeatCodes = await request("POST", "/api/admin/codes", {
+            studentId: "integration-student",
             gradeId: "grade6",
             academicYear: nextAcademicYear,
             renewalMode: "repeat",
