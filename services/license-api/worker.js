@@ -446,9 +446,9 @@ async function adminRoute(request, env, url, headers) {
       const code = makeCode(gradeId, academicYear);
       created.push(code);
       statements.push(env.DB.prepare(`INSERT INTO activation_codes
-        (code_hash, code_preview, product_id, grade_id, academic_year, renewal_mode, status, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, 'active', ?)`)
-        .bind(await sha256(code.toUpperCase()), preview(code), PRODUCT_ID, gradeId, academicYear, renewalMode, createdAt));
+        (code_hash, code_preview, product_id, student_id, grade_id, academic_year, renewal_mode, status, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?)`)
+        .bind(await sha256(code.toUpperCase()), preview(code), PRODUCT_ID, studentId, gradeId, academicYear, renewalMode, createdAt));
     }
     statements.push(env.DB.prepare(`INSERT INTO audit_log
       (event_type, actor, license_id, code_hash, created_at, metadata_json)
