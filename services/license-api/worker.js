@@ -261,8 +261,11 @@ async function activateLicense(request, env, headers) {
   await audit(env, "activation.attempt", actor, { metadata: { gradeId } });
 
   const codeHash = await sha256(code);
-  const codeRecord = await env.DB.prepare("SELECT code_hash AS codeHash, grade_id AS gradeId, academic_year AS academicYear, renewal_mode AS renewalMode, status, used_at AS usedAt FROM activation_codes WHERE code_hash = ?").bind(codeHash).first();
+  const codeRecord = await env.DB.prepare("SELECT code_hash AS codeHash, student_id AS studentId, grade_id AS gradeId, academic_year AS academicYear, renewal_mode AS renewalMode, status, used_at AS usedAt FROM activation_codes WHERE code_hash = ?").bind(codeHash).first();
   if (!codeRecord) return error("کد فعال‌سازی معتبر نیست.", 400, headers);
+  if (!codeRecord.studentId || codeRecord.studentId !== studentId) return error("این کد برای پروفایل انتخاب‌شده صادر نشده است.", 409, headers);
+  const studentAccount = await env.DB.prepare("SELECT status FROM student_accounts WHERE student_id = ?").bind(studentId).first();
+  if (!studentAccount || studentAccount.status !== "active") return error("حساب این پروفایل فعال نیست یا در فهرست دانش‌آموزان ثبت نشده است.", 409, headers);
   if (codeRecord.gradeId !== gradeId) return error("این کد مربوط به پایه انتخاب‌شده نیست.", 400, headers);
 
   const requestedYear = Number(codeRecord.academicYear), activeYear = iranianYear();
