@@ -428,7 +428,6 @@ async function adminRoute(request, env, url, headers) {
     const gradeId = validIdentifier(body.gradeId, "gradeId");
     const student = await env.DB.prepare("SELECT student_id AS studentId, grade_id AS gradeId, status FROM student_accounts WHERE student_id = ?").bind(studentId).first();
     if (!student || student.status !== "active") return error("ابتدا پروفایل موجود را در پنل مدیریت ثبت کنید.", 409, headers);
-    if (student.gradeId !== gradeId) return error("پایهٔ انتخاب‌شده با پایهٔ پروفایل ثبت‌شده یکسان نیست.", 409, headers);
     const academicYear = String(body.academicYear || iranianYear()).trim();
     const renewalMode = String(body.renewalMode || "promotion").toLowerCase();
     const currentYear = iranianYear();
@@ -437,6 +436,13 @@ async function adminRoute(request, env, url, headers) {
     if (!["promotion", "repeat"].includes(renewalMode)) return error("نوع رزرو معتبر نیست.", 400, headers);
     if (Number(academicYear) === currentYear && renewalMode === "repeat")
       return error("کد تکرار پایه فقط برای سال تحصیلی بعد قابل ساخت است.", 400, headers);
+    const currentLevel = gradeLevel(student.gradeId), targetLevel = gradeLevel(gradeId);
+    const allowedGrade = Number(academicYear) === currentYear ? targetLevel === currentLevel :
+      renewalMode === "promotion" ? targetLevel === currentLevel + 1 : targetLevel === currentLevel;
+    if (!Number.isInteger(currentLevel) || !Number.isInteger(targetLevel) ||
+        currentLevel < 1 || currentLevel > 6 || targetLevel < 1 || targetLevel > 6 || !allowedGrade) {
+      return error("پایهٔ کد با پایهٔ فعلی پروفایل و نوع تمدید سازگار نیست.", 409, headers);
+    }
     const count = Math.min(Math.max(Number(body.count || 1), 1), 100);
     if (!Number.isInteger(count)) return error("تعداد کد نامعتبر است.", 400, headers);
     const created = [];
