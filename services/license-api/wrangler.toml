@@ -9,4 +9,4 @@ workers_dev = true
 [[d1_databases]]
 binding = "DB"
 database_name = "tahouri-license-db-audit-test"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "57cb28b2-1aa0-4b90-bcdb-dee74b7a8367"
