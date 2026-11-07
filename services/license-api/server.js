@@ -827,7 +827,7 @@ async function activate(req, res) {
 
     const codeHash = hashCode(code);
     const codeRecord = db.prepare(`
-        SELECT code_hash AS codeHash, grade_id AS gradeId,
+        SELECT code_hash AS codeHash, student_id AS studentId, grade_id AS gradeId,
                academic_year AS academicYear,
                renewal_mode AS renewalMode,
                status, used_at AS usedAt
@@ -840,6 +840,16 @@ async function activate(req, res) {
         recordMetric("invalidActivationAttempts");
         recordSuspiciousAttempt(req, "activation_invalid_code", { gradeId });
         return send(res, 400, { valid: false, message: "کد فعال‌سازی معتبر نیست." });
+    }
+
+    if (!codeRecord.studentId || codeRecord.studentId !== studentId) {
+        recordMetric("activationFailures");
+        return send(res, 409, { valid: false, message: "این کد برای پروفایل انتخاب‌شده صادر نشده است." });
+    }
+    const studentAccount = db.prepare("SELECT status FROM student_accounts WHERE student_id = ?").get(studentId);
+    if (!studentAccount || studentAccount.status !== "active") {
+        recordMetric("activationFailures");
+        return send(res, 409, { valid: false, message: "حساب این پروفایل فعال نیست یا در فهرست دانش‌آموزان ثبت نشده است." });
     }
 
     if (codeRecord.gradeId !== gradeId) {
@@ -1213,7 +1223,10 @@ async function adminArchiveStudent(req, res) {
 async function adminCreateCodes(req, res) {
     if (!requireAdmin(req, res)) return;
     const body = await readBody(req);
+    const studentId = validateIdentifier(body.studentId, "studentId");
     const gradeId = validateIdentifier(body.gradeId, "gradeId");
+    const student = db.prepare("SELECT student_id AS studentId, grade_id AS gradeId, status FROM student_accounts WHERE student_id = ?").get(studentId);
+    if (!student || student.status !== "active") return send(res, 409, { ok: false, message: "ابتدا پروفایل موجود را در پنل مدیریت ثبت کنید." });
     const academicYear = String(body.academicYear || academicPeriod().academicYear).trim();
     const renewalMode = String(body.renewalMode || "promotion").trim().toLowerCase();
     if (!["promotion", "repeat"].includes(renewalMode)) {
@@ -1233,6 +1246,14 @@ async function adminCreateCodes(req, res) {
     if (targetYear === activeYear && renewalMode === "repeat") {
         return send(res, 400, { ok: false, message: "کد تکرار پایه فقط برای سال تحصیلی بعد قابل ساخت است." });
     }
+    const currentLevel = gradeLevel(student.gradeId);
+    const targetLevel = gradeLevel(gradeId);
+    const allowedGrade = targetYear === activeYear ? targetLevel === currentLevel :
+        renewalMode === "promotion" ? targetLevel === currentLevel + 1 : targetLevel === currentLevel;
+    if (!Number.isInteger(currentLevel) || !Number.isInteger(targetLevel) ||
+        currentLevel < 1 || currentLevel > 6 || targetLevel < 1 || targetLevel > 6 || !allowedGrade) {
+        return send(res, 409, { ok: false, message: "پایهٔ کد با پایهٔ فعلی پروفایل و نوع تمدید سازگار نیست." });
+    }
 
     const count = Math.min(Math.max(Number(body.count || 1), 1), 100);
 
@@ -1244,19 +1265,19 @@ async function adminCreateCodes(req, res) {
     const now = new Date().toISOString();
     const insert = db.prepare(`
         INSERT INTO activation_codes
-            (code_hash, code_preview, product_id, grade_id, academic_year, renewal_mode, status, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, 'active', ?)
+            (code_hash, code_preview, product_id, student_id, grade_id, academic_year, renewal_mode, status, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?)
     `);
 
     db.exec("BEGIN IMMEDIATE");
     try {
         for (let i = 0; i < count; i++) {
             const code = makeCode(gradeId, academicYear);
-            insert.run(hashCode(code), codePreview(code), PRODUCT_ID, gradeId, academicYear, renewalMode, now);
+            insert.run(hashCode(code), codePreview(code), PRODUCT_ID, studentId, gradeId, academicYear, renewalMode, now);
             created.push(code);
         }
         audit("codes.created", "admin", {
-            metadata: { gradeId, academicYear, renewalMode, count }
+            metadata: { studentId, gradeId, academicYear, renewalMode, count }
         });
         db.exec("COMMIT");
     } catch (error) {
@@ -1264,13 +1285,13 @@ async function adminCreateCodes(req, res) {
         throw error;
     }
 
-    return send(res, 201, { ok: true, codes: created });
+    return send(res, 201, { ok: true, codes: created, studentId });
 }
 
 async function adminListCodes(req, res) {
     if (!requireAdmin(req, res)) return;
     const rows = db.prepare(`
-        SELECT code_preview AS codePreview, product_id AS productId,
+        SELECT code_preview AS codePreview, product_id AS productId, student_id AS studentId,
                grade_id AS gradeId, academic_year AS academicYear,
                renewal_mode AS renewalMode,
                status, created_at AS createdAt, used_at AS usedAt,
@@ -1777,6 +1798,11 @@ if (req.method === "GET" && req.url === "/api/metrics") {
         if (req.method === "GET" && req.url === "/api/admin/session") {
             return send(res, 200, { ok: adminAuthorized(req) });
         }
+
+        if (req.method === "GET" && req.url === "/api/admin/students") return adminListStudents(req, res);
+        if (req.method === "POST" && req.url === "/api/admin/students") return await adminCreateStudent(req, res);
+        if (req.method === "POST" && req.url === "/api/admin/students/import") return await adminImportStudents(req, res);
+        if (req.method === "POST" && req.url === "/api/admin/students/archive") return await adminArchiveStudent(req, res);
 
         if (req.method === "GET" && req.url === "/api/public-key") {
             return send(res, 200, {
