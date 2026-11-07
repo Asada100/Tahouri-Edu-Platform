@@ -387,6 +387,34 @@ async function adminRoute(request, env, url, headers) {
       licenseRevocations: 0, responses5xx: 0, note: "آمار لحظه‌ای درخواست‌ها در این نسخه نگهداری نمی‌شود." } }, 200, headers);
   }
   if (path === "/api/metrics/alerts" && request.method === "GET") return json({ ok: true, alerts: [] }, 200, headers);
+  if (path === "/api/admin/students" && request.method === "GET") {
+    const students = await listRows(env, "SELECT student_id AS studentId, full_name AS fullName, grade_id AS gradeId, status, created_at AS createdAt, updated_at AS updatedAt FROM student_accounts ORDER BY created_at DESC LIMIT 1000");
+    return json({ ok: true, students }, 200, headers);
+  }
+  if (path === "/api/admin/students" && request.method === "POST") {
+    const body = await bodyJson(request);
+    const result = await importStudentProfiles(env, [body]);
+    const profile = normalizeStudentProfiles([body])[0];
+    const student = await env.DB.prepare("SELECT student_id AS studentId, full_name AS fullName, grade_id AS gradeId, status, created_at AS createdAt, updated_at AS updatedAt FROM student_accounts WHERE student_id = ?").bind(profile.studentId).first();
+    return json({ ok: true, student, alreadyRegistered: result.alreadyRegistered === 1 }, result.imported ? 201 : 200, headers);
+  }
+  if (path === "/api/admin/students/import" && request.method === "POST") {
+    const body = await bodyJson(request);
+    const result = await importStudentProfiles(env, body.profiles);
+    return json({ ok: true, ...result }, 200, headers);
+  }
+  if (path === "/api/admin/students/archive" && request.method === "POST") {
+    const body = await bodyJson(request);
+    const studentId = validIdentifier(body.studentId, "studentId");
+    const updatedAt = nowIso();
+    const results = await env.DB.batch([
+      env.DB.prepare("INSERT INTO audit_log (event_type, actor, license_id, code_hash, created_at, metadata_json) SELECT 'student.archived', 'admin', NULL, NULL, ?, ? WHERE EXISTS (SELECT 1 FROM student_accounts WHERE student_id = ? AND status = 'active')").bind(updatedAt, JSON.stringify({ studentId }), studentId),
+      env.DB.prepare("UPDATE student_accounts SET status = 'archived', updated_at = ? WHERE student_id = ? AND status = 'active'").bind(updatedAt, studentId),
+      env.DB.prepare("UPDATE activation_codes SET status = 'revoked' WHERE student_id = ? AND status = 'active' AND used_at IS NULL").bind(studentId)
+    ]);
+    if (!results?.[0]?.meta?.changes || !results?.[1]?.meta?.changes) return error("حساب فعال دانش‌آموز پیدا نشد.", 404, headers);
+    return json({ ok: true }, 200, headers);
+  }
   if (path === "/api/admin/codes" && request.method === "GET") {
     const codes = await listRows(env, `SELECT code_preview AS codePreview, product_id AS productId,
       grade_id AS gradeId, academic_year AS academicYear, renewal_mode AS renewalMode, status,
