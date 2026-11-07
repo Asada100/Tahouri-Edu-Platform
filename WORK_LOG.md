@@ -103,3 +103,28 @@ The grade-mismatch test used a different student ID from the one to which the te
 ### Current validation state
 - Corrective test change committed: `b558d0ef484fa0e45174a4b6c518f364636febd7`.
 - A fresh full CI run is still required. Do not mark this implementation as tested until integration, migration, and backup/recovery checks complete.
+
+
+## 2026-11-07 — Full License API CI passed
+
+### Passing runs on the current implementation
+- Workflow run `42409368944`: PASS.
+- Workflow run `42409369151`: PASS.
+- Both runs completed all 14 job steps successfully:
+  - release artifact checks;
+  - Worker module syntax;
+  - profile export module syntax;
+  - admin CSP;
+  - security tests;
+  - non-root Docker build;
+  - Caddy config;
+  - client license safety;
+  - Node API integration (including import/idempotency/conflict/authentication);
+  - SQLite migration verification;
+  - encrypted backup/recovery verification.
+- Worker activation integration test also passed, including D1 migration 0004, import, idempotency, conflicting-ID rejection, and student-bound activation.
+
+### Interpretation
+- The first CI attempt failed only because a grade-mismatch test used an ID different from the code's bound test profile. The fixture was corrected; the production identity/grade checks were not weakened.
+- The passing CI runs validate the in-memory Worker test harness and temporary SQLite Node API. They do NOT yet validate a deployed Cloudflare test Worker or the user's actual 10 profile records.
+- PR #96 remains unmerged and must remain Draft until the isolated live test environment and browser/device export-import test are complete.
