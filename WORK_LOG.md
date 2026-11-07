@@ -225,3 +225,29 @@ The user confirmed there is also one active student profile on their phone, open
 
 ### Next engineering task
 Inspect the current profile persistence and export code paths, then implement/validate a safe export route that runs within the exact GitHub Pages origin on both desktop and phone without merging/deploying PR #96. Update this log and the test guide before asking the user to perform the phone export.
+
+
+## 2026-11-07 — Inspect exact profile storage and choose a no-deploy export path
+
+### Code inspection
+- Confirmed `engine/activity/profileManager.js` uses localStorage keys `Tahouri_Profiles` and `Tahouri_Active_Profile`.
+- The stored profile records include `studentId`, `name`, `grade`, `createdAt`, and per-profile `settings`.
+- Confirmed `ProfileScreen.exportProfilesForAdmin()` already exports only `studentId`, `name`, and `grade` as `studentId`, `fullName`, and `gradeId`; it intentionally omits progress/settings.
+- The export UI exists on the PR #96 branch, but PR #96 is not merged/deployed to the production Pages app. Do not assume the button is available on the user's live GitHub Pages app.
+
+### Safe path under evaluation
+- Avoid changing or deploying the production Pages application solely to add an export button.
+- Use a temporary same-origin browser bookmarklet (or another same-origin execution method) to read the two known localStorage keys from the currently open GitHub Pages origin and download the same identity-only JSON format.
+- This approach does not need an app deployment and reads only the currently open device/browser's own localStorage. It must not send data to a server.
+- Before giving device-specific instructions, confirm whether the user's phone opens GitHub Pages in Safari or Chrome. Bookmarklet setup and activation steps differ slightly by browser/device.
+- The bookmarklet must validate the collection, active profile, unique/non-empty IDs, names, and grade IDs; it must not modify either localStorage key. If any validation fails, stop and report the issue rather than exporting a misleading list.
+
+### Current status
+- Exact storage keys and profile field names verified from source.
+- No same-origin export bookmarklet has yet been executed on the user's phone or desktop Pages browser.
+- No production Pages code changed or deployed.
+- No profile data has been read from the user's devices.
+- No D1 import or activation-code issuance.
+
+### Next action
+Confirm the phone browser (Safari or Chrome), then prepare exact bookmarklet installation/use steps for that browser. After the user runs it, inspect the downloaded JSON structure/count before any import.
