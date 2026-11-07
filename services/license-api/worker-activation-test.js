@@ -7,7 +7,7 @@ const crypto = require("node:crypto");
 const { DatabaseSync } = require("node:sqlite");
 
 const db = new DatabaseSync(":memory:");
-for (const file of ["migrations/0001_initial_schema.sql", "migrations/0002_admin_login_attempts.sql", "migrations/0003_activation_integrity_indexes.sql"]) {
+for (const file of ["migrations/0001_initial_schema.sql", "migrations/0002_admin_login_attempts.sql", "migrations/0003_activation_integrity_indexes.sql", "migrations/0004_student_accounts.sql"]) {
     db.exec(fs.readFileSync(path.join(__dirname, file), "utf8"));
 }
 
@@ -61,7 +61,7 @@ async function request(worker, env, pathName, method, body, origin = "https://as
 
 async function main() {
     const migrations = db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get();
-    assert.equal(Number(migrations.version), 3, "D1 migrations must create the version-3 activation schema.");
+    assert.equal(Number(migrations.version), 4, "D1 migrations must create the version-4 student registry schema.");
 
     const pair = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
     const privatePem = pair.privateKey.export({ type: "pkcs8", format: "pem" });
@@ -103,10 +103,44 @@ async function main() {
     const adminCookie = String(adminLogin.headers.get("set-cookie") || "").split(";")[0];
     assert.match(adminCookie, /^tahouri_admin_session=/);
 
+    const importedProfiles = [
+        { studentId: "worker-test-student", fullName: "آزمایش دانش‌آموز", gradeId: "grade6" },
+        { studentId: "student-1", fullName: "دانش‌آموز یک", gradeId: "grade6" },
+        { studentId: "student-2", fullName: "دانش‌آموز دو", gradeId: "grade6" },
+        { studentId: "student-future", fullName: "دانش‌آموز آینده", gradeId: "grade6" }
+    ];
+    const importResponse = await worker.fetch(new Request("https://api.example.test/api/admin/students/import", {
+        method: "POST",
+        headers: { "content-type": "application/json", "origin": env.ADMIN_ORIGIN, "cookie": adminCookie },
+        body: JSON.stringify({ profiles: importedProfiles })
+    }), env);
+    assert.equal(importResponse.status, 200, "Existing profile import must succeed.");
+    const importBody = await importResponse.json();
+    assert.equal(importBody.imported, 4);
+    assert.equal(importBody.alreadyRegistered, 0);
+    const duplicateImport = await worker.fetch(new Request("https://api.example.test/api/admin/students/import", {
+        method: "POST",
+        headers: { "content-type": "application/json", "origin": env.ADMIN_ORIGIN, "cookie": adminCookie },
+        body: JSON.stringify({ profiles: importedProfiles })
+    }), env);
+    assert.equal(duplicateImport.status, 200);
+    assert.deepEqual(await duplicateImport.json(), { ok: true, imported: 0, alreadyRegistered: 4, total: 4 });
+    const conflictImport = await worker.fetch(new Request("https://api.example.test/api/admin/students/import", {
+        method: "POST",
+        headers: { "content-type": "application/json", "origin": env.ADMIN_ORIGIN, "cookie": adminCookie },
+        body: JSON.stringify({ profiles: [{ ...importedProfiles[0], fullName: "نام متفاوت" }] })
+    }), env);
+    assert.equal(conflictImport.status, 409, "Conflicting student IDs must not overwrite existing accounts.");
+    const listedStudents = await worker.fetch(new Request("https://api.example.test/api/admin/students", {
+        headers: { "origin": env.ADMIN_ORIGIN, "cookie": adminCookie }
+    }), env);
+    assert.equal(listedStudents.status, 200);
+    assert.equal((await listedStudents.json()).students.length, 4);
+
     const createCodes = await worker.fetch(new Request("https://api.example.test/api/admin/codes", {
         method: "POST",
         headers: { "content-type": "application/json", "origin": env.ADMIN_ORIGIN, "cookie": adminCookie },
-        body: JSON.stringify({ gradeId: "grade7", academicYear: String(currentIranianYear() + 1), renewalMode: "promotion", count: 2 })
+        body: JSON.stringify({ studentId: "worker-test-student", gradeId: "grade7", academicYear: String(currentIranianYear() + 1), renewalMode: "promotion", count: 2 })
     }), env);
     assert.equal(createCodes.status, 201, "Worker admin code creation must succeed.");
     const createdCodes = await createCodes.json();
