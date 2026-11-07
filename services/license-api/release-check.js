@@ -95,10 +95,10 @@ if (!worker.includes("content-security-policy") || !worker.includes("document.ad
 
 const wrangler = fs.readFileSync(path.join(__dirname, "wrangler.toml"), "utf8");
 for (const marker of [
-    'name = "tahouri-license-api-audit-test"',
-    'database_name = "tahouri-license-db-audit-test"',
+    'name = "tahouri-license-api-student-import-test"',
+    'database_name = "tahouri-license-student-import-test-20261107"',
     'binding = "DB"',
-    'database_id = "00000000-0000-0000-0000-000000000000"'
+    'database_id = "57cb28b2-1aa0-4b90-bcdb-dee74b7a8367"'
 ]) {
     if (!wrangler.includes(marker)) throw new Error("Isolated audit Worker configuration marker missing: " + marker);
 }
