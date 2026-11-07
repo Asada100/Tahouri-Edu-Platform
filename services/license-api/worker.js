@@ -453,12 +453,12 @@ async function adminRoute(request, env, url, headers) {
     statements.push(env.DB.prepare(`INSERT INTO audit_log
       (event_type, actor, license_id, code_hash, created_at, metadata_json)
       VALUES ('codes.created', 'admin', NULL, NULL, ?, ?)`)
-      .bind(createdAt, JSON.stringify({ gradeId, academicYear, renewalMode, count })));
+      .bind(createdAt, JSON.stringify({ studentId, gradeId, academicYear, renewalMode, count })));
     const results = await env.DB.batch(statements);
     if (results.length !== count + 1 || results.some(result => Number(result?.meta?.changes || 0) !== 1)) {
       return error("ثبت کدها و گزارش عملیات کامل نشد.", 500, headers);
     }
-    return json({ ok: true, codes: created }, 201, headers);
+    return json({ ok: true, codes: created, studentId }, 201, headers);
   }
   if (path === "/api/admin/codes/revoke" && request.method === "POST") {
     const body = await bodyJson(request);
