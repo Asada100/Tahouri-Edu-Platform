@@ -323,6 +323,52 @@ async function licenseStatus(request, env, url, headers) {
   return json({ ok: true, valid: true, license: { licenseId: row.licenseId, studentId: row.studentId, gradeId: row.gradeId, academicYear: row.academicYear, validFrom: row.validFrom, validUntil: row.validUntil, status: row.status === "future" ? "active" : row.status } }, 200, headers);
 }
 
+function normalizeStudentProfiles(profiles) {
+  if (!Array.isArray(profiles) || profiles.length < 1 || profiles.length > 100) {
+    throw Object.assign(new Error("فهرست پروفایل‌ها باید بین ۱ تا ۱۰۰ مورد داشته باشد."), { status: 400 });
+  }
+  const normalized = new Map();
+  for (const item of profiles) {
+    const studentId = validIdentifier(item?.studentId, "studentId");
+    const fullName = bounded(item?.fullName ?? item?.name, 160, "نام دانش‌آموز");
+    const gradeId = validIdentifier(item?.gradeId ?? item?.grade, "gradeId");
+    if (!/^grade[1-6]$/.test(gradeId)) throw Object.assign(new Error("پایهٔ دانش‌آموز معتبر نیست."), { status: 400 });
+    const prior = normalized.get(studentId);
+    if (prior && (prior.fullName !== fullName || prior.gradeId !== gradeId)) {
+      throw Object.assign(new Error("یک شناسه در فایل با اطلاعات متفاوت تکرار شده است."), { status: 400 });
+    }
+    normalized.set(studentId, { studentId, fullName, gradeId });
+  }
+  return [...normalized.values()];
+}
+
+async function importStudentProfiles(env, profiles) {
+  const normalized = normalizeStudentProfiles(profiles);
+  const imported = [];
+  let alreadyRegistered = 0;
+  for (const profile of normalized) {
+    const existing = await env.DB.prepare("SELECT full_name AS fullName, grade_id AS gradeId, status FROM student_accounts WHERE student_id = ?").bind(profile.studentId).first();
+    if (!existing) { imported.push(profile); continue; }
+    if (existing.fullName !== profile.fullName || existing.gradeId !== profile.gradeId || existing.status !== "active") {
+      throw Object.assign(new Error("این شناسه قبلاً با اطلاعات متفاوت ثبت شده یا بایگانی شده است: " + profile.studentId), { status: 409 });
+    }
+    alreadyRegistered++;
+  }
+  if (imported.length) {
+    const createdAt = nowIso();
+    const statements = [];
+    for (const profile of imported) {
+      statements.push(env.DB.prepare("INSERT INTO student_accounts (student_id, full_name, grade_id, status, created_at, updated_at) VALUES (?, ?, ?, 'active', ?, ?)").bind(profile.studentId, profile.fullName, profile.gradeId, createdAt, createdAt));
+      statements.push(env.DB.prepare("INSERT INTO audit_log (event_type, actor, license_id, code_hash, created_at, metadata_json) VALUES ('student.imported', 'admin', NULL, NULL, ?, ?)").bind(createdAt, JSON.stringify({ studentId: profile.studentId, gradeId: profile.gradeId })));
+    }
+    const results = await env.DB.batch(statements);
+    if (results.length !== statements.length || results.some(result => Number(result?.meta?.changes || 0) !== 1)) {
+      throw Object.assign(new Error("ورود فهرست پروفایل‌ها کامل نشد."), { status: 500 });
+    }
+  }
+  return { imported: imported.length, alreadyRegistered, total: normalized.length };
+}
+
 async function adminRoute(request, env, url, headers) {
   const path = url.pathname;
   if (path === "/api/admin/login" && request.method === "POST") return login(request, env, headers);
