@@ -796,20 +796,19 @@ function seedTestCodes() {
         [`GRADE6-${academicYear}-TEST-C`, "grade6"]
     ];
 
+    const insertStudent = db.prepare("INSERT OR IGNORE INTO student_accounts (student_id, full_name, grade_id, status, created_at, updated_at) VALUES (?, ?, ?, 'active', ?, ?)");
     const statement = db.prepare(`
         INSERT OR IGNORE INTO activation_codes
-            (code_hash, code_preview, product_id, grade_id, academic_year, status, created_at)
-        VALUES (?, ?, ?, ?, ?, 'active', ?)
+            (code_hash, code_preview, product_id, student_id, grade_id, academic_year, status, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, 'active', ?)
     `);
 
     const now = new Date().toISOString();
     for (const [code, gradeId] of codes) {
-        statement.run(hashCode(code), codePreview(code), PRODUCT_ID, gradeId, academicYear, now);
+        const studentId = gradeId === "grade6" ? "integration-student" : "test-student-" + gradeId;
+        insertStudent.run(studentId, "پروفایل آزمایشی " + gradeId, gradeId, now, now);
+        statement.run(hashCode(code), codePreview(code), PRODUCT_ID, studentId, gradeId, academicYear, now);
     }
-}
-
-if (!IS_PRODUCTION && process.env.TAHOURI_TEST_CODES !== "false") {
-    seedTestCodes();
 }
 
 async function activate(req, res) {
@@ -1965,6 +1964,10 @@ function startupRecoveryCheck() {
 }
 
 const startupHealthy = startupRecoveryCheck();
+
+if (startupHealthy && !IS_PRODUCTION && process.env.TAHOURI_TEST_CODES !== "false") {
+    seedTestCodes();
+}
 
 if (startupHealthy) {
     audit("service.started", "system", { environment: SERVICE_ENVIRONMENT, serviceVersion: SERVICE_VERSION, buildId: BUILD_ID, instanceId: INSTANCE_ID });
