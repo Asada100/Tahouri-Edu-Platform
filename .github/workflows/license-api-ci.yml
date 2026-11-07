@@ -43,6 +43,22 @@ jobs:
       - name: Validate existing profile export module syntax
         run: node --check ../../engine/ui/profileScreen.js
 
+      - name: Smoke test isolated Cloudflare student-import Worker
+        env:
+          TEST_WORKER_URL: https://tahouri-license-api-student-import-test.asadtahouri1986.workers.dev
+        run: |
+          for attempt in $(seq 1 10); do
+            if response=$(curl --fail --silent --show-error "$TEST_WORKER_URL/api/health"); then
+              break
+            fi
+            sleep 3
+          done
+          echo "$response"
+          node -e 'const d=JSON.parse(process.argv[1]); if (!d.ok || d.status !== "healthy" || d.database !== "connected" || d.schemaVersion !== 4) process.exit(1)' "$response"
+          curl --fail --silent --show-error "$TEST_WORKER_URL/admin" | grep -q "اتصال پروفایل‌های موجود بازی"
+          status=$(curl --silent --output /dev/null --write-out "%{http_code}" "$TEST_WORKER_URL/api/admin/students")
+          test "$status" = "401"
+
       - name: Production admin CSP validation
         run: |
           node --check admin/admin.js
