@@ -439,6 +439,7 @@ async function studentAuthRoute(request, env, url, headers) {
     const body = await bodyJson(request);
     const studentId = validIdentifier(body.studentId, "شناسهٔ دانش‌آموز");
     const password = typeof body.password === "string" ? body.password : "";
+    if (password.length > 128) return error("رمز عبور معتبر نیست.", 400, headers);
     const ipHash = await sha256(request.headers.get("CF-Connecting-IP") || "unknown");
     const rateKey = "login:" + ipHash + ":" + await sha256(studentId);
     if (!await studentRateLimit(env, rateKey, 5)) return error("ورود موقتاً قفل شده است. ۱۵ دقیقه بعد دوباره تلاش کنید.", 429, headers);
