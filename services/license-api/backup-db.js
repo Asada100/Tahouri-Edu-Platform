@@ -44,11 +44,15 @@ try {
 try {
     const verify = new DatabaseSync(plainBackupFile);
     try {
+        const schemaVersion = Number(verify.prepare("PRAGMA user_version").get().user_version || 0);
+        if (![1, 2].includes(schemaVersion)) throw new Error("Unsupported database schema version: " + schemaVersion);
+        const requiredNames = ["activation_codes", "licenses", "audit_log", "payments"];
+        if (schemaVersion >= 2) requiredNames.push("student_accounts");
+        const placeholders = requiredNames.map(() => "?").join(",");
         const tables = verify.prepare(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('activation_codes','licenses','audit_log','payments','student_accounts') ORDER BY name"
-        ).all().map(row => row.name);
-
-        const expected = ["activation_codes", "audit_log", "licenses", "payments", "student_accounts"];
+            "SELECT name FROM sqlite_master WHERE type='table' AND name IN (" + placeholders + ") ORDER BY name"
+        ).all(...requiredNames).map(row => row.name);
+        const expected = [...requiredNames].sort();
         if (JSON.stringify(tables) !== JSON.stringify(expected)) {
             throw new Error("Backup verification failed: required tables are missing.");
         }
