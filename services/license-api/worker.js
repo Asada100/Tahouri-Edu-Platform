@@ -556,13 +556,13 @@ async function health(env, headers, requestId) {
     const result = await env.DB.prepare("SELECT MAX(version) AS version FROM schema_migrations").first();
     schemaVersion = Number(result?.version || 0);
     const requiredTables = await env.DB.prepare(
-      "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name IN ('activation_codes','licenses','audit_log','payments','admin_sessions','admin_login_attempts','schema_migrations')"
+      "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name IN ('activation_codes','licenses','audit_log','payments','admin_sessions','admin_login_attempts','schema_migrations','student_accounts')"
     ).first();
     const requiredIndexes = await env.DB.prepare(
-      "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'index' AND name IN ('idx_audit_actor_event_created','idx_licenses_code_hash_unique','idx_activation_grade_year_status')"
+      "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'index' AND name IN ('idx_audit_actor_event_created','idx_licenses_code_hash_unique','idx_activation_grade_year_status','idx_student_accounts_grade_status','idx_activation_student_status')"
     ).first();
-    database = schemaVersion >= 3 && Number(requiredTables?.count || 0) === 7 &&
-      Number(requiredIndexes?.count || 0) === 3
+    database = schemaVersion >= 4 && Number(requiredTables?.count || 0) === 8 &&
+      Number(requiredIndexes?.count || 0) === 5
       ? "connected" : "schema_incomplete";
   } catch { database = "unavailable_or_unmigrated"; }
   let signingReady = false;
