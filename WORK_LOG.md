@@ -158,3 +158,36 @@ The grade-mismatch test used a different student ID from the one to which the te
 2. Confirm the static validation workflow passes and the preview ZIP artifact is generated.
 3. Provide the test ZIP, Worker URL, and test login details to the user.
 4. User exports the existing 10 profiles from the same localStorage origin, imports them into the test panel, and confirms the IDs/count. Do not issue activation codes.
+
+
+## 2026-11-07 — Isolated runtime smoke test and preview package passed
+
+### Final CI runs on branch head `10a7e94302dc392fa1904803cd8f814b7e8a68bc`
+- License API CI run `42410058163`: PASS (all steps).
+  - Includes release artifact check.
+  - Worker module syntax and profile export module syntax.
+  - Live HTTP smoke test against the isolated Cloudflare Worker.
+  - Admin CSP, security, Docker/Caddy, client safety.
+  - Node integration, SQLite migration, encrypted backup/recovery.
+- Static validation run `42410058115`: PASS (all validation steps); Pages deploy job was skipped as expected for a pull request.
+- PR preview package run `42410058111`: PASS; artifact uploaded.
+
+### Live test Worker result
+- GitHub Actions successfully reached the isolated Worker.
+- `GET /api/health` returned healthy with database connected and schema version 4.
+- `GET /admin` served the admin panel containing the profile import controls.
+- Unauthenticated `GET /api/admin/students` returned HTTP 401 as expected.
+- After the smoke test, D1 was rechecked: students=0, activation codes=0, licenses=0.
+
+### Preview package
+- GitHub artifact ID: `13589061000`.
+- Artifact name: `tahouri-student-profile-import-preview`.
+- Retention expiry: 2026-11-14.
+- Downloaded and verified the inner preview ZIP; it contains the updated `engine/ui/profileScreen.js`, Worker source, and `STUDENT_PROFILE_IMPORT_TEST.md`.
+- Local file created for delivery: `/mnt/data/Tahouri-Student-Profile-Import-Preview.zip`.
+
+### Current status and safety
+- PR #96 remains Draft and unmerged.
+- Separate test Worker and EU D1 are live; production Worker and production D1 are untouched.
+- The test D1 is empty. No real student profiles, activation codes, or licenses have been imported/issued.
+- The user-side test is now possible: serve the preview ZIP from the same browser origin/port where the existing local profiles are stored, export the 10 profile identities, and import them into the test admin panel. Do not issue activation codes during this test.
