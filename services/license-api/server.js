@@ -1268,7 +1268,7 @@ async function adminCreateCodes(req, res) {
     }
     const targetYear = Number(academicYear);
     const activeYear = currentAcademicYear();
-    if (!/^\\d{4}$/.test(academicYear) || !Number.isInteger(targetYear) ||
+    if (!/^\d{4}$/.test(academicYear) || !Number.isInteger(targetYear) ||
         targetYear < activeYear || targetYear > activeYear + 1) {
         return send(res, 400, { ok: false, message: "سال تحصیلی باید سال جاری یا سال تحصیلی بعد باشد." });
     }
