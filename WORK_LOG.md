@@ -81,3 +81,25 @@ Connect the existing student profiles already stored in Tahouri (currently repor
 1. Run the full License API CI suite and inspect failures.
 2. Confirm profile-screen static checks, admin CSP checks, Worker migration/activation tests, Node integration tests, SQLite migration tests, and backup/recovery tests.
 3. Fix failures and repeat until green; only then prepare a draft test PR against PR #94 for review.
+
+
+## 2026-11-07 — First CI result and corrective test fixture
+
+### CI run 42409103400 (PR #96)
+- PASS: release artifact check.
+- PASS: Cloudflare Worker module syntax.
+- PASS: production admin CSP validation.
+- PASS: security test.
+- PASS: non-root production Docker image build/check.
+- PASS: production Caddy configuration.
+- PASS: client license safety test.
+- PASS: Worker activation integration test, including import/idempotency/conflict tests.
+- FAIL: Node integration test stopped at the existing "Grade mismatch was accepted" assertion.
+- Migration and backup/recovery jobs were skipped because the workflow stops after the integration failure.
+
+### Root cause and correction
+The grade-mismatch test used a different student ID from the one to which the test code was bound. With the new student-binding guard, the request correctly failed at the identity check (HTTP 409) before reaching the grade-mismatch check (HTTP 400). The test fixture was corrected to use the code's bound test profile so it now tests the intended grade-mismatch rule. No production code was weakened.
+
+### Current validation state
+- Corrective test change committed: `b558d0ef484fa0e45174a4b6c518f364636febd7`.
+- A fresh full CI run is still required. Do not mark this implementation as tested until integration, migration, and backup/recovery checks complete.
