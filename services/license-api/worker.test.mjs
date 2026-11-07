@@ -80,7 +80,7 @@ function adminEnv(calls, studentRecord = { student_id: "student-123", grade_id: 
           if (sql.includes("FROM student_accounts")) {
             return studentRecord &&
               studentRecord.student_id === this.values[0] &&
-              studentRecord.grade_id === this.values[1] &&
+              (!this.values[1] || studentRecord.grade_id === this.values[1]) &&
               studentRecord.status === "active" ? studentRecord : null;
           }
           return null;
@@ -102,23 +102,52 @@ function adminEnv(calls, studentRecord = { student_id: "student-123", grade_id: 
   return { batches, DB };
 }
 
-test("admin can register a student account and writes its audit event atomically", async () => {
+test("admin registers an existing profile without generating a replacement ID", async () => {
   const calls = [];
-  const env = adminEnv(calls);
+  const env = adminEnv(calls, null);
   const response = await worker.fetch(new Request("https://api.example.workers.dev/api/admin/students", {
     method: "POST",
     headers: { "Content-Type": "application/json", Cookie: "tahouri_admin_session=test-session" },
-    body: JSON.stringify({ fullName: "دانش‌آموز آزمایشی", gradeId: "grade6" })
+    body: JSON.stringify({ studentId: "existing-profile-123", fullName: "دانش‌آموز آزمایشی", gradeId: "grade6" })
   }), env);
   const body = await response.json();
   assert.equal(response.status, 201);
-  assert.match(body.student.studentId, /^stu_[a-f0-9]{32}$/);
+  assert.equal(body.student.studentId, "existing-profile-123");
   assert.equal(body.student.fullName, "دانش‌آموز آزمایشی");
   assert.equal(body.student.gradeId, "grade6");
   assert.equal(env.batches.length, 1);
   assert.equal(env.batches[0].length, 2);
   assert.match(env.batches[0][0].sql, /INSERT INTO student_accounts/);
-  assert.match(env.batches[0][1].sql, /student.created/);
+  assert.match(env.batches[0][1].sql, /student.imported/);
+});
+
+test("admin imports multiple existing profiles in one batch", async () => {
+  const calls = [];
+  const env = adminEnv(calls, null);
+  const response = await worker.fetch(new Request("https://api.example.workers.dev/api/admin/students/import", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: "tahouri_admin_session=test-session" },
+    body: JSON.stringify({ profiles: [
+      { studentId: "existing-profile-123", fullName: "دانش‌آموز یک", gradeId: "grade6" },
+      { studentId: "existing-profile-456", fullName: "دانش‌آموز دو", gradeId: "grade5" }
+    ] })
+  }), env);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.imported, 2);
+  assert.equal(body.alreadyRegistered, 0);
+  assert.equal(body.total, 2);
+  assert.equal(env.batches.length, 1);
+  assert.equal(env.batches[0].length, 4);
+});
+
+test("admin student registration rejects missing existing profile IDs", async () => {
+  const response = await worker.fetch(new Request("https://api.example.workers.dev/api/admin/students", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: "tahouri_admin_session=test-session" },
+    body: JSON.stringify({ fullName: "شناسه ندارد", gradeId: "grade6" })
+  }), adminEnv([], null));
+  assert.equal(response.status, 400);
 });
 
 test("archiving a student also revokes every unused active activation code", async () => {

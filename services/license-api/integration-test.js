@@ -82,30 +82,46 @@ async function main() {
     try {
         await waitForServer(child);
 
+        const login = await request("POST", "/api/admin/login", { password: "TAHOURI-ADMIN-TEST" });
+        assert(login.status === 200 && login.data.ok, "Admin login failed.");
+        const cookie = login.headers["set-cookie"]?.[0]?.split(";")[0];
+        assert(cookie, "Admin session cookie missing.");
+
+        const iranParts = Object.fromEntries(
+            new Intl.DateTimeFormat("en-US-u-ca-persian", {
+                timeZone: "Asia/Tehran", year: "numeric", month: "numeric"
+            }).formatToParts(new Date())
+              .filter(part => part.type !== "literal")
+              .map(part => [part.type, Number(part.value)])
+        );
+        const activeAcademicYear = iranParts.month >= 7 ? iranParts.year : iranParts.year - 1;
+
+        const registered = await request("POST", "/api/admin/students", {
+            studentId: "integration-student", fullName: "Integration Student", gradeId: "grade5"
+        }, { Cookie: cookie });
+        assert(registered.status === 201 && registered.data.student.studentId === "integration-student",
+            "Existing student profile registration failed or its ID changed.");
+
+        const initialCode = await request("POST", "/api/admin/codes", {
+            studentId: "integration-student", gradeId: "grade5",
+            academicYear: String(activeAcademicYear), renewalMode: "promotion"
+        }, { Cookie: cookie });
+        assert(initialCode.status === 201 && initialCode.data.codes?.length === 1,
+            "Student-bound current-year code creation failed.");
+
         const activation = await request("POST", "/api/licenses/activate", {
-            code: "GRADE6-1405-TEST-A",
-            gradeId: "grade6",
-            studentId: "integration-student",
-            installationId: "integration-installation"
+            code: initialCode.data.codes[0], gradeId: "grade5",
+            studentId: "integration-student", installationId: "integration-installation"
         });
         assert(activation.status === 200 && activation.data.valid, "Activation failed.");
         assert(activation.data.entitlement?.claims?.studentId === "integration-student", "Student binding missing.");
-        assert(activation.data.entitlement?.claims?.gradeScope === "grade6", "Grade binding missing.");
+        assert(activation.data.entitlement?.claims?.gradeScope === "grade5", "Grade binding missing.");
         assert(Number.isFinite(Date.parse(activation.data.entitlement.claims.validUntil)), "Expiry is invalid.");
 
         const metricsUnauthenticated = await request("GET", "/api/metrics");
         assert(metricsUnauthenticated.status === 401, "Metrics endpoint must require admin authentication.");
-
-        const login = await request("POST", "/api/admin/login", { password: "TAHOURI-ADMIN-TEST" });
-        const adminCookie = Array.isArray(login.headers["set-cookie"]) ? login.headers["set-cookie"][0].split(";")[0] : "";
-        assert(adminCookie, "Admin login did not return a session cookie.");
-
-        const metricsAuthenticated = await request("GET", "/api/metrics", undefined, { Cookie: adminCookie });
+        const metricsAuthenticated = await request("GET", "/api/metrics", undefined, { Cookie: cookie });
         assert(metricsAuthenticated.status === 200 && metricsAuthenticated.data.ok, "Authenticated metrics failed.");
-
-        assert(login.status === 200 && login.data.ok, "Admin login failed.");
-        const cookie = login.headers["set-cookie"]?.[0]?.split(";")[0];
-        assert(cookie, "Admin session cookie missing.");
 
         const list = await request("GET", "/api/admin/licenses", undefined, { Cookie: cookie });
         assert(list.status === 200 && list.data.licenses?.length === 1, "License was not listed.");
@@ -117,12 +133,19 @@ async function main() {
         assert(extended.data.entitlement.claims.validUntil === extension, "Extended expiry was not signed.");
 
         const reuse = await request("POST", "/api/licenses/activate", {
-            code: "GRADE6-1405-TEST-A", gradeId: "grade6", studentId: "second-student", installationId: "second-installation"
+            code: initialCode.data.codes[0], gradeId: "grade5",
+            studentId: "integration-student", installationId: "second-installation"
         });
         assert(reuse.status === 409, "Used activation code was reusable.");
 
+        const mismatchCode = await request("POST", "/api/admin/codes", {
+            studentId: "integration-student", gradeId: "grade5",
+            academicYear: String(activeAcademicYear), renewalMode: "promotion"
+        }, { Cookie: cookie });
+        assert(mismatchCode.status === 201, "Could not create the grade-mismatch test code.");
         const wrongGrade = await request("POST", "/api/licenses/activate", {
-            code: "GRADE6-1405-TEST-B", gradeId: "grade5", studentId: "wrong-grade-student", installationId: "wrong-grade-installation"
+            code: mismatchCode.data.codes[0], gradeId: "grade6",
+            studentId: "integration-student", installationId: "wrong-grade-installation"
         });
         assert(wrongGrade.status === 400, "Grade mismatch was accepted.");
 
@@ -187,46 +210,38 @@ async function main() {
         const badStatus = await request("GET", "/api/licenses/status?licenseId=" + encodeURIComponent("license id with spaces"));
         assert(badStatus.status === 400, "Invalid license identifier was accepted.");
 
-        const iranParts = Object.fromEntries(
-            new Intl.DateTimeFormat("en-US-u-ca-persian", {
-                timeZone: "Asia/Tehran",
-                year: "numeric",
-                month: "numeric",
-                day: "numeric"
-            }).formatToParts(new Date())
-              .filter(part => part.type !== "literal")
-              .map(part => [part.type, Number(part.value)])
-        );
-        const activeAcademicYear = iranParts.month >= 7 ? iranParts.year : iranParts.year - 1;
         const nextAcademicYear = String(activeAcademicYear + 1);
 
-        const promotionCodes = await request("POST", "/api/admin/codes", {
-            gradeId: "grade7",
-            academicYear: nextAcademicYear,
-            count: 3
-        }, { Cookie: cookie });
-        assert(promotionCodes.status === 201 && promotionCodes.data.codes?.length === 3, "Grade 7 next-year promotion codes were not created.");
+        const promotionCodes = { status: 201, data: { codes: [] } };
+        for (let i = 0; i < 3; i++) {
+            const result = await request("POST", "/api/admin/codes", {
+                studentId: "integration-student", gradeId: "grade6",
+                academicYear: nextAcademicYear, renewalMode: "promotion"
+            }, { Cookie: cookie });
+            assert(result.status === 201 && result.data.codes?.length === 1,
+                "Grade 5 → Grade 6 next-year promotion code was not created.");
+            promotionCodes.data.codes.push(result.data.codes[0]);
+        }
 
         const repeatCodes = await request("POST", "/api/admin/codes", {
-            gradeId: "grade6",
-            academicYear: nextAcademicYear,
-            renewalMode: "repeat",
-            count: 1
+            studentId: "integration-student", gradeId: "grade5",
+            academicYear: nextAcademicYear, renewalMode: "repeat"
         }, { Cookie: cookie });
-        assert(repeatCodes.status === 201 && repeatCodes.data.codes?.length === 1, "Grade 6 next-year repeat code creation failed.");
+        assert(repeatCodes.status === 201 && repeatCodes.data.codes?.length === 1,
+            "Grade 5 next-year repeat code creation failed.");
 
         const promotionActivation = await request("POST", "/api/licenses/activate", {
             code: promotionCodes.data.codes[0],
-            gradeId: "grade7",
+            gradeId: "grade6",
             studentId: "integration-student",
             installationId: "integration-installation",
             renewalMode: "promotion"
         });
-        assert(promotionActivation.status === 200 && promotionActivation.data.valid, "Grade 6 → Grade 7 next-year promotion failed.");
+        assert(promotionActivation.status === 200 && promotionActivation.data.valid, "Grade 5 → Grade 6 next-year promotion failed.");
         assert(promotionActivation.data.renewalStored === true, "Future promotion was not marked as stored.");
         assert(
-            promotionActivation.data.entitlement.claims.gradeScope === "grade7",
-            "Promotion entitlement must be bound to Grade 7."
+            promotionActivation.data.entitlement.claims.gradeScope === "grade6",
+            "Promotion entitlement must be bound to Grade 6."
         );
         assert(
             promotionActivation.data.entitlement.claims.academicYear === nextAcademicYear,
@@ -247,24 +262,24 @@ async function main() {
 
         const tamperedPromotion = await request("POST", "/api/licenses/activate", {
             code: promotionCodes.data.codes[1],
-            gradeId: "grade6",
+            gradeId: "grade5",
             studentId: "integration-student",
             installationId: "integration-installation",
             renewalMode: "promotion"
         });
-        assert(tamperedPromotion.status === 400, "A Grade 7 promotion code must reject a tampered Grade 6 request.");
+        assert(tamperedPromotion.status === 400, "A Grade 6 promotion code must reject a tampered Grade 5 request.");
 
         const invalidSameGradePromotion = await request("POST", "/api/licenses/activate", {
             code: repeatCodes.data.codes[0],
-            gradeId: "grade6",
+            gradeId: "grade5",
             studentId: "integration-student",
             installationId: "integration-installation",
             renewalMode: "promotion"
         });
-        assert(invalidSameGradePromotion.status === 409, "A Grade 6 next-year code must not be usable as a promotion.");
+        assert(invalidSameGradePromotion.status === 409, "A Grade 5 repeat code must not be usable as a promotion.");
         const repeatActivation = await request("POST", "/api/licenses/activate", {
             code: repeatCodes.data.codes[0],
-            gradeId: "grade6",
+            gradeId: "grade5",
             studentId: "integration-student",
             installationId: "integration-installation",
             renewalMode: "repeat"
@@ -272,18 +287,18 @@ async function main() {
         assert(repeatActivation.status === 200 && repeatActivation.data.valid, "Same-grade repeat renewal failed.");
         assert(repeatActivation.data.renewalStored === true, "Future repeat renewal was not marked as stored.");
         assert(
-            repeatActivation.data.entitlement.claims.gradeScope === "grade6",
-            "Repeat entitlement must remain bound to Grade 6."
+            repeatActivation.data.entitlement.claims.gradeScope === "grade5",
+            "Repeat entitlement must remain bound to Grade 5."
         );
 
         const wrongProfileRenewal = await request("POST", "/api/licenses/activate", {
             code: promotionCodes.data.codes[2],
-            gradeId: "grade7",
+            gradeId: "grade6",
             studentId: "other-profile",
             installationId: "other-installation",
             renewalMode: "promotion"
         });
-        assert(wrongProfileRenewal.status === 409, "Future renewal must not be activatable by another profile.");
+        assert(wrongProfileRenewal.status === 400, "Future renewal must not be activatable by another profile.");
 
         const auditAfterRenewal = await request("GET", "/api/admin/audit?limit=100", undefined, { Cookie: cookie });
         assert(auditAfterRenewal.status === 200 && Array.isArray(auditAfterRenewal.data.audit), "Audit endpoint failed after renewal.");

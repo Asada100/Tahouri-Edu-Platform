@@ -187,10 +187,18 @@ async function adminRoute(request, env, url, headers) {
   }
   if (path === "/api/admin/students" && request.method === "POST") {
     const body = await bodyJson(request);
+    const studentId = validIdentifier(body.studentId, "studentId");
     const fullName = bounded(body.fullName, 160, "نام دانش‌آموز");
     const gradeId = validIdentifier(body.gradeId, "gradeId");
     if (!/^grade[1-6]$/.test(gradeId)) return error("پایهٔ دانش‌آموز معتبر نیست.", 400, headers);
-    const studentId = "stu_" + randomHex(16);
+    const existing = await env.DB.prepare(`SELECT student_id AS studentId, full_name AS fullName,
+      grade_id AS gradeId, status, created_at AS createdAt, updated_at AS updatedAt
+      FROM student_accounts WHERE student_id = ?`).bind(studentId).first();
+    if (existing) {
+      if (existing.fullName !== fullName || existing.gradeId !== gradeId || existing.status !== "active")
+        return error("این شناسه قبلاً با نام یا پایهٔ دیگری ثبت شده یا بایگانی شده است.", 409, headers);
+      return json({ ok: true, student: existing, alreadyRegistered: true }, 200, headers);
+    }
     const createdAt = nowIso();
     const results = await env.DB.batch([
       env.DB.prepare(`INSERT INTO student_accounts
@@ -199,12 +207,57 @@ async function adminRoute(request, env, url, headers) {
         .bind(studentId, fullName, gradeId, createdAt, createdAt),
       env.DB.prepare(`INSERT INTO audit_log
         (event_type, actor, license_id, code_hash, created_at, metadata_json)
-        VALUES ('student.created', 'admin', NULL, NULL, ?, ?)`)
+        VALUES ('student.imported', 'admin', NULL, NULL, ?, ?)`)
         .bind(createdAt, JSON.stringify({ studentId, gradeId }))
     ]);
     if (!results?.[0]?.meta?.changes || !results?.[1]?.meta?.changes)
       return error("ثبت حساب دانش‌آموز انجام نشد.", 500, headers);
-    return json({ ok: true, student: { studentId, fullName, gradeId, status: "active", createdAt } }, 201, headers);
+    return json({ ok: true, student: { studentId, fullName, gradeId, status: "active", createdAt }, alreadyRegistered: false }, 201, headers);
+  }
+  if (path === "/api/admin/students/import" && request.method === "POST") {
+    const body = await bodyJson(request);
+    if (!Array.isArray(body.profiles) || body.profiles.length < 1 || body.profiles.length > 100)
+      return error("فهرست پروفایل‌ها باید بین ۱ تا ۱۰۰ مورد داشته باشد.", 400, headers);
+    const normalized = new Map();
+    for (const item of body.profiles) {
+      const studentId = validIdentifier(item?.studentId, "studentId");
+      const fullName = bounded(item?.fullName ?? item?.name, 160, "نام دانش‌آموز");
+      const gradeId = validIdentifier(item?.gradeId ?? item?.grade, "gradeId");
+      if (!/^grade[1-6]$/.test(gradeId)) return error("پایهٔ دانش‌آموز معتبر نیست.", 400, headers);
+      const prior = normalized.get(studentId);
+      if (prior && (prior.fullName !== fullName || prior.gradeId !== gradeId))
+        return error("یک شناسه در فایل با اطلاعات متفاوت تکرار شده است.", 400, headers);
+      normalized.set(studentId, { studentId, fullName, gradeId });
+    }
+    const toInsert = [];
+    let alreadyRegistered = 0;
+    for (const profile of normalized.values()) {
+      const existing = await env.DB.prepare(`SELECT full_name AS fullName, grade_id AS gradeId, status
+        FROM student_accounts WHERE student_id = ?`).bind(profile.studentId).first();
+      if (!existing) {
+        toInsert.push(profile);
+        continue;
+      }
+      if (existing.fullName !== profile.fullName || existing.gradeId !== profile.gradeId || existing.status !== "active")
+        return error("این شناسه قبلاً با اطلاعات متفاوت ثبت شده یا بایگانی شده است: " + profile.studentId, 409, headers);
+      alreadyRegistered++;
+    }
+    if (toInsert.length) {
+      const createdAt = nowIso();
+      const statements = [];
+      for (const profile of toInsert) {
+        statements.push(env.DB.prepare(`INSERT INTO student_accounts
+          (student_id, full_name, grade_id, status, created_at, updated_at)
+          VALUES (?, ?, ?, 'active', ?, ?)`).bind(profile.studentId, profile.fullName, profile.gradeId, createdAt, createdAt));
+        statements.push(env.DB.prepare(`INSERT INTO audit_log
+          (event_type, actor, license_id, code_hash, created_at, metadata_json)
+          VALUES ('student.imported', 'admin', NULL, NULL, ?, ?)`).bind(createdAt, JSON.stringify({ studentId: profile.studentId, gradeId: profile.gradeId })));
+      }
+      const results = await env.DB.batch(statements);
+      if (results.some(result => !result?.meta?.changes))
+        return error("ورود فهرست پروفایل‌ها کامل نشد.", 500, headers);
+    }
+    return json({ ok: true, imported: toInsert.length, alreadyRegistered, total: normalized.size }, 200, headers);
   }
   if (path === "/api/admin/students/archive" && request.method === "POST") {
     const body = await bodyJson(request);

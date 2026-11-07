@@ -250,6 +250,8 @@ const ProfileScreen = {
     <h1>👥 پروفایل‌های دانش‌آموزان</h1>
 
     <p>پروفایل دانش‌آموز موردنظر را انتخاب کنید.</p>
+    <button id="exportProfilesForAdminBtn" type="button">دانلود فهرست پروفایل‌ها برای پنل مدیریت</button>
+    <p id="exportProfilesMessage" aria-live="polite"></p>
 
     <hr>
 
@@ -285,6 +287,13 @@ const ProfileScreen = {
 </div>
         `;
 
+        const exportButton = document.getElementById("exportProfilesForAdminBtn");
+        if (exportButton) {
+            exportButton.onclick = function () {
+                ProfileScreen.exportProfilesForAdmin();
+            };
+        }
+
         const buttons = document.querySelectorAll("[data-profile-id]");
 
         buttons.forEach(function (button) {
@@ -296,6 +305,46 @@ const ProfileScreen = {
         });
 
         console.log("Profile List Displayed:", profiles);
+    },
+
+    // =====================================
+    // Export Existing Profiles for License Admin
+    // =====================================
+
+    exportProfilesForAdmin: function () {
+        const message = document.getElementById("exportProfilesMessage");
+        try {
+            const profiles = ProfileManager.getAll().map(function (profile) {
+                return {
+                    studentId: String(profile.studentId || "").trim(),
+                    fullName: String(profile.name || "").trim(),
+                    gradeId: String(profile.grade || "").trim()
+                };
+            });
+            if (!profiles.length || profiles.some(function (profile) {
+                return !profile.studentId || !profile.fullName || !/^grade[1-6]$/.test(profile.gradeId);
+            })) {
+                throw new Error("برای خروجی گرفتن، شناسه، نام و پایهٔ همهٔ پروفایل‌ها باید معتبر باشد.");
+            }
+            const payload = {
+                format: "tahouri-student-profiles",
+                version: 1,
+                exportedAt: new Date().toISOString(),
+                profiles: profiles
+            };
+            const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = "tahouri-student-profiles.json";
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
+            if (message) message.textContent = "فهرست " + profiles.length + " پروفایل آماده شد؛ این فایل فقط شناسه، نام و پایه را دارد.";
+        } catch (error) {
+            if (message) message.textContent = error.message || "خروجی پروفایل‌ها ایجاد نشد.";
+        }
     },
 
     // =====================================

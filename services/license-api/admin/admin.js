@@ -28,13 +28,30 @@ async function createStudent(){
   try{
     const fullName=document.getElementById("studentFullName").value.trim();
     const gradeId=document.getElementById("studentGrade").value;
+    const studentId=document.getElementById("studentExistingId").value.trim();
     if(!fullName)throw Error("نام دانش‌آموز را وارد کنید.");
-    const d=await api("/api/admin/students",{method:"POST",body:JSON.stringify({fullName,gradeId})});
+    if(!studentId)throw Error("شناسهٔ دقیق پروفایل موجود الزامی است.");
+    const d=await api("/api/admin/students",{method:"POST",body:JSON.stringify({studentId,fullName,gradeId})});
     document.getElementById("studentFullName").value="";
+    document.getElementById("studentExistingId").value="";
     await loadStudents();
     document.getElementById("studentId").value=d.student.studentId;
     document.getElementById("grade").value=d.student.gradeId;
-    alert("حساب ثبت شد. شناسهٔ دانش‌آموز را در سوابق نگه دارید.");
+    alert(d.alreadyRegistered?"این پروفایل قبلاً ثبت شده بود؛ شناسه حفظ شد.":"پروفایل موجود با همان شناسه به پنل متصل شد.");
+  }catch(x){alert(x.message)}
+}
+async function importStudentsFile(){
+  try{
+    const input=document.getElementById("studentProfilesFile");
+    const file=input.files&&input.files[0];
+    if(!file)throw Error("ابتدا فایل خروجی پروفایل‌های بازی را انتخاب کنید.");
+    const data=JSON.parse(await file.text());
+    if(data.format!=="tahouri-student-profiles"||data.version!==1||!Array.isArray(data.profiles))
+      throw Error("ساختار فایل پروفایل‌های طهوری معتبر نیست.");
+    const result=await api("/api/admin/students/import",{method:"POST",body:JSON.stringify({profiles:data.profiles})});
+    input.value="";
+    await loadStudents();
+    alert("ورود فهرست تمام شد. پروفایل جدید: "+result.imported+"، قبلاً ثبت‌شده: "+result.alreadyRegistered+"، مجموع: "+result.total);
   }catch(x){alert(x.message)}
 }
 async function archiveStudent(studentId){
