@@ -1250,7 +1250,7 @@ async function adminCreateCodes(req, res) {
     const allowedGrade = targetYear === activeYear ? targetLevel === currentLevel :
         renewalMode === "promotion" ? targetLevel === currentLevel + 1 : targetLevel === currentLevel;
     if (!Number.isInteger(currentLevel) || !Number.isInteger(targetLevel) ||
-        currentLevel < 1 || currentLevel > 6 || targetLevel < 1 || targetLevel > 6 || !allowedGrade) {
+        currentLevel < 1 || currentLevel > 6 || targetLevel < 1 || targetLevel > 7 || !allowedGrade) {
         return send(res, 409, { ok: false, message: "پایهٔ کد با پایهٔ فعلی پروفایل و نوع تمدید سازگار نیست." });
     }
 
