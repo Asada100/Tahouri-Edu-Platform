@@ -5,7 +5,7 @@ on:
   push:
     branches: ["master"]
   pull_request:
-    branches: ["master"]
+    branches: ["master", "audit/platform-full-review-2026-11-06"]
   workflow_dispatch:
 
 permissions:
