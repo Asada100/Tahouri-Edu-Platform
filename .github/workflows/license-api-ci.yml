@@ -40,6 +40,9 @@ jobs:
       - name: Validate Cloudflare Worker module syntax
         run: node --input-type=module --check < worker.js
 
+      - name: Validate existing profile export module syntax
+        run: node --check ../../engine/ui/profileScreen.js
+
       - name: Production admin CSP validation
         run: |
           node --check admin/admin.js
