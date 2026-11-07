@@ -424,7 +424,11 @@ async function adminRoute(request, env, url, headers) {
   }
   if (path === "/api/admin/codes" && request.method === "POST") {
     const body = await bodyJson(request);
+    const studentId = validIdentifier(body.studentId, "studentId");
     const gradeId = validIdentifier(body.gradeId, "gradeId");
+    const student = await env.DB.prepare("SELECT student_id AS studentId, grade_id AS gradeId, status FROM student_accounts WHERE student_id = ?").bind(studentId).first();
+    if (!student || student.status !== "active") return error("ابتدا پروفایل موجود را در پنل مدیریت ثبت کنید.", 409, headers);
+    if (student.gradeId !== gradeId) return error("پایهٔ انتخاب‌شده با پایهٔ پروفایل ثبت‌شده یکسان نیست.", 409, headers);
     const academicYear = String(body.academicYear || iranianYear()).trim();
     const renewalMode = String(body.renewalMode || "promotion").toLowerCase();
     const currentYear = iranianYear();
