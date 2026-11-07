@@ -167,7 +167,7 @@ async function main() {
     const year = currentIranianYear();
     const code = "THR-GRADE6-" + year + "-ONE-TIME-TEST";
     const codeHash = await sha256(code);
-    db.prepare("INSERT INTO activation_codes (code_hash, code_preview, product_id, grade_id, academic_year, renewal_mode, status, created_at) VALUES (?, ?, 'tahouri-edu', 'grade6', ?, 'promotion', 'active', ?)")
+    db.prepare("INSERT INTO activation_codes (code_hash, code_preview, product_id, student_id, grade_id, academic_year, renewal_mode, status, created_at) VALUES (?, ?, 'tahouri-edu', 'student-1', 'grade6', ?, 'promotion', 'active', ?)")
         .run(codeHash, code.slice(0, 7) + "…" + code.slice(-6), String(year), new Date().toISOString());
 
     const wrongGrade = await request(worker, env, "/api/licenses/activate", "POST", {
@@ -216,7 +216,7 @@ async function main() {
 
     const futureCode = "THR-GRADE7-" + (year + 1) + "-FUTURE-TEST";
     const futureHash = await sha256(futureCode);
-    db.prepare("INSERT INTO activation_codes (code_hash, code_preview, product_id, grade_id, academic_year, renewal_mode, status, created_at) VALUES (?, ?, 'tahouri-edu', 'grade7', ?, 'promotion', 'active', ?)")
+    db.prepare("INSERT INTO activation_codes (code_hash, code_preview, product_id, student_id, grade_id, academic_year, renewal_mode, status, created_at) VALUES (?, ?, 'tahouri-edu', 'student-future', 'grade7', ?, 'promotion', 'active', ?)")
         .run(futureHash, futureCode.slice(0, 7) + "…" + futureCode.slice(-6),
             String(year + 1), new Date().toISOString());
 
@@ -249,7 +249,7 @@ async function main() {
 
     const repeatCode = "THR-GRADE6-" + (year + 1) + "-REPEAT-TEST";
     const repeatHash = await sha256(repeatCode);
-    db.prepare("INSERT INTO activation_codes (code_hash, code_preview, product_id, grade_id, academic_year, renewal_mode, status, created_at) VALUES (?, ?, 'tahouri-edu', 'grade6', ?, 'repeat', 'active', ?)")
+    db.prepare("INSERT INTO activation_codes (code_hash, code_preview, product_id, student_id, grade_id, academic_year, renewal_mode, status, created_at) VALUES (?, ?, 'tahouri-edu', 'student-future', 'grade6', ?, 'repeat', 'active', ?)")
         .run(repeatHash, repeatCode.slice(0, 7) + "…" + repeatCode.slice(-6),
             String(year + 1), new Date().toISOString());
     const repeatActivation = await request(worker, env, "/api/licenses/activate", "POST", {
