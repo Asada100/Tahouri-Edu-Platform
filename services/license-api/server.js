@@ -1111,6 +1111,105 @@ async function licenseStatus(req, res) {
     });
 }
 
+function normalizeStudentProfiles(profiles) {
+    if (!Array.isArray(profiles) || profiles.length < 1 || profiles.length > 100) {
+        const error = new Error("فهرست پروفایل‌ها باید بین ۱ تا ۱۰۰ مورد داشته باشد.");
+        error.statusCode = 400;
+        throw error;
+    }
+    const normalized = new Map();
+    for (const item of profiles) {
+        const studentId = validateIdentifier(item?.studentId, "studentId");
+        const fullName = boundedString(item?.fullName ?? item?.name, 160, "نام دانش‌آموز");
+        const gradeId = validateIdentifier(item?.gradeId ?? item?.grade, "gradeId");
+        if (!/^grade[1-6]$/.test(gradeId)) {
+            const error = new Error("پایهٔ دانش‌آموز معتبر نیست.");
+            error.statusCode = 400;
+            throw error;
+        }
+        const prior = normalized.get(studentId);
+        if (prior && (prior.fullName !== fullName || prior.gradeId !== gradeId)) {
+            const error = new Error("یک شناسه در فایل با اطلاعات متفاوت تکرار شده است.");
+            error.statusCode = 400;
+            throw error;
+        }
+        normalized.set(studentId, { studentId, fullName, gradeId });
+    }
+    return [...normalized.values()];
+}
+
+function registerStudentProfiles(profiles) {
+    const normalized = normalizeStudentProfiles(profiles);
+    const imported = [];
+    let alreadyRegistered = 0;
+    for (const profile of normalized) {
+        const existing = db.prepare("SELECT full_name AS fullName, grade_id AS gradeId, status FROM student_accounts WHERE student_id = ?").get(profile.studentId);
+        if (!existing) { imported.push(profile); continue; }
+        if (existing.fullName !== profile.fullName || existing.gradeId !== profile.gradeId || existing.status !== "active") {
+            const error = new Error("این شناسه قبلاً با اطلاعات متفاوت ثبت شده یا بایگانی شده است: " + profile.studentId);
+            error.statusCode = 409;
+            throw error;
+        }
+        alreadyRegistered++;
+    }
+    if (imported.length) {
+        const now = new Date().toISOString();
+        db.exec("BEGIN IMMEDIATE");
+        try {
+            const insert = db.prepare("INSERT INTO student_accounts (student_id, full_name, grade_id, status, created_at, updated_at) VALUES (?, ?, ?, 'active', ?, ?)");
+            for (const profile of imported) insert.run(profile.studentId, profile.fullName, profile.gradeId, now, now);
+            audit("students.imported", "admin", { metadata: { imported: imported.length, alreadyRegistered } });
+            db.exec("COMMIT");
+        } catch (error) {
+            try { db.exec("ROLLBACK"); } catch {}
+            throw error;
+        }
+    }
+    return { imported: imported.length, alreadyRegistered, total: normalized.length, profiles: normalized };
+}
+
+function adminListStudents(req, res) {
+    if (!requireAdmin(req, res)) return;
+    const students = db.prepare("SELECT student_id AS studentId, full_name AS fullName, grade_id AS gradeId, status, created_at AS createdAt, updated_at AS updatedAt FROM student_accounts ORDER BY created_at DESC LIMIT 1000").all();
+    return send(res, 200, { ok: true, students });
+}
+
+async function adminCreateStudent(req, res) {
+    if (!requireAdmin(req, res)) return;
+    const body = await readBody(req);
+    const result = registerStudentProfiles([body]);
+    const profile = result.profiles[0];
+    const student = db.prepare("SELECT student_id AS studentId, full_name AS fullName, grade_id AS gradeId, status, created_at AS createdAt, updated_at AS updatedAt FROM student_accounts WHERE student_id = ?").get(profile.studentId);
+    return send(res, result.imported ? 201 : 200, { ok: true, student, alreadyRegistered: result.alreadyRegistered === 1 });
+}
+
+async function adminImportStudents(req, res) {
+    if (!requireAdmin(req, res)) return;
+    const body = await readBody(req);
+    const result = registerStudentProfiles(body.profiles);
+    return send(res, 200, { ok: true, imported: result.imported, alreadyRegistered: result.alreadyRegistered, total: result.total });
+}
+
+async function adminArchiveStudent(req, res) {
+    if (!requireAdmin(req, res)) return;
+    const body = await readBody(req);
+    const studentId = validateIdentifier(body.studentId, "studentId");
+    const existing = db.prepare("SELECT student_id FROM student_accounts WHERE student_id = ? AND status = 'active'").get(studentId);
+    if (!existing) return send(res, 404, { ok: false, message: "حساب فعال دانش‌آموز پیدا نشد." });
+    const now = new Date().toISOString();
+    db.exec("BEGIN IMMEDIATE");
+    try {
+        db.prepare("UPDATE student_accounts SET status = 'archived', updated_at = ? WHERE student_id = ? AND status = 'active'").run(now, studentId);
+        db.prepare("UPDATE activation_codes SET status = 'revoked' WHERE student_id = ? AND status = 'active' AND used_at IS NULL").run(studentId);
+        audit("student.archived", "admin", { metadata: { studentId } });
+        db.exec("COMMIT");
+    } catch (error) {
+        try { db.exec("ROLLBACK"); } catch {}
+        throw error;
+    }
+    return send(res, 200, { ok: true });
+}
+
 async function adminCreateCodes(req, res) {
     if (!requireAdmin(req, res)) return;
     const body = await readBody(req);
