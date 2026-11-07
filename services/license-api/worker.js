@@ -354,6 +354,141 @@ async function adminRoute(request, env, url, headers) {
   }
   return json({ ok: false, error: "not_implemented", message: "این مسیر هنوز پیاده‌سازی نشده است." }, 501, headers);
 }
+
+const STUDENT_SESSION_COOKIE = "tahouri_student_session";
+const STUDENT_SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const STUDENT_PASSWORD_ITERATIONS = 210000;
+function studentCookieHeader(value, maxAge) {
+  return `${STUDENT_SESSION_COOKIE}=${value}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${maxAge}`;
+}
+function passwordBytes(value) { return new TextEncoder().encode(value); }
+async function deriveStudentPassword(password, salt, iterations = STUDENT_PASSWORD_ITERATIONS) {
+  const key = await crypto.subtle.importKey("raw", passwordBytes(password), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations }, key, 256);
+  return [...new Uint8Array(bits)].map(x => x.toString(16).padStart(2, "0")).join("");
+}
+function fromHex(value) {
+  if (!/^(?:[0-9a-f]{2})+$/i.test(String(value || ""))) throw new Error("دادهٔ امنیتی نامعتبر است.");
+  return new Uint8Array(String(value).match(/../g).map(x => parseInt(x, 16)));
+}
+async function studentRateLimit(env, key, limit = 5) {
+  const now = Date.now();
+  const prior = await env.DB.prepare("SELECT attempts, window_started_at, locked_until FROM student_login_attempts WHERE attempt_key = ?").bind(key).first();
+  if (Number(prior?.locked_until || 0) > now) return false;
+  if (!prior || now - Number(prior.window_started_at) >= 15 * 60 * 1000) {
+    await env.DB.prepare(`INSERT INTO student_login_attempts (attempt_key, attempts, window_started_at, locked_until)
+      VALUES (?, 0, ?, 0) ON CONFLICT(attempt_key) DO UPDATE SET attempts = 0, window_started_at = excluded.window_started_at, locked_until = 0`)
+      .bind(key, now).run();
+  }
+  return true;
+}
+async function recordStudentFailure(env, key, limit = 5) {
+  const now = Date.now();
+  await env.DB.prepare(`INSERT INTO student_login_attempts (attempt_key, attempts, window_started_at, locked_until)
+    VALUES (?, 1, ?, 0)
+    ON CONFLICT(attempt_key) DO UPDATE SET
+      attempts = CASE WHEN ? - window_started_at >= 900000 THEN 1 ELSE attempts + 1 END,
+      window_started_at = CASE WHEN ? - window_started_at >= 900000 THEN ? ELSE window_started_at END,
+      locked_until = CASE WHEN (CASE WHEN ? - window_started_at >= 900000 THEN 1 ELSE attempts + 1 END) >= ?
+        THEN ? + 900000 ELSE locked_until END`)
+    .bind(key, now, now, now, now, now, limit, now).run();
+}
+async function clearStudentFailure(env, key) {
+  await env.DB.prepare("DELETE FROM student_login_attempts WHERE attempt_key = ?").bind(key).run();
+}
+async function studentAuthRoute(request, env, url, headers) {
+  const path = url.pathname;
+  if (!["/api/students/register", "/api/students/login", "/api/students/session", "/api/students/logout"].includes(path)) return null;
+  const origin = request.headers.get("Origin");
+  if (origin && !allowedOrigin(request, env)) return error("مبدأ درخواست مجاز نیست.", 403, headers);
+  if (path === "/api/students/register" && request.method === "POST") {
+    const body = await bodyJson(request);
+    const fullName = bounded(body.fullName, 160, "نام نمایشی");
+    const gradeId = validIdentifier(body.gradeId, "gradeId");
+    const password = typeof body.password === "string" ? body.password : "";
+    if (!/^grade[1-6]$/.test(gradeId)) return error("پایهٔ تحصیلی معتبر نیست.", 400, headers);
+    if (password.length < 10 || password.length > 128) return error("رمز عبور باید بین ۱۰ تا ۱۲۸ نویسه باشد.", 400, headers);
+    const ipHash = await sha256(request.headers.get("CF-Connecting-IP") || "unknown");
+    const rateKey = "register:" + ipHash;
+    if (!await studentRateLimit(env, rateKey, 5)) return error("ثبت‌نام موقتاً محدود شده است. ۱۵ دقیقه بعد دوباره تلاش کنید.", 429, headers);
+    const studentId = "stu_" + randomHex(16);
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const saltHex = [...salt].map(x => x.toString(16).padStart(2, "0")).join("");
+    const passwordHash = await deriveStudentPassword(password, salt);
+    const createdAt = nowIso();
+    const sessionId = randomHex(32);
+    const expiresAt = Date.now() + STUDENT_SESSION_TTL_MS;
+    const sessionHash = await sha256(sessionId);
+    const results = await env.DB.batch([
+      env.DB.prepare(`INSERT INTO student_accounts
+        (student_id, full_name, grade_id, status, created_at, updated_at, password_salt, password_hash, password_iterations, password_updated_at)
+        VALUES (?, ?, ?, 'active', ?, ?, ?, ?, ?, ?)`)
+        .bind(studentId, fullName, gradeId, createdAt, createdAt, saltHex, passwordHash, STUDENT_PASSWORD_ITERATIONS, createdAt),
+      env.DB.prepare("INSERT INTO student_sessions (session_hash, student_id, expires_at, created_at, last_seen_at) VALUES (?, ?, ?, ?, ?)")
+        .bind(sessionHash, studentId, expiresAt, createdAt, createdAt),
+      env.DB.prepare(`INSERT INTO audit_log (event_type, actor, license_id, code_hash, created_at, metadata_json)
+        VALUES ('student.self_registered', ?, NULL, NULL, ?, ?)`)
+        .bind(studentId, createdAt, JSON.stringify({ gradeId }))
+    ]);
+    if (results?.some(x => !x?.meta?.changes)) return error("ساخت حساب کامل نشد؛ دوباره تلاش کنید.", 500, headers);
+    await clearStudentFailure(env, rateKey);
+    return json({ ok: true, student: { studentId, fullName, gradeId }, expiresAt }, 201,
+      { ...headers, "set-cookie": studentCookieHeader(sessionId, STUDENT_SESSION_TTL_MS / 1000) });
+  }
+  if (path === "/api/students/login" && request.method === "POST") {
+    const body = await bodyJson(request);
+    const studentId = validIdentifier(body.studentId, "شناسهٔ دانش‌آموز");
+    const password = typeof body.password === "string" ? body.password : "";
+    const ipHash = await sha256(request.headers.get("CF-Connecting-IP") || "unknown");
+    const rateKey = "login:" + ipHash + ":" + await sha256(studentId);
+    if (!await studentRateLimit(env, rateKey, 5)) return error("ورود موقتاً قفل شده است. ۱۵ دقیقه بعد دوباره تلاش کنید.", 429, headers);
+    const student = await env.DB.prepare(`SELECT student_id AS studentId, full_name AS fullName, grade_id AS gradeId,
+      status, password_salt AS passwordSalt, password_hash AS passwordHash,
+      password_iterations AS passwordIterations FROM student_accounts WHERE student_id = ? LIMIT 1`)
+      .bind(studentId).first();
+    let valid = false;
+    if (student?.status === "active" && student.passwordSalt && student.passwordHash) {
+      const iterations = Number(student.passwordIterations);
+      if (Number.isInteger(iterations) && iterations >= 100000 && iterations <= 500000) {
+        const derived = await deriveStudentPassword(password, fromHex(student.passwordSalt), iterations);
+        valid = constantTimeEqual(derived, student.passwordHash);
+      }
+    }
+    if (!valid) {
+      await recordStudentFailure(env, rateKey, 5);
+      return error("شناسهٔ دانش‌آموز یا رمز عبور نادرست است.", 401, headers);
+    }
+    const sessionId = randomHex(32);
+    const createdAt = nowIso();
+    const expiresAt = Date.now() + STUDENT_SESSION_TTL_MS;
+    await env.DB.prepare("INSERT INTO student_sessions (session_hash, student_id, expires_at, created_at, last_seen_at) VALUES (?, ?, ?, ?, ?)")
+      .bind(await sha256(sessionId), student.studentId, expiresAt, createdAt, createdAt).run();
+    await clearStudentFailure(env, rateKey);
+    return json({ ok: true, student: { studentId: student.studentId, fullName: student.fullName, gradeId: student.gradeId }, expiresAt }, 200,
+      { ...headers, "set-cookie": studentCookieHeader(sessionId, STUDENT_SESSION_TTL_MS / 1000) });
+  }
+  if (path === "/api/students/session" && request.method === "GET") {
+    const id = parseCookie(request, STUDENT_SESSION_COOKIE);
+    if (!id) return json({ ok: false }, 401, headers);
+    const row = await env.DB.prepare(`SELECT a.student_id AS studentId, a.full_name AS fullName, a.grade_id AS gradeId,
+      a.status, s.expires_at AS expiresAt FROM student_sessions s
+      JOIN student_accounts a ON a.student_id = s.student_id
+      WHERE s.session_hash = ? AND s.revoked_at IS NULL LIMIT 1`)
+      .bind(await sha256(id)).first();
+    if (!row || row.status !== "active" || Number(row.expiresAt) <= Date.now()) {
+      return json({ ok: false }, 401, { ...headers, "set-cookie": studentCookieHeader("", 0) });
+    }
+    return json({ ok: true, student: { studentId: row.studentId, fullName: row.fullName, gradeId: row.gradeId }, expiresAt: row.expiresAt }, 200, headers);
+  }
+  if (path === "/api/students/logout" && request.method === "POST") {
+    const id = parseCookie(request, STUDENT_SESSION_COOKIE);
+    if (id) await env.DB.prepare("UPDATE student_sessions SET revoked_at = ? WHERE session_hash = ? AND revoked_at IS NULL")
+      .bind(nowIso(), await sha256(id)).run();
+    return json({ ok: true }, 200, { ...headers, "set-cookie": studentCookieHeader("", 0) });
+  }
+  return error("روش درخواست پشتیبانی نمی‌شود.", 405, headers);
+}
+
 function parseMetadata(value) {
   try { return JSON.parse(value || "{}"); } catch { return {}; }
 }
@@ -390,6 +525,10 @@ export default {
       }
       if (url.pathname === "/api/health" && request.method === "GET")
         return await health(env, headers, requestId);
+      if (url.pathname.startsWith("/api/students/")) {
+        const authResponse = await studentAuthRoute(request, env, url, headers);
+        if (authResponse) return authResponse;
+      }
       if (url.pathname === "/api/licenses/status" && request.method === "GET") {
         const licenseId = validIdentifier(url.searchParams.get("licenseId"), "licenseId");
         const studentId = validIdentifier(url.searchParams.get("studentId"), "studentId");
