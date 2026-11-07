@@ -39,3 +39,45 @@ Connect the existing student profiles already stored in Tahouri (currently repor
 ### Current status
 - Documentation log created; no feature code has yet been ported to this compatibility branch.
 - CI results above are historical results for PR #93/#95, not proof that the feature is compatible with PR #94.
+
+
+## 2026-11-07 — First implementation pass (tests pending)
+
+### Changes committed on the isolated compatibility branch
+- Added a profile-screen JSON export action. Export schema is `tahouri-student-profiles` v1 and contains only `studentId`, `fullName`, and `gradeId`.
+- Added D1 migration `0004_student_accounts.sql`; migration numbering deliberately follows PR #94's existing migration 0003. It adds `activation_codes.student_id`, the `student_accounts` table, and supporting indexes.
+- Added SQLite schema migration v2 for the Node test API, with a version-aware check so an existing schema-v1 database is upgraded only when the service starts.
+- Added authenticated list, exact-ID register, bulk-import, and archive endpoints to both Worker and Node API.
+- Imports validate all records before writing, preserve supplied IDs, treat identical repeated imports as idempotent, and reject conflicting or archived IDs instead of overwriting/reactivating them.
+- Activation-code issuance now requires an active registered profile and stores its exact ID. Activation rejects codes presented by a different profile or by an archived/unregistered profile.
+- Added profile import and account selection controls to both Worker and local Node admin panels.
+- Added test coverage for Worker profile import, repeated import, conflicting IDs, listing, and bound activation; added Node API integration coverage for import idempotency, conflict rejection, listing, and authentication.
+- Updated backup creation/verification/rehearsal to include the student registry in schema v2 while continuing to accept schema-v1 backups. This preserves the user's existing pre-migration encrypted backup compatibility.
+
+### Files changed so far
+- `WORK_LOG.md`
+- `engine/ui/profileScreen.js`
+- `services/license-api/migrations/0004_student_accounts.sql`
+- `services/license-api/worker.js`
+- `services/license-api/worker-activation-test.js`
+- `services/license-api/server.js`
+- `services/license-api/admin/admin.js`
+- `services/license-api/admin/index.html`
+- `services/license-api/integration-test.js`
+- `services/license-api/migration-test.js`
+- `services/license-api/release-check.js`
+- `services/license-api/backup-db.js`
+- `services/license-api/verify-backup.js`
+- `services/license-api/restore-rehearsal.js`
+- `services/license-api/backup-recovery-test.js`
+
+### Test status
+- Not yet marked PASS. CI and local test results are pending.
+- The Worker test uses an in-memory SQLite-backed D1 adapter and generated test signing keys; it does not connect to Cloudflare production.
+- No Cloudflare Worker deployment, D1 migration, production database write, real profile import, or activation-code issuance has been performed.
+- The actual 10 existing profile IDs are not present in GitHub and have not been accessed or modified. They will only be read from a user-generated local JSON export when the user chooses to test.
+
+### Immediate next verification
+1. Run the full License API CI suite and inspect failures.
+2. Confirm profile-screen static checks, admin CSP checks, Worker migration/activation tests, Node integration tests, SQLite migration tests, and backup/recovery tests.
+3. Fix failures and repeat until green; only then prepare a draft test PR against PR #94 for review.
