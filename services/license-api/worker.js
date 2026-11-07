@@ -416,7 +416,7 @@ async function adminRoute(request, env, url, headers) {
     return json({ ok: true }, 200, headers);
   }
   if (path === "/api/admin/codes" && request.method === "GET") {
-    const codes = await listRows(env, `SELECT code_preview AS codePreview, product_id AS productId,
+    const codes = await listRows(env, `SELECT code_preview AS codePreview, product_id AS productId, student_id AS studentId,
       grade_id AS gradeId, academic_year AS academicYear, renewal_mode AS renewalMode, status,
       created_at AS createdAt, used_at AS usedAt, license_id AS licenseId
       FROM activation_codes ORDER BY created_at DESC LIMIT 500`);
