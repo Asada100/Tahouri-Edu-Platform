@@ -128,3 +128,33 @@ The grade-mismatch test used a different student ID from the one to which the te
 - The first CI attempt failed only because a grade-mismatch test used an ID different from the code's bound test profile. The fixture was corrected; the production identity/grade checks were not weakened.
 - The passing CI runs validate the in-memory Worker test harness and temporary SQLite Node API. They do NOT yet validate a deployed Cloudflare test Worker or the user's actual 10 profile records.
 - PR #96 remains unmerged and must remain Draft until the isolated live test environment and browser/device export-import test are complete.
+
+
+## 2026-11-07 — Isolated Cloudflare test environment created
+
+### Test D1
+- Created a new, separate EU D1 database: `tahouri-license-student-import-test-20261107`.
+- Database ID: `57cb28b2-1aa0-4b90-bcdb-dee74b7a8367`.
+- Applied migrations 0001–0004 in order; all four API migration operations succeeded.
+- Verified schema versions 1, 2, 3, 4; `student_accounts` exists; `activation_codes.student_id` exists; both new indexes exist.
+- Verified initial data counts: 0 student accounts, 0 activation codes, 0 licenses.
+- No existing/production D1 database was selected or modified.
+
+### Test Worker
+- Deployed a separate Worker: `tahouri-license-api-student-import-test`.
+- Public test URL: `https://tahouri-license-api-student-import-test.asadtahouri1986.workers.dev`.
+- Bound only to the new test D1; test-only signing keys and a new test-only admin password were installed as Worker secrets.
+- Enabled the Worker on its workers.dev subdomain.
+- Verified via Cloudflare API that the Worker has the expected D1 binding, test variables, three test secrets, and a 100% deployment.
+- Runtime HTTP health/admin smoke test is being added to CI; this execution environment cannot directly fetch workers.dev URLs, so the GitHub Actions runner will perform that check.
+
+### Test package and user guide
+- Updated PR preview packaging and static validation workflows to include stacked PRs based on PR #94.
+- Added `STUDENT_PROFILE_IMPORT_TEST.md` with the safe test steps. The preview package will preserve the app's localStorage only when served from the same browser origin and port where the existing profiles are stored.
+- The test Worker/D1 remain empty. No actual profile export or import has happened.
+
+### Remaining validation
+1. Confirm GitHub Actions can reach the isolated Worker and reports `healthy / connected / schemaVersion 4`.
+2. Confirm the static validation workflow passes and the preview ZIP artifact is generated.
+3. Provide the test ZIP, Worker URL, and test login details to the user.
+4. User exports the existing 10 profiles from the same localStorage origin, imports them into the test panel, and confirms the IDs/count. Do not issue activation codes.
