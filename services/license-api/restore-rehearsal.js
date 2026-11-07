@@ -62,11 +62,12 @@ try {
             "activation_codes",
             "licenses",
             "audit_log",
-            "payments"
+            "payments",
+            "student_accounts"
         ];
 
         const schemaVersion = db.prepare("PRAGMA user_version").get().user_version;
-        if (schemaVersion !== 1) {
+        if (schemaVersion !== 2) {
             throw new Error("Unsupported database schema version: " + schemaVersion);
         }
 
