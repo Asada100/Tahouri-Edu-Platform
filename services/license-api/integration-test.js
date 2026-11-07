@@ -123,6 +123,35 @@ async function main() {
         const cookie = login.headers["set-cookie"]?.[0]?.split(";")[0];
         assert(cookie, "Admin session cookie missing.");
 
+        const existingProfiles = [
+            { studentId: "imported-profile-one", fullName: "پروفایل آزمایشی یک", gradeId: "grade6" },
+            { studentId: "imported-profile-two", fullName: "پروفایل آزمایشی دو", gradeId: "grade5" }
+        ];
+        const imported = await request("POST", "/api/admin/students/import", {
+            profiles: existingProfiles
+        }, { Cookie: cookie });
+        assert(imported.status === 200 && imported.data.imported === 2 &&
+            imported.data.alreadyRegistered === 0, "Existing profiles were not imported with their original IDs.");
+
+        const repeatedImport = await request("POST", "/api/admin/students/import", {
+            profiles: existingProfiles
+        }, { Cookie: cookie });
+        assert(repeatedImport.status === 200 && repeatedImport.data.imported === 0 &&
+            repeatedImport.data.alreadyRegistered === 2, "Repeated profile import must be idempotent.");
+
+        const conflictingImport = await request("POST", "/api/admin/students/import", {
+            profiles: [{ ...existingProfiles[0], fullName: "نام متعارض" }]
+        }, { Cookie: cookie });
+        assert(conflictingImport.status === 409, "A conflicting existing student ID must not be overwritten.");
+
+        const studentList = await request("GET", "/api/admin/students", undefined, { Cookie: cookie });
+        assert(studentList.status === 200 &&
+            studentList.data.students.some(item => item.studentId === "imported-profile-one"),
+            "Imported profiles are not visible in the admin registry.");
+
+        const unauthenticatedStudents = await request("GET", "/api/admin/students");
+        assert(unauthenticatedStudents.status === 401, "Student registry must require admin authentication.");
+
         const list = await request("GET", "/api/admin/licenses", undefined, { Cookie: cookie });
         assert(list.status === 200 && list.data.licenses?.length === 1, "License was not listed.");
 
