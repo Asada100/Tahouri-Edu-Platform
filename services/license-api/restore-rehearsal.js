@@ -58,16 +58,11 @@ try {
             throw new Error("Restored database integrity check failed.");
         }
 
-        const requiredTables = [
-            "activation_codes",
-            "licenses",
-            "audit_log",
-            "payments",
-            "student_accounts"
-        ];
+        const requiredTables = ["activation_codes", "licenses", "audit_log", "payments"];
+        if (Number(schemaVersion) >= 2) requiredTables.push("student_accounts");
 
         const schemaVersion = db.prepare("PRAGMA user_version").get().user_version;
-        if (schemaVersion !== 2) {
+        if (![1, 2].includes(Number(schemaVersion))) {
             throw new Error("Unsupported database schema version: " + schemaVersion);
         }
 
