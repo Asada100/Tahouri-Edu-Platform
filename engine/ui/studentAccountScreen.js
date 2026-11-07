@@ -18,15 +18,24 @@
   function saved() {
     try { return JSON.parse(localStorage.getItem(KEY) || "null"); } catch (_) { return null; }
   }
-  function save(account) {
-    let profile = window.ProfileManager && ProfileManager.get ? ProfileManager.get() : null;
-    if ((!profile || !profile.studentId) && window.ProfileManager && typeof ProfileManager.createProfile === "function") {
-      ProfileManager.createProfile({
-        studentId: account.studentId,
-        name: account.fullName || "",
-        grade: account.gradeId || null
-      });
-      profile = ProfileManager.get();
+  function save(account, linkActiveProfile) {
+    let profile = null;
+    if (window.ProfileManager && typeof ProfileManager.getAll === "function") {
+      const profiles = ProfileManager.getAll();
+      const existing = profiles.find(item => item.studentId === account.studentId);
+      if (existing) {
+        profile = existing;
+        if (typeof ProfileManager.switchProfile === "function") ProfileManager.switchProfile(existing.studentId);
+      } else if (linkActiveProfile && typeof ProfileManager.get === "function") {
+        profile = ProfileManager.get();
+      } else if (typeof ProfileManager.createProfile === "function") {
+        ProfileManager.createProfile({
+          studentId: account.studentId,
+          name: account.fullName || "",
+          grade: account.gradeId || null
+        });
+        profile = ProfileManager.get();
+      }
     }
     const value = {
       studentId: account.studentId,
@@ -176,7 +185,7 @@
         }
         try {
           const data = await request(mode === "register" ? "/students/register" : "/students/login", "POST", payload);
-          save(data.student);
+          save(data.student, mode === "register");
           showMessage("حساب با موفقیت آماده شد. شناسهٔ دائمی شما: " + data.student.studentId);
           renderAccount(content);
         } catch (error) {
