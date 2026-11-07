@@ -440,7 +440,7 @@ async function adminRoute(request, env, url, headers) {
     const allowedGrade = Number(academicYear) === currentYear ? targetLevel === currentLevel :
       renewalMode === "promotion" ? targetLevel === currentLevel + 1 : targetLevel === currentLevel;
     if (!Number.isInteger(currentLevel) || !Number.isInteger(targetLevel) ||
-        currentLevel < 1 || currentLevel > 6 || targetLevel < 1 || targetLevel > 6 || !allowedGrade) {
+        currentLevel < 1 || currentLevel > 6 || targetLevel < 1 || targetLevel > 7 || !allowedGrade) {
       return error("پایهٔ کد با پایهٔ فعلی پروفایل و نوع تمدید سازگار نیست.", 409, headers);
     }
     const count = Math.min(Math.max(Number(body.count || 1), 1), 100);
