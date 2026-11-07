@@ -437,7 +437,9 @@ function corsOriginForRequest(req) {
 function boundedString(value, max, field) {
     const text = String(value ?? "").trim();
     if (!text || text.length > max) {
-        throw new Error(field + " is invalid.");
+        const error = new Error(field + " is invalid.");
+        error.statusCode = 400;
+        throw error;
     }
     return text;
 }
