@@ -207,7 +207,7 @@ const DATA_DIR =
     process.env.TAHOURI_LICENSE_DATA_DIR ||
     path.join(__dirname, "data");
 
-const DB_SCHEMA_VERSION = 1;
+const DB_SCHEMA_VERSION = 2;
 
 const DATABASE_MIGRATIONS = [
     {
@@ -215,6 +215,29 @@ const DATABASE_MIGRATIONS = [
         apply() {
             // Version 1 marks the initial persistent schema created by the
             // CREATE TABLE IF NOT EXISTS block above.
+        }
+    },
+    {
+        version: 2,
+        apply() {
+            const columns = db.prepare("PRAGMA table_info(activation_codes)").all();
+            if (!columns.some(column => column.name === "student_id")) {
+                db.exec("ALTER TABLE activation_codes ADD COLUMN student_id TEXT");
+            }
+            db.exec(`
+                CREATE TABLE IF NOT EXISTS student_accounts (
+                    student_id TEXT PRIMARY KEY,
+                    full_name TEXT NOT NULL,
+                    grade_id TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'archived')),
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_student_accounts_grade_status
+                    ON student_accounts(grade_id, status);
+                CREATE INDEX IF NOT EXISTS idx_activation_student_status
+                    ON activation_codes(student_id, status);
+            `);
         }
     }
 ];
@@ -1800,7 +1823,7 @@ function startupRecoveryCheck() {
             throw new Error("SQLite integrity check failed at startup.");
         }
 
-        const requiredTables = ["activation_codes", "licenses", "audit_log", "payments", "admin_sessions"];
+        const requiredTables = ["activation_codes", "licenses", "audit_log", "payments", "admin_sessions", "student_accounts"];
         for (const table of requiredTables) {
             const row = db.prepare(
                 "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?"
