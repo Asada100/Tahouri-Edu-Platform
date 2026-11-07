@@ -167,7 +167,7 @@ async function main() {
         assert(reuse.status === 409, "Used activation code was reusable.");
 
         const wrongGrade = await request("POST", "/api/licenses/activate", {
-            code: `GRADE6-${activeAcademicYear}-TEST-B`, gradeId: "grade5", studentId: "wrong-grade-student", installationId: "wrong-grade-installation"
+            code: `GRADE6-${activeAcademicYear}-TEST-B`, gradeId: "grade5", studentId: "integration-student", installationId: "wrong-grade-installation"
         });
         assert(wrongGrade.status === 400, "Grade mismatch was accepted.");
 
