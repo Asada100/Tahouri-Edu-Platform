@@ -29,10 +29,21 @@
   <section class="stats" id="stats"></section>
   <section class="card" id="alertsCard" hidden><h2>هشدارهای عملیاتی</h2><div id="alerts"></div></section>
 
+  <section class="card">
+    <h2>اتصال پروفایل‌های موجود بازی</h2>
+    <p class="muted">فقط فایل خروجی پروفایل‌های طهوری را وارد کنید؛ شناسه‌ها حفظ می‌شوند و نمره‌ها و تنظیمات منتقل نمی‌شوند.</p>
+    <label>فایل فهرست پروفایل‌ها (JSON)
+      <input id="studentProfilesFile" type="file" accept=".json,application/json">
+    </label>
+    <button id="importStudentsButton" class="secondary" type="button">وارد کردن فهرست پروفایل‌ها</button>
+    <div id="students"></div>
+  </section>
+
   <section class="grid">
     <div class="card">
       <h2>ساخت کد فعال‌سازی</h2>
       <div class="form-grid">
+        <label>حساب دانش‌آموز<select id="studentId"><option value="">ابتدا فهرست را وارد کنید</option></select></label>
         <label>پایه<input id="grade" value="grade6"></label>
         <label>سال تحصیلی<input id="year" value="1405"></label>
         <label>تعداد<input id="count" type="number" min="1" max="100" value="5"></label>
