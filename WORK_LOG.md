@@ -191,3 +191,37 @@ The grade-mismatch test used a different student ID from the one to which the te
 - Separate test Worker and EU D1 are live; production Worker and production D1 are untouched.
 - The test D1 is empty. No real student profiles, activation codes, or licenses have been imported/issued.
 - The user-side test is now possible: serve the preview ZIP from the same browser origin/port where the existing local profiles are stored, export the 10 profile identities, and import them into the test admin panel. Do not issue activation codes during this test.
+
+
+## 2026-11-07 — Add the phone's active GitHub Pages profile as a third source
+
+### User clarification
+The user confirmed there is also one active student profile on their phone, opened through the GitHub Pages version of Tahouri. This is a third independent profile store and must be included in the inventory before any import:
+1. Desktop local app at `http://127.0.0.1:5500` (reported earlier to contain 10 profiles; exact count and IDs still require export verification).
+2. Desktop GitHub Pages app (contains several test profiles, currently inactive; count and IDs not yet verified).
+3. Phone GitHub Pages app (one active profile, per user; exact ID/name/grade not yet exported or verified).
+
+### Storage and origin implications
+- Browser localStorage is isolated per device/browser profile. The phone's GitHub Pages profile is not automatically visible on the desktop, even when both devices open the same GitHub Pages URL.
+- The desktop local preview at `127.0.0.1:5500` cannot read the phone's GitHub Pages localStorage. It also cannot read desktop GitHub Pages localStorage because that is a different origin.
+- Therefore, the current preview ZIP instructions are suitable only for the desktop-local source. They are NOT a valid export method for either GitHub Pages source.
+- To export the phone profile safely, the export action must execute in the phone browser under the exact GitHub Pages origin that owns that localStorage. A local preview or a different host/subdomain will not work.
+
+### Revised safety plan
+- Treat all three sources as separate inventories and separate JSON exports. Never combine them before checking exact student IDs, names, grades, and duplicates.
+- First complete and verify the desktop-local export from `127.0.0.1:5500`.
+- Separately design and validate a no-production-change way to run/export the identity-only JSON from the desktop GitHub Pages origin and the phone GitHub Pages origin. Do not assume the Draft PR preview ZIP can do this; it has a different origin and is not deployed to Pages.
+- Any temporary Pages deployment, merge, or change to the live GitHub Pages app requires explicit user approval. Prefer a non-deploy method if technically sound.
+- For the phone, verify the exported list contains the single active profile the user described. Do not request or expose passwords, activation codes, or student progress data.
+- Only after all three inventories are separately reviewed should we create a deduplicated import plan. Exact duplicate IDs with matching identity data may be treated as the same profile; same ID with differing name/grade is a conflict requiring user review.
+- Keep test D1 empty until the user approves importing the reviewed combined inventory. Do not issue activation codes or touch production.
+
+### Current verification status
+- Confirmed from user: one active profile exists on the phone's GitHub Pages app.
+- Confirmed by architecture: phone and desktop browser localStorage are device-local; same Pages URL does not synchronize them.
+- Not yet verified: phone profile ID/name/grade; desktop Pages test profile IDs; actual desktop-local export count.
+- No phone data has been read, exported, imported, or modified.
+- No production Pages deployment or production D1 write has been performed.
+
+### Next engineering task
+Inspect the current profile persistence and export code paths, then implement/validate a safe export route that runs within the exact GitHub Pages origin on both desktop and phone without merging/deploying PR #96. Update this log and the test guide before asking the user to perform the phone export.
