@@ -49,13 +49,16 @@ test("student self-registration creates a durable ID, password hash, session and
   assert.match(body.student.studentId, /^stu_[a-f0-9]{32}$/);
   assert.equal(body.student.fullName, "دانش‌آموز آزمایشی");
   assert.equal(body.student.gradeId, "grade6");
+  assert.match(body.recoveryCode, /^[A-F0-9]{32}$/);
   assert.match(response.headers.get("set-cookie"), /HttpOnly; Secure; SameSite=None/);
   assert.equal(response.headers.get("access-control-allow-origin"), "https://app.example.test");
   assert.equal(response.headers.get("access-control-allow-credentials"), "true");
   assert.equal(env.batches.length, 1);
   assert.equal(env.batches[0].length, 3);
   assert.match(env.batches[0][0].sql, /password_salt, password_hash, password_iterations/);
-  assert.doesNotMatch(JSON.stringify(env.batches[0]), /a-secure-test-password/);
+  assert.match(env.batches[0][0].sql, /recovery_code_hash, recovery_code_created_at/);
+  assert.ok(env.batches[0][0].values.includes(await digestHex(body.recoveryCode)));
+  assert.doesNotMatch(JSON.stringify(env.batches[0]), /a-secure-test-password|[A-F0-9]{32}/);
   assert.match(env.batches[0][1].sql, /INSERT INTO student_sessions/);
   assert.match(env.batches[0][2].sql, /student\.self_registered/);
   assert.ok(env.calls.some(call => call.type === "run" && call.sql.includes("DELETE FROM student_login_attempts")),
@@ -113,4 +116,59 @@ test("student authentication rejects an untrusted browser origin", async () => {
   }), { ...env, APP_ORIGIN: "https://app.example.test" });
   assert.equal(response.status, 403);
   assert.equal(env.batches.length, 0);
+});
+
+async function digestHex(value) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return [...new Uint8Array(digest)].map(x => x.toString(16).padStart(2, "0")).join("");
+}
+
+test("student recovery code resets the password once and revokes existing sessions", async () => {
+  const env = authEnv();
+  const studentId = "stu_0123456789abcdef0123456789abcdef";
+  const recoveryCode = "0123456789ABCDEF0123456789ABCDEF";
+  const recoveryHash = await digestHex(recoveryCode);
+  const originalPrepare = env.DB.prepare.bind(env.DB);
+  env.DB.prepare = sql => {
+    const statement = originalPrepare(sql);
+    if (sql.includes("FROM student_accounts") && sql.includes("recovery_code_hash")) {
+      statement.first = async () => ({ studentId, status: "active", recoveryCodeHash: recoveryHash });
+    }
+    return statement;
+  };
+  const response = await worker.fetch(new Request("https://api.example.workers.dev/api/students/recover", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "CF-Connecting-IP": "192.0.2.12" },
+    body: JSON.stringify({ studentId, recoveryCode, newPassword: "a-new-secure-password" })
+  }), env);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+  assert.equal(env.batches.length, 1);
+  assert.equal(env.batches[0].length, 3);
+  assert.match(env.batches[0][0].sql, /recovery_code_hash = NULL/);
+  assert.match(env.batches[0][0].sql, /password_hash = \?/);
+  assert.match(env.batches[0][1].sql, /UPDATE student_sessions SET revoked_at/);
+  assert.match(env.batches[0][2].sql, /student\.password_recovered/);
+  assert.doesNotMatch(JSON.stringify(env.batches[0]), /a-new-secure-password|0123456789ABCDEF0123456789ABCDEF/);
+  assert.match(response.headers.get("set-cookie"), /Max-Age=0/);
+});
+
+test("student recovery rejects an incorrect one-time code", async () => {
+  const env = authEnv();
+  const originalPrepare = env.DB.prepare.bind(env.DB);
+  env.DB.prepare = sql => {
+    const statement = originalPrepare(sql);
+    if (sql.includes("FROM student_accounts") && sql.includes("recovery_code_hash")) {
+      statement.first = async () => ({ studentId: "stu_existing", status: "active", recoveryCodeHash: "0".repeat(64) });
+    }
+    return statement;
+  };
+  const response = await worker.fetch(new Request("https://api.example.workers.dev/api/students/recover", {
+    method: "POST", headers: { "Content-Type": "application/json", "CF-Connecting-IP": "192.0.2.13" },
+    body: JSON.stringify({ studentId: "stu_existing", recoveryCode: "0123456789ABCDEF0123456789ABCDEF", newPassword: "a-new-secure-password" })
+  }), env);
+  assert.equal(response.status, 401);
+  assert.equal(env.batches.length, 0);
+  assert.ok(env.calls.some(x => x.sql.includes("INSERT INTO student_login_attempts")));
 });
