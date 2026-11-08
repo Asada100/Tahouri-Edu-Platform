@@ -11,6 +11,7 @@ function authEnv() {
       let values = [];
       return {
         sql,
+        get values() { return values; },
         bind(...args) { values = args; return this; },
         async first() {
           calls.push({ type: "first", sql, values });
