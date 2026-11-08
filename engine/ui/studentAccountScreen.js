@@ -132,9 +132,17 @@
       card.appendChild(logout);
       content.appendChild(card);
       request("/students/session").then(data => {
-        if (data.student) save(data.student);
+        if (data.student) {
+          save(data.student);
+          const name = card.querySelector("p");
+          if (name) name.textContent = data.student.fullName || "دانش‌آموز";
+        } else {
+          throw new Error("نشست معتبر نیست.");
+        }
       }).catch(() => {
-        showMessage("نشست سرور در دسترس نیست؛ برای استفاده از حساب دوباره وارد شوید.", true);
+        localStorage.removeItem(KEY);
+        renderAccount(content);
+        showMessage("نشست قبلی معتبر نیست. برای ادامه دوباره وارد حساب شوید.", true);
       });
       return;
     }
