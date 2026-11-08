@@ -58,7 +58,8 @@ test("student self-registration creates a durable ID, password hash, session and
   assert.match(env.batches[0][0].sql, /password_salt, password_hash, password_iterations/);
   assert.match(env.batches[0][0].sql, /recovery_code_hash, recovery_code_created_at/);
   assert.ok(env.batches[0][0].values.includes(await digestHex(body.recoveryCode)));
-  assert.doesNotMatch(JSON.stringify(env.batches[0]), /a-secure-test-password|[A-F0-9]{32}/);
+  assert.equal(JSON.stringify(env.batches[0]).includes(body.recoveryCode), false);
+  assert.doesNotMatch(JSON.stringify(env.batches[0]), /a-secure-test-password/);
   assert.match(env.batches[0][1].sql, /INSERT INTO student_sessions/);
   assert.match(env.batches[0][2].sql, /student\.self_registered/);
   assert.ok(env.calls.some(call => call.type === "run" && call.sql.includes("DELETE FROM student_login_attempts")),
