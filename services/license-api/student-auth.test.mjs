@@ -56,6 +56,8 @@ test("student self-registration creates a durable ID, password hash, session and
   assert.doesNotMatch(JSON.stringify(env.batches[0]), /a-secure-test-password/);
   assert.match(env.batches[0][1].sql, /INSERT INTO student_sessions/);
   assert.match(env.batches[0][2].sql, /student\.self_registered/);
+  assert.ok(env.calls.some(call => call.type === "run" && call.sql.includes("DELETE FROM student_login_attempts")),
+    "successful registration must clear, not increment, failed-attempt counters");
 });
 
 test("student registration rejects weak passwords and invalid grades before writing", async () => {
