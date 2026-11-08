@@ -431,7 +431,7 @@ async function studentAuthRoute(request, env, url, headers) {
         .bind(studentId, createdAt, JSON.stringify({ gradeId }))
     ]);
     if (results?.some(x => !x?.meta?.changes)) return error("ساخت حساب کامل نشد؛ دوباره تلاش کنید.", 500, headers);
-    await recordStudentFailure(env, rateKey, 5);
+    await clearStudentFailure(env, rateKey);
     return json({ ok: true, student: { studentId, fullName, gradeId }, expiresAt }, 201,
       { ...headers, "set-cookie": studentCookieHeader(sessionId, STUDENT_SESSION_TTL_MS / 1000) });
   }
