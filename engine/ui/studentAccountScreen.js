@@ -171,6 +171,7 @@
       form.replaceChildren();
       register.classList.toggle("active", mode === "register");
       login.classList.toggle("active", mode === "login");
+      recover.classList.toggle("active", mode === "recover");
       const profile = window.ProfileManager && ProfileManager.get ? ProfileManager.get() : null;
       if (mode === "register") {
         const name = el("input", { name: "fullName", type: "text", maxlength: "160", autocomplete: "name", required: "required", value: profile && profile.name || "", placeholder: "نام نمایشی دانش‌آموز" });
@@ -209,7 +210,8 @@
           : mode === "recover"
             ? { studentId: values.get("studentId").trim(), recoveryCode: values.get("recoveryCode").trim(), newPassword: values.get("password") }
             : { studentId: values.get("studentId").trim(), password: values.get("password") };
-        if ((mode === "register" || mode === "recover") && payload.password !== values.get("confirmPassword")) {
+        const passwordToConfirm = mode === "recover" ? payload.newPassword : payload.password;
+        if ((mode === "register" || mode === "recover") && passwordToConfirm !== values.get("confirmPassword")) {
           showMessage("رمز عبور و تکرار آن یکسان نیستند.", true); submit.disabled = false; return;
         }
         try {
