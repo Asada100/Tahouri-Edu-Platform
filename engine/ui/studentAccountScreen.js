@@ -84,6 +84,19 @@
     wrap.appendChild(input);
     return wrap;
   }
+  function showRecoveryCode(content, recoveryCode) {
+    const card = el("div", { className: "tahouri-account-card" });
+    card.appendChild(el("strong", {}, "کد بازیابی حساب"));
+    card.appendChild(el("p", {}, "این کد فقط همین یک‌بار نمایش داده می‌شود. آن را یادداشت کنید و خارج از گوشی در جای امن نگه دارید."));
+    card.appendChild(el("code", { dir: "ltr" }, recoveryCode));
+    const copy = el("button", { type: "button", className: "tahouri-account-secondary" }, "کپی کد بازیابی");
+    copy.onclick = async () => {
+      try { await navigator.clipboard.writeText(recoveryCode); showMessage("کد بازیابی کپی شد."); }
+      catch (_) { showMessage("کپی خودکار ممکن نیست؛ کد را انتخاب و یادداشت کنید.", true); }
+    };
+    card.appendChild(copy);
+    content.prepend(card);
+  }
   function open() {
     if (modal) return;
     modal = el("div", { className: "tahouri-account-overlay", role: "presentation" });
@@ -150,7 +163,8 @@
     const form = el("form", { className: "tahouri-account-form" });
     const register = el("button", { type: "button", className: "tahouri-account-tab active" }, "ساخت حساب");
     const login = el("button", { type: "button", className: "tahouri-account-tab" }, "ورود");
-    tabs.append(register, login);
+    const recover = el("button", { type: "button", className: "tahouri-account-tab" }, "بازیابی رمز");
+    tabs.append(register, login, recover);
     content.append(tabs, form);
     let mode = "register";
     const draw = () => {
@@ -171,14 +185,19 @@
       } else {
         const id = el("input", { name: "studentId", type: "text", dir: "ltr", autocomplete: "username", required: "required", placeholder: "شناسهٔ دانش‌آموز" });
         form.appendChild(makeField("شناسهٔ دانش‌آموز", id));
+        if (mode === "recover") {
+          const recovery = el("input", { name: "recoveryCode", type: "text", dir: "ltr", autocomplete: "off", required: "required", maxlength: "32", placeholder: "کد بازیابی ۳۲ نویسه‌ای" });
+          form.appendChild(makeField("کد بازیابی", recovery));
+        }
       }
-      const password = el("input", { name: "password", type: "password", minlength: "10", maxlength: "128", autocomplete: mode === "register" ? "new-password" : "current-password", required: "required", placeholder: "حداقل ۱۰ نویسه" });
-      form.appendChild(makeField("رمز عبور", password));
-      if (mode === "register") {
+      const password = el("input", { name: "password", type: "password", minlength: "10", maxlength: "128", autocomplete: mode === "register" || mode === "recover" ? "new-password" : "current-password", required: "required", placeholder: "حداقل ۱۰ نویسه" });
+      form.appendChild(makeField(mode === "recover" ? "رمز عبور جدید" : "رمز عبور", password));
+      if (mode === "register" || mode === "recover") {
         const confirm = el("input", { name: "confirmPassword", type: "password", minlength: "10", maxlength: "128", autocomplete: "new-password", required: "required", placeholder: "تکرار رمز عبور" });
         form.appendChild(makeField("تکرار رمز عبور", confirm));
       }
-      const submit = el("button", { type: "submit", className: "tahouri-account-primary" }, mode === "register" ? "ساخت حساب و دریافت شناسه" : "ورود به حساب");
+      const submitLabel = mode === "register" ? "ساخت حساب و دریافت شناسه" : mode === "recover" ? "تغییر رمز عبور" : "ورود به حساب";
+      const submit = el("button", { type: "submit", className: "tahouri-account-primary" }, submitLabel);
       form.appendChild(submit);
       form.onsubmit = async event => {
         event.preventDefault();
@@ -187,15 +206,25 @@
         const values = new FormData(form);
         const payload = mode === "register"
           ? { fullName: values.get("fullName"), gradeId: values.get("gradeId"), password: values.get("password") }
-          : { studentId: values.get("studentId").trim(), password: values.get("password") };
-        if (mode === "register" && payload.password !== values.get("confirmPassword")) {
+          : mode === "recover"
+            ? { studentId: values.get("studentId").trim(), recoveryCode: values.get("recoveryCode").trim(), newPassword: values.get("password") }
+            : { studentId: values.get("studentId").trim(), password: values.get("password") };
+        if ((mode === "register" || mode === "recover") && payload.password !== values.get("confirmPassword")) {
           showMessage("رمز عبور و تکرار آن یکسان نیستند.", true); submit.disabled = false; return;
         }
         try {
-          const data = await request(mode === "register" ? "/students/register" : "/students/login", "POST", payload);
+          const endpoint = mode === "register" ? "/students/register" : mode === "recover" ? "/students/recover" : "/students/login";
+          const data = await request(endpoint, "POST", payload);
+          if (mode === "recover") {
+            localStorage.removeItem(KEY);
+            renderAccount(content);
+            showMessage(data.message || "رمز عبور تغییر کرد. اکنون وارد شوید.");
+            return;
+          }
           save(data.student, mode === "register");
-          showMessage("حساب با موفقیت آماده شد. شناسهٔ دائمی شما: " + data.student.studentId);
           renderAccount(content);
+          if (mode === "register" && data.recoveryCode) showRecoveryCode(content, data.recoveryCode);
+          showMessage("حساب با موفقیت آماده شد. شناسهٔ دائمی شما: " + data.student.studentId);
         } catch (error) {
           showMessage(error.message || "عملیات انجام نشد.", true);
           submit.disabled = false;
@@ -204,6 +233,7 @@
     };
     register.onclick = () => { mode = "register"; draw(); showMessage(""); };
     login.onclick = () => { mode = "login"; draw(); showMessage(""); };
+    recover.onclick = () => { mode = "recover"; draw(); showMessage(""); };
     draw();
   }
   function init() {
