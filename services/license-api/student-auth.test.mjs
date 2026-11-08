@@ -50,6 +50,8 @@ test("student self-registration creates a durable ID, password hash, session and
   assert.equal(body.student.fullName, "دانش‌آموز آزمایشی");
   assert.equal(body.student.gradeId, "grade6");
   assert.match(response.headers.get("set-cookie"), /HttpOnly; Secure; SameSite=None/);
+  assert.equal(response.headers.get("access-control-allow-origin"), "https://app.example.test");
+  assert.equal(response.headers.get("access-control-allow-credentials"), "true");
   assert.equal(env.batches.length, 1);
   assert.equal(env.batches[0].length, 3);
   assert.match(env.batches[0][0].sql, /password_salt, password_hash, password_iterations/);
@@ -84,6 +86,22 @@ test("student login does not disclose whether a student ID exists", async () => 
   assert.equal(response.status, 401);
   assert.equal((await response.json()).message, "شناسهٔ دانش‌آموز یا رمز عبور نادرست است.");
   assert.ok(env.calls.some(x => x.sql.includes("student_login_attempts")));
+});
+
+test("student preflight allows GitHub Pages origin with credentialed CORS", async () => {
+  const env = { APP_ORIGIN: "https://asada100.github.io" };
+  const response = await worker.fetch(new Request("https://api.example.workers.dev/api/students/session", {
+    method: "OPTIONS",
+    headers: {
+      Origin: "https://asada100.github.io",
+      "Access-Control-Request-Method": "GET",
+      "Access-Control-Request-Headers": "content-type"
+    }
+  }), env);
+  assert.equal(response.status, 204);
+  assert.equal(response.headers.get("access-control-allow-origin"), "https://asada100.github.io");
+  assert.equal(response.headers.get("access-control-allow-credentials"), "true");
+  assert.match(response.headers.get("access-control-allow-methods"), /GET,POST,OPTIONS/);
 });
 
 test("student authentication rejects an untrusted browser origin", async () => {
