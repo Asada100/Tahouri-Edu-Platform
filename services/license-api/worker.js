@@ -398,7 +398,7 @@ async function clearStudentFailure(env, key) {
 }
 async function studentAuthRoute(request, env, url, headers) {
   const path = url.pathname;
-  if (!["/api/students/register", "/api/students/login", "/api/students/session", "/api/students/logout"].includes(path)) return null;
+  if (!["/api/students/register", "/api/students/login", "/api/students/session", "/api/students/logout", "/api/students/recover"].includes(path)) return null;
   const origin = request.headers.get("Origin");
   if (origin && !allowedOrigin(request, env)) return error("مبدأ درخواست مجاز نیست.", 403, headers);
   if (path === "/api/students/register" && request.method === "POST") {
@@ -417,13 +417,15 @@ async function studentAuthRoute(request, env, url, headers) {
     const passwordHash = await deriveStudentPassword(password, salt);
     const createdAt = nowIso();
     const sessionId = randomHex(32);
+    const recoveryCode = randomHex(16).toUpperCase();
+    const recoveryCodeHash = await sha256(recoveryCode);
     const expiresAt = Date.now() + STUDENT_SESSION_TTL_MS;
     const sessionHash = await sha256(sessionId);
     const results = await env.DB.batch([
       env.DB.prepare(`INSERT INTO student_accounts
-        (student_id, full_name, grade_id, status, created_at, updated_at, password_salt, password_hash, password_iterations, password_updated_at)
-        VALUES (?, ?, ?, 'active', ?, ?, ?, ?, ?, ?)`)
-        .bind(studentId, fullName, gradeId, createdAt, createdAt, saltHex, passwordHash, STUDENT_PASSWORD_ITERATIONS, createdAt),
+        (student_id, full_name, grade_id, status, created_at, updated_at, password_salt, password_hash, password_iterations, password_updated_at, recovery_code_hash, recovery_code_created_at)
+        VALUES (?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, ?, ?) `)
+        .bind(studentId, fullName, gradeId, createdAt, createdAt, saltHex, passwordHash, STUDENT_PASSWORD_ITERATIONS, createdAt, recoveryCodeHash, createdAt),
       env.DB.prepare("INSERT INTO student_sessions (session_hash, student_id, expires_at, created_at, last_seen_at) VALUES (?, ?, ?, ?, ?)")
         .bind(sessionHash, studentId, expiresAt, createdAt, createdAt),
       env.DB.prepare(`INSERT INTO audit_log (event_type, actor, license_id, code_hash, created_at, metadata_json)
@@ -432,7 +434,7 @@ async function studentAuthRoute(request, env, url, headers) {
     ]);
     if (results?.some(x => !x?.meta?.changes)) return error("ساخت حساب کامل نشد؛ دوباره تلاش کنید.", 500, headers);
     await clearStudentFailure(env, rateKey);
-    return json({ ok: true, student: { studentId, fullName, gradeId }, expiresAt }, 201,
+    return json({ ok: true, student: { studentId, fullName, gradeId }, recoveryCode, expiresAt }, 201,
       { ...headers, "set-cookie": studentCookieHeader(sessionId, STUDENT_SESSION_TTL_MS / 1000) });
   }
   if (path === "/api/students/login" && request.method === "POST") {
@@ -467,6 +469,44 @@ async function studentAuthRoute(request, env, url, headers) {
     await clearStudentFailure(env, rateKey);
     return json({ ok: true, student: { studentId: student.studentId, fullName: student.fullName, gradeId: student.gradeId }, expiresAt }, 200,
       { ...headers, "set-cookie": studentCookieHeader(sessionId, STUDENT_SESSION_TTL_MS / 1000) });
+  }
+  if (path === "/api/students/recover" && request.method === "POST") {
+    const body = await bodyJson(request);
+    const studentId = validIdentifier(body.studentId, "شناسهٔ دانش‌آموز");
+    const recoveryCode = typeof body.recoveryCode === "string" ? body.recoveryCode.trim().toUpperCase() : "";
+    const password = typeof body.newPassword === "string" ? body.newPassword : "";
+    if (!/^[0-9A-F]{32}$/.test(recoveryCode) || password.length < 10 || password.length > 128) {
+      return error("اطلاعات بازیابی معتبر نیست.", 400, headers);
+    }
+    const ipHash = await sha256(request.headers.get("CF-Connecting-IP") || "unknown");
+    const rateKey = "recover:" + ipHash + ":" + await sha256(studentId);
+    if (!await studentRateLimit(env, rateKey, 5)) return error("بازیابی موقتاً محدود شده است. ۱۵ دقیقه بعد دوباره تلاش کنید.", 429, headers);
+    const student = await env.DB.prepare("SELECT student_id AS studentId, status, recovery_code_hash AS recoveryCodeHash FROM student_accounts WHERE student_id = ? LIMIT 1")
+      .bind(studentId).first();
+    const suppliedHash = await sha256(recoveryCode);
+    if (!student || student.status !== "active" || !student.recoveryCodeHash || !constantTimeEqual(suppliedHash, student.recoveryCodeHash)) {
+      await recordStudentFailure(env, rateKey, 5);
+      return error("شناسه یا کد بازیابی نادرست است.", 401, headers);
+    }
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const saltHex = [...salt].map(x => x.toString(16).padStart(2, "0")).join("");
+    const passwordHash = await deriveStudentPassword(password, salt);
+    const updatedAt = nowIso();
+    const results = await env.DB.batch([
+      env.DB.prepare("UPDATE student_accounts SET password_salt = ?, password_hash = ?, password_iterations = ?, password_updated_at = ?, recovery_code_hash = NULL, recovery_code_created_at = NULL WHERE student_id = ? AND status = 'active' AND recovery_code_hash = ?")
+        .bind(saltHex, passwordHash, STUDENT_PASSWORD_ITERATIONS, updatedAt, studentId, suppliedHash),
+      env.DB.prepare("UPDATE student_sessions SET revoked_at = ? WHERE student_id = ? AND revoked_at IS NULL AND EXISTS (SELECT 1 FROM student_accounts WHERE student_id = ? AND password_updated_at = ?)")
+        .bind(updatedAt, studentId, studentId, updatedAt),
+      env.DB.prepare("INSERT INTO audit_log (event_type, actor, license_id, code_hash, created_at, metadata_json) SELECT 'student.password_recovered', ?, NULL, NULL, ?, '{}' WHERE EXISTS (SELECT 1 FROM student_accounts WHERE student_id = ? AND password_updated_at = ?)")
+        .bind(studentId, updatedAt, studentId, updatedAt)
+    ]);
+    if (!results?.[0]?.meta?.changes) {
+      await recordStudentFailure(env, rateKey, 5);
+      return error("شناسه یا کد بازیابی نادرست است.", 401, headers);
+    }
+    await clearStudentFailure(env, rateKey);
+    return json({ ok: true, message: "رمز عبور تغییر کرد. اکنون با رمز جدید وارد شوید." }, 200,
+      { ...headers, "set-cookie": studentCookieHeader("", 0) });
   }
   if (path === "/api/students/session" && request.method === "GET") {
     const id = parseCookie(request, STUDENT_SESSION_COOKIE);
