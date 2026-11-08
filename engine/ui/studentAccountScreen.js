@@ -85,7 +85,7 @@
     return wrap;
   }
   function showRecoveryCode(content, recoveryCode) {
-    const card = el("div", { className: "tahouri-account-card" });
+    const card = el("div", { className: "tahouri-account-card tahouri-recovery-card" });
     card.appendChild(el("strong", {}, "کد بازیابی حساب"));
     card.appendChild(el("p", {}, "این کد فقط همین یک‌بار نمایش داده می‌شود. آن را یادداشت کنید و خارج از گوشی در جای امن نگه دارید."));
     card.appendChild(el("code", { dir: "ltr" }, recoveryCode));
@@ -153,8 +153,10 @@
           throw new Error("نشست معتبر نیست.");
         }
       }).catch(() => {
+        const recoveryCard = content.querySelector(".tahouri-recovery-card");
         localStorage.removeItem(KEY);
         renderAccount(content);
+        if (recoveryCard) content.prepend(recoveryCard);
         showMessage("نشست قبلی معتبر نیست. برای ادامه دوباره وارد حساب شوید.", true);
       });
       return;
