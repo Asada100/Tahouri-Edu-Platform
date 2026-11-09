@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#163b5c">
+  <title>استخراج پروفایل‌های طهوری</title>
+  <style>
+    :root{font-family:Tahoma,Arial,sans-serif;color:#172b3a;background:#f3f6f8}
+    *{box-sizing:border-box}
+    body{margin:0;padding:20px;line-height:1.8}
+    main{max-width:720px;margin:28px auto;background:#fff;border:1px solid #dce5eb;border-radius:16px;padding:22px;box-shadow:0 8px 28px #17354a12}
+    h1{font-size:1.25rem;margin:0 0 10px}
+    p{margin:8px 0;color:#455b69}
+    button{width:100%;border:0;border-radius:10px;padding:14px 16px;background:#176b50;color:#fff;font-size:1rem;font-weight:700;margin-top:16px}
+    button:disabled{opacity:.45}
+    #status{margin-top:14px;padding:12px;border-radius:10px;background:#eef4f7;white-space:pre-wrap}
+    .hint{font-size:.88rem;color:#667985}
+    table{width:100%;border-collapse:collapse;margin-top:14px;font-size:.9rem}
+    th,td{padding:8px;border-bottom:1px solid #e5ebef;text-align:right;overflow-wrap:anywhere}
+    th{background:#f6f8fa}
+    .ok{color:#176b50}.warn{color:#a15c00}
+  </style>
+</head>
+<body>
+<main>
+  <h1>استخراج شناسهٔ پروفایل‌های طهوری</h1>
+  <p>این صفحه اطلاعات پروفایل‌ها را فقط از حافظهٔ همین مرورگر می‌خواند و فایل JSON می‌سازد.</p>
+  <p class="hint">هیچ پروفایلی تغییر، حذف یا ارسال نمی‌شود. این صفحه را باید در همان مرورگری باز کنید که نسخهٔ آنلاین طهوری را در آن استفاده می‌کنید.</p>
+  <button id="download" type="button" disabled>آماده‌سازی اطلاعات…</button>
+  <div id="status" role="status" aria-live="polite">در حال بررسی اطلاعات ذخیره‌شده…</div>
+  <div id="preview"></div>
+</main>
+<script>
+(() => {
+  "use strict";
+  const KEY = "Tahouri_Profiles";
+  const button = document.getElementById("download");
+  const status = document.getElementById("status");
+  const preview = document.getElementById("preview");
+  let payload = null;
+
+  const showError = message => {
+    status.className = "warn";
+    status.textContent = message;
+    button.disabled = true;
+  };
+
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (!raw) {
+      showError("اطلاعاتی با کلید «" + KEY + "» در این دامنه پیدا نشد. مطمئن شوید این صفحه را از همان دامنه و همان مرورگری باز کرده‌اید که طهوری در آن استفاده می‌شود.");
+      return;
+    }
+
+    const parsed = JSON.parse(raw);
+    const profiles = Array.isArray(parsed) ? parsed :
+      (parsed && Array.isArray(parsed.profiles) ? parsed.profiles : null);
+
+    if (!profiles) {
+      showError("ساختار اطلاعات ذخیره‌شده قابل شناسایی نیست؛ هیچ فایلی ساخته نشد.");
+      return;
+    }
+
+    const rows = profiles.map(p => ({
+      studentId: p && (p.studentId ?? p.id) != null ? String(p.studentId ?? p.id).trim() : "",
+      fullName: p && (p.fullName ?? p.name) != null ? String(p.fullName ?? p.name).trim() : "",
+      gradeId: p && (p.gradeId ?? p.grade) != null ? String(p.gradeId ?? p.grade).trim() : ""
+    }));
+
+    const missing = rows.filter(p => !p.studentId || !p.fullName || !p.gradeId).length;
+    const ids = rows.map(p => p.studentId).filter(Boolean);
+    const duplicates = [...new Set(ids.filter((id, i) => ids.indexOf(id) !== i))];
+
+    payload = {
+      format: "tahouri-student-profiles",
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      profiles: rows
+    };
+
+    status.className = missing || duplicates.length ? "warn" : "ok";
+    status.textContent = "تعداد پروفایل‌ها: " + rows.length +
+      "\nشناسه‌های تکراری: " + duplicates.length +
+      "\nپروفایل‌های دارای فیلد ناقص: " + missing +
+      (duplicates.length ? "\nشناسه‌های تکراری: " + duplicates.join("، ") : "") +
+      (missing ? "\nفایل شامل فیلدهای خالی خواهد بود؛ قبل از استفاده آن‌ها را بررسی کنید." : "\nاطلاعات آمادهٔ دانلود است.");
+
+    const table = document.createElement("table");
+    table.innerHTML = "<thead><tr><th>شناسه</th><th>نام</th><th>پایه</th></tr></thead>";
+    const tbody = document.createElement("tbody");
+    rows.forEach(p => {
+      const tr = document.createElement("tr");
+      [p.studentId, p.fullName, p.gradeId].forEach(value => {
+        const td = document.createElement("td");
+        td.textContent = value || "—";
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    preview.replaceChildren(table);
+    button.disabled = rows.length === 0;
+    button.textContent = "دانلود فایل JSON (" + rows.length + " پروفایل)";
+  } catch (error) {
+    showError("خواندن اطلاعات با خطا روبه‌رو شد: " + error.message);
+  }
+
+  button.addEventListener("click", () => {
+    if (!payload) return;
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json;charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "tahouri-student-profiles-mobile.json";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+    status.textContent += "\nدرخواست دانلود فایل ارسال شد.";
+  });
+})();
+</script>
+</body>
+</html>
