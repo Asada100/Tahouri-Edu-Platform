@@ -51,6 +51,9 @@ jobs:
       - name: Active profile mutation context test
         run: npm run profile-context-event-test
 
+      - name: Three-student shared installation test
+        run: npm run three-student-shared-installation-test
+
       - name: Integration test
         run: npm run integration-test
       - name: Migration verification
