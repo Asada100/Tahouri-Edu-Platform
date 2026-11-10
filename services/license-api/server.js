@@ -457,23 +457,61 @@ function send(res, status, payload) {
 }
 
 function readBody(req) {
+    const contentType = String(req.headers["content-type"] || "")
+        .split(";")[0].trim().toLowerCase();
+    if (contentType !== "application/json" && !/^application\/[a-z0-9.+-]+\+json$/.test(contentType)) {
+        const error = new Error("Content-Type must be application/json.");
+        error.statusCode = 415;
+        throw error;
+    }
+
+    const maxBytes = 64 * 1024;
+    const declaredLength = Number(req.headers["content-length"]);
+    if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
+        const error = new Error("Request body is too large.");
+        error.statusCode = 413;
+        throw error;
+    }
+
     return new Promise((resolve, reject) => {
-        let data = "";
+        const chunks = [];
+        let totalBytes = 0;
+        let rejected = false;
+
         req.on("data", chunk => {
-            data += chunk;
-            if (data.length > 1024 * 64) {
-                reject(new Error("Request too large."));
-                req.destroy();
+            if (rejected) return;
+            totalBytes += chunk.length;
+            if (totalBytes > maxBytes) {
+                rejected = true;
+                const error = new Error("Request body is too large.");
+                error.statusCode = 413;
+                reject(error);
+                // Drain instead of destroying the socket so the caller can receive 413.
+                req.resume();
+                return;
             }
+            chunks.push(chunk);
         });
+
         req.on("end", () => {
+            if (rejected) return;
             try {
-                resolve(data ? JSON.parse(data) : {});
-            } catch {
-                reject(new Error("Invalid JSON."));
+                const data = Buffer.concat(chunks).toString("utf8");
+                const parsed = data ? JSON.parse(data) : {};
+                if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+                    const error = new Error("JSON body must be an object.");
+                    error.statusCode = 400;
+                    throw error;
+                }
+                resolve(parsed);
+            } catch (error) {
+                if (!error.statusCode) error.statusCode = 400;
+                reject(error);
             }
         });
-        req.on("error", reject);
+        req.on("error", error => {
+            if (!rejected) reject(error);
+        });
     });
 }
 
