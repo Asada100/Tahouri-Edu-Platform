@@ -143,53 +143,18 @@
     }
 
 
-    async function switchProfile(
-        studentId
-    ) {
-
+    function switchProfile(studentId) {
         try {
-
             if (
-                !window.ProfileManager ||
-                typeof ProfileManager.switchProfile !== "function"
+                window.ProfileManager &&
+                typeof ProfileManager.switchProfile === "function"
             ) {
-                return false;
+                return ProfileManager.switchProfile(studentId);
             }
-
-            const changed = ProfileManager.switchProfile(studentId);
-            if (changed === false) return false;
-
-            // A profile change must never keep the previous student's
-            // in-memory entitlement. Resolve the newly active student's
-            // signed entitlement before rendering the gate again.
-            if (
-                window.LicenseManager &&
-                typeof LicenseManager.initializeRemoteEntitlement === "function"
-            ) {
-                await LicenseManager.initializeRemoteEntitlement();
-            }
-
-            if (
-                window.LicenseManager &&
-                typeof LicenseManager.refreshRemoteLicenseStatus === "function"
-            ) {
-                await revalidateCurrentLicense();
-            }
-
-            return true;
-
+        } catch (error) {
+            console.error("Activation Gate: Profile switch failed.", error);
         }
-        catch (error) {
-
-            console.error(
-                "Activation Gate: Profile switch failed.",
-                error
-            );
-
-            return false;
-
-        }
-
+        return false;
     }
 
 
@@ -1195,8 +1160,7 @@
                     const studentId = this.value;
                     if (!studentId) return;
 
-                    const changed = await switchProfile(studentId);
-                    if (changed) renderGate();
+                    switchProfile(studentId);
 
                 }
             );
@@ -1934,6 +1898,35 @@
         console.log(
             "Activation Gate: Initializing..."
         );
+
+        if (!window.__tahouriProfileContextListenerInstalled) {
+            window.addEventListener("tahouri:active-profile-context-changed", async function () {
+                try {
+                    if (
+                        window.LicenseManager &&
+                        typeof LicenseManager.initializeRemoteEntitlement === "function"
+                    ) {
+                        await LicenseManager.initializeRemoteEntitlement();
+                    }
+
+                    if (
+                        getActiveStudentId() &&
+                        getProfileGrade() &&
+                        window.LicenseManager &&
+                        typeof LicenseManager.refreshRemoteLicenseStatus === "function"
+                    ) {
+                        await revalidateCurrentLicense();
+                    }
+
+                    renderGate();
+                } catch (error) {
+                    console.error("Activation Gate: Profile context refresh failed.", error);
+                    renderGate();
+                }
+            });
+
+            window.__tahouriProfileContextListenerInstalled = true;
+        }
 
         if (
             window.LicenseManager &&
