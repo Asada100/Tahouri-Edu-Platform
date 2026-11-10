@@ -154,7 +154,11 @@
         }
 
         try {
-            const result = await window.TahouriLicenseClient.status(licenseId);
+            const result = await window.TahouriLicenseClient.status(
+                licenseId,
+                verifiedRemoteEntitlement.claims.studentId,
+                verifiedRemoteEntitlement.claims.installationBinding
+            );
 
             if (!result.valid) {
                 verifiedRemoteEntitlement = null;
