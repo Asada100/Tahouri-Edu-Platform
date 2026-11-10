@@ -36,7 +36,7 @@ const ADMIN_LOCK_MS = 15 * 60 * 1000;
 const ADMIN_MAX_FAILURES = 5;
 const ADMIN_LOGIN_RATE_LIMIT = 10;
 const adminLoginRateBuckets = new Map();
-const ACTIVATION_RATE_LIMIT = 10;
+const ACTIVATION_RATE_LIMIT = !IS_PRODUCTION && process.env.TAHOURI_TEST_MODE === "true" ? 1000 : 10;
 const activationRateBuckets = new Map();
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 const SESSION_COOKIE_NAME = "tahouri_admin_session";
