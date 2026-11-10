@@ -46,7 +46,7 @@ async function archiveStudent(studentId){
   alert("حساب دانش‌آموز بایگانی و مجوزهای مرتبط لغو شدند.");
  }catch(x){alert(x.message)}
 }
-async function loadCodes(){const d=await api("/api/admin/codes");document.getElementById("codes").innerHTML=table(["کد","پایه","سال","نوع رزرو","وضعیت","ساخته‌شده","استفاده‌شده","مجوز"],d.codes.map(x=>[x.codePreview,x.gradeId,x.academicYear,x.renewalMode==="repeat"?"تکرار پایه":"پایه سال بعد",x.status,x.createdAt,x.usedAt||"—",x.licenseId||"—"]))}
+async function loadCodes(){const d=await api("/api/admin/codes");document.getElementById("codes").innerHTML=table(["کد","دانش‌آموز","پایه","سال","نوع رزرو","وضعیت","ساخته‌شده","استفاده‌شده","مجوز"],d.codes.map(x=>[x.codePreview,x.studentId||"قدیمی/بدون اتصال",x.gradeId,x.academicYear,x.renewalMode==="repeat"?"تکرار پایه":"پایه سال بعد",x.status,x.createdAt,x.usedAt||"—",x.licenseId||"—"]))}
 async function loadLicenses(){const d=await api("/api/admin/licenses");document.getElementById("licenses").innerHTML=table(["مجوز","پروفایل","پایه","سال","از","تا","وضعیت"],d.licenses.map(x=>[x.licenseId,x.studentId,x.gradeId,x.academicYear,x.validFrom,x.validUntil,x.status]))}
 async function loadPayments(){const d=await api("/api/admin/payments");document.getElementById("payments").innerHTML=table(["شناسه","درگاه","وضعیت","مبلغ","پایه","سال","مجوز","زمان"],d.payments.map(x=>[x.paymentId,x.provider,x.status,(x.amount??"")+" "+(x.currency??""),x.gradeId||"—",x.academicYear||"—",x.licenseId||"—",x.createdAt]))}
 async function loadAudit(){const d=await api("/api/admin/audit");document.getElementById("audit").innerHTML=table(["رویداد","عامل","مجوز","زمان","جزئیات"],d.audit.map(x=>[x.eventType,x.actor,x.licenseId||"—",x.createdAt,JSON.stringify(x.metadata||{})]))}
