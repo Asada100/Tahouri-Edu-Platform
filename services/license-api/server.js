@@ -1671,6 +1671,7 @@ function fulfillVerifiedPayment(payment, actor) {
     db.prepare("INSERT INTO activation_codes (code_hash, code_preview, product_id, grade_id, academic_year, renewal_mode, status, created_at, student_id) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?)").run(codeHash, preview, payment.product_id, payment.grade_id, payment.academic_year, payment.renewal_mode || "promotion", now, payment.student_id);
     const updated = db.prepare("UPDATE payments SET status = 'verified', verified_at = ?, activation_code_hash = ?, activation_code_preview = ? WHERE payment_id = ? AND status = 'pending' AND student_id = ? AND activation_code_hash IS NULL").run(now, codeHash, preview, payment.payment_id, payment.student_id);
     if (updated.changes !== 1) throw new Error("Payment fulfillment lost its pending-state race.");
+    audit("payment.callback.verified", actor, { codeHash, metadata: { paymentId: payment.payment_id, studentId: payment.student_id, gradeId: payment.grade_id, academicYear: payment.academic_year, renewalMode: payment.renewal_mode || "promotion" } });
     audit("payment.activation_code.issued", actor, { codeHash, metadata: { paymentId: payment.payment_id, studentId: payment.student_id, gradeId: payment.grade_id, academicYear: payment.academic_year, renewalMode: payment.renewal_mode || "promotion" } });
     return { activationCode: code, activationCodePreview: preview };
 }
