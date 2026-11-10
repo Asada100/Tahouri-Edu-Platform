@@ -14,6 +14,7 @@
     "entitlement-context-test": "node entitlement-context-test.js",
     "profile-switch-entitlement-test": "node profile-switch-entitlement-test.js",
     "profile-context-event-test": "node profile-context-event-test.js",
+    "three-student-shared-installation-test": "node three-student-shared-installation-test.js",
     "verify-backup": "node verify-backup.js",
     "preflight-production": "node preflight-production.js",
     "restore-rehearsal": "node restore-rehearsal.js",
