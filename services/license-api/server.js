@@ -41,6 +41,7 @@ const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 const SESSION_COOKIE_NAME = "tahouri_admin_session";
 const PAYMENT_PROVIDER = String(process.env.TAHOURI_PAYMENT_PROVIDER || "manual");
 const RATE_WINDOW_MS = 60 * 1000;
+const MAX_RATE_BUCKETS = 10000;
 const RATE_LIMIT = process.env.TAHOURI_TEST_MODE === "true" ? 1000 : 30;
 const rateBuckets = new Map();
 
@@ -669,6 +670,11 @@ function adminLogin(req, res, body) {
     const supplied = String(body.password || "");
     if (!supplied || supplied.length !== ADMIN_PASSWORD.length ||
         !crypto.timingSafeEqual(Buffer.from(supplied), Buffer.from(ADMIN_PASSWORD))) {
+        if (!failure && ADMIN_LOGIN_FAILURES.size >= MAX_RATE_BUCKETS) {
+            recordMetric("securityRateLimitBlocks");
+            recordSuspiciousAttempt(req, "admin_login_capacity_limited");
+            return send(res, 429, { ok: false, message: "ظرفیت موقت کنترل ورود تکمیل شده است." });
+        }
         const next = failure || { count: 0, lockedUntil: 0 };
         next.count += 1;
         if (next.count >= ADMIN_MAX_FAILURES) {
@@ -746,6 +752,7 @@ function requestAllowedWithLimit(req, limit, bucketMap) {
     const current = bucketMap.get(ip);
 
     if (!current || now - current.startedAt >= RATE_WINDOW_MS) {
+        if (!current && bucketMap.size >= MAX_RATE_BUCKETS) return false;
         bucketMap.set(ip, { startedAt: now, count: 1 });
         return true;
     }
@@ -760,6 +767,7 @@ function requestAllowed(req) {
     const current = rateBuckets.get(ip);
 
     if (!current || now - current.startedAt >= RATE_WINDOW_MS) {
+        if (!current && rateBuckets.size >= MAX_RATE_BUCKETS) return false;
         rateBuckets.set(ip, { startedAt: now, count: 1 });
         return true;
     }
@@ -774,6 +782,9 @@ function cleanRateBuckets() {
         for (const [ip, bucket] of buckets) {
             if (bucket.startedAt < cutoff) buckets.delete(ip);
         }
+    }
+    for (const [ip, failure] of ADMIN_LOGIN_FAILURES) {
+        if (!failure || failure.lockedUntil <= now) ADMIN_LOGIN_FAILURES.delete(ip);
     }
 }
 
