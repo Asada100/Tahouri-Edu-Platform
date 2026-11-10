@@ -49,12 +49,12 @@ function createPaymentRequest({ payment }) {
 
 async function verifyServerSide({ payment, authority }) {
     if (PROVIDER === "manual") {
-        if (process.env.NODE_ENV === "production") {
-            throw new Error("Manual payment verification is disabled in production.");
-        }
-        return Boolean(authority);
+        // A caller-supplied authority is not proof of payment, even in development.
+        return false;
     }
 
+    // No provider is allowed to report success until a real server-to-server
+    // verification adapter has been implemented and tested.
     throw new Error(
         "Server-side payment verification adapter is not implemented for: " + PROVIDER
     );
