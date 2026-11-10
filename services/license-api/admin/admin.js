@@ -12,15 +12,48 @@ async function loadMetrics(){try{const d=await api("/api/metrics");const m=d.met
 ["درخواست‌ها",m.requests],["فعال‌سازی موفق",m.activations],["خطاهای فعال‌سازی",m.activationFailures],["لغو مجوز",m.licenseRevocations],["خطاهای 5xx",m.responses5xx]
 ].map(x=>"<div class='stat'><strong>"+e(x[1])+"</strong><span>"+e(x[0])+"</span></div>").join("")}catch{}}
 async function loadAlerts(){try{const d=await api("/api/metrics/alerts"),card=document.getElementById("alertsCard");if(!d.alerts.length){card.hidden=true;return}card.hidden=false;document.getElementById("alerts").innerHTML=d.alerts.map(a=>"<div class='alert "+e(a.severity)+"'><strong>"+e(a.code)+"</strong><span>"+e(a.message)+"</span></div>").join("")}catch{}}
+async function loadStudents(){
+ const d=await api("/api/admin/students");
+ const select=document.getElementById("codeStudent"),previous=select.value;
+ const active=d.students.filter(x=>x.status==="active");
+ select.innerHTML='<option value="">انتخاب دانش‌آموز</option>'+active.map(x=>'<option value="'+e(x.studentId)+'" data-grade="'+e(x.gradeId)+'">'+e(x.fullName)+' — '+e(x.gradeId)+' — '+e(x.studentId)+'</option>').join("");
+ if(active.some(x=>x.studentId===previous))select.value=previous;
+ document.getElementById("students").innerHTML=table(["نام","شناسه پایدار","پایه","وضعیت","عملیات"],d.students.map(x=>[x.fullName,x.studentId,x.gradeId,x.status==="active"?"فعال":"بایگانی‌شده",x.status==="active"?"<button class='danger' data-archive='"+e(x.studentId)+"'>بایگانی</button>":"—"]));
+ document.querySelectorAll("[data-archive]").forEach(button=>button.addEventListener("click",()=>archiveStudent(button.dataset.archive)));
+}
+async function createStudent(){
+ try{
+  const fullName=document.getElementById("studentName").value.trim();
+  const gradeId=document.getElementById("studentGrade").value.trim();
+  const studentId=document.getElementById("studentIdInput").value.trim();
+  if(!fullName||!gradeId)throw Error("نام و پایه دانش‌آموز الزامی است.");
+  const body={fullName,gradeId};if(studentId)body.studentId=studentId;
+  const d=await api("/api/admin/students",{method:"POST",body:JSON.stringify(body)});
+  document.getElementById("studentName").value="";
+  document.getElementById("studentIdInput").value="";
+  await loadStudents();
+  document.getElementById("codeStudent").value=d.student.studentId;
+  document.getElementById("grade").value=d.student.gradeId;
+  alert("حساب دانش‌آموز ثبت شد. شناسه پایدار: "+d.student.studentId);
+ }catch(x){alert(x.message)}
+}
+async function archiveStudent(studentId){
+ try{
+  if(!confirm("با بایگانی دانش‌آموز، کدهای استفاده‌نشده و مجوزهای فعال/رزروشده او نیز لغو می‌شوند. ادامه می‌دهید؟"))return;
+  await api("/api/admin/students/archive",{method:"POST",body:JSON.stringify({studentId})});
+  await Promise.all([loadStudents(),loadCodes(),loadLicenses()]);
+  alert("حساب دانش‌آموز بایگانی و مجوزهای مرتبط لغو شدند.");
+ }catch(x){alert(x.message)}
+}
 async function loadCodes(){const d=await api("/api/admin/codes");document.getElementById("codes").innerHTML=table(["کد","پایه","سال","نوع رزرو","وضعیت","ساخته‌شده","استفاده‌شده","مجوز"],d.codes.map(x=>[x.codePreview,x.gradeId,x.academicYear,x.renewalMode==="repeat"?"تکرار پایه":"پایه سال بعد",x.status,x.createdAt,x.usedAt||"—",x.licenseId||"—"]))}
 async function loadLicenses(){const d=await api("/api/admin/licenses");document.getElementById("licenses").innerHTML=table(["مجوز","پروفایل","پایه","سال","از","تا","وضعیت"],d.licenses.map(x=>[x.licenseId,x.studentId,x.gradeId,x.academicYear,x.validFrom,x.validUntil,x.status]))}
 async function loadPayments(){const d=await api("/api/admin/payments");document.getElementById("payments").innerHTML=table(["شناسه","درگاه","وضعیت","مبلغ","پایه","سال","مجوز","زمان"],d.payments.map(x=>[x.paymentId,x.provider,x.status,(x.amount??"")+" "+(x.currency??""),x.gradeId||"—",x.academicYear||"—",x.licenseId||"—",x.createdAt]))}
 async function loadAudit(){const d=await api("/api/admin/audit");document.getElementById("audit").innerHTML=table(["رویداد","عامل","مجوز","زمان","جزئیات"],d.audit.map(x=>[x.eventType,x.actor,x.licenseId||"—",x.createdAt,JSON.stringify(x.metadata||{})]))}
 function table(headers,rows){if(!rows.length)return "<p class='muted'>موردی وجود ندارد.</p>";return "<div class='table-wrap'><table><thead><tr>"+headers.map(h=>"<th>"+e(h)+"</th>").join("")+"</tr></thead><tbody>"+rows.map(r=>"<tr>"+r.map(v=>"<td>"+e(v)+"</td>").join("")+"</tr>").join("")+"</tbody></table></div>"}
-async function createCodes(){try{const count=Number(document.getElementById("count").value);if(!Number.isInteger(count)||count<1||count>100)throw Error("تعداد باید بین ۱ تا ۱۰۰ باشد.");const d=await api("/api/admin/codes",{method:"POST",body:JSON.stringify({gradeId:document.getElementById("grade").value.trim(),academicYear:document.getElementById("year").value.trim(),renewalMode:document.getElementById("renewalMode").value,count})});const box=document.getElementById("newCodes");box.textContent=d.codes.join("\n");box.hidden=false;await loadCodes();alert("کدها ساخته شدند. کد کامل را همین حالا ذخیره کنید.")}catch(x){alert(x.message)}}
+async function createCodes(){try{const count=Number(document.getElementById("count").value),studentId=document.getElementById("codeStudent").value;if(!studentId)throw Error("ابتدا دانش‌آموز را انتخاب کنید.");if(!Number.isInteger(count)||count<1||count>100)throw Error("تعداد باید بین ۱ تا ۱۰۰ باشد.");const d=await api("/api/admin/codes",{method:"POST",body:JSON.stringify({studentId,gradeId:document.getElementById("grade").value.trim(),academicYear:document.getElementById("year").value.trim(),renewalMode:document.getElementById("renewalMode").value,count})});const box=document.getElementById("newCodes");box.textContent=d.codes.join("\n");box.hidden=false;await loadCodes();alert("کدها ساخته شدند. کد کامل را همین حالا ذخیره کنید.")}catch(x){alert(x.message)}}
 async function revokeCode(){try{const code=document.getElementById("revokeCode").value.trim();if(!code)throw Error("کد را وارد کنید.");if(!confirm("این کد لغو شود؟"))return;await api("/api/admin/codes/revoke",{method:"POST",body:JSON.stringify({code})});document.getElementById("revokeCode").value="";await loadCodes();alert("کد لغو شد.")}catch(x){alert(x.message)}}
 async function revokeLicense(){try{const licenseId=document.getElementById("licenseIdAction").value.trim();if(!licenseId)throw Error("License ID را وارد کنید.");if(!confirm("این مجوز لغو شود؟"))return;await api("/api/admin/licenses/revoke",{method:"POST",body:JSON.stringify({licenseId})});await loadLicenses();alert("مجوز لغو شد.")}catch(x){alert(x.message)}}
 async function extendLicense(){try{const licenseId=document.getElementById("licenseIdAction").value.trim(),v=document.getElementById("extendUntil").value;if(!licenseId||!v)throw Error("License ID و تاریخ پایان را وارد کنید.");await api("/api/admin/licenses/extend",{method:"POST",body:JSON.stringify({licenseId,validUntil:new Date(v).toISOString()})});await loadLicenses();alert("مجوز تمدید شد.")}catch(x){alert(x.message)}}
 async function searchAll(){try{const q=document.getElementById("searchQ").value.trim();if(!q)throw Error("عبارت جستجو را وارد کنید.");const d=await api("/api/admin/search?q="+encodeURIComponent(q));document.getElementById("searchResults").innerHTML="<h3>مجوزها</h3>"+table(["مجوز","پروفایل","پایه","سال","وضعیت"],d.licenses.map(v=>[v.licenseId,v.studentId,v.gradeId,v.academicYear,v.status]))+"<h3>کدها</h3>"+table(["کد","پایه","سال","وضعیت","مجوز"],d.codes.map(v=>[v.codePreview,v.gradeId,v.academicYear,v.status,v.licenseId||"—"]))}catch(x){alert(x.message)}}
-async function loadAll(){await loadHealth();await Promise.all([loadMetrics(),loadAlerts(),loadCodes(),loadLicenses(),loadPayments(),loadAudit()])}
+async function loadAll(){await loadHealth();await Promise.all([loadMetrics(),loadAlerts(),loadStudents(),loadCodes(),loadLicenses(),loadPayments(),loadAudit()])}
 loadHealth();checkSession();
