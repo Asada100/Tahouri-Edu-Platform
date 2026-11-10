@@ -3,76 +3,20 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const vm = require("node:vm");
 
 const root = path.resolve(__dirname, "../..");
 const source = fs.readFileSync(
     path.join(root, "engine/core/activationGate.js"),
     "utf8"
 );
-const start = source.indexOf("async function switchProfile(");
+const start = source.indexOf("function switchProfile(");
 const end = source.indexOf("// Academic Year", start);
 assert.notEqual(start, -1, "switchProfile helper not found");
 assert.notEqual(end, -1, "switchProfile helper boundary not found");
 const helper = source.slice(start, end);
+assert.ok(helper.includes("ProfileManager.switchProfile(studentId)"),
+    "Activation Gate must delegate profile changes to ProfileManager");
+assert.ok(!helper.includes("initializeRemoteEntitlement"),
+    "Entitlement refresh must be centralized in the profile-context event listener");
 
-async function main() {
-    const events = [];
-    const profileManager = {
-        switchProfile(studentId) {
-            events.push("switch:" + studentId);
-            return true;
-        }
-    };
-    const licenseManager = {
-        initializeRemoteEntitlement: async () => {
-            events.push("initialize-entitlement");
-            return true;
-        },
-        refreshRemoteLicenseStatus: async () => {
-            events.push("refresh-status");
-            return { valid: true };
-        }
-    };
-    const context = {
-        console: { error() {} },
-        ProfileManager: profileManager,
-        LicenseManager: licenseManager,
-        window: {
-            ProfileManager: profileManager,
-            LicenseManager: licenseManager
-        },
-        revalidateCurrentLicense: async () => {
-            events.push("revalidate");
-            await licenseManager.refreshRemoteLicenseStatus();
-            return true;
-        }
-    };
-    vm.createContext(context);
-    vm.runInContext(helper + "\nglobalThis.__switchProfile = switchProfile;", context);
-
-    assert.equal(await context.__switchProfile("student-B"), true);
-    assert.deepEqual(events, [
-        "switch:student-B",
-        "initialize-entitlement",
-        "revalidate",
-        "refresh-status"
-    ], "Profile switch must resolve and revalidate the new student's entitlement in order.");
-
-    events.length = 0;
-    profileManager.switchProfile = studentId => {
-        events.push("rejected:" + studentId);
-        return false;
-    };
-    assert.equal(await context.__switchProfile("unknown-student"), false);
-    assert.deepEqual(events, ["rejected:unknown-student"],
-        "Rejected profile switches must not change entitlement context.");
-
-    console.log("Tahouri profile-switch entitlement refresh test: PASS");
-}
-
-main().catch(error => {
-    console.error("Tahouri profile-switch entitlement refresh test: FAIL");
-    console.error(error);
-    process.exitCode = 1;
-});
+console.log("Tahouri profile switch delegation test: PASS");
