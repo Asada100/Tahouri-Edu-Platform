@@ -1031,11 +1031,14 @@ async function activate(req, res) {
             now
         );
 
-        db.prepare(`
+        const consumedCode = db.prepare(`
             UPDATE activation_codes
             SET status = 'used', used_at = ?, license_id = ?
             WHERE code_hash = ? AND status = 'active' AND used_at IS NULL
         `).run(now, licenseId, codeHash);
+        if (consumedCode.changes !== 1) {
+            throw new Error("Activation code consumption lost its conditional update race.");
+        }
 
         audit(
             isFutureRenewal ? "license.renewal_reserved" : "license.activated",
@@ -1214,18 +1217,26 @@ async function adminRevokeCode(req, res) {
     if (!code) return send(res, 400, { ok: false, message: "کد الزامی است." });
 
     const codeHash = hashCode(code);
-    const result = db.prepare(`
-        UPDATE activation_codes
-        SET status = 'revoked'
-        WHERE code_hash = ? AND status = 'active' AND used_at IS NULL
-    `).run(codeHash);
+    db.exec("BEGIN IMMEDIATE");
+    try {
+        const result = db.prepare(`
+            UPDATE activation_codes
+            SET status = 'revoked'
+            WHERE code_hash = ? AND status = 'active' AND used_at IS NULL
+        `).run(codeHash);
 
-    if (!result.changes) {
-        return send(res, 404, { ok: false, message: "کد فعال و قابل لغو پیدا نشد." });
+        if (result.changes !== 1) {
+            db.exec("ROLLBACK");
+            return send(res, 404, { ok: false, message: "کد فعال و قابل لغو پیدا نشد." });
+        }
+
+        audit("code.revoked", "admin", { codeHash });
+        db.exec("COMMIT");
+        return send(res, 200, { ok: true });
+    } catch (error) {
+        try { db.exec("ROLLBACK"); } catch {}
+        throw error;
     }
-
-    audit("code.revoked", "admin", { codeHash });
-    return send(res, 200, { ok: true });
 }
 
 async function adminDiagnostics(req, res) {
@@ -1311,18 +1322,26 @@ async function adminRevokeLicense(req, res) {
     const body = await readBody(req);
     const licenseId = validateIdentifier(body.licenseId, "licenseId");
 
-    const result = db.prepare(`
-        UPDATE licenses
-        SET status = 'revoked', revoked_at = ?
-        WHERE license_id = ? AND status = 'active'
-    `).run(new Date().toISOString(), licenseId);
+    db.exec("BEGIN IMMEDIATE");
+    try {
+        const result = db.prepare(`
+            UPDATE licenses
+            SET status = 'revoked', revoked_at = ?
+            WHERE license_id = ? AND status = 'active'
+        `).run(new Date().toISOString(), licenseId);
 
-    if (!result.changes) {
-        return send(res, 404, { ok: false, message: "مجوز فعال پیدا نشد." });
+        if (result.changes !== 1) {
+            db.exec("ROLLBACK");
+            return send(res, 404, { ok: false, message: "مجوز فعال پیدا نشد." });
+        }
+
+        audit("license.revoked", "admin", { licenseId, requestId: res.__requestId });
+        db.exec("COMMIT");
+        return send(res, 200, { ok: true });
+    } catch (error) {
+        try { db.exec("ROLLBACK"); } catch {}
+        throw error;
     }
-
-    audit("license.revoked", "admin", { licenseId, requestId: res.__requestId });
-    return send(res, 200, { ok: true });
 }
 
 async function adminExtendLicense(req, res) {
@@ -1335,36 +1354,48 @@ async function adminExtendLicense(req, res) {
         return send(res, 400, { ok: false, message: "licenseId و تاریخ معتبر الزامی است." });
     }
 
-    const license = db.prepare(
-        "SELECT * FROM licenses WHERE license_id = ?"
-    ).get(licenseId);
+    db.exec("BEGIN IMMEDIATE");
+    try {
+        const license = db.prepare(
+            "SELECT * FROM licenses WHERE license_id = ?"
+        ).get(licenseId);
 
-    if (!license || license.status === "revoked") {
-        return send(res, 404, { ok: false, message: "مجوز قابل تمدید پیدا نشد." });
+        if (!license || license.status === "revoked") {
+            db.exec("ROLLBACK");
+            return send(res, 404, { ok: false, message: "مجوز قابل تمدید پیدا نشد." });
+        }
+
+        const entitlement = createEntitlement({
+            licenseId,
+            gradeId: license.grade_id,
+            studentId: license.student_id,
+            installationId: license.installation_binding,
+            academicYear: license.academic_year,
+            validFrom: license.valid_from,
+            validUntil
+        });
+
+        const updated = db.prepare(`
+            UPDATE licenses
+            SET valid_until = ?, status = 'active', entitlement_json = ?
+            WHERE license_id = ? AND status <> 'revoked'
+        `).run(validUntil, JSON.stringify(entitlement), licenseId);
+
+        if (updated.changes !== 1) {
+            throw new Error("License changed before extension could be committed.");
+        }
+
+        audit("license.extended", "admin", {
+            licenseId,
+            metadata: { validUntil }
+        });
+
+        db.exec("COMMIT");
+        return send(res, 200, { ok: true, entitlement });
+    } catch (error) {
+        try { db.exec("ROLLBACK"); } catch {}
+        throw error;
     }
-
-    const entitlement = createEntitlement({
-        licenseId,
-        gradeId: license.grade_id,
-        studentId: license.student_id,
-        installationId: license.installation_binding,
-        academicYear: license.academic_year,
-        validFrom: license.valid_from,
-        validUntil
-    });
-
-    db.prepare(`
-        UPDATE licenses
-        SET valid_until = ?, status = 'active', entitlement_json = ?
-        WHERE license_id = ?
-    `).run(validUntil, JSON.stringify(entitlement), licenseId);
-
-    audit("license.extended", "admin", {
-        licenseId,
-        metadata: { validUntil }
-    });
-
-    return send(res, 200, { ok: true, entitlement });
 }
 
 async function adminAudit(req, res) {
