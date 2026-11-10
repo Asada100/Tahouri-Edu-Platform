@@ -58,6 +58,24 @@ if (!source.includes("Buffer.concat(chunks).toString(\"utf8\")") ||
     throw new Error("Byte-accurate request body validation is missing.");
 }
 
+const paymentSecurityMarkers = [
+    "await paymentProvider.verifyServerSide(",
+    "verified = verified === true;",
+    "BEGIN IMMEDIATE",
+    "payment.callback.verified",
+    "Number(process.env.TAHOURI_PRODUCT_PRICE_IRR)",
+    "TAHOURI_PRODUCT_PRICE_IRR must be a positive integer in production."
+];
+for (const marker of paymentSecurityMarkers) {
+    if (!source.includes(marker)) {
+        throw new Error("Payment security marker missing: " + marker);
+    }
+}
+if (!fs.readFileSync(path.join(__dirname, "payment-provider.js"), "utf8")
+    .includes("A caller-supplied authority is not proof of payment")) {
+    throw new Error("Manual payment callback must fail closed.");
+}
+
 if (!source.includes("X-Content-Type-Options") || !source.includes("X-Frame-Options") || !source.includes("Referrer-Policy")) {
     throw new Error("Required API security headers are missing.");
 }
