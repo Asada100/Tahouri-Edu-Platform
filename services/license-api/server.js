@@ -1257,7 +1257,12 @@ async function adminCreateStudent(req, res) {
     if (!fullName || fullName.length > 120 || /[<>\u0000-\u001f]/.test(fullName)) {
         return send(res, 400, { ok: false, message: "نام دانش‌آموز معتبر نیست." });
     }
-    const studentId = "stu_" + crypto.randomUUID();
+    const studentId = body.studentId
+        ? validateIdentifier(body.studentId, "studentId")
+        : "stu_" + crypto.randomUUID();
+    if (db.prepare("SELECT 1 FROM student_accounts WHERE student_id = ?").get(studentId)) {
+        return send(res, 409, { ok: false, message: "این شناسه دانش‌آموز قبلاً ثبت شده است." });
+    }
     const now = new Date().toISOString();
     try {
         db.exec("BEGIN IMMEDIATE");
@@ -1284,6 +1289,47 @@ async function adminListStudents(req, res) {
         LIMIT 1000
     `).all();
     return send(res, 200, { ok: true, students: rows });
+}
+
+async function adminArchiveStudent(req, res) {
+    if (!requireAdmin(req, res)) return;
+    const body = await readBody(req);
+    const studentId = validateIdentifier(body.studentId, "studentId");
+    const now = new Date().toISOString();
+    try {
+        db.exec("BEGIN IMMEDIATE");
+        const student = db.prepare(
+            "SELECT student_id AS studentId, status FROM student_accounts WHERE student_id = ?"
+        ).get(studentId);
+        if (!student) {
+            db.exec("ROLLBACK");
+            return send(res, 404, { ok: false, message: "حساب دانش‌آموز پیدا نشد." });
+        }
+        if (student.status === "archived") {
+            db.exec("ROLLBACK");
+            return send(res, 409, { ok: false, message: "این حساب قبلاً بایگانی شده است." });
+        }
+        db.prepare(
+            "UPDATE student_accounts SET status = 'archived', updated_at = ? WHERE student_id = ? AND status = 'active'"
+        ).run(now, studentId);
+        const codes = db.prepare(
+            "UPDATE activation_codes SET status = 'revoked' WHERE student_id = ? AND status = 'active'"
+        ).run(studentId);
+        const licenses = db.prepare(
+            "UPDATE licenses SET status = 'revoked', revoked_at = ? WHERE student_id = ? AND status IN ('active', 'future')"
+        ).run(now, studentId);
+        audit("student.archived", "admin", {
+            metadata: { studentId, revokedCodes: codes.changes, revokedLicenses: licenses.changes }
+        });
+        db.exec("COMMIT");
+        return send(res, 200, {
+            ok: true, studentId, status: "archived",
+            revokedCodes: codes.changes, revokedLicenses: licenses.changes
+        });
+    } catch (error) {
+        try { db.exec("ROLLBACK"); } catch {}
+        throw error;
+    }
 }
 
 async function adminCreateCodes(req, res) {
@@ -1952,6 +1998,10 @@ if (req.method === "GET" && req.url === "/api/metrics") {
 
         if (req.method === "GET" && req.url === "/api/admin/students") {
             return await adminListStudents(req, res);
+        }
+
+        if (req.method === "POST" && req.url === "/api/admin/students/archive") {
+            return await adminArchiveStudent(req, res);
         }
 
         if (req.method === "POST" && req.url === "/api/admin/codes") {
