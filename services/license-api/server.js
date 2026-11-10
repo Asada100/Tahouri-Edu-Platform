@@ -1278,13 +1278,18 @@ async function adminCreateCodes(req, res) {
     if (!student || student.status !== "active") {
         return send(res, 404, { ok: false, message: "حساب فعال دانش‌آموز پیدا نشد." });
     }
-    if (student.grade_id !== gradeId) {
-        return send(res, 409, { ok: false, message: "پایه کد باید با پایه حساب دانش‌آموز یکسان باشد." });
-    }
     const academicYear = String(body.academicYear || academicPeriod().academicYear).trim();
     const renewalMode = String(body.renewalMode || "promotion").trim().toLowerCase();
     if (!["promotion", "repeat"].includes(renewalMode)) {
         return send(res, 400, { ok: false, message: "نوع کد رزرو معتبر نیست." });
+    }
+    if (student.grade_id !== gradeId) {
+        const currentLevel = gradeLevel(student.grade_id);
+        const targetLevel = gradeLevel(gradeId);
+        if (renewalMode !== "promotion" || currentLevel === null ||
+            targetLevel !== currentLevel + 1) {
+            return send(res, 409, { ok: false, message: "پایه کد با پایه فعلی دانش‌آموز و نوع تمدید سازگار نیست." });
+        }
     }
     const targetYear = Number(academicYear);
     const activeYear = currentAcademicYear();
