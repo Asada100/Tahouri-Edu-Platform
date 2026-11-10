@@ -67,7 +67,7 @@ try {
         ];
 
         const schemaVersion = db.prepare("PRAGMA user_version").get().user_version;
-        if (schemaVersion !== 3) {
+        if (schemaVersion !== 4) {
             throw new Error("Unsupported database schema version: " + schemaVersion);
         }
 
