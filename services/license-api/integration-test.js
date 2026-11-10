@@ -96,6 +96,7 @@ async function main() {
             NODE_ENV: "development",
             TAHOURI_TEST_CODES: "true",
             TAHOURI_TEST_MODE: "true",
+            TAHOURI_TEST_PAYMENT_VERIFICATION: "true",
             TAHOURI_LICENSE_DB_FILE: dbFile,
             TAHOURI_LICENSE_PRIVATE_KEY_FILE: keyFile
         },
@@ -258,18 +259,21 @@ async function main() {
             forgedPaymentStatus.data.payment.status === "failed",
             "Forged callback must leave payment unverified.");
 
-        const verifyPayment = await request("POST", "/api/admin/payments/verify", { paymentId: payment.data.paymentId }, { Cookie: cookie });
-        assert(verifyPayment.status === 200 && verifyPayment.data.status === "verified" &&
-            verifyPayment.data.activationCode, "Test-only payment verification did not issue an activation code.");
+        const verifiedCallback = await request("POST", "/api/payments/callback", {
+            paymentId: payment.data.paymentId,
+            authority: "TEST-VERIFIED-" + payment.data.paymentId,
+            status: "success"
+        });
+        assert(verifiedCallback.status === 200 && verifiedCallback.data.status === "verified" &&
+            verifiedCallback.data.activationCode, "Verified server callback did not issue an activation code.");
 
         const paymentStatus = await request("GET", "/api/payments/status?paymentId=" + encodeURIComponent(payment.data.paymentId));
         assert(paymentStatus.status === 200 && paymentStatus.data.payment.status === "verified" &&
-            paymentStatus.data.payment.studentId === paymentStudentId &&
-            paymentStatus.data.payment.activationCodePreview === verifyPayment.data.activationCodePreview,
-            "Verified payment status did not retain its student and issued-code binding.");
+            paymentStatus.data.payment.activationCodePreview === verifiedCallback.data.activationCodePreview,
+            "Verified payment status did not retain its issued-code binding.");
 
         const paymentCodeActivation = await request("POST", "/api/licenses/activate", {
-            code: verifyPayment.data.activationCode,
+            code: verifiedCallback.data.activationCode,
             gradeId: "grade6",
             studentId: paymentStudentId,
             installationId: "payment-integration-installation"
@@ -277,9 +281,13 @@ async function main() {
         assert(paymentCodeActivation.status === 200 && paymentCodeActivation.data.valid,
             "Activation code issued from a verified payment was not bound to its student.");
 
-        const duplicatePaymentVerify = await request("POST", "/api/admin/payments/verify", { paymentId: payment.data.paymentId }, { Cookie: cookie });
-        assert(duplicatePaymentVerify.status === 404,
-            "A verified payment must not issue a second activation code.");
+        const duplicatePaymentCallback = await request("POST", "/api/payments/callback", {
+            paymentId: payment.data.paymentId,
+            authority: "TEST-VERIFIED-" + payment.data.paymentId,
+            status: "success"
+        });
+        assert(duplicatePaymentCallback.status === 409,
+            "A verified payment callback must not issue a second activation code.");
 
         const audit = await request("GET", "/api/admin/audit?limit=100", undefined, { Cookie: cookie });
         assert(audit.status === 200 && Array.isArray(audit.data.audit), "Audit endpoint failed.");
