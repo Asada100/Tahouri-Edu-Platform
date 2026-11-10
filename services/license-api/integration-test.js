@@ -368,8 +368,8 @@ async function main() {
             verifyExtendRollbackDb.exec("DROP TRIGGER fail_license_extend_audit");
         } finally { verifyExtendRollbackDb.close(); }
 
-        const extended = await request("POST", "/api/admin/licenses/extend", { licenseId, validUntil: extendedUntil }, { Cookie: cookie });
-        assert(extended.status === 200 && extended.data.ok, "License extension should succeed after audit trigger removal.");
+        const extensionAfterRollback = await request("POST", "/api/admin/licenses/extend", { licenseId, validUntil: extendedUntil }, { Cookie: cookie });
+        assert(extensionAfterRollback.status === 200 && extensionAfterRollback.data.ok, "License extension should succeed after audit trigger removal.");
         const revokeRace = await Promise.all([
             request("POST", "/api/admin/licenses/revoke", { licenseId }, { Cookie: cookie }),
             request("POST", "/api/admin/licenses/extend", {
