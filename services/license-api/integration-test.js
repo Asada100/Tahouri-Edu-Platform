@@ -217,6 +217,34 @@ async function main() {
         });
         assert(payment.status === 201 && payment.data.status === "pending", "Payment creation failed.");
 
+        const forgedPayment = await request("POST", "/api/payments", {
+            gradeId: "grade6", academicYear: "1405", amount: 100000, currency: "IRR"
+        });
+        assert(forgedPayment.status === 201, "Forged-callback test payment creation failed.");
+
+        const forgedCallback = await request("POST", "/api/payments/callback", {
+            paymentId: forgedPayment.data.paymentId,
+            authority: "attacker-controlled-authority",
+            status: "success"
+        });
+        assert(forgedCallback.status === 200 && forgedCallback.data.status === "failed",
+            "A caller-supplied authority must never verify a manual payment.");
+
+        const duplicateForgedCallback = await request("POST", "/api/payments/callback", {
+            paymentId: forgedPayment.data.paymentId,
+            authority: "attacker-controlled-authority",
+            status: "success"
+        });
+        assert(duplicateForgedCallback.status === 409,
+            "A completed payment callback must not be processed twice.");
+
+        const forgedPaymentStatus = await request(
+            "GET", "/api/payments/status?paymentId=" + encodeURIComponent(forgedPayment.data.paymentId)
+        );
+        assert(forgedPaymentStatus.status === 200 &&
+            forgedPaymentStatus.data.payment.status === "failed",
+            "Forged callback must leave payment unverified.");
+
         const verifyPayment = await request("POST", "/api/admin/payments/verify", { paymentId: payment.data.paymentId }, { Cookie: cookie });
         assert(verifyPayment.status === 200 && verifyPayment.data.status === "verified", "Payment verification failed.");
 
