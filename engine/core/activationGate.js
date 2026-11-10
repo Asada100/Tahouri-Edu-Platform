@@ -143,23 +143,40 @@
     }
 
 
-    function switchProfile(
+    async function switchProfile(
         studentId
     ) {
 
         try {
 
             if (
-                window.ProfileManager &&
-                typeof ProfileManager.switchProfile ===
-                    "function"
+                !window.ProfileManager ||
+                typeof ProfileManager.switchProfile !== "function"
             ) {
-
-                return ProfileManager.switchProfile(
-                    studentId
-                );
-
+                return false;
             }
+
+            const changed = ProfileManager.switchProfile(studentId);
+            if (changed === false) return false;
+
+            // A profile change must never keep the previous student's
+            // in-memory entitlement. Resolve the newly active student's
+            // signed entitlement before rendering the gate again.
+            if (
+                window.LicenseManager &&
+                typeof LicenseManager.initializeRemoteEntitlement === "function"
+            ) {
+                await LicenseManager.initializeRemoteEntitlement();
+            }
+
+            if (
+                window.LicenseManager &&
+                typeof LicenseManager.refreshRemoteLicenseStatus === "function"
+            ) {
+                await revalidateCurrentLicense();
+            }
+
+            return true;
 
         }
         catch (error) {
@@ -169,10 +186,9 @@
                 error
             );
 
+            return false;
+
         }
-
-
-        return false;
 
     }
 
@@ -1174,30 +1190,13 @@
 
             profileSelect.addEventListener(
                 "change",
-                function () {
+                async function () {
 
-                    const studentId =
-                        this.value;
+                    const studentId = this.value;
+                    if (!studentId) return;
 
-
-                    if (!studentId) {
-
-                        return;
-
-                    }
-
-
-                    const changed =
-                        switchProfile(
-                            studentId
-                        );
-
-
-                    if (changed !== false) {
-
-                        renderGate();
-
-                    }
+                    const changed = await switchProfile(studentId);
+                    if (changed) renderGate();
 
                 }
             );
