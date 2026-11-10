@@ -352,6 +352,11 @@ if (!activationCodeColumns.some((column) => column.name === "renewal_mode")) {
 function assertProductionConfiguration() {
     if (!IS_PRODUCTION) return;
 
+    const configuredPaymentPrice = Number(process.env.TAHOURI_PRODUCT_PRICE_IRR);
+    if (!Number.isSafeInteger(configuredPaymentPrice) || configuredPaymentPrice <= 0) {
+        throw new Error("TAHOURI_PRODUCT_PRICE_IRR must be a positive integer in production.");
+    }
+
     const required = [
         ["TAHOURI_ADMIN_PASSWORD", process.env.TAHOURI_ADMIN_PASSWORD],
         ["TAHOURI_ADMIN_ORIGIN", process.env.TAHOURI_ADMIN_ORIGIN],
@@ -1471,11 +1476,16 @@ async function paymentCreate(req, res) {
     const now = new Date().toISOString();
     const gradeId = validateIdentifier(body.gradeId, "gradeId");
     const academicYear = String(body.academicYear || academicPeriod().academicYear).trim();
-    const amount = Number(body.amount || 0);
+    const amount = IS_PRODUCTION ? Number(process.env.TAHOURI_PRODUCT_PRICE_IRR) : Number(body.amount);
+    const currency = IS_PRODUCTION
+        ? String(process.env.TAHOURI_PRODUCT_CURRENCY || "IRR").toUpperCase()
+        : String(body.currency || "IRR").toUpperCase();
 
-    if (!gradeId || !Number.isFinite(amount) || amount <= 0) {
+    if (!/^\d{4}$/.test(academicYear) ||
+        !Number.isSafeInteger(amount) || amount <= 0 ||
+        !/^[A-Z]{3}$/.test(currency)) {
         recordMetric("paymentFailures");
-        return send(res, 400, { ok: false, message: "gradeId و مبلغ معتبر الزامی است." });
+        return send(res, 400, { ok: false, message: "مبلغ، واحد پول یا سال تحصیلی معتبر نیست." });
     }
 
     db.prepare(`
@@ -1485,8 +1495,8 @@ async function paymentCreate(req, res) {
         ) VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?)
     `).run(
         paymentId, PAYMENT_PROVIDER, "", amount,
-        String(body.currency || "IRR"), PRODUCT_ID, gradeId,
-        academicYear, JSON.stringify(body.metadata || {}), now
+        currency, PRODUCT_ID, gradeId,
+        academicYear, JSON.stringify({}), now
     );
 
     let gateway;
@@ -1495,7 +1505,7 @@ async function paymentCreate(req, res) {
             payment: {
                 payment_id: paymentId,
                 amount,
-                currency: String(body.currency || "IRR"),
+                currency,
                 product_id: PRODUCT_ID,
                 grade_id: gradeId,
                 academic_year: academicYear
@@ -1534,13 +1544,16 @@ async function paymentCallback(req, res) {
     const authority = String(body.authority || "").trim();
     const status = String(body.status || "").trim().toLowerCase();
 
-    if (!paymentId || !authority) {
+    if (!/^pay_[0-9a-f-]{36}$/i.test(paymentId) || !authority || authority.length > 256) {
         recordMetric("paymentVerificationFailures");
-        return send(res, 400, { ok: false, message: "paymentId و authority الزامی است." });
+        return send(res, 400, { ok: false, message: "شناسه پرداخت یا شناسه پیگیری معتبر نیست." });
     }
 
     const payment = db.prepare("SELECT * FROM payments WHERE payment_id = ?").get(paymentId);
-    if (!payment) { recordMetric("paymentVerificationFailures"); return send(res, 404, { ok: false, message: "پرداخت پیدا نشد." }); }
+    if (!payment) {
+        recordMetric("paymentVerificationFailures");
+        return send(res, 404, { ok: false, message: "پرداخت پیدا نشد." });
+    }
     if (payment.status !== "pending") {
         recordMetric("paymentVerificationFailures");
         return send(res, 409, { ok: false, message: "این پرداخت قبلاً تعیین تکلیف شده است." });
@@ -1548,30 +1561,49 @@ async function paymentCallback(req, res) {
 
     let verified = false;
     try {
-        verified = paymentProvider.verifyServerSide({
-            payment,
-            authority,
-            status,
+        // Provider verification is asynchronous; never treat its Promise as a truthy result.
+        verified = await paymentProvider.verifyServerSide({
+            payment, authority, status,
             amount: payment.amount,
             currency: payment.currency
         });
+        verified = verified === true;
     } catch (error) {
         audit("payment.callback.rejected", "gateway", {
-            metadata: { paymentId, authority, reason: error.message }
+            metadata: { paymentId, reason: "provider_verification_unavailable" }
         });
         recordMetric("paymentVerificationFailures");
-        return send(res, 503, { ok: false, message: "درگاه پرداخت هنوز برای تأیید سمت سرور پیکربندی نشده است." });
+        return send(res, 503, { ok: false, message: "تأیید سمت سرور درگاه در دسترس نیست." });
     }
-    db.prepare("UPDATE payments SET authority = ?, status = ?, verified_at = ? WHERE payment_id = ? AND status = 'pending'")
-        .run(authority, verified ? "verified" : "failed", verified ? new Date().toISOString() : null, paymentId);
 
-    audit(verified ? "payment.callback.verified" : "payment.callback.failed", "gateway", {
-        metadata: { paymentId, authority }
-    });
+    const nextStatus = verified ? "verified" : "failed";
+    const verifiedAt = verified ? new Date().toISOString() : null;
+    try {
+        db.exec("BEGIN IMMEDIATE");
+        const current = db.prepare("SELECT status FROM payments WHERE payment_id = ?").get(paymentId);
+        if (!current || current.status !== "pending") {
+            db.exec("ROLLBACK");
+            recordMetric("paymentVerificationFailures");
+            return send(res, 409, { ok: false, message: "این پرداخت هم‌زمان تعیین تکلیف شده است." });
+        }
+        const updated = db.prepare(
+            "UPDATE payments SET authority = ?, status = ?, verified_at = ? WHERE payment_id = ? AND status = 'pending'"
+        ).run(authority, nextStatus, verifiedAt, paymentId);
+        if (updated.changes !== 1) throw new Error("Payment state changed before callback commit.");
+
+        audit(verified ? "payment.callback.verified" : "payment.callback.failed", "gateway", {
+            metadata: { paymentId }
+        });
+        db.exec("COMMIT");
+    } catch (error) {
+        try { db.exec("ROLLBACK"); } catch {}
+        recordMetric("paymentVerificationFailures");
+        return send(res, 500, { ok: false, message: "ثبت نتیجه پرداخت انجام نشد." });
+    }
 
     recordMetric("paymentVerifications");
     if (!verified) recordMetric("paymentVerificationFailures");
-    return send(res, 200, { ok: true, paymentId, status: verified ? "verified" : "failed" });
+    return send(res, 200, { ok: true, paymentId, status: nextStatus });
 }
 
 async function paymentStatus(req, res) {
