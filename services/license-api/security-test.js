@@ -5,6 +5,8 @@ const path = require("path");
 
 const serverPath = path.join(__dirname, "server.js");
 const source = fs.readFileSync(serverPath, "utf8");
+const proxyPath = path.join(__dirname, "trusted-proxy.js");
+const proxySource = fs.readFileSync(proxyPath, "utf8");
 const composePath = path.join(__dirname, "../../docker-compose.production.yml");
 const compose = fs.readFileSync(composePath, "utf8");
 const gitignorePath = path.join(__dirname, "../../.gitignore");
@@ -38,9 +40,6 @@ const rateLimitMarkers = [
     "const ACTIVATION_RATE_LIMIT = !IS_PRODUCTION && process.env.TAHOURI_TEST_MODE === \"true\" ? 1000 : 10;",
     "requestAllowedWithLimit(req, ACTIVATION_RATE_LIMIT, activationRateBuckets)",
     "requestAllowedWithLimit(req, ADMIN_LOGIN_RATE_LIMIT, adminLoginRateBuckets)",
-    "x-forwarded-for",
-    "const trusted = new Set(",
-    "chain[chain.length - 1]",
     "const MAX_RATE_BUCKETS = 10000;",
     "bucketMap.size >= MAX_RATE_BUCKETS",
     "rateBuckets.size >= MAX_RATE_BUCKETS",
@@ -52,6 +51,16 @@ const rateLimitMarkers = [
 for (const marker of rateLimitMarkers) {
     if (!source.includes(marker)) {
         throw new Error("Rate limiting hardening marker missing: " + marker);
+    }
+}
+for (const marker of [
+    'req.headers && req.headers["x-forwarded-for"]',
+    "const trusted = new Set(",
+    "chain[chain.length - 1]",
+    "if (!isProduction || !trusted.has(remote)) return remote;"
+]) {
+    if (!proxySource.includes(marker)) {
+        throw new Error("Trusted proxy hardening marker missing: " + marker);
     }
 }
 
