@@ -463,7 +463,7 @@ async function main() {
             installationId: "other-installation",
             renewalMode: "promotion"
         });
-        assert(wrongProfileRenewal.status === 409, "Future renewal must not be activatable by another profile.");
+        assert(wrongProfileRenewal.status === 403, "Future renewal must be rejected for a student outside the bound account.");
 
         const auditAfterRenewal = await request("GET", "/api/admin/audit?limit=100", undefined, { Cookie: cookie });
         assert(auditAfterRenewal.status === 200 && Array.isArray(auditAfterRenewal.data.audit), "Audit endpoint failed after renewal.");
