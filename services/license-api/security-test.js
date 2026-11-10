@@ -34,7 +34,7 @@ if (failures.length) {
 
 const rateLimitMarkers = [
     "function getClientIp",
-    "const ACTIVATION_RATE_LIMIT = 10",
+    "const ACTIVATION_RATE_LIMIT = !IS_PRODUCTION && process.env.TAHOURI_TEST_MODE === \"true\" ? 1000 : 10;",
     "requestAllowedWithLimit(req, ACTIVATION_RATE_LIMIT, activationRateBuckets)",
     "requestAllowedWithLimit(req, ADMIN_LOGIN_RATE_LIMIT, adminLoginRateBuckets)",
     "x-forwarded-for"
