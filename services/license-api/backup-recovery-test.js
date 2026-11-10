@@ -53,7 +53,7 @@ fs.mkdirSync(backupDir, { recursive: true });
 
 const db = new DatabaseSync(dbFile);
 try {
-    db.exec("CREATE TABLE activation_codes (id INTEGER PRIMARY KEY, code_hash TEXT); CREATE TABLE licenses (id INTEGER PRIMARY KEY, license_id TEXT); CREATE TABLE audit_log (id INTEGER PRIMARY KEY, event_type TEXT); CREATE TABLE payments (id INTEGER PRIMARY KEY, payment_id TEXT); CREATE TABLE student_accounts (student_id TEXT PRIMARY KEY); INSERT INTO student_accounts VALUES ('student-test'); INSERT INTO activation_codes(code_hash) VALUES ('test-hash'); INSERT INTO licenses(license_id) VALUES ('lic-test'); INSERT INTO audit_log(event_type) VALUES ('test'); INSERT INTO payments(payment_id) VALUES ('pay-test'); PRAGMA user_version = 3;");
+    db.exec("CREATE TABLE activation_codes (id INTEGER PRIMARY KEY, code_hash TEXT); CREATE TABLE licenses (id INTEGER PRIMARY KEY, license_id TEXT); CREATE TABLE audit_log (id INTEGER PRIMARY KEY, event_type TEXT); CREATE TABLE payments (id INTEGER PRIMARY KEY, payment_id TEXT); CREATE TABLE student_accounts (student_id TEXT PRIMARY KEY); INSERT INTO student_accounts VALUES ('student-test'); INSERT INTO activation_codes(code_hash) VALUES ('test-hash'); INSERT INTO licenses(license_id) VALUES ('lic-test'); INSERT INTO audit_log(event_type) VALUES ('test'); INSERT INTO payments(payment_id) VALUES ('pay-test'); PRAGMA user_version = 4;");
 } finally {
     db.close();
 }
