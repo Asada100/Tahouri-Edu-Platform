@@ -18,8 +18,9 @@ async function loadStudents(){
  const active=d.students.filter(x=>x.status==="active");
  select.innerHTML='<option value="">انتخاب دانش‌آموز</option>'+active.map(x=>'<option value="'+e(x.studentId)+'" data-grade="'+e(x.gradeId)+'">'+e(x.fullName)+' — '+e(x.gradeId)+' — '+e(x.studentId)+'</option>').join("");
  if(active.some(x=>x.studentId===previous))select.value=previous;
- document.getElementById("students").innerHTML=table(["نام","شناسه پایدار","پایه","وضعیت","عملیات"],d.students.map(x=>[x.fullName,x.studentId,x.gradeId,x.status==="active"?"فعال":"بایگانی‌شده",x.status==="active"?"<button class='danger' data-archive='"+e(x.studentId)+"'>بایگانی</button>":"—"]));
+ document.getElementById("students").innerHTML='<div class="table-wrap"><table><thead><tr><th>نام</th><th>شناسه پایدار</th><th>پایه</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody>'+d.students.map(x=>'<tr><td>'+e(x.fullName)+'</td><td>'+e(x.studentId)+'</td><td>'+e(x.gradeId)+'</td><td>'+(x.status==="active"?"فعال":"بایگانی‌شده")+'</td><td>'+(x.status==="active"?"<button class='danger' data-archive='"+e(x.studentId)+"'>بایگانی</button>":"—")+'</td></tr>').join("")+'</tbody></table></div>';
  document.querySelectorAll("[data-archive]").forEach(button=>button.addEventListener("click",()=>archiveStudent(button.dataset.archive)));
+ select.onchange=()=>{const option=select.selectedOptions[0];if(option&&option.dataset.grade)document.getElementById("grade").value=option.dataset.grade;};
 }
 async function createStudent(){
  try{
