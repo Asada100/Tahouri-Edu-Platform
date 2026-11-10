@@ -398,6 +398,9 @@ if (!activationCodeColumns.some((column) => column.name === "renewal_mode")) {
 }
 
 function assertProductionConfiguration() {
+    if (process.env.TAHOURI_TEST_PAYMENT_VERIFICATION === "true") {
+        throw new Error("Test payment verification cannot be enabled in any production-like service.");
+    }
     if (!IS_PRODUCTION) return;
 
     const configuredPaymentPrice = Number(process.env.TAHOURI_PRODUCT_PRICE_IRR);
@@ -1827,7 +1830,7 @@ async function paymentStatus(req, res) {
     const row = db.prepare(`
         SELECT payment_id AS paymentId, provider, status, amount, currency,
                product_id AS productId, grade_id AS gradeId,
-               academic_year AS academicYear, student_id AS studentId,
+               academic_year AS academicYear,
                renewal_mode AS renewalMode, activation_code_preview AS activationCodePreview,
                license_id AS licenseId, created_at AS createdAt, verified_at AS verifiedAt
         FROM payments WHERE payment_id = ?
