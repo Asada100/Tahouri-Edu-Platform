@@ -171,11 +171,6 @@ async function main() {
         const paymentStatus = await request("GET", "/api/payments/status?paymentId=" + encodeURIComponent(payment.data.paymentId));
         assert(paymentStatus.status === 200 && paymentStatus.data.payment.status === "verified", "Verified payment status failed.");
 
-        const logout = await request("POST", "/api/admin/logout", undefined, { Cookie: cookie });
-        assert(logout.status === 200, "Admin logout failed.");
-        const staleSession = await request("GET", "/api/admin/licenses", undefined, { Cookie: cookie });
-        assert(staleSession.status === 401, "Logged-out session must be rejected by the database-backed session check.");
-
         const audit = await request("GET", "/api/admin/audit?limit=100", undefined, { Cookie: cookie });
         assert(audit.status === 200 && Array.isArray(audit.data.audit), "Audit endpoint failed.");
 
@@ -434,6 +429,11 @@ async function main() {
             assert(license && license.student_id === "integration-student", "License was not persisted.");
             assert(license.status === "revoked", "Persisted license is not revoked.");
         } finally { db.close(); }
+
+        const logout = await request("POST", "/api/admin/logout", undefined, { Cookie: cookie });
+        assert(logout.status === 200, "Admin logout failed.");
+        const staleSession = await request("GET", "/api/admin/licenses", undefined, { Cookie: cookie });
+        assert(staleSession.status === 401, "Logged-out session must be rejected by the database-backed session check.");
 
         console.log("Tahouri License API integration test: PASS");
     } finally {
