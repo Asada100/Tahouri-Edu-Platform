@@ -207,7 +207,7 @@ const DATA_DIR =
     process.env.TAHOURI_LICENSE_DATA_DIR ||
     path.join(__dirname, "data");
 
-const DB_SCHEMA_VERSION = 1;
+const DB_SCHEMA_VERSION = 2;
 
 const DATABASE_MIGRATIONS = [
     {
@@ -215,6 +215,32 @@ const DATABASE_MIGRATIONS = [
         apply() {
             // Version 1 marks the initial persistent schema created by the
             // CREATE TABLE IF NOT EXISTS block above.
+        }
+    },
+    {
+        version: 2,
+        apply() {
+            const duplicate = db.prepare(`
+                SELECT product_id, student_id, grade_id, academic_year, COUNT(*) AS count
+                FROM licenses
+                WHERE status IN ('active', 'future')
+                GROUP BY product_id, student_id, grade_id, academic_year
+                HAVING COUNT(*) > 1
+                LIMIT 1
+            `).get();
+
+            if (duplicate) {
+                throw new Error(
+                    "Cannot apply migration 2: duplicate active/future student-grade-year licenses exist. " +
+                    "Resolve these records before retrying."
+                );
+            }
+
+            db.exec(`
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_license_unique_student_grade_year
+                ON licenses(product_id, student_id, grade_id, academic_year)
+                WHERE status IN ('active', 'future')
+            `);
         }
     }
 ];
@@ -958,6 +984,28 @@ async function activate(req, res) {
         if (!current || current.status !== "active" || current.usedAt) {
             db.exec("ROLLBACK");
             return send(res, 409, { valid: false, message: "این کد قبلاً استفاده شده است." });
+        }
+
+        // Recheck uniqueness while holding the write reservation. The partial
+        // unique index added in migration 2 remains the final database guard.
+        const existingLicense = db.prepare(`
+            SELECT license_id
+            FROM licenses
+            WHERE product_id = ?
+              AND student_id = ?
+              AND grade_id = ?
+              AND academic_year = ?
+              AND status IN ('active', 'future')
+            LIMIT 1
+        `).get(PRODUCT_ID, studentId, gradeId, String(requestedAcademicYear));
+
+        if (existingLicense) {
+            db.exec("ROLLBACK");
+            recordMetric("activationFailures");
+            return send(res, 409, {
+                valid: false,
+                message: "برای این دانش‌آموز، پایه و سال تحصیلی مجوز یا رزرو فعالی وجود دارد."
+            });
         }
 
         const now = new Date().toISOString();
