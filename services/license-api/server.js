@@ -1408,7 +1408,7 @@ async function adminListCodes(req, res) {
     if (!requireAdmin(req, res)) return;
     const rows = db.prepare(`
         SELECT code_preview AS codePreview, product_id AS productId,
-               grade_id AS gradeId, academic_year AS academicYear,
+               student_id AS studentId, grade_id AS gradeId, academic_year AS academicYear,
                renewal_mode AS renewalMode,
                status, created_at AS createdAt, used_at AS usedAt,
                license_id AS licenseId
