@@ -200,6 +200,44 @@ async function main() {
         const activeAcademicYear = iranParts.month >= 7 ? iranParts.year : iranParts.year - 1;
         const nextAcademicYear = String(activeAcademicYear + 1);
 
+        const activeYearCodes = await request("POST", "/api/admin/codes", {
+            gradeId: "grade6",
+            academicYear: String(activeAcademicYear),
+            count: 2
+        }, { Cookie: cookie });
+        assert(activeYearCodes.status === 201 && activeYearCodes.data.codes?.length === 2,
+            "Two isolated active-year codes were not issued for the concurrency test.");
+
+        const concurrentAttempts = await Promise.all(activeYearCodes.data.codes.map(code =>
+            request("POST", "/api/licenses/activate", {
+                code,
+                gradeId: "grade6",
+                studentId: "concurrency-student",
+                installationId: "integration-installation"
+            })
+        ));
+        assert(concurrentAttempts.filter(result => result.status === 200).length === 1,
+            "Exactly one concurrent activation may create an active student-grade-year license.");
+        assert(concurrentAttempts.filter(result => result.status === 409).length === 1,
+            "The competing concurrent activation must be rejected with HTTP 409.");
+
+        const uniquenessDb = new DatabaseSync(dbFile);
+        try {
+            const activeCount = uniquenessDb.prepare(`
+                SELECT COUNT(*) AS count FROM licenses
+                WHERE product_id = ? AND student_id = ? AND grade_id = ?
+                  AND academic_year = ? AND status IN ('active', 'future')
+            `).get("tahouri-edu", "concurrency-student", "grade6", String(activeAcademicYear)).count;
+            assert(Number(activeCount) === 1,
+                "Database must contain exactly one active/future license for the student-grade-year key.");
+
+            const index = uniquenessDb.prepare(`
+                SELECT name FROM sqlite_master
+                WHERE type = 'index' AND name = 'idx_license_unique_student_grade_year'
+            `).get();
+            assert(index, "Partial unique index is missing.");
+        } finally { uniquenessDb.close(); }
+
         const promotionCodes = await request("POST", "/api/admin/codes", {
             gradeId: "grade7",
             academicYear: nextAcademicYear,
