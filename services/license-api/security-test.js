@@ -37,13 +37,25 @@ const rateLimitMarkers = [
     "const ACTIVATION_RATE_LIMIT = !IS_PRODUCTION && process.env.TAHOURI_TEST_MODE === \"true\" ? 1000 : 10;",
     "requestAllowedWithLimit(req, ACTIVATION_RATE_LIMIT, activationRateBuckets)",
     "requestAllowedWithLimit(req, ADMIN_LOGIN_RATE_LIMIT, adminLoginRateBuckets)",
-    "x-forwarded-for"
+    "x-forwarded-for",
+    "const MAX_RATE_BUCKETS = 10000;",
+    "bucketMap.size >= MAX_RATE_BUCKETS",
+    "rateBuckets.size >= MAX_RATE_BUCKETS",
+    "function readBody(req)",
+    "totalBytes > maxBytes",
+    "Content-Type must be application/json."
 ];
 
 for (const marker of rateLimitMarkers) {
     if (!source.includes(marker)) {
         throw new Error("Rate limiting hardening marker missing: " + marker);
     }
+}
+
+if (!source.includes("Buffer.concat(chunks).toString(\"utf8\")") ||
+    !source.includes("error.statusCode = 413") ||
+    !source.includes("error.statusCode = 415")) {
+    throw new Error("Byte-accurate request body validation is missing.");
 }
 
 if (!source.includes("X-Content-Type-Options") || !source.includes("X-Frame-Options") || !source.includes("Referrer-Policy")) {
