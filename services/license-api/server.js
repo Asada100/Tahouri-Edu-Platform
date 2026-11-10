@@ -1680,6 +1680,9 @@ async function paymentCreate(req, res) {
     const paymentId = "pay_" + crypto.randomUUID();
     const now = new Date().toISOString();
     const gradeId = validateIdentifier(body.gradeId, "gradeId");
+    if (!body.studentId) {
+        return send(res, 400, { ok: false, message: "studentId برای اتصال پرداخت به دانش‌آموز الزامی است." });
+    }
     const studentId = validateIdentifier(body.studentId, "studentId");
     const academicYear = String(body.academicYear || academicPeriod().academicYear).trim();
     const renewalMode = String(body.renewalMode || "promotion").trim().toLowerCase();
