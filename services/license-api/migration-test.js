@@ -81,8 +81,8 @@ async function main() {
     const migratedRows = db.prepare(
         "SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'database.migrated'"
     ).get().count;
-    assert(versionAfterMigration === 3, "Schema migration did not advance to version 2.");
-    assert(Number(migratedRows) === 2, "Expected initial, uniqueness, and student registry migration audit entries.");
+    assert(versionAfterMigration === 3, "Schema migration did not advance to version 3.");
+    assert(Number(migratedRows) === 3, "Expected initial, uniqueness, and student registry migration audit entries.");
     db.close();
 
     const second = startServer();
