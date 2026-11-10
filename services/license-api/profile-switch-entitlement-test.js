@@ -18,29 +18,33 @@ const helper = source.slice(start, end);
 
 async function main() {
     const events = [];
+    const profileManager = {
+        switchProfile(studentId) {
+            events.push("switch:" + studentId);
+            return true;
+        }
+    };
+    const licenseManager = {
+        initializeRemoteEntitlement: async () => {
+            events.push("initialize-entitlement");
+            return true;
+        },
+        refreshRemoteLicenseStatus: async () => {
+            events.push("refresh-status");
+            return { valid: true };
+        }
+    };
     const context = {
         console: { error() {} },
+        ProfileManager: profileManager,
+        LicenseManager: licenseManager,
         window: {
-            ProfileManager: {
-                switchProfile(studentId) {
-                    events.push("switch:" + studentId);
-                    return true;
-                }
-            },
-            LicenseManager: {
-                initializeRemoteEntitlement: async () => {
-                    events.push("initialize-entitlement");
-                    return true;
-                },
-                refreshRemoteLicenseStatus: async () => {
-                    events.push("refresh-status");
-                    return { valid: true };
-                }
-            }
+            ProfileManager: profileManager,
+            LicenseManager: licenseManager
         },
         revalidateCurrentLicense: async () => {
             events.push("revalidate");
-            await context.window.LicenseManager.refreshRemoteLicenseStatus();
+            await licenseManager.refreshRemoteLicenseStatus();
             return true;
         }
     };
@@ -56,7 +60,7 @@ async function main() {
     ], "Profile switch must resolve and revalidate the new student's entitlement in order.");
 
     events.length = 0;
-    context.window.ProfileManager.switchProfile = studentId => {
+    profileManager.switchProfile = studentId => {
         events.push("rejected:" + studentId);
         return false;
     };
