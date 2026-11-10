@@ -54,6 +54,21 @@ profiles: [],
 
 activeProfileId: null,
 
+notifyActiveProfileContextChanged: function (reason) {
+    if (
+        typeof window !== "undefined" &&
+        typeof window.dispatchEvent === "function" &&
+        typeof CustomEvent === "function"
+    ) {
+        window.dispatchEvent(new CustomEvent("tahouri:active-profile-context-changed", {
+            detail: {
+                studentId: this.activeProfileId || null,
+                reason: String(reason || "profile-context-updated")
+            }
+        }));
+    }
+},
+
 
 // =====================================
 // DEFAULT SETTINGS
@@ -715,6 +730,7 @@ createProfile: function (data) {
 
 
     this.save();
+    this.notifyActiveProfileContextChanged("profile-created");
 
 
     console.log(
@@ -786,6 +802,7 @@ switchProfile: function (
 
     );
 
+    this.notifyActiveProfileContextChanged("profile-switched");
 
     console.log(
         "Active Profile Changed:",
@@ -886,6 +903,7 @@ setGrade: function (gradeId) {
 
 
     this.save();
+    this.notifyActiveProfileContextChanged("grade-changed");
 
 
     console.log(
@@ -993,6 +1011,9 @@ update: function (data) {
 
     this.save();
 
+    if (Object.prototype.hasOwnProperty.call(data, "grade")) {
+        this.notifyActiveProfileContextChanged("profile-grade-updated");
+    }
 
     console.log(
         "Active Profile Updated:",
@@ -1183,6 +1204,10 @@ deleteProfile: function (
 
     this.save();
 
+    if (wasActive) {
+        this.notifyActiveProfileContextChanged("active-profile-deleted");
+    }
+
 
     console.log(
         "Profile Deleted:",
@@ -1274,6 +1299,7 @@ clear: function () {
         this.ACTIVE_PROFILE_KEY
     );
 
+    this.notifyActiveProfileContextChanged("profiles-cleared");
 
     console.log(
         "All Profiles Cleared"
