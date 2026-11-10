@@ -21,6 +21,8 @@ function request(method, route, body, headers = {}) {
             method,
             headers: {
                 ...(payload ? { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(payload) } : {}),
+                ...((route.startsWith("/api/admin/") && !Object.prototype.hasOwnProperty.call(headers, "Origin"))
+                    ? { Origin: "http://localhost:5500" } : {}),
                 ...headers
             }
         }, res => {
@@ -96,6 +98,16 @@ async function main() {
         const metricsUnauthenticated = await request("GET", "/api/metrics");
         assert(metricsUnauthenticated.status === 401, "Metrics endpoint must require admin authentication.");
 
+        const missingOriginLogin = await request("POST", "/api/admin/login", {
+            password: "TAHOURI-ADMIN-TEST"
+        }, { Origin: "" });
+        assert(missingOriginLogin.status === 403, "Admin login without Origin must be rejected.");
+
+        const hostileOriginLogin = await request("POST", "/api/admin/login", {
+            password: "TAHOURI-ADMIN-TEST"
+        }, { Origin: "https://attacker.example" });
+        assert(hostileOriginLogin.status === 403, "Admin login from an untrusted Origin must be rejected.");
+
         const login = await request("POST", "/api/admin/login", { password: "TAHOURI-ADMIN-TEST" });
         const adminCookie = Array.isArray(login.headers["set-cookie"]) ? login.headers["set-cookie"][0].split(";")[0] : "";
         assert(adminCookie, "Admin login did not return a session cookie.");
@@ -112,6 +124,14 @@ async function main() {
 
         const licenseId = activation.data.entitlement.claims.licenseId;
         const extension = new Date(Date.now() + 370 * 24 * 60 * 60 * 1000).toISOString();
+        const rejectedCrossOriginMutation = await request(
+            "POST", "/api/admin/licenses/extend",
+            { licenseId, validUntil: extension },
+            { Cookie: cookie, Origin: "https://attacker.example" }
+        );
+        assert(rejectedCrossOriginMutation.status === 403,
+            "Admin mutation from an untrusted Origin must be rejected.");
+
         const extended = await request("POST", "/api/admin/licenses/extend", { licenseId, validUntil: extension }, { Cookie: cookie });
         assert(extended.status === 200 && extended.data.ok, "License extension failed.");
         assert(extended.data.entitlement.claims.validUntil === extension, "Extended expiry was not signed.");
@@ -150,6 +170,11 @@ async function main() {
 
         const paymentStatus = await request("GET", "/api/payments/status?paymentId=" + encodeURIComponent(payment.data.paymentId));
         assert(paymentStatus.status === 200 && paymentStatus.data.payment.status === "verified", "Verified payment status failed.");
+
+        const logout = await request("POST", "/api/admin/logout", undefined, { Cookie: cookie });
+        assert(logout.status === 200, "Admin logout failed.");
+        const staleSession = await request("GET", "/api/admin/licenses", undefined, { Cookie: cookie });
+        assert(staleSession.status === 401, "Logged-out session must be rejected by the database-backed session check.");
 
         const audit = await request("GET", "/api/admin/audit?limit=100", undefined, { Cookie: cookie });
         assert(audit.status === 200 && Array.isArray(audit.data.audit), "Audit endpoint failed.");
