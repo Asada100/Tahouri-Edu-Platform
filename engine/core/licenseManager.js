@@ -143,24 +143,32 @@
     // =====================================
 
     async function refreshRemoteLicenseStatus() {
-        if (!verifiedRemoteEntitlement || !verifiedRemoteEntitlement.claims) {
+        const claims = verifiedRemoteEntitlement;
+        if (!claims || !claims.licenseId) {
             return { valid: false, reason: "no_remote_entitlement" };
         }
 
-        const licenseId = verifiedRemoteEntitlement.claims.licenseId;
-        if (!licenseId || !window.TahouriLicenseClient ||
+        const activeStudentId = getActiveStudentId();
+        const installationId = getOrCreateInstallationId();
+        if (!activeStudentId || claims.studentId !== activeStudentId) {
+            return { valid: false, reason: "not_active_student" };
+        }
+        if (!claims.installationBinding || claims.installationBinding !== installationId) {
+            return { valid: false, reason: "installation_binding_mismatch" };
+        }
+        if (!window.TahouriLicenseClient ||
             typeof window.TahouriLicenseClient.status !== "function") {
             return { valid: false, reason: "status_client_unavailable" };
         }
 
         try {
             const result = await window.TahouriLicenseClient.status(
-                licenseId,
-                verifiedRemoteEntitlement.claims.studentId,
-                verifiedRemoteEntitlement.claims.installationBinding
+                claims.licenseId,
+                activeStudentId,
+                installationId
             );
 
-            if (!result.valid) {
+            if (!result.valid && result.reason !== "network_error") {
                 verifiedRemoteEntitlement = null;
             }
 
@@ -1692,6 +1700,9 @@
                 ? window.TahouriEntitlementStore.readAll()
                 : [window.TahouriEntitlementStore.read()].filter(Boolean);
 
+            const activeStudentId = getActiveStudentId();
+            if (!activeStudentId) return false;
+
             const installationId = getOrCreateInstallationId();
 
             for (const envelope of all) {
@@ -1700,9 +1711,8 @@
                 if (!result.valid) continue;
 
                 const claims = result.claims;
-                const binding = claims.installationBinding;
-
-                if (binding && binding !== installationId) continue;
+                if (!claims || claims.studentId !== activeStudentId) continue;
+                if (!claims.installationBinding || claims.installationBinding !== installationId) continue;
 
                 verifiedRemoteEntitlement = claims;
                 return true;
