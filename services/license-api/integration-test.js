@@ -307,7 +307,7 @@ async function main() {
             installationId: "integration-installation",
             renewalMode: "repeat"
         });
-        assert(repeatActivation.status === 200 && repeatActivation.data.valid, "Same-grade repeat renewal failed.");
+        assert(repeatActivation.status === 200 && repeatActivation.data.valid, "Same-grade repeat renewal failed: HTTP " + repeatActivation.status + " " + JSON.stringify(repeatActivation.data));
         assert(repeatActivation.data.renewalStored === true, "Future repeat renewal was not marked as stored.");
         assert(
             repeatActivation.data.entitlement.claims.gradeScope === "grade6",
