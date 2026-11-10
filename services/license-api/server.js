@@ -207,7 +207,7 @@ const DATA_DIR =
     process.env.TAHOURI_LICENSE_DATA_DIR ||
     path.join(__dirname, "data");
 
-const DB_SCHEMA_VERSION = 2;
+const DB_SCHEMA_VERSION = 3;
 
 const DATABASE_MIGRATIONS = [
     {
@@ -240,6 +240,37 @@ const DATABASE_MIGRATIONS = [
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_license_unique_student_grade_year
                 ON licenses(product_id, student_id, grade_id, academic_year)
                 WHERE status IN ('active', 'future')
+            `);
+        }
+    }
+,
+    {
+        version: 3,
+        apply() {
+            const codeColumns = db.prepare("PRAGMA table_info(activation_codes)").all();
+            if (!codeColumns.some(column => column.name === "student_id")) {
+                db.exec("ALTER TABLE activation_codes ADD COLUMN student_id TEXT");
+            }
+            const paymentColumns = db.prepare("PRAGMA table_info(payments)").all();
+            if (!paymentColumns.some(column => column.name === "student_id")) {
+                db.exec("ALTER TABLE payments ADD COLUMN student_id TEXT");
+            }
+            db.exec(`
+                CREATE TABLE IF NOT EXISTS student_accounts (
+                    student_id TEXT PRIMARY KEY,
+                    full_name TEXT NOT NULL,
+                    grade_id TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'active'
+                        CHECK (status IN ('active', 'archived')),
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_student_accounts_grade_status
+                    ON student_accounts(grade_id, status);
+                CREATE INDEX IF NOT EXISTS idx_activation_codes_student
+                    ON activation_codes(student_id, status);
+                CREATE INDEX IF NOT EXISTS idx_payments_student
+                    ON payments(student_id, status);
             `);
         }
     }
@@ -882,7 +913,7 @@ async function activate(req, res) {
     const codeHash = hashCode(code);
     const codeRecord = db.prepare(`
         SELECT code_hash AS codeHash, grade_id AS gradeId,
-               academic_year AS academicYear,
+               student_id AS studentId, academic_year AS academicYear,
                renewal_mode AS renewalMode,
                status, used_at AS usedAt
         FROM activation_codes
@@ -894,6 +925,15 @@ async function activate(req, res) {
         recordMetric("invalidActivationAttempts");
         recordSuspiciousAttempt(req, "activation_invalid_code", { gradeId });
         return send(res, 400, { valid: false, message: "کد فعال‌سازی معتبر نیست." });
+    }
+
+    if (codeRecord.studentId && codeRecord.studentId !== studentId) {
+        recordMetric("activationFailures");
+        recordMetric("invalidActivationAttempts");
+        recordSuspiciousAttempt(req, "activation_student_mismatch", {
+            requestedGradeId: gradeId
+        });
+        return send(res, 403, { valid: false, message: "این کد فعال‌سازی متعلق به این دانش‌آموز نیست." });
     }
 
     if (codeRecord.gradeId !== gradeId) {
@@ -1190,10 +1230,57 @@ async function licenseStatus(req, res) {
     });
 }
 
+async function adminCreateStudent(req, res) {
+    if (!requireAdmin(req, res)) return;
+    const body = await readBody(req);
+    const fullName = String(body.fullName || "").trim().replace(/\\s+/g, " ");
+    const gradeId = validateIdentifier(body.gradeId, "gradeId");
+    if (!fullName || fullName.length > 120 || /[<>\\u0000-\\u001f]/.test(fullName)) {
+        return send(res, 400, { ok: false, message: "نام دانش‌آموز معتبر نیست." });
+    }
+    const studentId = "stu_" + crypto.randomUUID();
+    const now = new Date().toISOString();
+    try {
+        db.exec("BEGIN IMMEDIATE");
+        db.prepare(`
+            INSERT INTO student_accounts (student_id, full_name, grade_id, status, created_at, updated_at)
+            VALUES (?, ?, ?, 'active', ?, ?)
+        `).run(studentId, fullName, gradeId, now, now);
+        audit("student.created", "admin", { metadata: { studentId, gradeId } });
+        db.exec("COMMIT");
+    } catch (error) {
+        try { db.exec("ROLLBACK"); } catch {}
+        throw error;
+    }
+    return send(res, 201, { ok: true, student: { studentId, fullName, gradeId, status: "active", createdAt: now } });
+}
+
+async function adminListStudents(req, res) {
+    if (!requireAdmin(req, res)) return;
+    const rows = db.prepare(`
+        SELECT student_id AS studentId, full_name AS fullName, grade_id AS gradeId,
+               status, created_at AS createdAt, updated_at AS updatedAt
+        FROM student_accounts
+        ORDER BY created_at DESC
+        LIMIT 1000
+    `).all();
+    return send(res, 200, { ok: true, students: rows });
+}
+
 async function adminCreateCodes(req, res) {
     if (!requireAdmin(req, res)) return;
     const body = await readBody(req);
     const gradeId = validateIdentifier(body.gradeId, "gradeId");
+    const studentId = validateIdentifier(body.studentId, "studentId");
+    const student = db.prepare(
+        "SELECT student_id, grade_id, status FROM student_accounts WHERE student_id = ?"
+    ).get(studentId);
+    if (!student || student.status !== "active") {
+        return send(res, 404, { ok: false, message: "حساب فعال دانش‌آموز پیدا نشد." });
+    }
+    if (student.grade_id !== gradeId) {
+        return send(res, 409, { ok: false, message: "پایه کد باید با پایه حساب دانش‌آموز یکسان باشد." });
+    }
     const academicYear = String(body.academicYear || academicPeriod().academicYear).trim();
     const renewalMode = String(body.renewalMode || "promotion").trim().toLowerCase();
     if (!["promotion", "repeat"].includes(renewalMode)) {
@@ -1224,19 +1311,19 @@ async function adminCreateCodes(req, res) {
     const now = new Date().toISOString();
     const insert = db.prepare(`
         INSERT INTO activation_codes
-            (code_hash, code_preview, product_id, grade_id, academic_year, renewal_mode, status, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, 'active', ?)
+            (code_hash, code_preview, product_id, grade_id, academic_year, renewal_mode, status, created_at, student_id)
+        VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?)
     `);
 
     db.exec("BEGIN IMMEDIATE");
     try {
         for (let i = 0; i < count; i++) {
             const code = makeCode(gradeId, academicYear);
-            insert.run(hashCode(code), codePreview(code), PRODUCT_ID, gradeId, academicYear, renewalMode, now);
+            insert.run(hashCode(code), codePreview(code), PRODUCT_ID, gradeId, academicYear, renewalMode, now, studentId);
             created.push(code);
         }
         audit("codes.created", "admin", {
-            metadata: { gradeId, academicYear, renewalMode, count }
+            metadata: { studentId, gradeId, academicYear, renewalMode, count }
         });
         db.exec("COMMIT");
     } catch (error) {
@@ -1835,6 +1922,14 @@ if (req.method === "GET" && req.url === "/api/metrics") {
             return await activate(req, res);
         }
 
+        if (req.method === "POST" && req.url === "/api/admin/students") {
+            return await adminCreateStudent(req, res);
+        }
+
+        if (req.method === "GET" && req.url === "/api/admin/students") {
+            return await adminListStudents(req, res);
+        }
+
         if (req.method === "POST" && req.url === "/api/admin/codes") {
             return await adminCreateCodes(req, res);
         }
@@ -1956,7 +2051,7 @@ function startupRecoveryCheck() {
             throw new Error("SQLite integrity check failed at startup.");
         }
 
-        const requiredTables = ["activation_codes", "licenses", "audit_log", "payments", "admin_sessions"];
+        const requiredTables = ["activation_codes", "licenses", "audit_log", "payments", "admin_sessions", "student_accounts"];
         for (const table of requiredTables) {
             const row = db.prepare(
                 "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?"
