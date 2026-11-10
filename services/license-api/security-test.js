@@ -63,6 +63,9 @@ const paymentSecurityMarkers = [
     "verified = verified === true;",
     "BEGIN IMMEDIATE",
     "payment.callback.verified",
+    "validateStudentPurchase(studentId, gradeId, academicYear, renewalMode)",
+    "activation_code_hash = ?",
+    "payment.activation_code.issued",
     "Number(process.env.TAHOURI_PRODUCT_PRICE_IRR)",
     "TAHOURI_PRODUCT_PRICE_IRR must be a positive integer in production."
 ];
