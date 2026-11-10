@@ -361,6 +361,23 @@ async function main() {
         }, { Cookie: cookie });
         assert(integrationStudent.status === 201, "Student account for promotion test was not created.");
         const integrationStudentId = integrationStudent.data.student.studentId;
+        const seedCodes = await request("POST", "/api/admin/codes", {
+            studentId: integrationStudentId,
+            gradeId: "grade6",
+            academicYear: String(activeAcademicYear),
+            count: 1
+        }, { Cookie: cookie });
+        assert(seedCodes.status === 201 && seedCodes.data.codes?.length === 1,
+            "Current-year student-bound code was not issued.");
+        const seedActivation = await request("POST", "/api/licenses/activate", {
+            code: seedCodes.data.codes[0],
+            gradeId: "grade6",
+            studentId: integrationStudentId,
+            installationId: "integration-installation"
+        });
+        assert(seedActivation.status === 200 && seedActivation.data.valid,
+            "Student-bound current-year activation failed.");
+
         const promotionCodes = await request("POST", "/api/admin/codes", {
             studentId: integrationStudentId,
             gradeId: "grade7",
