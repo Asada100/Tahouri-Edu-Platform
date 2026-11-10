@@ -7,6 +7,12 @@
 
 const ProfileScreen = {
 
+    escapeHTML: function (value) {
+        return String(value ?? "").replace(/[&<>"']/g, function (character) {
+            return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character];
+        });
+    },
+
     // =====================================
     // Show Profile
     // =====================================
@@ -50,7 +56,7 @@ const ProfileScreen = {
     <div class="profile-card">
         <div class="profile-item">
             <h3>👤 نام دانش‌آموز</h3>
-            <p id="profileName">${profile.name || "هنوز ثبت نشده"}</p>
+            <p id="profileName">${this.escapeHTML(profile.name || "هنوز ثبت نشده")}</p>
         </div>
         <div class="profile-item">
             <h3>🎓 پایه</h3>
@@ -195,11 +201,11 @@ const ProfileScreen = {
             return;
         }
 
-        box.innerHTML = message;
+        box.textContent = message;
 
         setTimeout(function () {
             if (box) {
-                box.innerHTML = "";
+                box.textContent = "";
             }
         }, 1500);
     },
@@ -235,7 +241,7 @@ const ProfileScreen = {
 
                 return `
 <div class="profile-select-card">
-    <h2>${active ? "⭐ " : ""}${profile.name}</h2>
+    <h2>${active ? "⭐ " : ""}${ProfileScreen.escapeHTML(profile.name)}</h2>
     <p>🎓 ${ProfileScreen.getGradeTitle(profile.grade)}</p>
     <p>📅 ${ProfileScreen.formatDate(profile.createdAt)}</p>
 
@@ -247,7 +253,7 @@ const ProfileScreen = {
         </button>
         `
         : `
-        <button type="button" data-profile-id="${profile.studentId}">
+        <button type="button" data-profile-id="${ProfileScreen.escapeHTML(profile.studentId)}">
             ورود به این پروفایل
         </button>
         `
@@ -320,13 +326,13 @@ const ProfileScreen = {
             const grade = gradeInput.value;
 
             if (!name) {
-                message.innerHTML = "⚠ لطفاً نام دانش‌آموز را وارد کنید.";
+                message.textContent = "⚠ لطفاً نام دانش‌آموز را وارد کنید.";
                 nameInput.focus();
                 return;
             }
 
             if (!grade) {
-                message.innerHTML = "⚠ لطفاً پایه را انتخاب کنید.";
+                message.textContent = "⚠ لطفاً پایه را انتخاب کنید.";
                 gradeInput.focus();
                 return;
             }
@@ -335,11 +341,11 @@ const ProfileScreen = {
                 const profile = ProfileManager.createProfile({ name: name, grade: grade });
 
                 if (!profile) {
-                    message.innerHTML = "⚠ ایجاد پروفایل انجام نشد.";
+                    message.textContent = "⚠ ایجاد پروفایل انجام نشد.";
                     return;
                 }
 
-                message.innerHTML = "✓ پروفایل با موفقیت ایجاد شد.";
+                message.textContent = "✓ پروفایل با موفقیت ایجاد شد.";
 
                 setTimeout(function () {
                     if (typeof ActivationGate !== "undefined" && typeof ActivationGate.open === "function") {
@@ -350,7 +356,7 @@ const ProfileScreen = {
                 }, 500);
             } catch (error) {
                 console.error("Profile Create Error:", error);
-                message.innerHTML = "⚠ خطا در ایجاد پروفایل.";
+                message.textContent = "⚠ خطا در ایجاد پروفایل.";
             }
         };
 
@@ -386,7 +392,7 @@ const ProfileScreen = {
 
     <label for="editProfileName">نام دانش‌آموز</label>
     <br>
-    <input id="editProfileName" type="text" value="${profile.name || ""}">
+    <input id="editProfileName" type="text" value="${this.escapeHTML(profile.name || "")}">
     <br><br>
 
     <label for="editProfileGrade">پایه</label>
@@ -416,13 +422,13 @@ const ProfileScreen = {
             const grade = gradeInput.value;
 
             if (!name) {
-                message.innerHTML = "⚠ لطفاً نام دانش‌آموز را وارد کنید.";
+                message.textContent = "⚠ لطفاً نام دانش‌آموز را وارد کنید.";
                 nameInput.focus();
                 return;
             }
 
             if (!grade) {
-                message.innerHTML = "⚠ لطفاً پایه را انتخاب کنید.";
+                message.textContent = "⚠ لطفاً پایه را انتخاب کنید.";
                 gradeInput.focus();
                 return;
             }
@@ -432,7 +438,7 @@ const ProfileScreen = {
             ProfileManager.update({ name: name, grade: grade });
 
             if (oldGrade !== grade) {
-                message.innerHTML = "✓ تغییرات ذخیره شد.";
+                message.textContent = "✓ تغییرات ذخیره شد.";
 
                 setTimeout(function () {
                     if (typeof ActivationGate !== "undefined" && typeof ActivationGate.open === "function") {
@@ -442,7 +448,7 @@ const ProfileScreen = {
                     }
                 }, 500);
             } else {
-                message.innerHTML = "✓ تغییرات ذخیره شد.";
+                message.textContent = "✓ تغییرات ذخیره شد.";
 
                 setTimeout(function () {
                     ProfileScreen.show();

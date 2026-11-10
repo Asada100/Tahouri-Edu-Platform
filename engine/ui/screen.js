@@ -24,6 +24,12 @@
 
 const Screen = {
 
+    escapeHTML: function (value) {
+        return String(value ?? "").replace(/[&<>"']/g, function (character) {
+            return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character];
+        });
+    },
+
     // =====================================
     // PROFILE HELPERS
     // =====================================
@@ -141,7 +147,7 @@ const Screen = {
                 <div class="daily-message-home">
 
                     <div class="daily-message-home-icon">
-                        ${dailyMessage.icon || "💡"}
+                        ${this.escapeHTML(dailyMessage.icon || "💡")}
                     </div>
 
                     <div class="daily-message-home-content">
@@ -151,7 +157,7 @@ const Screen = {
                         </h2>
 
                         <p>
-                            ${dailyMessage.text}
+                            ${this.escapeHTML(dailyMessage.text || "")}
                         </p>
 
                     </div>
@@ -667,7 +673,7 @@ const Screen = {
                     <p>
                         پروفایل فعال:
                         <strong>
-                            ${profile.name || "دانش‌آموز"}
+                            ${this.escapeHTML(profile.name || "دانش‌آموز")}
                         </strong>
                     </p>
 
@@ -790,7 +796,7 @@ const Screen = {
                 <p>
                     پروفایل فعال:
                     <strong>
-                        ${profile.name || "دانش‌آموز"}
+                        ${this.escapeHTML(profile.name || "دانش‌آموز")}
                     </strong>
                 </p>
 

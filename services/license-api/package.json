@@ -14,11 +14,13 @@
     "preflight-production": "node preflight-production.js",
     "restore-rehearsal": "node restore-rehearsal.js",
     "security-test": "node security-test.js",
-    "release-check": "node release-check.js && node security-test.js",
+    "release-check": "node release-check.js && node security-test.js && node worker-activation-test.js && node license-manager-mode-test.js",
     "release-smoke-test": "node release-smoke-test.js",
     "migration-test": "node migration-test.js",
     "backup-recovery-test": "node backup-recovery-test.js",
     "offsite-backup": "node offsite-backup.js",
-    "backup-scheduler": "node backup-scheduler.js"
+    "backup-scheduler": "node backup-scheduler.js",
+    "worker-activation-test": "node worker-activation-test.js",
+    "license-manager-mode-test": "node license-manager-mode-test.js"
   }
 }

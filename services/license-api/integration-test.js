@@ -13,6 +13,7 @@ const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "tahouri-license-test-"));
 const dbFile = path.join(tempDir, "license.sqlite");
 const keyFile = path.join(tempDir, "private.pem");
 const base = "http://127.0.0.1:" + port;
+let requestIpSequence = 0;
 
 function request(method, route, body, headers = {}) {
     return new Promise((resolve, reject) => {
@@ -21,6 +22,7 @@ function request(method, route, body, headers = {}) {
             method,
             headers: {
                 ...(payload ? { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(payload) } : {}),
+                "X-Forwarded-For": "198.51.100." + ((requestIpSequence++ % 200) + 1),
                 ...headers
             }
         }, res => {
@@ -57,7 +59,20 @@ function assert(condition, message) {
     if (!condition) throw new Error(message);
 }
 
+function currentIranianAcademicYear() {
+    const parts = new Intl.DateTimeFormat("en-US-u-ca-persian", {
+        timeZone: "Asia/Tehran",
+        year: "numeric",
+        month: "numeric"
+    }).formatToParts(new Date());
+    const values = Object.fromEntries(
+        parts.filter(part => part.type !== "literal").map(part => [part.type, Number(part.value)])
+    );
+    return String(values.month >= 7 ? values.year : values.year - 1);
+}
+
 async function main() {
+    const activeAcademicYear = currentIranianAcademicYear();
     const sourceServer = path.join(__dirname, "server.js");
     const key = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
     fs.writeFileSync(keyFile, key.privateKey.export({ type: "pkcs8", format: "pem" }));
@@ -68,6 +83,7 @@ async function main() {
             PORT: String(port),
             HOST: "127.0.0.1",
             NODE_ENV: "development",
+            TAHOURI_TEST_TRUST_PROXY: "true",
             TAHOURI_TEST_CODES: "true",
             TAHOURI_TEST_MODE: "true",
             TAHOURI_LICENSE_DB_FILE: dbFile,
@@ -83,7 +99,7 @@ async function main() {
         await waitForServer(child);
 
         const activation = await request("POST", "/api/licenses/activate", {
-            code: "GRADE6-1405-TEST-A",
+            code: `GRADE6-${activeAcademicYear}-TEST-A`,
             gradeId: "grade6",
             studentId: "integration-student",
             installationId: "integration-installation"
@@ -117,12 +133,12 @@ async function main() {
         assert(extended.data.entitlement.claims.validUntil === extension, "Extended expiry was not signed.");
 
         const reuse = await request("POST", "/api/licenses/activate", {
-            code: "GRADE6-1405-TEST-A", gradeId: "grade6", studentId: "second-student", installationId: "second-installation"
+            code: `GRADE6-${activeAcademicYear}-TEST-A`, gradeId: "grade6", studentId: "second-student", installationId: "second-installation"
         });
         assert(reuse.status === 409, "Used activation code was reusable.");
 
         const wrongGrade = await request("POST", "/api/licenses/activate", {
-            code: "GRADE6-1405-TEST-B", gradeId: "grade5", studentId: "wrong-grade-student", installationId: "wrong-grade-installation"
+            code: `GRADE6-${activeAcademicYear}-TEST-B`, gradeId: "grade5", studentId: "wrong-grade-student", installationId: "wrong-grade-installation"
         });
         assert(wrongGrade.status === 400, "Grade mismatch was accepted.");
 
@@ -141,7 +157,7 @@ async function main() {
         } finally { expiryDb.close(); }
 
         const payment = await request("POST", "/api/payments", {
-            gradeId: "grade6", academicYear: "1405", amount: 100000, currency: "IRR"
+            gradeId: "grade6", academicYear: activeAcademicYear, amount: 100000, currency: "IRR"
         });
         assert(payment.status === 201 && payment.data.status === "pending", "Payment creation failed.");
 
@@ -180,25 +196,14 @@ async function main() {
         assert(badCode.status === 400, "Invalid activation code input was accepted.");
 
         const badStudent = await request("POST", "/api/licenses/activate", {
-            code: "GRADE6-1405-TEST-B", gradeId: "grade6", studentId: "student with spaces", installationId: "integration-installation"
+            code: `GRADE6-${activeAcademicYear}-TEST-B`, gradeId: "grade6", studentId: "student with spaces", installationId: "integration-installation"
         });
         assert(badStudent.status === 400, "Invalid student identifier was accepted.");
 
         const badStatus = await request("GET", "/api/licenses/status?licenseId=" + encodeURIComponent("license id with spaces"));
         assert(badStatus.status === 400, "Invalid license identifier was accepted.");
 
-        const iranParts = Object.fromEntries(
-            new Intl.DateTimeFormat("en-US-u-ca-persian", {
-                timeZone: "Asia/Tehran",
-                year: "numeric",
-                month: "numeric",
-                day: "numeric"
-            }).formatToParts(new Date())
-              .filter(part => part.type !== "literal")
-              .map(part => [part.type, Number(part.value)])
-        );
-        const activeAcademicYear = iranParts.month >= 7 ? iranParts.year : iranParts.year - 1;
-        const nextAcademicYear = String(activeAcademicYear + 1);
+        const nextAcademicYear = String(Number(activeAcademicYear) + 1);
 
         const promotionCodes = await request("POST", "/api/admin/codes", {
             gradeId: "grade7",
@@ -285,10 +290,35 @@ async function main() {
         });
         assert(wrongProfileRenewal.status === 409, "Future renewal must not be activatable by another profile.");
 
+        const codeRevoked = await request("POST", "/api/admin/codes/revoke", {
+            code: promotionCodes.data.codes[2]
+        }, { Cookie: cookie });
+        assert(codeRevoked.status === 200 && codeRevoked.data.ok, "Activation code revocation failed.");
+        const revocationCheckDb = new DatabaseSync(dbFile);
+        try {
+            const revokedHash = crypto.createHash("sha256")
+                .update(promotionCodes.data.codes[2].trim().toUpperCase(), "utf8").digest("hex");
+            const revokedRow = revocationCheckDb.prepare(
+                "SELECT status, used_at AS usedAt FROM activation_codes WHERE code_hash = ?"
+            ).get(revokedHash);
+            assert(revokedRow?.status === "revoked" && !revokedRow.usedAt,
+                "Code revocation did not persist in SQLite: " + JSON.stringify(revokedRow));
+        } finally { revocationCheckDb.close(); }
+
+        const revokedCodeReuse = await request("POST", "/api/licenses/activate", {
+            code: promotionCodes.data.codes[2],
+            gradeId: "grade7",
+            studentId: "integration-student",
+            installationId: "integration-installation",
+            renewalMode: "promotion"
+        });
+        assert(revokedCodeReuse.status === 409, "A revoked activation code was reusable; HTTP " + revokedCodeReuse.status + ": " + JSON.stringify(revokedCodeReuse.data));
+
         const auditAfterRenewal = await request("GET", "/api/admin/audit?limit=100", undefined, { Cookie: cookie });
         assert(auditAfterRenewal.status === 200 && Array.isArray(auditAfterRenewal.data.audit), "Audit endpoint failed after renewal.");
         const renewalAuditEvents = auditAfterRenewal.data.audit.map(item => item.event_type || item.eventType);
         assert(renewalAuditEvents.includes("license.renewal_reserved"), "Missing audit event: license.renewal_reserved");
+        assert(renewalAuditEvents.includes("code.revoked"), "Missing audit event: code.revoked");
 
         const revoked = await request("POST", "/api/admin/licenses/revoke", { licenseId }, { Cookie: cookie });
         assert(revoked.status === 200 && revoked.data.ok, "License revoke failed.");
@@ -316,6 +346,20 @@ async function main() {
             assert(license && license.student_id === "integration-student", "License was not persisted.");
             assert(license.status === "revoked", "Persisted license is not revoked.");
         } finally { db.close(); }
+
+        let rateLimitResponses = [];
+        for (let attempt = 0; attempt < 11; attempt++) {
+            rateLimitResponses.push(await request("POST", "/api/licenses/activate", {
+                code: "INVALID-RATE-LIMIT-" + attempt,
+                gradeId: "grade6",
+                studentId: "rate-limit-student",
+                installationId: "rate-limit-installation"
+            }, { "X-Forwarded-For": "198.51.100.250" }));
+        }
+        assert(rateLimitResponses.slice(0, 10).every(response => response.status === 400),
+            "The activation rate limit rejected requests before the configured threshold.");
+        assert(rateLimitResponses[10].status === 429,
+            "The activation endpoint did not enforce its per-IP rate limit.");
 
         console.log("Tahouri License API integration test: PASS");
     } finally {

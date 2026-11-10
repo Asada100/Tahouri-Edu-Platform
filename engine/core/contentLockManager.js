@@ -289,6 +289,26 @@ const ContentLockManager = {
         }
     },
 
+    saveProgressionState: function (state) {
+        const key = this.getProgressionStorageKey();
+        if (!key) return false;
+
+        const allowed = this.getParityProgressionIds();
+        const unlocked = Array.isArray(state && state.unlocked)
+            ? state.unlocked.filter(function (id) { return allowed.indexOf(id) !== -1; })
+            : [];
+
+        if (unlocked.indexOf("evenOdd") === -1) unlocked.unshift("evenOdd");
+
+        try {
+            localStorage.setItem(key, JSON.stringify({ unlocked: unlocked }));
+            return true;
+        } catch (error) {
+            console.error("Parity Progression Save Error", error);
+            return false;
+        }
+    },
+
     recordProgressionResult: function (activityId, percentage) {
         const ids = this.getParityProgressionIds();
         const index = ids.indexOf(activityId);
@@ -338,12 +358,38 @@ const ContentLockManager = {
     lock: function (contentId) {
         if (!contentId || !this.ensureCurrentProfile()) return false;
 
+        if (this.isProgressionActivity(contentId)) {
+            const ids = this.getParityProgressionIds();
+            const index = ids.indexOf(contentId);
+            if (index <= 0) return false;
+
+            const state = this.getProgressionState();
+            state.unlocked = state.unlocked.filter(function (id) {
+                return ids.indexOf(id) < index;
+            });
+            return this.saveProgressionState(state);
+        }
+
         this.lockedContents[contentId] = true;
         return this.saveLocks();
     },
 
     unlock: function (contentId) {
         if (!contentId || !this.ensureCurrentProfile()) return false;
+
+        if (this.isProgressionActivity(contentId)) {
+            const ids = this.getParityProgressionIds();
+            const index = ids.indexOf(contentId);
+            if (index === 0) return true;
+            if (index < 0) return false;
+
+            const state = this.getProgressionState();
+            if (state.unlocked.indexOf(ids[index - 1]) === -1) return false;
+            if (state.unlocked.indexOf(contentId) !== -1) return true;
+
+            state.unlocked.push(contentId);
+            return this.saveProgressionState(state);
+        }
 
         this.lockedContents[contentId] = false;
         return this.saveLocks();
@@ -379,6 +425,20 @@ const ContentLockManager = {
     reset: function (contentId) {
         if (!contentId || !this.ensureCurrentProfile()) return false;
 
+        if (this.isProgressionActivity(contentId)) {
+            const ids = this.getParityProgressionIds();
+            const index = ids.indexOf(contentId);
+            if (index < 0) return false;
+
+            const state = this.getProgressionState();
+            state.unlocked = index === 0
+                ? ["evenOdd"]
+                : state.unlocked.filter(function (id) {
+                    return ids.indexOf(id) < index;
+                });
+            return this.saveProgressionState(state);
+        }
+
         this.lockedContents[contentId] = true;
         return this.saveLocks();
     },
@@ -392,7 +452,9 @@ const ContentLockManager = {
 
         ContentLockManager.lockedContents["evenOdd"] = false;
 
-        return ContentLockManager.saveLocks();
+        const progressionReset = this.saveProgressionState({ unlocked: ["evenOdd"] });
+        const locksSaved = this.saveLocks();
+        return progressionReset && locksSaved;
     }
 };
 

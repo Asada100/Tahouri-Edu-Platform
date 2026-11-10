@@ -12,6 +12,10 @@ on:
   pull_request:
     paths:
       - "services/license-api/**"
+      - "engine/core/licenseManager.js"
+      - "engine/core/activationGate.js"
+      - "engine/core/tahouriEntitlementStore.js"
+      - "engine/core/tahouriEntitlementVerifier.js"
       - ".github/workflows/license-api-ci.yml"
 
 jobs:
@@ -33,15 +37,37 @@ jobs:
       - name: Release artifact check
         run: npm run release-check
 
+      - name: Validate Cloudflare Worker module syntax
+        run: node --input-type=module --check < worker.js
+
+      - name: Production admin CSP validation
+        run: |
+          node --check admin/admin.js
+          node admin-csp-test.js
+
       - name: Security test
         run: npm run security-test
+
+      - name: Build and verify non-root production image
+        run: |
+          docker build --file Dockerfile --tag tahouri-license-api:ci ../..
+          docker run --rm --entrypoint node tahouri-license-api:ci -e "process.exit(process.getuid() === 0 ? 1 : 0)"
+
+      - name: Validate production Caddy configuration
+        run: |
+          docker run --rm \
+            -e TAHOURI_API_DOMAIN=api.example.com \
+            -v "$PWD/Caddyfile.production.example:/etc/caddy/Caddyfile:ro" \
+            caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 
       - name: Client license safety test
         run: node client-license-safety-test.js
 
       - name: Integration test
-        run: npm run integration-test
+        run: node integration-test.js
+
       - name: Migration verification
-        run: npm run migration-test
+        run: node migration-test.js
+
       - name: Backup and recovery verification
-        run: npm run backup-recovery-test
+        run: node backup-recovery-test.js

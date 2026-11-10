@@ -57,30 +57,28 @@
     //
     // =====================================
 
+    const DEMO_ACADEMIC_YEAR = (function () {
+        const parts = new Intl.DateTimeFormat("en-US-u-ca-persian", {
+            timeZone: "Asia/Tehran",
+            year: "numeric",
+            month: "numeric"
+        }).formatToParts(new Date());
+        const values = Object.fromEntries(
+            parts.filter(part => part.type !== "literal").map(part => [part.type, Number(part.value)])
+        );
+        return values.month >= 7 ? values.year : values.year - 1;
+    })();
+
     const DEMO_CODES = {
-
-        "GRADE1-1405-TEST": "grade1",
-
-        "GRADE2-1405-TEST": "grade2",
-
-        "GRADE3-1405-TEST": "grade3",
-
-        "GRADE4-1405-TEST": "grade4",
-
-        "GRADE5-1405-TEST": "grade5",
-
-        // ---------------------------------
-        // Grade 6 Test Codes
-        // ---------------------------------
-
-        "GRADE6-1405-TEST": "grade6",
-
-        "GRADE6-1405-TEST-A": "grade6",
-
-        "GRADE6-1405-TEST-B": "grade6",
-
-        "GRADE6-1405-TEST-C": "grade6"
-
+        [`GRADE1-${DEMO_ACADEMIC_YEAR}-TEST`]: "grade1",
+        [`GRADE2-${DEMO_ACADEMIC_YEAR}-TEST`]: "grade2",
+        [`GRADE3-${DEMO_ACADEMIC_YEAR}-TEST`]: "grade3",
+        [`GRADE4-${DEMO_ACADEMIC_YEAR}-TEST`]: "grade4",
+        [`GRADE5-${DEMO_ACADEMIC_YEAR}-TEST`]: "grade5",
+        [`GRADE6-${DEMO_ACADEMIC_YEAR}-TEST`]: "grade6",
+        [`GRADE6-${DEMO_ACADEMIC_YEAR}-TEST-A`]: "grade6",
+        [`GRADE6-${DEMO_ACADEMIC_YEAR}-TEST-B`]: "grade6",
+        [`GRADE6-${DEMO_ACADEMIC_YEAR}-TEST-C`]: "grade6"
     };
 
 
@@ -927,6 +925,15 @@
 
         }
 
+        if (isRemoteProductionMode()) {
+            const claims = verifiedRemoteEntitlement;
+            return Boolean(
+                claims &&
+                normalizeStudentId(claims.studentId) === normalizedStudentId &&
+                hasValidRemoteEntitlement(claims.gradeScope)
+            );
+        }
+
         return getActiveLicenses()
             .some(
                 function (license) {
@@ -966,6 +973,11 @@
 
         if (hasValidRemoteEntitlement(gradeId)) {
             return true;
+        }
+
+        // Production must never fall back to unsigned legacy LocalStorage licenses.
+        if (isRemoteProductionMode()) {
+            return false;
         }
 
         return getActiveLicenses()

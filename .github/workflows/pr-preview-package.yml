@@ -2,7 +2,7 @@ name: PR Preview Package
 
 on:
   pull_request:
-    branches: [master]
+    branches: [master, audit/platform-full-review-2026-11-06]
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
