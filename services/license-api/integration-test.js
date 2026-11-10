@@ -40,6 +40,30 @@ function request(method, route, body, headers = {}) {
     });
 }
 
+function requestRaw(method, route, rawBody, headers = {}) {
+    return new Promise((resolve, reject) => {
+        const payload = Buffer.from(rawBody, "utf8");
+        const req = http.request(base + route, {
+            method,
+            headers: {
+                "Content-Length": payload.length,
+                ...headers
+            }
+        }, res => {
+            let data = "";
+            res.on("data", chunk => data += chunk);
+            res.on("end", () => {
+                let json = {};
+                try { json = data ? JSON.parse(data) : {}; } catch {}
+                resolve({ status: res.statusCode, headers: res.headers, data: json });
+            });
+        });
+        req.on("error", reject);
+        req.write(payload);
+        req.end();
+    });
+}
+
 async function waitForServer(child) {
     for (let i = 0; i < 50; i++) {
         if (child.exitCode !== null) throw new Error("Server exited during startup.");
@@ -94,6 +118,34 @@ async function main() {
         assert(activation.data.entitlement?.claims?.studentId === "integration-student", "Student binding missing.");
         assert(activation.data.entitlement?.claims?.gradeScope === "grade6", "Grade binding missing.");
         assert(Number.isFinite(Date.parse(activation.data.entitlement.claims.validUntil)), "Expiry is invalid.");
+
+        const wrongMediaType = await requestRaw(
+            "POST", "/api/licenses/activate",
+            JSON.stringify({ code: "GRADE6-1405-TEST-B", gradeId: "grade6", studentId: "media-type-test", installationId: "integration-installation" }),
+            { "Content-Type": "text/plain" }
+        );
+        assert(wrongMediaType.status === 415, "Non-JSON request body must be rejected.");
+
+        const oversizedUtf8 = JSON.stringify({
+            code: "GRADE6-1405-TEST-B",
+            gradeId: "grade6",
+            studentId: "oversize-test",
+            installationId: "integration-installation",
+            padding: "ا".repeat(35000)
+        });
+        assert(Buffer.byteLength(oversizedUtf8, "utf8") > 64 * 1024,
+            "Oversized UTF-8 test payload was not larger than the byte limit.");
+        const oversizedBody = await requestRaw(
+            "POST", "/api/licenses/activate", oversizedUtf8,
+            { "Content-Type": "application/json" }
+        );
+        assert(oversizedBody.status === 413, "Oversized UTF-8 body must be rejected with 413.");
+
+        const nonObjectJson = await requestRaw(
+            "POST", "/api/licenses/activate", "[]",
+            { "Content-Type": "application/json" }
+        );
+        assert(nonObjectJson.status === 400, "Non-object JSON body must be rejected.");
 
         const metricsUnauthenticated = await request("GET", "/api/metrics");
         assert(metricsUnauthenticated.status === 401, "Metrics endpoint must require admin authentication.");
