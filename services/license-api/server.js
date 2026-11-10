@@ -776,13 +776,11 @@ function cleanupAdminSessions() {
 
 setInterval(cleanupAdminSessions, 10 * 60 * 1000).unref();
 
-function getClientIp(req) {
-    if (IS_PRODUCTION) {
-        const forwarded = String(req.headers["x-forwarded-for"] || "").trim();
-        if (forwarded) return forwarded.split(",")[0].trim();
-    }
-    return String(req.socket.remoteAddress || "unknown");
-}
+const { createClientIpResolver } = require("./trusted-proxy");
+const getClientIp = createClientIpResolver({
+    isProduction: IS_PRODUCTION,
+    trustedProxyIps: process.env.TAHOURI_TRUSTED_PROXY_IPS || ""
+});
 
 function recordSuspiciousAttempt(req, category, metadata = {}) {
     recordMetric("suspiciousAttempts");
