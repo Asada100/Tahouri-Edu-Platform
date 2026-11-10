@@ -61,7 +61,7 @@ try {
         }
 
         const schemaVersion = db.prepare("PRAGMA user_version").get().user_version;
-        if (schemaVersion !== 1) {
+        if (schemaVersion !== 3) {
             throw new Error("Unsupported database schema version: " + schemaVersion);
         }
 
@@ -73,7 +73,8 @@ try {
             "activation_codes",
             "licenses",
             "audit_log",
-            "payments"
+            "payments",
+            "student_accounts"
         ]) {
             if (!tables.includes(required)) {
                 throw new Error("Required table missing: " + required);
@@ -84,7 +85,8 @@ try {
             activationCodes: db.prepare("SELECT COUNT(*) AS count FROM activation_codes").get().count,
             licenses: db.prepare("SELECT COUNT(*) AS count FROM licenses").get().count,
             auditEvents: db.prepare("SELECT COUNT(*) AS count FROM audit_log").get().count,
-            payments: db.prepare("SELECT COUNT(*) AS count FROM payments").get().count
+            payments: db.prepare("SELECT COUNT(*) AS count FROM payments").get().count,
+            studentAccounts: db.prepare("SELECT COUNT(*) AS count FROM student_accounts").get().count
         };
 
         console.log("Tahouri backup verification: PASS");
