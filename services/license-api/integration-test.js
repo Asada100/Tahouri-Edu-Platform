@@ -384,8 +384,7 @@ async function main() {
                 "A successful revoke must never be overwritten by a racing extension.");
         } finally { finalLicenseDb.close(); }
 
-        const revoked = await request("POST", "/api/admin/licenses/revoke", { licenseId }, { Cookie: cookie });
-        assert(revoked.status === 200 && revoked.data.ok, "License revoke failed.");
+        assert(revokeRace.some(result => result.status === 200 && result.data.ok), "License revoke did not complete successfully.");
 
         const afterRevoke = await request("GET", "/api/admin/licenses", undefined, { Cookie: cookie });
         const revokedRow = afterRevoke.data.licenses.find(item => item.licenseId === licenseId);
