@@ -45,10 +45,10 @@ try {
     const verify = new DatabaseSync(plainBackupFile);
     try {
         const tables = verify.prepare(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('activation_codes','licenses','audit_log','payments') ORDER BY name"
+            "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('activation_codes','licenses','audit_log','payments','student_accounts') ORDER BY name"
         ).all().map(row => row.name);
 
-        const expected = ["activation_codes", "audit_log", "licenses", "payments"];
+        const expected = ["activation_codes", "audit_log", "licenses", "payments", "student_accounts"];
         if (JSON.stringify(tables) !== JSON.stringify(expected)) {
             throw new Error("Backup verification failed: required tables are missing.");
         }
