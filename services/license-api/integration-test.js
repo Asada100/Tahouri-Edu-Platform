@@ -328,6 +328,62 @@ async function main() {
         const renewalAuditEvents = auditAfterRenewal.data.audit.map(item => item.event_type || item.eventType);
         assert(renewalAuditEvents.includes("license.renewal_reserved"), "Missing audit event: license.renewal_reserved");
 
+        // Audit failures must roll back the associated license mutation.
+        const auditFailureDb = new DatabaseSync(dbFile);
+        try {
+            auditFailureDb.exec(`
+                CREATE TRIGGER fail_license_revoke_audit
+                BEFORE INSERT ON audit_log
+                WHEN NEW.event_type = 'license.revoked'
+                BEGIN SELECT RAISE(ABORT, 'injected audit failure'); END;
+            `);
+        } finally { auditFailureDb.close(); }
+        const revokeAuditFailure = await request("POST", "/api/admin/licenses/revoke", { licenseId }, { Cookie: cookie });
+        assert(revokeAuditFailure.status === 500, "Injected license revoke audit failure must surface as HTTP 500.");
+        const verifyRevokeRollbackDb = new DatabaseSync(dbFile);
+        try {
+            const unchanged = verifyRevokeRollbackDb.prepare("SELECT status, revoked_at AS revokedAt FROM licenses WHERE license_id = ?").get(licenseId);
+            assert(unchanged?.status === "active" && unchanged.revokedAt == null,
+                "License revoke must roll back when its audit insert fails.");
+            verifyRevokeRollbackDb.exec("DROP TRIGGER fail_license_revoke_audit");
+        } finally { verifyRevokeRollbackDb.close(); }
+
+        const extendedUntil = new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString();
+        const extendAuditDb = new DatabaseSync(dbFile);
+        try {
+            extendAuditDb.exec(`
+                CREATE TRIGGER fail_license_extend_audit
+                BEFORE INSERT ON audit_log
+                WHEN NEW.event_type = 'license.extended'
+                BEGIN SELECT RAISE(ABORT, 'injected audit failure'); END;
+            `);
+        } finally { extendAuditDb.close(); }
+        const extendAuditFailure = await request("POST", "/api/admin/licenses/extend", { licenseId, validUntil: extendedUntil }, { Cookie: cookie });
+        assert(extendAuditFailure.status === 500, "Injected license extension audit failure must surface as HTTP 500.");
+        const verifyExtendRollbackDb = new DatabaseSync(dbFile);
+        try {
+            const unchanged = verifyExtendRollbackDb.prepare("SELECT valid_until AS validUntil FROM licenses WHERE license_id = ?").get(licenseId);
+            assert(unchanged?.validUntil !== extendedUntil,
+                "License extension must roll back when its audit insert fails.");
+            verifyExtendRollbackDb.exec("DROP TRIGGER fail_license_extend_audit");
+        } finally { verifyExtendRollbackDb.close(); }
+
+        const extended = await request("POST", "/api/admin/licenses/extend", { licenseId, validUntil: extendedUntil }, { Cookie: cookie });
+        assert(extended.status === 200 && extended.data.ok, "License extension should succeed after audit trigger removal.");
+        const revokeRace = await Promise.all([
+            request("POST", "/api/admin/licenses/revoke", { licenseId }, { Cookie: cookie }),
+            request("POST", "/api/admin/licenses/extend", {
+                licenseId, validUntil: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString()
+            }, { Cookie: cookie })
+        ]);
+        assert(revokeRace.some(x => x.status === 200), "Concurrent revoke/extend must produce a committed winner.");
+        const finalLicenseDb = new DatabaseSync(dbFile);
+        try {
+            const finalState = finalLicenseDb.prepare("SELECT status FROM licenses WHERE license_id = ?").get(licenseId);
+            assert(finalState?.status === "revoked",
+                "A successful revoke must never be overwritten by a racing extension.");
+        } finally { finalLicenseDb.close(); }
+
         const revoked = await request("POST", "/api/admin/licenses/revoke", { licenseId }, { Cookie: cookie });
         assert(revoked.status === 200 && revoked.data.ok, "License revoke failed.");
 
