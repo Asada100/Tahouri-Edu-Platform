@@ -81,8 +81,8 @@ async function main() {
     const migratedRows = db.prepare(
         "SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'database.migrated'"
     ).get().count;
-    assert(versionAfterMigration === 3, "Schema migration did not advance to version 3.");
-    assert(Number(migratedRows) === 3, "Expected initial, uniqueness, and student registry migration audit entries.");
+    assert(versionAfterMigration === 4, "Schema migration did not advance to version 3.");
+    assert(Number(migratedRows) === 4, "Expected initial, uniqueness, student registry, and payment fulfillment migration entries.");
     db.close();
 
     const second = startServer();
@@ -97,8 +97,8 @@ async function main() {
     const migrationRowsAfterRestart = dbAfterRestart.prepare(
         "SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'database.migrated'"
     ).get().count;
-    assert(versionAfterRestart === 3, "Schema version changed after restart.");
-    assert(Number(migrationRowsAfterRestart) === 3, "Migration ran again after restart.");
+    assert(versionAfterRestart === 4, "Schema version changed after restart.");
+    assert(Number(migrationRowsAfterRestart) === 4, "Migration ran again after restart.");
     dbAfterRestart.exec("PRAGMA user_version = 99");
     dbAfterRestart.close();
 
