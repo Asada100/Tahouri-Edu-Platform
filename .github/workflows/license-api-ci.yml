@@ -48,6 +48,9 @@ jobs:
       - name: Profile-switch entitlement refresh test
         run: npm run profile-switch-entitlement-test
 
+      - name: Active profile mutation context test
+        run: npm run profile-context-event-test
+
       - name: Integration test
         run: npm run integration-test
       - name: Migration verification
