@@ -81,8 +81,8 @@ async function main() {
     const migratedRows = db.prepare(
         "SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'database.migrated'"
     ).get().count;
-    assert(versionAfterMigration === 1, "Initial migration did not set schema version to 1.");
-    assert(Number(migratedRows) === 1, "Initial migration audit entry is missing.");
+    assert(versionAfterMigration === 2, "Schema migration did not advance to version 2.");
+    assert(Number(migratedRows) === 2, "Expected initial and uniqueness migration audit entries.");
     db.close();
 
     const second = startServer();
@@ -97,8 +97,8 @@ async function main() {
     const migrationRowsAfterRestart = dbAfterRestart.prepare(
         "SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'database.migrated'"
     ).get().count;
-    assert(versionAfterRestart === 1, "Schema version changed after restart.");
-    assert(Number(migrationRowsAfterRestart) === 1, "Migration ran again after restart.");
+    assert(versionAfterRestart === 2, "Schema version changed after restart.");
+    assert(Number(migrationRowsAfterRestart) === 2, "Migration ran again after restart.");
     dbAfterRestart.exec("PRAGMA user_version = 99");
     dbAfterRestart.close();
 
