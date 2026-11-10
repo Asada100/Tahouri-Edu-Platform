@@ -300,7 +300,15 @@ async function main() {
         const activeAcademicYear = iranParts.month >= 7 ? iranParts.year : iranParts.year - 1;
         const nextAcademicYear = String(activeAcademicYear + 1);
 
+        const concurrencyStudent = await request("POST", "/api/admin/students", {
+            fullName: "دانش‌آموز آزمون هم‌زمانی",
+            gradeId: "grade6"
+        }, { Cookie: cookie });
+        assert(concurrencyStudent.status === 201 && concurrencyStudent.data.student?.studentId,
+            "Student registry did not create a stable student ID.");
+        const concurrencyStudentId = concurrencyStudent.data.student.studentId;
         const activeYearCodes = await request("POST", "/api/admin/codes", {
+            studentId: concurrencyStudentId,
             gradeId: "grade6",
             academicYear: String(activeAcademicYear),
             count: 2
@@ -308,11 +316,20 @@ async function main() {
         assert(activeYearCodes.status === 201 && activeYearCodes.data.codes?.length === 2,
             "Two isolated active-year codes were not issued for the concurrency test.");
 
+        const wrongStudentActivation = await request("POST", "/api/licenses/activate", {
+            code: activeYearCodes.data.codes[0],
+            gradeId: "grade6",
+            studentId: "someone-else",
+            installationId: "integration-installation"
+        });
+        assert(wrongStudentActivation.status === 403,
+            "A code bound to one student was accepted for another student.");
+
         const concurrentAttempts = await Promise.all(activeYearCodes.data.codes.map(code =>
             request("POST", "/api/licenses/activate", {
                 code,
                 gradeId: "grade6",
-                studentId: "concurrency-student",
+                studentId: concurrencyStudentId,
                 installationId: "integration-installation"
             })
         ));
@@ -327,7 +344,7 @@ async function main() {
                 SELECT COUNT(*) AS count FROM licenses
                 WHERE product_id = ? AND student_id = ? AND grade_id = ?
                   AND academic_year = ? AND status IN ('active', 'future')
-            `).get("tahouri-edu", "concurrency-student", "grade6", String(activeAcademicYear)).count;
+            `).get("tahouri-edu", concurrencyStudentId, "grade6", String(activeAcademicYear)).count;
             assert(Number(activeCount) === 1,
                 "Database must contain exactly one active/future license for the student-grade-year key.");
 
@@ -338,7 +355,14 @@ async function main() {
             assert(index, "Partial unique index is missing.");
         } finally { uniquenessDb.close(); }
 
+        const integrationStudent = await request("POST", "/api/admin/students", {
+            fullName: "دانش‌آموز آزمون ارتقا",
+            gradeId: "grade6"
+        }, { Cookie: cookie });
+        assert(integrationStudent.status === 201, "Student account for promotion test was not created.");
+        const integrationStudentId = integrationStudent.data.student.studentId;
         const promotionCodes = await request("POST", "/api/admin/codes", {
+            studentId: integrationStudentId,
             gradeId: "grade7",
             academicYear: nextAcademicYear,
             count: 3
@@ -346,6 +370,7 @@ async function main() {
         assert(promotionCodes.status === 201 && promotionCodes.data.codes?.length === 3, "Grade 7 next-year promotion codes were not created.");
 
         const repeatCodes = await request("POST", "/api/admin/codes", {
+            studentId: integrationStudentId,
             gradeId: "grade6",
             academicYear: nextAcademicYear,
             renewalMode: "repeat",
@@ -356,7 +381,7 @@ async function main() {
         const promotionActivation = await request("POST", "/api/licenses/activate", {
             code: promotionCodes.data.codes[0],
             gradeId: "grade7",
-            studentId: "integration-student",
+            studentId: integrationStudentId,
             installationId: "integration-installation",
             renewalMode: "promotion"
         });
@@ -386,7 +411,7 @@ async function main() {
         const tamperedPromotion = await request("POST", "/api/licenses/activate", {
             code: promotionCodes.data.codes[1],
             gradeId: "grade6",
-            studentId: "integration-student",
+            studentId: integrationStudentId,
             installationId: "integration-installation",
             renewalMode: "promotion"
         });
@@ -395,7 +420,7 @@ async function main() {
         const invalidSameGradePromotion = await request("POST", "/api/licenses/activate", {
             code: repeatCodes.data.codes[0],
             gradeId: "grade6",
-            studentId: "integration-student",
+            studentId: integrationStudentId,
             installationId: "integration-installation",
             renewalMode: "promotion"
         });
@@ -403,7 +428,7 @@ async function main() {
         const repeatActivation = await request("POST", "/api/licenses/activate", {
             code: repeatCodes.data.codes[0],
             gradeId: "grade6",
-            studentId: "integration-student",
+            studentId: integrationStudentId,
             installationId: "integration-installation",
             renewalMode: "repeat"
         });
