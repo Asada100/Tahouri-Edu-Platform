@@ -57,6 +57,9 @@ jobs:
       - name: Profile tamper boundary test
         run: npm run profile-tamper-boundary-test
 
+      - name: Trusted proxy IP resolution test
+        run: npm run trusted-proxy-test
+
       - name: Integration test
         run: npm run integration-test
       - name: Migration verification
