@@ -207,7 +207,7 @@ const DATA_DIR =
     process.env.TAHOURI_LICENSE_DATA_DIR ||
     path.join(__dirname, "data");
 
-const DB_SCHEMA_VERSION = 3;
+const DB_SCHEMA_VERSION = 4;
 
 const DATABASE_MIGRATIONS = [
     {
@@ -272,6 +272,23 @@ const DATABASE_MIGRATIONS = [
                 CREATE INDEX IF NOT EXISTS idx_payments_student
                     ON payments(student_id, status);
             `);
+        }
+    },
+    {
+        version: 4,
+        apply() {
+            const columns = db.prepare("PRAGMA table_info(payments)").all();
+            if (!columns.some(column => column.name === "renewal_mode")) {
+                db.exec("ALTER TABLE payments ADD COLUMN renewal_mode TEXT NOT NULL DEFAULT 'promotion'");
+            }
+            if (!columns.some(column => column.name === "activation_code_hash")) {
+                db.exec("ALTER TABLE payments ADD COLUMN activation_code_hash TEXT");
+            }
+            if (!columns.some(column => column.name === "activation_code_preview")) {
+                db.exec("ALTER TABLE payments ADD COLUMN activation_code_preview TEXT");
+            }
+            db.exec("CREATE INDEX IF NOT EXISTS idx_payments_student_status ON payments(student_id, status)");
+            db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_payments_activation_code_hash ON payments(activation_code_hash) WHERE activation_code_hash IS NOT NULL");
         }
     }
 ];
@@ -1627,12 +1644,45 @@ async function adminAudit(req, res) {
     });
 }
 
+function validateStudentPurchase(studentId, gradeId, academicYear, renewalMode) {
+    const student = db.prepare("SELECT student_id AS studentId, grade_id AS gradeId, status FROM student_accounts WHERE student_id = ?").get(studentId);
+    if (!student || student.status !== "active") { const error = new Error("Student account is not active."); error.statusCode = 404; throw error; }
+    if (!["promotion", "repeat"].includes(renewalMode)) { const error = new Error("Renewal mode is invalid."); error.statusCode = 400; throw error; }
+    if (student.gradeId !== gradeId) {
+        const currentLevel = gradeLevel(student.gradeId), targetLevel = gradeLevel(gradeId);
+        if (renewalMode !== "promotion" || currentLevel === null || targetLevel !== currentLevel + 1) {
+            const error = new Error("Target grade does not match the student's account."); error.statusCode = 409; throw error;
+        }
+    }
+    const targetYear = Number(academicYear), activeYear = currentAcademicYear();
+    if (!/^\\d{4}$/.test(academicYear) || !Number.isInteger(targetYear) || targetYear < activeYear || targetYear > activeYear + 1 || (targetYear === activeYear && renewalMode === "repeat")) {
+        const error = new Error("Academic year is not valid for this purchase."); error.statusCode = 400; throw error;
+    }
+    return student;
+}
+
+function fulfillVerifiedPayment(payment, actor) {
+    if (!payment.student_id) throw new Error("Verified payment is missing its student binding.");
+    const student = db.prepare("SELECT status FROM student_accounts WHERE student_id = ?").get(payment.student_id);
+    if (!student || student.status !== "active") throw new Error("Student account is unavailable; verified payment requires manual review.");
+    validateStudentPurchase(payment.student_id, payment.grade_id, payment.academic_year, payment.renewal_mode || "promotion");
+    if (payment.activation_code_hash) throw new Error("Payment already has an activation code.");
+    const code = makeCode(payment.grade_id, payment.academic_year), codeHash = hashCode(code), preview = codePreview(code), now = new Date().toISOString();
+    db.prepare("INSERT INTO activation_codes (code_hash, code_preview, product_id, grade_id, academic_year, renewal_mode, status, created_at, student_id) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?)").run(codeHash, preview, payment.product_id, payment.grade_id, payment.academic_year, payment.renewal_mode || "promotion", now, payment.student_id);
+    const updated = db.prepare("UPDATE payments SET status = 'verified', verified_at = ?, activation_code_hash = ?, activation_code_preview = ? WHERE payment_id = ? AND status = 'pending' AND student_id = ? AND activation_code_hash IS NULL").run(now, codeHash, preview, payment.payment_id, payment.student_id);
+    if (updated.changes !== 1) throw new Error("Payment fulfillment lost its pending-state race.");
+    audit("payment.activation_code.issued", actor, { codeHash, metadata: { paymentId: payment.payment_id, studentId: payment.student_id, gradeId: payment.grade_id, academicYear: payment.academic_year, renewalMode: payment.renewal_mode || "promotion" } });
+    return { activationCode: code, activationCodePreview: preview };
+}
 async function paymentCreate(req, res) {
     const body = await readBody(req);
     const paymentId = "pay_" + crypto.randomUUID();
     const now = new Date().toISOString();
     const gradeId = validateIdentifier(body.gradeId, "gradeId");
+    const studentId = validateIdentifier(body.studentId, "studentId");
     const academicYear = String(body.academicYear || academicPeriod().academicYear).trim();
+    const renewalMode = String(body.renewalMode || "promotion").trim().toLowerCase();
+    validateStudentPurchase(studentId, gradeId, academicYear, renewalMode);
     const amount = IS_PRODUCTION ? Number(process.env.TAHOURI_PRODUCT_PRICE_IRR) : Number(body.amount);
     const currency = IS_PRODUCTION
         ? String(process.env.TAHOURI_PRODUCT_CURRENCY || "IRR").toUpperCase()
@@ -1648,12 +1698,12 @@ async function paymentCreate(req, res) {
     db.prepare(`
         INSERT INTO payments (
             payment_id, provider, authority, status, amount, currency,
-            product_id, grade_id, academic_year, metadata_json, created_at
-        ) VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?)
+            product_id, grade_id, academic_year, metadata_json, created_at, student_id, renewal_mode
+        ) VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
         paymentId, PAYMENT_PROVIDER, "", amount,
         currency, PRODUCT_ID, gradeId,
-        academicYear, JSON.stringify({}), now
+        academicYear, JSON.stringify({}), now, studentId, renewalMode
     );
 
     let gateway;
@@ -1665,7 +1715,9 @@ async function paymentCreate(req, res) {
                 currency,
                 product_id: PRODUCT_ID,
                 grade_id: gradeId,
-                academic_year: academicYear
+                academic_year: academicYear,
+                student_id: studentId,
+                renewal_mode: renewalMode
             }
         });
     } catch (error) {
@@ -1680,7 +1732,7 @@ async function paymentCreate(req, res) {
     }
 
     audit("payment.created", "client", {
-        metadata: { paymentId, provider: PAYMENT_PROVIDER }
+        metadata: { paymentId, provider: PAYMENT_PROVIDER, studentId, gradeId, academicYear }
     });
 
     return send(res, 201, {
@@ -1733,24 +1785,24 @@ async function paymentCallback(req, res) {
         return send(res, 503, { ok: false, message: "تأیید سمت سرور درگاه در دسترس نیست." });
     }
 
-    const nextStatus = verified ? "verified" : "failed";
-    const verifiedAt = verified ? new Date().toISOString() : null;
     try {
         db.exec("BEGIN IMMEDIATE");
-        const current = db.prepare("SELECT status FROM payments WHERE payment_id = ?").get(paymentId);
+        const current = db.prepare("SELECT * FROM payments WHERE payment_id = ?").get(paymentId);
         if (!current || current.status !== "pending") {
             db.exec("ROLLBACK");
             recordMetric("paymentVerificationFailures");
             return send(res, 409, { ok: false, message: "این پرداخت هم‌زمان تعیین تکلیف شده است." });
         }
-        const updated = db.prepare(
-            "UPDATE payments SET authority = ?, status = ?, verified_at = ? WHERE payment_id = ? AND status = 'pending'"
-        ).run(authority, nextStatus, verifiedAt, paymentId);
+        if (verified) {
+            const fulfillment = fulfillVerifiedPayment(current, "gateway");
+            db.prepare("UPDATE payments SET authority = ? WHERE payment_id = ?").run(authority, paymentId);
+            db.exec("COMMIT");
+            recordMetric("paymentVerifications");
+            return send(res, 200, { ok: true, paymentId, status: "verified", activationCode: fulfillment.activationCode, activationCodePreview: fulfillment.activationCodePreview });
+        }
+        const updated = db.prepare("UPDATE payments SET authority = ?, status = 'failed', verified_at = NULL WHERE payment_id = ? AND status = 'pending'").run(authority, paymentId);
         if (updated.changes !== 1) throw new Error("Payment state changed before callback commit.");
-
-        audit(verified ? "payment.callback.verified" : "payment.callback.failed", "gateway", {
-            metadata: { paymentId }
-        });
+        audit("payment.callback.failed", "gateway", { metadata: { paymentId } });
         db.exec("COMMIT");
     } catch (error) {
         try { db.exec("ROLLBACK"); } catch {}
@@ -1760,7 +1812,7 @@ async function paymentCallback(req, res) {
 
     recordMetric("paymentVerifications");
     if (!verified) recordMetric("paymentVerificationFailures");
-    return send(res, 200, { ok: true, paymentId, status: nextStatus });
+    return send(res, 200, { ok: true, paymentId, status: "failed" });
 }
 
 async function paymentStatus(req, res) {
@@ -1771,8 +1823,9 @@ async function paymentStatus(req, res) {
     const row = db.prepare(`
         SELECT payment_id AS paymentId, provider, status, amount, currency,
                product_id AS productId, grade_id AS gradeId,
-               academic_year AS academicYear, license_id AS licenseId,
-               created_at AS createdAt, verified_at AS verifiedAt
+               academic_year AS academicYear, student_id AS studentId,
+               renewal_mode AS renewalMode, activation_code_preview AS activationCodePreview,
+               license_id AS licenseId, created_at AS createdAt, verified_at AS verifiedAt
         FROM payments WHERE payment_id = ?
     `).get(paymentId);
 
@@ -1814,6 +1867,8 @@ async function adminListPayments(req, res) {
         SELECT payment_id AS paymentId, provider, authority, status,
                amount, currency, product_id AS productId,
                grade_id AS gradeId, academic_year AS academicYear,
+               student_id AS studentId, renewal_mode AS renewalMode,
+               activation_code_preview AS activationCodePreview,
                license_id AS licenseId, created_at AS createdAt,
                verified_at AS verifiedAt
         FROM payments
@@ -1831,18 +1886,21 @@ async function adminVerifyPayment(req, res) {
     const body = await readBody(req);
     const paymentId = String(body.paymentId || "").trim();
 
-    const result = db.prepare(`
-        UPDATE payments
-        SET status = 'verified', verified_at = ?
-        WHERE payment_id = ? AND status = 'pending'
-    `).run(new Date().toISOString(), paymentId);
-
-    if (!result.changes) {
-        return send(res, 404, { ok: false, message: "پرداخت pending پیدا نشد." });
+    db.exec("BEGIN IMMEDIATE");
+    try {
+        const payment = db.prepare("SELECT * FROM payments WHERE payment_id = ?").get(paymentId);
+        if (!payment || payment.status !== "pending") {
+            db.exec("ROLLBACK");
+            return send(res, 404, { ok: false, message: "پرداخت pending پیدا نشد." });
+        }
+        const fulfillment = fulfillVerifiedPayment(payment, "admin-test");
+        audit("payment.verified.test_only", "admin", { metadata: { paymentId, studentId: payment.student_id } });
+        db.exec("COMMIT");
+        return send(res, 200, { ok: true, status: "verified", activationCode: fulfillment.activationCode, activationCodePreview: fulfillment.activationCodePreview });
+    } catch (error) {
+        try { db.exec("ROLLBACK"); } catch {}
+        throw error;
     }
-
-    audit("payment.verified", "admin", { metadata: { paymentId } });
-    return send(res, 200, { ok: true, status: "verified" });
 }
 
 const server = http.createServer(async (req, res) => {
