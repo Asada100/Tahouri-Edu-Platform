@@ -1655,7 +1655,7 @@ function validateStudentPurchase(studentId, gradeId, academicYear, renewalMode) 
         }
     }
     const targetYear = Number(academicYear), activeYear = currentAcademicYear();
-    if (!/^\\d{4}$/.test(academicYear) || !Number.isInteger(targetYear) || targetYear < activeYear || targetYear > activeYear + 1 || (targetYear === activeYear && renewalMode === "repeat")) {
+    if (!/^\d{4}$/.test(academicYear) || !Number.isInteger(targetYear) || targetYear < activeYear || targetYear > activeYear + 1 || (targetYear === activeYear && renewalMode === "repeat")) {
         const error = new Error("Academic year is not valid for this purchase."); error.statusCode = 400; throw error;
     }
     return student;
