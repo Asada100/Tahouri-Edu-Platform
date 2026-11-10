@@ -30,7 +30,6 @@ const NODE_ENV = String(process.env.NODE_ENV || "development").toLowerCase();
 const IS_PRODUCTION = NODE_ENV === "production";
 const ADMIN_KEY = String(process.env.TAHOURI_ADMIN_KEY || (IS_PRODUCTION ? "" : "TAHOURI-ADMIN-TEST"));
 const ADMIN_PASSWORD = String(process.env.TAHOURI_ADMIN_PASSWORD || ADMIN_KEY);
-const ADMIN_SESSIONS = new Map();
 const ADMIN_LOGIN_FAILURES = new Map();
 const ADMIN_LOCK_MS = 15 * 60 * 1000;
 const ADMIN_MAX_FAILURES = 5;
@@ -571,19 +570,12 @@ function adminAuthorized(req) {
     if (!sessionId) return false;
 
     const hash = sessionHash(sessionId);
-    let session = ADMIN_SESSIONS.get(sessionId);
+    const row = db.prepare(
+        "SELECT expires_at FROM admin_sessions WHERE session_hash = ?"
+    ).get(hash);
 
-    if (!session) {
-        const row = db.prepare(
-            "SELECT expires_at FROM admin_sessions WHERE session_hash = ?"
-        ).get(hash);
-        if (!row) return false;
-        session = { expiresAt: Number(row.expires_at) };
-        ADMIN_SESSIONS.set(sessionId, session);
-    }
-
-    if (Date.now() > session.expiresAt) {
-        ADMIN_SESSIONS.delete(sessionId);
+    if (!row) return false;
+    if (Date.now() >= Number(row.expires_at)) {
         db.prepare("DELETE FROM admin_sessions WHERE session_hash = ?").run(hash);
         return false;
     }
@@ -606,7 +598,6 @@ function parseCookies(req) {
 function createAdminSession() {
     const id = crypto.randomBytes(32).toString("base64url");
     const expiresAt = Date.now() + SESSION_TTL_MS;
-    ADMIN_SESSIONS.set(id, { expiresAt });
     db.prepare(
         "INSERT INTO admin_sessions (session_hash, expires_at, created_at) VALUES (?, ?, ?)"
     ).run(sessionHash(id), expiresAt, new Date().toISOString());
@@ -616,7 +607,6 @@ function createAdminSession() {
 function clearAdminSession(req) {
     const id = getSessionId(req);
     if (!id) return;
-    ADMIN_SESSIONS.delete(id);
     db.prepare("DELETE FROM admin_sessions WHERE session_hash = ?").run(sessionHash(id));
 }
 
@@ -681,9 +671,6 @@ function adminLogout(req, res) {
 
 function cleanupAdminSessions() {
     const now = Date.now();
-    for (const [sessionId, session] of ADMIN_SESSIONS) {
-        if (!session || session.expiresAt <= now) ADMIN_SESSIONS.delete(sessionId);
-    }
     db.prepare("DELETE FROM admin_sessions WHERE expires_at <= ?").run(now);
 }
 
@@ -753,6 +740,17 @@ function cleanRateBuckets() {
 }
 
 setInterval(cleanRateBuckets, RATE_WINDOW_MS).unref();
+
+function requireTrustedAdminOrigin(req, res) {
+    const origin = String(req.headers.origin || "").trim();
+    if (isAllowedOrigin(origin)) return true;
+
+    recordSuspiciousAttempt(req, "admin_origin_rejected", {
+        originPresent: Boolean(origin)
+    });
+    send(res, 403, { ok: false, message: "درخواست پنل مدیریت از مبدأ مجاز پذیرفته نشد." });
+    return false;
+}
 
 function requireAdmin(req, res) {
     if (!adminAuthorized(req)) {
@@ -1632,6 +1630,13 @@ const server = http.createServer(async (req, res) => {
                 valid: false,
                 message: "تعداد درخواست‌ها بیش از حد مجاز است."
             });
+        }
+
+        // Every state-changing admin endpoint, including login/logout, requires
+        // an explicit exact-match Origin. CORS alone is not a CSRF defense.
+        if (req.method === "POST" && req.url.startsWith("/api/admin/") &&
+            !requireTrustedAdminOrigin(req, res)) {
+            return;
         }
 
         if (req.method === "GET" && req.url === "/api/metrics/alerts") {
