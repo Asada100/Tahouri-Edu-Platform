@@ -398,8 +398,8 @@ if (!activationCodeColumns.some((column) => column.name === "renewal_mode")) {
 }
 
 function assertProductionConfiguration() {
-    if (process.env.TAHOURI_TEST_PAYMENT_VERIFICATION === "true") {
-        throw new Error("Test payment verification cannot be enabled in any production-like service.");
+    if (IS_PRODUCTION && process.env.TAHOURI_TEST_PAYMENT_VERIFICATION === "true") {
+        throw new Error("Test payment verification cannot be enabled in production.");
     }
     if (!IS_PRODUCTION) return;
 
