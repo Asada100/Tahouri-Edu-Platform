@@ -61,10 +61,17 @@
         return request("/health", { method: "GET" });
     }
 
-    async function status(licenseId) {
-        const value = String(licenseId || "").trim();
-        if (!value) throw new Error("شناسه مجوز وارد نشده است.");
-        return request("/licenses/status?licenseId=" + encodeURIComponent(value), {
+    async function status(licenseId, studentId, installationId) {
+        const values = {
+            licenseId: String(licenseId || "").trim(),
+            studentId: String(studentId || "").trim(),
+            installationId: String(installationId || "").trim()
+        };
+        if (!values.licenseId || !values.studentId || !values.installationId) {
+            throw new Error("اطلاعات اتصال مجوز کامل نیست.");
+        }
+        const query = new URLSearchParams(values);
+        return request("/licenses/status?" + query.toString(), {
             method: "GET"
         });
     }
