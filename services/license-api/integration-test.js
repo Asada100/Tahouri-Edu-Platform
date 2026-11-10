@@ -456,6 +456,44 @@ async function main() {
             "Repeat entitlement must remain bound to Grade 6."
         );
 
+        const archiveStudentId = "existing-profile-student-id";
+        const archiveStudent = await request("POST", "/api/admin/students", {
+            studentId: archiveStudentId,
+            fullName: "دانش‌آموز بایگانی آزمایشی",
+            gradeId: "grade6"
+        }, { Cookie: cookie });
+        assert(archiveStudent.status === 201 &&
+            archiveStudent.data.student.studentId === archiveStudentId,
+            "Existing profile studentId was not preserved during registry creation.");
+        const archiveCodes = await request("POST", "/api/admin/codes", {
+            studentId: archiveStudentId,
+            gradeId: "grade6",
+            academicYear: String(activeAcademicYear),
+            count: 1
+        }, { Cookie: cookie });
+        assert(archiveCodes.status === 201, "Could not issue code for archival test account.");
+        const archiveActivation = await request("POST", "/api/licenses/activate", {
+            code: archiveCodes.data.codes[0],
+            gradeId: "grade6",
+            studentId: archiveStudentId,
+            installationId: "integration-installation"
+        });
+        assert(archiveActivation.status === 200, "Archival test account did not activate.");
+        const archived = await request("POST", "/api/admin/students/archive", {
+            studentId: archiveStudentId
+        }, { Cookie: cookie });
+        assert(archived.status === 200 && archived.data.status === "archived" &&
+            archived.data.revokedLicenses === 1 && archived.data.revokedCodes === 0,
+            "Archiving must revoke the active license and preserve consumed-code history.");
+        const archivedCodeAttempt = await request("POST", "/api/licenses/activate", {
+            code: archiveCodes.data.codes[0],
+            gradeId: "grade6",
+            studentId: archiveStudentId,
+            installationId: "integration-installation"
+        });
+        assert(archivedCodeAttempt.status === 403,
+            "An archived student account must not activate a bound code.");
+
         const wrongProfileRenewal = await request("POST", "/api/licenses/activate", {
             code: promotionCodes.data.codes[2],
             gradeId: "grade7",
