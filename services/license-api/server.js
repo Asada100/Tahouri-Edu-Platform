@@ -936,6 +936,25 @@ async function activate(req, res) {
         return send(res, 403, { valid: false, message: "این کد فعال‌سازی متعلق به این دانش‌آموز نیست." });
     }
 
+    if (codeRecord.studentId) {
+        const account = db.prepare(
+            "SELECT grade_id AS gradeId, status FROM student_accounts WHERE student_id = ?"
+        ).get(studentId);
+        const accountLevel = account ? gradeLevel(account.gradeId) : null;
+        const codeLevel = gradeLevel(codeRecord.gradeId);
+        const isNextGradePromotion = codeRecord.renewalMode === "promotion" &&
+            Number(codeRecord.academicYear) > currentAcademicYear() &&
+            accountLevel !== null && codeLevel === accountLevel + 1;
+        if (!account || account.status !== "active" ||
+            (account.gradeId !== codeRecord.gradeId && !isNextGradePromotion)) {
+            recordMetric("activationFailures");
+            recordSuspiciousAttempt(req, "activation_student_account_invalid", {
+                requestedGradeId: gradeId
+            });
+            return send(res, 403, { valid: false, message: "حساب دانش‌آموز فعال نیست یا پایه آن با کد سازگار نیست." });
+        }
+    }
+
     if (codeRecord.gradeId !== gradeId) {
         recordMetric("activationFailures");
         recordMetric("invalidActivationAttempts");
@@ -1233,9 +1252,9 @@ async function licenseStatus(req, res) {
 async function adminCreateStudent(req, res) {
     if (!requireAdmin(req, res)) return;
     const body = await readBody(req);
-    const fullName = String(body.fullName || "").trim().replace(/\\s+/g, " ");
+    const fullName = String(body.fullName || "").trim().replace(/\s+/g, " ");
     const gradeId = validateIdentifier(body.gradeId, "gradeId");
-    if (!fullName || fullName.length > 120 || /[<>\\u0000-\\u001f]/.test(fullName)) {
+    if (!fullName || fullName.length > 120 || /[<>\u0000-\u001f]/.test(fullName)) {
         return send(res, 400, { ok: false, message: "نام دانش‌آموز معتبر نیست." });
     }
     const studentId = "stu_" + crypto.randomUUID();
