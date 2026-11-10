@@ -88,6 +88,11 @@ for (const [name, value] of [["TAHOURI_APP_ORIGIN", appOrigin], ["TAHOURI_ADMIN_
     }
 }
 
+const trustedProxyIps = String(process.env.TAHOURI_TRUSTED_PROXY_IPS || "").trim();
+if (!trustedProxyIps) {
+    warnings.push("TAHOURI_TRUSTED_PROXY_IPS is unset; forwarded client IP headers will be ignored and rate limits will use the direct peer address.");
+}
+
 if (!["zarinpal", "idpay"].includes(provider)) {
     errors.push("TAHOURI_PAYMENT_PROVIDER must be a supported real provider: zarinpal or idpay.");
 }
