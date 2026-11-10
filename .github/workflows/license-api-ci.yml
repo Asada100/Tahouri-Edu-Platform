@@ -54,6 +54,9 @@ jobs:
       - name: Three-student shared installation test
         run: npm run three-student-shared-installation-test
 
+      - name: Profile tamper boundary test
+        run: npm run profile-tamper-boundary-test
+
       - name: Integration test
         run: npm run integration-test
       - name: Migration verification
