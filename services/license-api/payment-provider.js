@@ -12,6 +12,10 @@ const PROVIDER_CONFIG = {
 };
 
 function assertProductionProviderConfiguration() {
+    if (process.env.NODE_ENV === "production" &&
+        process.env.TAHOURI_TEST_PAYMENT_VERIFICATION === "true") {
+        throw new Error("Test payment verification cannot be enabled in production.");
+    }
     if (process.env.NODE_ENV !== "production") return;
 
     if (PROVIDER === "manual") {
@@ -47,7 +51,15 @@ function createPaymentRequest({ payment }) {
     );
 }
 
-async function verifyServerSide({ payment, authority }) {
+async function verifyServerSide({ payment, authority, status, amount, currency }) {
+    if (process.env.NODE_ENV !== "production" &&
+        process.env.TAHOURI_TEST_PAYMENT_VERIFICATION === "true") {
+        return authority === "TEST-VERIFIED-" + payment.payment_id &&
+            status === "success" &&
+            Number(amount) === Number(payment.amount) &&
+            String(currency).toUpperCase() === String(payment.currency).toUpperCase();
+    }
+
     if (PROVIDER === "manual") {
         // A caller-supplied authority is not proof of payment, even in development.
         return false;
