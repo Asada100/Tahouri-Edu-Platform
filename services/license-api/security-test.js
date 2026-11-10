@@ -33,11 +33,14 @@ if (failures.length) {
 }
 
 const rateLimitMarkers = [
-    "function getClientIp",
+    "createClientIpResolver",
+    "trustedProxyIps: process.env.TAHOURI_TRUSTED_PROXY_IPS || \"\"",
     "const ACTIVATION_RATE_LIMIT = !IS_PRODUCTION && process.env.TAHOURI_TEST_MODE === \"true\" ? 1000 : 10;",
     "requestAllowedWithLimit(req, ACTIVATION_RATE_LIMIT, activationRateBuckets)",
     "requestAllowedWithLimit(req, ADMIN_LOGIN_RATE_LIMIT, adminLoginRateBuckets)",
     "x-forwarded-for",
+    "const trusted = new Set(",
+    "chain[chain.length - 1]",
     "const MAX_RATE_BUCKETS = 10000;",
     "bucketMap.size >= MAX_RATE_BUCKETS",
     "rateBuckets.size >= MAX_RATE_BUCKETS",
