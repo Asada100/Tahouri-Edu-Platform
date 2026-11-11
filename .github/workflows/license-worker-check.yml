@@ -1,0 +1,43 @@
+name: License Worker checks
+
+on:
+  pull_request:
+    paths:
+      - "services/license-api/worker.js"
+      - "services/license-api/admin/**"
+      - "services/license-api/admin/**"
+      - "services/license-api/wrangler.jsonc"
+      - "services/license-api/migrations/**"
+      - ".github/workflows/license-worker-check.yml"
+  push:
+    branches: [master]
+    paths:
+      - "services/license-api/worker.js"
+      - "services/license-api/admin/**"
+      - "services/license-api/wrangler.jsonc"
+      - "services/license-api/migrations/**"
+      - ".github/workflows/license-worker-check.yml"
+
+jobs:
+  syntax-and-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Check Worker module syntax
+        run: node --input-type=module --check < services/license-api/worker.js
+      - name: Run Worker smoke tests
+        run: node --test services/license-api/worker.test.mjs
+      - name: Validate Wrangler JSON configuration
+        run: node -e "JSON.parse(require('node:fs').readFileSync('services/license-api/wrangler.jsonc', 'utf8')); console.log('Wrangler JSON valid')"
+      - name: Verify expected D1 schema tables are present
+        shell: bash
+        run: |
+          set -euo pipefail
+          for table in activation_codes licenses audit_log admin_sessions payments schema_migrations; do
+            grep -q "CREATE TABLE IF NOT EXISTS ${table}" services/license-api/migrations/0001_initial_schema.sql
+          done
+          grep -q "CREATE TABLE IF NOT EXISTS admin_login_attempts" services/license-api/migrations/0002_admin_login_attempts.sql
+          echo "D1 schema checks passed"

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>پنل مدیریت طهوری</title>
-<link rel="stylesheet" href="/admin/admin.css">
+<link rel="stylesheet" href="/admin.css?v=20261030-1">
 </head>
 <body>
 <main>
@@ -17,7 +17,7 @@
   <h2>ورود مدیر</h2>
   <p class="muted">دسترسی این صفحه فقط برای مدیر سرویس است.</p>
   <div class="form-row"><input id="adminKey" type="password" autocomplete="current-password" placeholder="رمز مدیریت"><button onclick="login()">ورود</button></div>
-  <div id="loginError" class="error" hidden></div>
+  <div id="loginError" class="error" role="alert" aria-live="polite" hidden></div>
 </section>
 
 <section id="panel" hidden>
@@ -63,7 +63,7 @@
     <div class="action-box">
       <input id="licenseIdAction" placeholder="License ID">
       <input id="extendUntil" type="datetime-local">
-      <button onclick="extendLicense()">تمدید</button>
+      <button disabled title="تا تکمیل و آزمون امضای امن مجوز غیرفعال است">تمدید (فعلاً غیرفعال)</button>
       <button class="danger" onclick="revokeLicense()">لغو مجوز</button>
     </div>
   </section>
@@ -72,6 +72,6 @@
   <section class="card"><div class="section-head"><h2>گزارش عملیات</h2><button class="secondary" onclick="loadAudit()">به‌روزرسانی</button></div><div id="audit"></div></section>
 </section>
 </main>
-<script src="/admin/admin.js"></script>
+<script src="/admin.js?v=20261030-1"></script>
 </body>
 </html>
