@@ -142,11 +142,15 @@
     // =====================================
 
     async function refreshRemoteLicenseStatus() {
-        if (!verifiedRemoteEntitlement || !verifiedRemoteEntitlement.claims) {
+        // The verifier stores the verified claims object, while older callers
+        // may still provide an envelope containing a claims property.
+        const claims = verifiedRemoteEntitlement &&
+            (verifiedRemoteEntitlement.claims || verifiedRemoteEntitlement);
+        if (!claims || !claims.licenseId) {
             return { valid: false, reason: "no_remote_entitlement" };
         }
 
-        const licenseId = verifiedRemoteEntitlement.claims.licenseId;
+        const licenseId = claims.licenseId;
         if (!licenseId || !window.TahouriLicenseClient ||
             typeof window.TahouriLicenseClient.status !== "function") {
             return { valid: false, reason: "status_client_unavailable" };
