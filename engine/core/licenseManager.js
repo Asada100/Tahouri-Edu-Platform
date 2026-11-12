@@ -30,6 +30,7 @@
 
     let verifiedRemoteEntitlement = null;
     let entitlementSelectionSequence = 0;
+    let remoteStatusSequence = 0;
 
 
     const GRADES = {
@@ -144,8 +145,9 @@
     async function refreshRemoteLicenseStatus() {
         // The verifier stores the verified claims object, while older callers
         // may still provide an envelope containing a claims property.
-        const claims = verifiedRemoteEntitlement &&
-            (verifiedRemoteEntitlement.claims || verifiedRemoteEntitlement);
+        const selectedEntitlement = verifiedRemoteEntitlement;
+        const claims = selectedEntitlement &&
+            (selectedEntitlement.claims || selectedEntitlement);
         if (!claims || !claims.licenseId) {
             return { valid: false, reason: "no_remote_entitlement" };
         }
@@ -156,14 +158,34 @@
             return { valid: false, reason: "status_client_unavailable" };
         }
 
+        const statusSequence = ++remoteStatusSequence;
+        const profile = getActiveProfile();
+        const studentId = normalizeStudentId(profile && profile.studentId);
+        const gradeId = safeText(profile && (profile.grade || profile.gradeId)).trim();
+
         try {
             const result = await window.TahouriLicenseClient.status(licenseId);
 
-            if (!result.valid) {
+            // A delayed response must never invalidate an entitlement selected
+            // for a newer profile or superseded by another status request.
+            const currentProfile = getActiveProfile();
+            const stillCurrent =
+                statusSequence === remoteStatusSequence &&
+                verifiedRemoteEntitlement === selectedEntitlement &&
+                normalizeStudentId(currentProfile && currentProfile.studentId) === studentId &&
+                safeText(currentProfile && (currentProfile.grade || currentProfile.gradeId)).trim() === gradeId &&
+                normalizeStudentId(claims.studentId) === studentId &&
+                claims.gradeScope === gradeId;
+
+            if (!stillCurrent) {
+                return { valid: false, reason: "stale_status_check" };
+            }
+
+            if (!result || !result.valid) {
                 verifiedRemoteEntitlement = null;
             }
 
-            return result;
+            return result || { valid: false, reason: "invalid_status_response" };
         } catch (error) {
             console.warn("License Manager: Remote status check failed.", error);
             return { valid: false, reason: "network_error", error: error.message };
