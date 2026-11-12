@@ -53,7 +53,7 @@ fs.mkdirSync(backupDir, { recursive: true });
 
 const db = new DatabaseSync(dbFile);
 try {
-    db.exec("CREATE TABLE activation_codes (id INTEGER PRIMARY KEY, code_hash TEXT); CREATE TABLE licenses (id INTEGER PRIMARY KEY, license_id TEXT); CREATE TABLE audit_log (id INTEGER PRIMARY KEY, event_type TEXT); CREATE TABLE payments (id INTEGER PRIMARY KEY, payment_id TEXT); INSERT INTO activation_codes(code_hash) VALUES ('test-hash'); INSERT INTO licenses(license_id) VALUES ('lic-test'); INSERT INTO audit_log(event_type) VALUES ('test'); INSERT INTO payments(payment_id) VALUES ('pay-test'); PRAGMA user_version = 1;");
+    db.exec("CREATE TABLE activation_codes (id INTEGER PRIMARY KEY, code_hash TEXT, student_id TEXT); CREATE TABLE licenses (id INTEGER PRIMARY KEY, license_id TEXT); CREATE TABLE audit_log (id INTEGER PRIMARY KEY, event_type TEXT); CREATE TABLE payments (id INTEGER PRIMARY KEY, payment_id TEXT); CREATE TABLE student_accounts (student_id TEXT PRIMARY KEY, full_name TEXT, grade_id TEXT, status TEXT, created_at TEXT, updated_at TEXT); INSERT INTO student_accounts(student_id) VALUES ('student-test'); INSERT INTO activation_codes(code_hash) VALUES ('test-hash'); INSERT INTO licenses(license_id) VALUES ('lic-test'); INSERT INTO audit_log(event_type) VALUES ('test'); INSERT INTO payments(payment_id) VALUES ('pay-test'); PRAGMA user_version = 2;");
 } finally {
     db.close();
 }
@@ -158,7 +158,8 @@ try {
             live.prepare("SELECT COUNT(*) AS count FROM activation_codes").get().count,
             live.prepare("SELECT COUNT(*) AS count FROM licenses").get().count,
             live.prepare("SELECT COUNT(*) AS count FROM audit_log").get().count,
-            live.prepare("SELECT COUNT(*) AS count FROM payments").get().count
+            live.prepare("SELECT COUNT(*) AS count FROM payments").get().count,
+            live.prepare("SELECT COUNT(*) AS count FROM student_accounts").get().count
         ];
         if (counts.some(count => count !== 1)) {
             throw new Error("Live database changed during backup/recovery test.");

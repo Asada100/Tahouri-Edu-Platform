@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>استخراج امن پروفایل‌های طهوری</title>
+<style>
+:root{color-scheme:light}body{font-family:Tahoma,Arial,sans-serif;max-width:680px;margin:32px auto;padding:0 16px;background:#f5f7fa;color:#182230;line-height:1.9}
+main{background:#fff;border:1px solid #dce2e8;border-radius:14px;padding:24px;box-shadow:0 4px 18px #172b4d0d}
+h1{font-size:1.35rem;margin-top:0}p{margin:.6rem 0}
+button{font:inherit;border:0;border-radius:9px;padding:10px 18px;background:#1456a0;color:#fff;cursor:pointer;margin-top:12px}
+button:disabled{opacity:.45;cursor:not-allowed}
+#status{margin-top:16px;padding:12px;border-radius:8px;background:#eef3f8;white-space:pre-wrap}
+.small{font-size:.9rem;color:#536273}
+</style>
+</head>
+<body>
+<main>
+<h1>استخراج فهرست پروفایل‌های طهوری</h1>
+<p>این ابزار فقط اطلاعات هویتی پروفایل‌ها را می‌خواند و فایل JSON سازگار با واردسازی PR شمارهٔ ۹۶ می‌سازد.</p>
+<p class="small">هیچ اطلاعاتی به سرور ارسال نمی‌شود و هیچ داده‌ای در حافظهٔ مرورگر تغییر یا حذف نمی‌شود. پیشرفت، امتیازها و تنظیمات صادر نمی‌شوند.</p>
+<button id="export" type="button">بررسی و دانلود فایل پروفایل‌ها</button>
+<div id="status" role="status" aria-live="polite">برای شروع، دکمه را بزنید.</div>
+</main>
+<script>
+(function () {
+"use strict";
+var button = document.getElementById("export");
+var status = document.getElementById("status");
+function fail(message) { status.textContent = "خطا: " + message; }
+button.addEventListener("click", function () {
+button.disabled = true;
+try {
+if (location.origin !== "https://asada100.github.io") {
+throw new Error("این صفحه باید از مبدأ رسمی GitHub Pages طهوری باز شود.");
+}
+var raw = localStorage.getItem("Tahouri_Profiles");
+if (!raw) throw new Error("فهرست پروفایل‌ها در این مرورگر پیدا نشد.");
+var source = JSON.parse(raw);
+if (!Array.isArray(source) || source.length === 0) throw new Error("فهرست پروفایل‌ها خالی یا نامعتبر است.");
+var seen = Object.create(null);
+var profiles = source.map(function (item, index) {
+if (!item || typeof item !== "object") throw new Error("اطلاعات پروفایل شماره " + (index + 1) + " نامعتبر است.");
+var studentId = String(item.studentId || "").trim();
+var fullName = String(item.name || "").trim();
+var gradeId = String(item.grade || "").trim();
+if (!studentId || !fullName || !/^grade[1-6]$/.test(gradeId)) {
+throw new Error("شناسه، نام یا پایهٔ پروفایل شماره " + (index + 1) + " معتبر نیست.");
+}
+if (seen[studentId]) throw new Error("شناسهٔ تکراری در پروفایل‌ها پیدا شد: " + studentId);
+seen[studentId] = true;
+return { studentId: studentId, fullName: fullName, gradeId: gradeId };
+});
+var activeId = localStorage.getItem("Tahouri_Active_Profile");
+var activeMatches = profiles.filter(function (p) { return p.studentId === activeId; });
+if (activeMatches.length !== 1) {
+throw new Error("شناسهٔ پروفایل فعال با دقیقاً یک پروفایل تطبیق ندارد؛ برای جلوگیری از خروجی ناقص، دانلود متوقف شد.");
+}
+var payload = {
+format: "tahouri-student-profiles",
+version: 1,
+exportedAt: new Date().toISOString(),
+profiles: profiles
+};
+var blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json;charset=utf-8"});
+var url = URL.createObjectURL(blob);
+var link = document.createElement("a");
+link.href = url;
+link.download = "tahouri-student-profiles.json";
+document.body.appendChild(link);
+link.click();
+link.remove();
+setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+status.textContent = "اعتبارسنجی موفق بود. " + profiles.length + " پروفایل صادر شد. پروفایل فعال: " + activeMatches[0].fullName + "\nفایل tahouri-student-profiles.json دانلود شد.";
+} catch (error) {
+fail(error && error.message ? error.message : "خطای ناشناخته");
+} finally {
+button.disabled = false;
+}
+});
+}());
+</script>
+</body>
+</html>

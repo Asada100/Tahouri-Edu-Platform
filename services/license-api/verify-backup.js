@@ -61,7 +61,7 @@ try {
         }
 
         const schemaVersion = db.prepare("PRAGMA user_version").get().user_version;
-        if (schemaVersion !== 1) {
+        if (![1, 2].includes(Number(schemaVersion))) {
             throw new Error("Unsupported database schema version: " + schemaVersion);
         }
 
@@ -69,12 +69,9 @@ try {
             "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
         ).all().map(row => row.name);
 
-        for (const required of [
-            "activation_codes",
-            "licenses",
-            "audit_log",
-            "payments"
-        ]) {
+        const requiredTables = ["activation_codes", "licenses", "audit_log", "payments"];
+        if (Number(schemaVersion) >= 2) requiredTables.push("student_accounts");
+        for (const required of requiredTables) {
             if (!tables.includes(required)) {
                 throw new Error("Required table missing: " + required);
             }
@@ -84,7 +81,8 @@ try {
             activationCodes: db.prepare("SELECT COUNT(*) AS count FROM activation_codes").get().count,
             licenses: db.prepare("SELECT COUNT(*) AS count FROM licenses").get().count,
             auditEvents: db.prepare("SELECT COUNT(*) AS count FROM audit_log").get().count,
-            payments: db.prepare("SELECT COUNT(*) AS count FROM payments").get().count
+            payments: db.prepare("SELECT COUNT(*) AS count FROM payments").get().count,
+            studentAccounts: tables.includes("student_accounts") ? db.prepare("SELECT COUNT(*) AS count FROM student_accounts").get().count : 0
         };
 
         console.log("Tahouri backup verification: PASS");

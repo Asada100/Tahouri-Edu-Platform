@@ -58,17 +58,12 @@ try {
             throw new Error("Restored database integrity check failed.");
         }
 
-        const requiredTables = [
-            "activation_codes",
-            "licenses",
-            "audit_log",
-            "payments"
-        ];
-
         const schemaVersion = db.prepare("PRAGMA user_version").get().user_version;
-        if (schemaVersion !== 1) {
+        if (![1, 2].includes(Number(schemaVersion))) {
             throw new Error("Unsupported database schema version: " + schemaVersion);
         }
+        const requiredTables = ["activation_codes", "licenses", "audit_log", "payments"];
+        if (Number(schemaVersion) >= 2) requiredTables.push("student_accounts");
 
         const tables = db.prepare(
             "SELECT name FROM sqlite_master WHERE type='table'"

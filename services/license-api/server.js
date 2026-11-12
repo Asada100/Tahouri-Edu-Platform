@@ -207,7 +207,7 @@ const DATA_DIR =
     process.env.TAHOURI_LICENSE_DATA_DIR ||
     path.join(__dirname, "data");
 
-const DB_SCHEMA_VERSION = 1;
+const DB_SCHEMA_VERSION = 2;
 
 const DATABASE_MIGRATIONS = [
     {
@@ -215,6 +215,29 @@ const DATABASE_MIGRATIONS = [
         apply() {
             // Version 1 marks the initial persistent schema created by the
             // CREATE TABLE IF NOT EXISTS block above.
+        }
+    },
+    {
+        version: 2,
+        apply() {
+            const columns = db.prepare("PRAGMA table_info(activation_codes)").all();
+            if (!columns.some(column => column.name === "student_id")) {
+                db.exec("ALTER TABLE activation_codes ADD COLUMN student_id TEXT");
+            }
+            db.exec(`
+                CREATE TABLE IF NOT EXISTS student_accounts (
+                    student_id TEXT PRIMARY KEY,
+                    full_name TEXT NOT NULL,
+                    grade_id TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'archived')),
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_student_accounts_grade_status
+                    ON student_accounts(grade_id, status);
+                CREATE INDEX IF NOT EXISTS idx_activation_student_status
+                    ON activation_codes(student_id, status);
+            `);
         }
     }
 ];
@@ -773,20 +796,19 @@ function seedTestCodes() {
         [`GRADE6-${academicYear}-TEST-C`, "grade6"]
     ];
 
+    const insertStudent = db.prepare("INSERT OR IGNORE INTO student_accounts (student_id, full_name, grade_id, status, created_at, updated_at) VALUES (?, ?, ?, 'active', ?, ?)");
     const statement = db.prepare(`
         INSERT OR IGNORE INTO activation_codes
-            (code_hash, code_preview, product_id, grade_id, academic_year, status, created_at)
-        VALUES (?, ?, ?, ?, ?, 'active', ?)
+            (code_hash, code_preview, product_id, student_id, grade_id, academic_year, status, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, 'active', ?)
     `);
 
     const now = new Date().toISOString();
     for (const [code, gradeId] of codes) {
-        statement.run(hashCode(code), codePreview(code), PRODUCT_ID, gradeId, academicYear, now);
+        const studentId = gradeId === "grade6" ? "integration-student" : "test-student-" + gradeId;
+        insertStudent.run(studentId, "پروفایل آزمایشی " + gradeId, gradeId, now, now);
+        statement.run(hashCode(code), codePreview(code), PRODUCT_ID, studentId, gradeId, academicYear, now);
     }
-}
-
-if (!IS_PRODUCTION && process.env.TAHOURI_TEST_CODES !== "false") {
-    seedTestCodes();
 }
 
 async function activate(req, res) {
@@ -804,7 +826,7 @@ async function activate(req, res) {
 
     const codeHash = hashCode(code);
     const codeRecord = db.prepare(`
-        SELECT code_hash AS codeHash, grade_id AS gradeId,
+        SELECT code_hash AS codeHash, student_id AS studentId, grade_id AS gradeId,
                academic_year AS academicYear,
                renewal_mode AS renewalMode,
                status, used_at AS usedAt
@@ -817,6 +839,16 @@ async function activate(req, res) {
         recordMetric("invalidActivationAttempts");
         recordSuspiciousAttempt(req, "activation_invalid_code", { gradeId });
         return send(res, 400, { valid: false, message: "کد فعال‌سازی معتبر نیست." });
+    }
+
+    if (!codeRecord.studentId || codeRecord.studentId !== studentId) {
+        recordMetric("activationFailures");
+        return send(res, 409, { valid: false, message: "این کد برای پروفایل انتخاب‌شده صادر نشده است." });
+    }
+    const studentAccount = db.prepare("SELECT status FROM student_accounts WHERE student_id = ?").get(studentId);
+    if (!studentAccount || studentAccount.status !== "active") {
+        recordMetric("activationFailures");
+        return send(res, 409, { valid: false, message: "حساب این پروفایل فعال نیست یا در فهرست دانش‌آموزان ثبت نشده است." });
     }
 
     if (codeRecord.gradeId !== gradeId) {
@@ -1088,10 +1120,112 @@ async function licenseStatus(req, res) {
     });
 }
 
+function normalizeStudentProfiles(profiles) {
+    if (!Array.isArray(profiles) || profiles.length < 1 || profiles.length > 100) {
+        const error = new Error("فهرست پروفایل‌ها باید بین ۱ تا ۱۰۰ مورد داشته باشد.");
+        error.statusCode = 400;
+        throw error;
+    }
+    const normalized = new Map();
+    for (const item of profiles) {
+        const studentId = validateIdentifier(item?.studentId, "studentId");
+        const fullName = boundedString(item?.fullName ?? item?.name, 160, "نام دانش‌آموز");
+        const gradeId = validateIdentifier(item?.gradeId ?? item?.grade, "gradeId");
+        if (!/^grade[1-6]$/.test(gradeId)) {
+            const error = new Error("پایهٔ دانش‌آموز معتبر نیست.");
+            error.statusCode = 400;
+            throw error;
+        }
+        const prior = normalized.get(studentId);
+        if (prior && (prior.fullName !== fullName || prior.gradeId !== gradeId)) {
+            const error = new Error("یک شناسه در فایل با اطلاعات متفاوت تکرار شده است.");
+            error.statusCode = 400;
+            throw error;
+        }
+        normalized.set(studentId, { studentId, fullName, gradeId });
+    }
+    return [...normalized.values()];
+}
+
+function registerStudentProfiles(profiles) {
+    const normalized = normalizeStudentProfiles(profiles);
+    const imported = [];
+    let alreadyRegistered = 0;
+    for (const profile of normalized) {
+        const existing = db.prepare("SELECT full_name AS fullName, grade_id AS gradeId, status FROM student_accounts WHERE student_id = ?").get(profile.studentId);
+        if (!existing) { imported.push(profile); continue; }
+        if (existing.fullName !== profile.fullName || existing.gradeId !== profile.gradeId || existing.status !== "active") {
+            const error = new Error("این شناسه قبلاً با اطلاعات متفاوت ثبت شده یا بایگانی شده است: " + profile.studentId);
+            error.statusCode = 409;
+            throw error;
+        }
+        alreadyRegistered++;
+    }
+    if (imported.length) {
+        const now = new Date().toISOString();
+        db.exec("BEGIN IMMEDIATE");
+        try {
+            const insert = db.prepare("INSERT INTO student_accounts (student_id, full_name, grade_id, status, created_at, updated_at) VALUES (?, ?, ?, 'active', ?, ?)");
+            for (const profile of imported) insert.run(profile.studentId, profile.fullName, profile.gradeId, now, now);
+            audit("students.imported", "admin", { metadata: { imported: imported.length, alreadyRegistered } });
+            db.exec("COMMIT");
+        } catch (error) {
+            try { db.exec("ROLLBACK"); } catch {}
+            throw error;
+        }
+    }
+    return { imported: imported.length, alreadyRegistered, total: normalized.length, profiles: normalized };
+}
+
+function adminListStudents(req, res) {
+    if (!requireAdmin(req, res)) return;
+    const students = db.prepare("SELECT student_id AS studentId, full_name AS fullName, grade_id AS gradeId, status, created_at AS createdAt, updated_at AS updatedAt FROM student_accounts ORDER BY created_at DESC LIMIT 1000").all();
+    return send(res, 200, { ok: true, students });
+}
+
+async function adminCreateStudent(req, res) {
+    if (!requireAdmin(req, res)) return;
+    const body = await readBody(req);
+    const result = registerStudentProfiles([body]);
+    const profile = result.profiles[0];
+    const student = db.prepare("SELECT student_id AS studentId, full_name AS fullName, grade_id AS gradeId, status, created_at AS createdAt, updated_at AS updatedAt FROM student_accounts WHERE student_id = ?").get(profile.studentId);
+    return send(res, result.imported ? 201 : 200, { ok: true, student, alreadyRegistered: result.alreadyRegistered === 1 });
+}
+
+async function adminImportStudents(req, res) {
+    if (!requireAdmin(req, res)) return;
+    const body = await readBody(req);
+    const result = registerStudentProfiles(body.profiles);
+    return send(res, 200, { ok: true, imported: result.imported, alreadyRegistered: result.alreadyRegistered, total: result.total });
+}
+
+async function adminArchiveStudent(req, res) {
+    if (!requireAdmin(req, res)) return;
+    const body = await readBody(req);
+    const studentId = validateIdentifier(body.studentId, "studentId");
+    const existing = db.prepare("SELECT student_id FROM student_accounts WHERE student_id = ? AND status = 'active'").get(studentId);
+    if (!existing) return send(res, 404, { ok: false, message: "حساب فعال دانش‌آموز پیدا نشد." });
+    const now = new Date().toISOString();
+    db.exec("BEGIN IMMEDIATE");
+    try {
+        db.prepare("UPDATE student_accounts SET status = 'archived', updated_at = ? WHERE student_id = ? AND status = 'active'").run(now, studentId);
+        db.prepare("UPDATE activation_codes SET status = 'revoked' WHERE student_id = ? AND status = 'active' AND used_at IS NULL").run(studentId);
+        audit("student.archived", "admin", { metadata: { studentId } });
+        db.exec("COMMIT");
+    } catch (error) {
+        try { db.exec("ROLLBACK"); } catch {}
+        throw error;
+    }
+    return send(res, 200, { ok: true });
+}
+
 async function adminCreateCodes(req, res) {
     if (!requireAdmin(req, res)) return;
     const body = await readBody(req);
+    const studentId = validateIdentifier(body.studentId, "studentId");
     const gradeId = validateIdentifier(body.gradeId, "gradeId");
+    const student = db.prepare("SELECT student_id AS studentId, grade_id AS gradeId, status FROM student_accounts WHERE student_id = ?").get(studentId);
+    if (!student || student.status !== "active") return send(res, 409, { ok: false, message: "ابتدا پروفایل موجود را در پنل مدیریت ثبت کنید." });
     const academicYear = String(body.academicYear || academicPeriod().academicYear).trim();
     const renewalMode = String(body.renewalMode || "promotion").trim().toLowerCase();
     if (!["promotion", "repeat"].includes(renewalMode)) {
@@ -1111,6 +1245,14 @@ async function adminCreateCodes(req, res) {
     if (targetYear === activeYear && renewalMode === "repeat") {
         return send(res, 400, { ok: false, message: "کد تکرار پایه فقط برای سال تحصیلی بعد قابل ساخت است." });
     }
+    const currentLevel = gradeLevel(student.gradeId);
+    const targetLevel = gradeLevel(gradeId);
+    const allowedGrade = targetYear === activeYear ? targetLevel === currentLevel :
+        renewalMode === "promotion" ? targetLevel === currentLevel + 1 : targetLevel === currentLevel;
+    if (!Number.isInteger(currentLevel) || !Number.isInteger(targetLevel) ||
+        currentLevel < 1 || currentLevel > 6 || targetLevel < 1 || targetLevel > 7 || !allowedGrade) {
+        return send(res, 409, { ok: false, message: "پایهٔ کد با پایهٔ فعلی پروفایل و نوع تمدید سازگار نیست." });
+    }
 
     const count = Math.min(Math.max(Number(body.count || 1), 1), 100);
 
@@ -1122,19 +1264,19 @@ async function adminCreateCodes(req, res) {
     const now = new Date().toISOString();
     const insert = db.prepare(`
         INSERT INTO activation_codes
-            (code_hash, code_preview, product_id, grade_id, academic_year, renewal_mode, status, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, 'active', ?)
+            (code_hash, code_preview, product_id, student_id, grade_id, academic_year, renewal_mode, status, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?)
     `);
 
     db.exec("BEGIN IMMEDIATE");
     try {
         for (let i = 0; i < count; i++) {
             const code = makeCode(gradeId, academicYear);
-            insert.run(hashCode(code), codePreview(code), PRODUCT_ID, gradeId, academicYear, renewalMode, now);
+            insert.run(hashCode(code), codePreview(code), PRODUCT_ID, studentId, gradeId, academicYear, renewalMode, now);
             created.push(code);
         }
         audit("codes.created", "admin", {
-            metadata: { gradeId, academicYear, renewalMode, count }
+            metadata: { studentId, gradeId, academicYear, renewalMode, count }
         });
         db.exec("COMMIT");
     } catch (error) {
@@ -1142,13 +1284,13 @@ async function adminCreateCodes(req, res) {
         throw error;
     }
 
-    return send(res, 201, { ok: true, codes: created });
+    return send(res, 201, { ok: true, codes: created, studentId });
 }
 
 async function adminListCodes(req, res) {
     if (!requireAdmin(req, res)) return;
     const rows = db.prepare(`
-        SELECT code_preview AS codePreview, product_id AS productId,
+        SELECT code_preview AS codePreview, product_id AS productId, student_id AS studentId,
                grade_id AS gradeId, academic_year AS academicYear,
                renewal_mode AS renewalMode,
                status, created_at AS createdAt, used_at AS usedAt,
@@ -1656,6 +1798,11 @@ if (req.method === "GET" && req.url === "/api/metrics") {
             return send(res, 200, { ok: adminAuthorized(req) });
         }
 
+        if (req.method === "GET" && req.url === "/api/admin/students") return adminListStudents(req, res);
+        if (req.method === "POST" && req.url === "/api/admin/students") return await adminCreateStudent(req, res);
+        if (req.method === "POST" && req.url === "/api/admin/students/import") return await adminImportStudents(req, res);
+        if (req.method === "POST" && req.url === "/api/admin/students/archive") return await adminArchiveStudent(req, res);
+
         if (req.method === "GET" && req.url === "/api/public-key") {
             return send(res, 200, {
                 environment: NODE_ENV,
@@ -1800,7 +1947,7 @@ function startupRecoveryCheck() {
             throw new Error("SQLite integrity check failed at startup.");
         }
 
-        const requiredTables = ["activation_codes", "licenses", "audit_log", "payments", "admin_sessions"];
+        const requiredTables = ["activation_codes", "licenses", "audit_log", "payments", "admin_sessions", "student_accounts"];
         for (const table of requiredTables) {
             const row = db.prepare(
                 "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?"
@@ -1817,6 +1964,10 @@ function startupRecoveryCheck() {
 }
 
 const startupHealthy = startupRecoveryCheck();
+
+if (startupHealthy && !IS_PRODUCTION && process.env.TAHOURI_TEST_CODES !== "false") {
+    seedTestCodes();
+}
 
 if (startupHealthy) {
     audit("service.started", "system", { environment: SERVICE_ENVIRONMENT, serviceVersion: SERVICE_VERSION, buildId: BUILD_ID, instanceId: INSTANCE_ID });

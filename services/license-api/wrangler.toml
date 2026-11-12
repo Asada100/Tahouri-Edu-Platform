@@ -1,12 +1,12 @@
 # Safe-by-default audit configuration.
 # This branch must never deploy against the production Worker or production D1.
-# Replace the placeholder database_id only after creating an isolated test D1.
-name = "tahouri-license-api-audit-test"
+# This file is bound to the dedicated isolated EU student-import test D1.
+name = "tahouri-license-api-student-import-test"
 main = "worker.js"
 compatibility_date = "2026-11-06"
 workers_dev = true
 
 [[d1_databases]]
 binding = "DB"
-database_name = "tahouri-license-db-audit-test"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_name = "tahouri-license-student-import-test-20261107"
+database_id = "57cb28b2-1aa0-4b90-bcdb-dee74b7a8367"
