@@ -29,6 +29,8 @@
     // =====================================
 
     let verifiedRemoteEntitlement = null;
+    let entitlementSelectionSequence = 0;
+    let remoteStatusSequence = 0;
 
 
     const GRADES = {
@@ -141,24 +143,49 @@
     // =====================================
 
     async function refreshRemoteLicenseStatus() {
-        if (!verifiedRemoteEntitlement || !verifiedRemoteEntitlement.claims) {
+        // The verifier stores the verified claims object, while older callers
+        // may still provide an envelope containing a claims property.
+        const selectedEntitlement = verifiedRemoteEntitlement;
+        const claims = selectedEntitlement &&
+            (selectedEntitlement.claims || selectedEntitlement);
+        if (!claims || !claims.licenseId) {
             return { valid: false, reason: "no_remote_entitlement" };
         }
 
-        const licenseId = verifiedRemoteEntitlement.claims.licenseId;
+        const licenseId = claims.licenseId;
         if (!licenseId || !window.TahouriLicenseClient ||
             typeof window.TahouriLicenseClient.status !== "function") {
             return { valid: false, reason: "status_client_unavailable" };
         }
 
+        const statusSequence = ++remoteStatusSequence;
+        const profile = getActiveProfile();
+        const studentId = normalizeStudentId(profile && profile.studentId);
+        const gradeId = safeText(profile && (profile.grade || profile.gradeId)).trim();
+
         try {
             const result = await window.TahouriLicenseClient.status(licenseId);
 
-            if (!result.valid) {
+            // A delayed response must never invalidate an entitlement selected
+            // for a newer profile or superseded by another status request.
+            const currentProfile = getActiveProfile();
+            const stillCurrent =
+                statusSequence === remoteStatusSequence &&
+                verifiedRemoteEntitlement === selectedEntitlement &&
+                normalizeStudentId(currentProfile && currentProfile.studentId) === studentId &&
+                safeText(currentProfile && (currentProfile.grade || currentProfile.gradeId)).trim() === gradeId &&
+                normalizeStudentId(claims.studentId) === studentId &&
+                claims.gradeScope === gradeId;
+
+            if (!stillCurrent) {
+                return { valid: false, reason: "stale_status_check" };
+            }
+
+            if (!result || !result.valid) {
                 verifiedRemoteEntitlement = null;
             }
 
-            return result;
+            return result || { valid: false, reason: "invalid_status_response" };
         } catch (error) {
             console.warn("License Manager: Remote status check failed.", error);
             return { valid: false, reason: "network_error", error: error.message };
@@ -971,8 +998,15 @@
 
         }
 
-        if (hasValidRemoteEntitlement(gradeId)) {
-            return true;
+        if (verifiedRemoteEntitlement) {
+            // A caller cannot ask about another student's ID and inherit the
+            // currently selected profile's signed entitlement.
+            if (normalizedStudentId !== getActiveStudentId()) {
+                return false;
+            }
+            if (hasValidRemoteEntitlement(gradeId)) {
+                return true;
+            }
         }
 
         // Production must never fall back to unsigned legacy LocalStorage licenses.
@@ -1692,8 +1726,18 @@
     }
 
     async function initializeRemoteEntitlement() {
+        const selectionSequence = ++entitlementSelectionSequence;
         verifiedRemoteEntitlement = null;
-        if (!window.TahouriEntitlementStore || !window.TahouriEntitlementVerifier) return false;
+
+        const profile = getActiveProfile();
+        const activeStudentId = normalizeStudentId(profile && profile.studentId);
+        const activeGradeId = safeText(profile && (profile.grade || profile.gradeId)).trim();
+
+        // Never select a stored entitlement without an unambiguous active profile.
+        if (!activeStudentId || !activeGradeId ||
+            !window.TahouriEntitlementStore || !window.TahouriEntitlementVerifier) {
+            return false;
+        }
 
         try {
             const all = typeof window.TahouriEntitlementStore.readAll === "function"
@@ -1705,12 +1749,24 @@
             for (const envelope of all) {
                 const result = await window.TahouriEntitlementVerifier.verifyEnvelope(envelope);
 
-                if (!result.valid) continue;
+                // A newer profile selection supersedes this asynchronous verification.
+                if (selectionSequence !== entitlementSelectionSequence) return false;
+                if (!result || !result.valid || !result.claims) continue;
 
                 const claims = result.claims;
                 const binding = claims.installationBinding;
 
                 if (binding && binding !== installationId) continue;
+                if (normalizeStudentId(claims.studentId) !== activeStudentId) continue;
+                if (!claims.gradeScope || claims.gradeScope !== activeGradeId) continue;
+
+                // Recheck after asynchronous verification in case the profile changed.
+                const currentProfile = getActiveProfile();
+                if (selectionSequence !== entitlementSelectionSequence ||
+                    normalizeStudentId(currentProfile && currentProfile.studentId) !== activeStudentId ||
+                    safeText(currentProfile && (currentProfile.grade || currentProfile.gradeId)).trim() !== activeGradeId) {
+                    return false;
+                }
 
                 verifiedRemoteEntitlement = claims;
                 return true;
@@ -1718,19 +1774,24 @@
 
             return false;
         } catch (error) {
+            if (selectionSequence === entitlementSelectionSequence) {
+                verifiedRemoteEntitlement = null;
+            }
             console.warn("License Manager: Stored entitlement verification failed.", error);
             return false;
         }
     }
 
     function hasValidRemoteEntitlement(gradeId) {
-        const c=verifiedRemoteEntitlement;
-        if(!c || c.productId!=="tahouri-edu") return false;
-        if(c.gradeScope && c.gradeScope!==gradeId) return false;
+        const c = verifiedRemoteEntitlement;
+        if (!c || c.productId !== "tahouri-edu") return false;
+
         const activeStudentId = getActiveStudentId();
-        if(c.studentId && c.studentId!==activeStudentId) return false;
-        const from=new Date(c.validFrom);
-        const until=new Date(c.validUntil);
+        if (!activeStudentId || c.studentId !== activeStudentId) return false;
+        if (!gradeId || !c.gradeScope || c.gradeScope !== gradeId) return false;
+
+        const from = new Date(c.validFrom);
+        const until = new Date(c.validUntil);
         return (
             !Number.isNaN(from.getTime()) &&
             !Number.isNaN(until.getTime()) &&

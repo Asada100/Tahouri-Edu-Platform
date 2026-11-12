@@ -16,6 +16,7 @@
     let gateElement = null;
     let selectedGradeId = null;
     let licenseStatusReason = null;
+    let profileSwitchSequence = 0;
 
     function escapeHTML(value) {
         return String(value ?? "").replace(/[&<>"']/g, function (character) {
@@ -1177,31 +1178,36 @@
 
             profileSelect.addEventListener(
                 "change",
-                function () {
+                async function () {
+                    const studentId = this.value;
+                    if (!studentId) return;
 
-                    const studentId =
-                        this.value;
+                    const changed = switchProfile(studentId);
+                    if (changed === false) return;
 
+                    const sequence = ++profileSwitchSequence;
+                    const manager = window.LicenseManager;
 
-                    if (!studentId) {
+                    // initializeRemoteEntitlement clears the previous profile's
+                    // selected entitlement before its first asynchronous wait.
+                    const selection = manager &&
+                        typeof manager.initializeRemoteEntitlement === "function"
+                        ? manager.initializeRemoteEntitlement()
+                        : Promise.resolve(false);
 
-                        return;
+                    // Fail closed immediately while the new profile is checked.
+                    renderGate();
 
+                    await selection;
+                    if (sequence !== profileSwitchSequence) return;
+
+                    if (manager &&
+                        typeof manager.refreshRemoteLicenseStatus === "function") {
+                        await revalidateCurrentLicense();
                     }
 
-
-                    const changed =
-                        switchProfile(
-                            studentId
-                        );
-
-
-                    if (changed !== false) {
-
-                        renderGate();
-
-                    }
-
+                    if (sequence !== profileSwitchSequence) return;
+                    renderGate();
                 }
             );
 

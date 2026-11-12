@@ -82,6 +82,9 @@ jobs:
       - name: Client license safety test
         run: node client-license-safety-test.js
 
+      - name: Profile-aware entitlement regression test
+        run: node license-manager-mode-test.js
+
       - name: Integration test
         run: node integration-test.js
 
