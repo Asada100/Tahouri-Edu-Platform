@@ -94,6 +94,29 @@ async function main() {
     const studentB = { studentId: "student-B", grade: "grade6" };
     const claimsA = makeClaims(studentA.studentId, "grade6", "lic_student_A");
     const claimsB = makeClaims(studentB.studentId, "grade6", "lic_student_B");
+
+    // A delayed invalid status response for the previous profile must not
+    // clear the entitlement selected after switching to another profile.
+    profile.studentId = studentA.studentId;
+    window.TahouriEntitlementStore.readAll = () => [envelope(claimsA)];
+    assert.equal(await manager.initializeRemoteEntitlement(), true);
+    let resolveStaleStatus;
+    window.TahouriLicenseClient.status = () => new Promise(resolve => {
+        resolveStaleStatus = resolve;
+    });
+    const staleStatusCheck = manager.refreshRemoteLicenseStatus();
+    await Promise.resolve();
+    profile.studentId = studentB.studentId;
+    window.TahouriEntitlementStore.readAll = () => [envelope(claimsB)];
+    assert.equal(await manager.initializeRemoteEntitlement(), true);
+    resolveStaleStatus({ valid: false, reason: "revoked" });
+    const staleStatusResult = await staleStatusCheck;
+    assert.equal(staleStatusResult.reason, "stale_status_check",
+        "A delayed status response for a previous profile must be ignored.");
+    assert.equal(manager.isGradeActivated("grade6", studentB.studentId), true,
+        "A stale invalid status response must not clear the newly selected profile entitlement.");
+    window.TahouriLicenseClient.status = async () => ({ valid: true });
+
     profile.studentId = studentB.studentId;
     profile.grade = "grade6";
     window.TahouriEntitlementStore.readAll = () => [envelope(claimsA), envelope(claimsB)];
