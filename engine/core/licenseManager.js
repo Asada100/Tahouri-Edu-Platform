@@ -972,8 +972,15 @@
 
         }
 
-        if (hasValidRemoteEntitlement(gradeId)) {
-            return true;
+        if (verifiedRemoteEntitlement) {
+            // A caller cannot ask about another student's ID and inherit the
+            // currently selected profile's signed entitlement.
+            if (normalizedStudentId !== getActiveStudentId()) {
+                return false;
+            }
+            if (hasValidRemoteEntitlement(gradeId)) {
+                return true;
+            }
         }
 
         // Production must never fall back to unsigned legacy LocalStorage licenses.
