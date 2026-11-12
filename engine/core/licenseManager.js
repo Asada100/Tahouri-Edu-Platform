@@ -29,6 +29,8 @@
     // =====================================
 
     let verifiedRemoteEntitlement = null;
+    let entitlementSelectionSequence = 0;
+    let remoteStatusSequence = 0;
 
 
     const GRADES = {
@@ -143,24 +145,44 @@
     // =====================================
 
     async function refreshRemoteLicenseStatus() {
-        if (!verifiedRemoteEntitlement || !verifiedRemoteEntitlement.claims) {
+        const selectedEntitlement = verifiedRemoteEntitlement;
+        const claims = selectedEntitlement &&
+            (selectedEntitlement.claims || selectedEntitlement);
+        if (!claims || !claims.licenseId) {
             return { valid: false, reason: "no_remote_entitlement" };
         }
 
-        const licenseId = verifiedRemoteEntitlement.claims.licenseId;
-        if (!licenseId || !window.TahouriLicenseClient ||
+        const licenseId = claims.licenseId;
+        if (!window.TahouriLicenseClient ||
             typeof window.TahouriLicenseClient.status !== "function") {
             return { valid: false, reason: "status_client_unavailable" };
         }
 
+        const statusSequence = ++remoteStatusSequence;
+        const profile = getActiveProfile();
+        const studentId = normalizeStudentId(profile && profile.studentId);
+        const gradeId = safeText(profile && (profile.grade || profile.gradeId)).trim();
+
         try {
             const result = await window.TahouriLicenseClient.status(licenseId);
+            const currentProfile = getActiveProfile();
+            const stillCurrent =
+                statusSequence === remoteStatusSequence &&
+                verifiedRemoteEntitlement === selectedEntitlement &&
+                normalizeStudentId(currentProfile && currentProfile.studentId) === studentId &&
+                safeText(currentProfile && (currentProfile.grade || currentProfile.gradeId)).trim() === gradeId &&
+                normalizeStudentId(claims.studentId) === studentId &&
+                claims.gradeScope === gradeId;
 
-            if (!result.valid) {
+            if (!stillCurrent) {
+                return { valid: false, reason: "stale_status_check" };
+            }
+
+            if (!result || !result.valid) {
                 verifiedRemoteEntitlement = null;
             }
 
-            return result;
+            return result || { valid: false, reason: "invalid_status_response" };
         } catch (error) {
             console.warn("License Manager: Remote status check failed.", error);
             return { valid: false, reason: "network_error", error: error.message };
@@ -927,6 +949,15 @@
 
         }
 
+        if (isRemoteProductionMode()) {
+            const claims = verifiedRemoteEntitlement;
+            return Boolean(
+                claims &&
+                normalizeStudentId(claims.studentId) === normalizedStudentId &&
+                hasValidRemoteEntitlement(claims.gradeScope)
+            );
+        }
+
         return getActiveLicenses()
             .some(
                 function (license) {
@@ -964,8 +995,18 @@
 
         }
 
-        if (hasValidRemoteEntitlement(gradeId)) {
-            return true;
+        if (verifiedRemoteEntitlement) {
+            if (normalizedStudentId !== getActiveStudentId()) {
+                return false;
+            }
+            if (hasValidRemoteEntitlement(gradeId)) {
+                return true;
+            }
+        }
+
+        // Production must never fall back to unsigned legacy LocalStorage licenses.
+        if (isRemoteProductionMode()) {
+            return false;
         }
 
         return getActiveLicenses()
@@ -1680,25 +1721,41 @@
     }
 
     async function initializeRemoteEntitlement() {
+        const selectionSequence = ++entitlementSelectionSequence;
         verifiedRemoteEntitlement = null;
-        if (!window.TahouriEntitlementStore || !window.TahouriEntitlementVerifier) return false;
+
+        const profile = getActiveProfile();
+        const activeStudentId = normalizeStudentId(profile && profile.studentId);
+        const activeGradeId = safeText(profile && (profile.grade || profile.gradeId)).trim();
+
+        if (!activeStudentId || !activeGradeId ||
+            !window.TahouriEntitlementStore || !window.TahouriEntitlementVerifier) {
+            return false;
+        }
 
         try {
             const all = typeof window.TahouriEntitlementStore.readAll === "function"
                 ? window.TahouriEntitlementStore.readAll()
                 : [window.TahouriEntitlementStore.read()].filter(Boolean);
-
             const installationId = getOrCreateInstallationId();
 
             for (const envelope of all) {
                 const result = await window.TahouriEntitlementVerifier.verifyEnvelope(envelope);
-
-                if (!result.valid) continue;
+                if (selectionSequence !== entitlementSelectionSequence) return false;
+                if (!result || !result.valid || !result.claims) continue;
 
                 const claims = result.claims;
                 const binding = claims.installationBinding;
-
                 if (binding && binding !== installationId) continue;
+                if (normalizeStudentId(claims.studentId) !== activeStudentId) continue;
+                if (!claims.gradeScope || claims.gradeScope !== activeGradeId) continue;
+
+                const currentProfile = getActiveProfile();
+                if (selectionSequence !== entitlementSelectionSequence ||
+                    normalizeStudentId(currentProfile && currentProfile.studentId) !== activeStudentId ||
+                    safeText(currentProfile && (currentProfile.grade || currentProfile.gradeId)).trim() !== activeGradeId) {
+                    return false;
+                }
 
                 verifiedRemoteEntitlement = claims;
                 return true;
@@ -1706,19 +1763,24 @@
 
             return false;
         } catch (error) {
+            if (selectionSequence === entitlementSelectionSequence) {
+                verifiedRemoteEntitlement = null;
+            }
             console.warn("License Manager: Stored entitlement verification failed.", error);
             return false;
         }
     }
 
     function hasValidRemoteEntitlement(gradeId) {
-        const c=verifiedRemoteEntitlement;
-        if(!c || c.productId!=="tahouri-edu") return false;
-        if(c.gradeScope && c.gradeScope!==gradeId) return false;
+        const claims = verifiedRemoteEntitlement;
+        if (!claims || claims.productId !== "tahouri-edu") return false;
+
         const activeStudentId = getActiveStudentId();
-        if(c.studentId && c.studentId!==activeStudentId) return false;
-        const from=new Date(c.validFrom);
-        const until=new Date(c.validUntil);
+        if (!activeStudentId || claims.studentId !== activeStudentId) return false;
+        if (!gradeId || !claims.gradeScope || claims.gradeScope !== gradeId) return false;
+
+        const from = new Date(claims.validFrom);
+        const until = new Date(claims.validUntil);
         return (
             !Number.isNaN(from.getTime()) &&
             !Number.isNaN(until.getTime()) &&

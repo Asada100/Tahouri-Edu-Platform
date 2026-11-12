@@ -54,6 +54,23 @@ assert(
 );
 
 assert(
+    manager.includes("let entitlementSelectionSequence = 0;") &&
+    manager.includes("normalizeStudentId(claims.studentId) !== activeStudentId") &&
+    manager.includes("!claims.gradeScope || claims.gradeScope !== activeGradeId") &&
+    manager.includes("selectionSequence !== entitlementSelectionSequence"),
+    "Signed entitlements must be selected only for the active student and exact grade, with stale selections ignored."
+);
+
+assert(
+    gate.includes("async function () {") &&
+    gate.includes("manager.initializeRemoteEntitlement()") &&
+    gate.includes("await selection") &&
+    gate.includes("if (sequence !== profileSwitchSequence) return;"),
+    "Profile switching must re-select the active profile entitlement and ignore stale switch operations."
+);
+
+
+assert(
     gate.includes('const productionMode = serviceConfig.mode === "production";') &&
     gate.includes("THR-GRADE[1-6]") &&
     gate.includes("if (!result && managedCode)") &&
