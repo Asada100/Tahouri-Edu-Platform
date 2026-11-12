@@ -16,6 +16,7 @@
     let gateElement = null;
     let selectedGradeId = null;
     let licenseStatusReason = null;
+    let profileSwitchSequence = 0;
 
 
     // =====================================
@@ -1174,31 +1175,33 @@
 
             profileSelect.addEventListener(
                 "change",
-                function () {
+                async function () {
+                    const studentId = this.value;
+                    if (!studentId) return;
 
-                    const studentId =
-                        this.value;
+                    const changed = switchProfile(studentId);
+                    if (changed === false) return;
 
+                    const sequence = ++profileSwitchSequence;
+                    const manager = window.LicenseManager;
+                    const selection = manager &&
+                        typeof manager.initializeRemoteEntitlement === "function"
+                        ? manager.initializeRemoteEntitlement()
+                        : Promise.resolve(false);
 
-                    if (!studentId) {
+                    // Fail closed immediately while the new profile is checked.
+                    renderGate();
 
-                        return;
+                    await selection;
+                    if (sequence !== profileSwitchSequence) return;
 
+                    if (manager &&
+                        typeof manager.refreshRemoteLicenseStatus === "function") {
+                        await revalidateCurrentLicense();
                     }
 
-
-                    const changed =
-                        switchProfile(
-                            studentId
-                        );
-
-
-                    if (changed !== false) {
-
-                        renderGate();
-
-                    }
-
+                    if (sequence !== profileSwitchSequence) return;
+                    renderGate();
                 }
             );
 
