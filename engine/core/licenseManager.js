@@ -949,6 +949,15 @@
 
         }
 
+        if (isRemoteProductionMode()) {
+            const claims = verifiedRemoteEntitlement;
+            return Boolean(
+                claims &&
+                normalizeStudentId(claims.studentId) === normalizedStudentId &&
+                hasValidRemoteEntitlement(claims.gradeScope)
+            );
+        }
+
         return getActiveLicenses()
             .some(
                 function (license) {
@@ -993,6 +1002,11 @@
             if (hasValidRemoteEntitlement(gradeId)) {
                 return true;
             }
+        }
+
+        // Production must never fall back to unsigned legacy LocalStorage licenses.
+        if (isRemoteProductionMode()) {
+            return false;
         }
 
         return getActiveLicenses()
