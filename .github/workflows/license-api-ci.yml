@@ -36,6 +36,9 @@ jobs:
       - name: Security test
         run: npm run security-test
 
+      - name: Cloudflare Worker global-session revocation test
+        run: node worker-session-revocation-test.mjs
+
       - name: Client license safety test
         run: node client-license-safety-test.js
 
