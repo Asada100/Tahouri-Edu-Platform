@@ -75,6 +75,19 @@ async function main() {
     assert.equal(manager.isActivated(profile.studentId), true,
         "Generic activation status must reflect a verified remote entitlement.");
 
+    let refreshedLicenseId = null;
+    window.TahouriLicenseClient = {
+        status: async licenseId => {
+            refreshedLicenseId = licenseId;
+            return { valid: true };
+        }
+    };
+    const refreshResult = await manager.refreshRemoteLicenseStatus();
+    assert.equal(refreshResult.valid, true,
+        "Remote status refresh must accept the verified claims object selected from storage.");
+    assert.equal(refreshedLicenseId, claims.licenseId,
+        "Remote status refresh must query the selected active profile's license ID.");
+
     // The first stored entitlement may belong to another student. The active
     // student's matching entitlement must still be found later in the store.
     const studentA = { studentId: "student-A", grade: "grade6" };
