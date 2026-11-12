@@ -1746,7 +1746,7 @@
                 return true;
             }
 
-            return selectionSequence === entitlementSelectionSequence;
+            return false;
         } catch (error) {
             if (selectionSequence === entitlementSelectionSequence) {
                 verifiedRemoteEntitlement = null;
