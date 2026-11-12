@@ -1700,10 +1700,7 @@
                 return {valid:false,message:"ذخیره مجوز امن انجام نشد."};
             }
 
-            const validFrom = new Date(claims.validFrom);
-            const isFutureRenewal =
-                !Number.isNaN(validFrom.getTime()) &&
-                Date.now() < validFrom.getTime();
+            const isFutureRenewal = Date.now() < validFrom.getTime();
 
             if (isFutureRenewal) {
                 await initializeRemoteEntitlement();
