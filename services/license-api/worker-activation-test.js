@@ -137,6 +137,65 @@ async function main() {
     assert.equal(listedStudents.status, 200);
     assert.equal((await listedStudents.json()).students.length, 4);
 
+    const manualProfile = {
+        studentId: "manual-student-uuid-0001",
+        fullName: "دانش‌آموز ثبت دستی",
+        gradeId: "grade5"
+    };
+    const manualCreate = await worker.fetch(new Request("https://api.example.test/api/admin/students", {
+        method: "POST",
+        headers: { "content-type": "application/json", "origin": env.ADMIN_ORIGIN, "cookie": adminCookie },
+        body: JSON.stringify(manualProfile)
+    }), env);
+    assert.equal(manualCreate.status, 201, "Manual student account registration must succeed.");
+    assert.equal((await manualCreate.json()).student.studentId, manualProfile.studentId);
+
+    const manualDuplicate = await worker.fetch(new Request("https://api.example.test/api/admin/students", {
+        method: "POST",
+        headers: { "content-type": "application/json", "origin": env.ADMIN_ORIGIN, "cookie": adminCookie },
+        body: JSON.stringify(manualProfile)
+    }), env);
+    assert.equal(manualDuplicate.status, 200, "Repeated manual registration must be idempotent.");
+    assert.equal((await manualDuplicate.json()).alreadyRegistered, true);
+
+    const manualConflict = await worker.fetch(new Request("https://api.example.test/api/admin/students", {
+        method: "POST",
+        headers: { "content-type": "application/json", "origin": env.ADMIN_ORIGIN, "cookie": adminCookie },
+        body: JSON.stringify({ ...manualProfile, fullName: "نام متعارض" })
+    }), env);
+    assert.equal(manualConflict.status, 409, "Manual registration must reject conflicting student IDs.");
+
+    const manualCode = await worker.fetch(new Request("https://api.example.test/api/admin/codes", {
+        method: "POST",
+        headers: { "content-type": "application/json", "origin": env.ADMIN_ORIGIN, "cookie": adminCookie },
+        body: JSON.stringify({ studentId: manualProfile.studentId, gradeId: "grade5", academicYear: String(currentIranianYear()), count: 1 })
+    }), env);
+    assert.equal(manualCode.status, 201, "An active registered student must be eligible for code issuance.");
+
+    const archiveManual = await worker.fetch(new Request("https://api.example.test/api/admin/students/archive", {
+        method: "POST",
+        headers: { "content-type": "application/json", "origin": env.ADMIN_ORIGIN, "cookie": adminCookie },
+        body: JSON.stringify({ studentId: manualProfile.studentId })
+    }), env);
+    assert.equal(archiveManual.status, 200, "Student archival must succeed.");
+    const manualCodeValue = (await manualCode.json()).codes[0];
+    assert.equal(db.prepare("SELECT status FROM activation_codes WHERE code_hash = ?").get(await sha256(manualCodeValue)).status, "revoked",
+        "Archiving a student must revoke their unused active codes.");
+
+    const archivedCode = await worker.fetch(new Request("https://api.example.test/api/admin/codes", {
+        method: "POST",
+        headers: { "content-type": "application/json", "origin": env.ADMIN_ORIGIN, "cookie": adminCookie },
+        body: JSON.stringify({ studentId: manualProfile.studentId, gradeId: "grade5", academicYear: String(currentIranianYear()), count: 1 })
+    }), env);
+    assert.equal(archivedCode.status, 409, "Archived students must not receive new activation codes.");
+
+    const archivedImport = await worker.fetch(new Request("https://api.example.test/api/admin/students/import", {
+        method: "POST",
+        headers: { "content-type": "application/json", "origin": env.ADMIN_ORIGIN, "cookie": adminCookie },
+        body: JSON.stringify({ profiles: [manualProfile] })
+    }), env);
+    assert.equal(archivedImport.status, 409, "Archived student IDs must not be silently reactivated.");
+
     const createCodes = await worker.fetch(new Request("https://api.example.test/api/admin/codes", {
         method: "POST",
         headers: { "content-type": "application/json", "origin": env.ADMIN_ORIGIN, "cookie": adminCookie },
