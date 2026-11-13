@@ -19,6 +19,7 @@
     "migration-test": "node migration-test.js",
     "backup-recovery-test": "node backup-recovery-test.js",
     "offsite-backup": "node offsite-backup.js",
-    "backup-scheduler": "node backup-scheduler.js"
+    "backup-scheduler": "node backup-scheduler.js",
+    "worker-test": "node worker-activation-test.js"
   }
 }
