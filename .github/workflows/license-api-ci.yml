@@ -39,6 +39,9 @@ jobs:
       - name: Cloudflare Worker global-session revocation test
         run: node worker-session-revocation-test.mjs
 
+      - name: Cloudflare Worker student registry and bound activation test
+        run: node worker-activation-test.js
+
       - name: Client license safety test
         run: node client-license-safety-test.js
 
