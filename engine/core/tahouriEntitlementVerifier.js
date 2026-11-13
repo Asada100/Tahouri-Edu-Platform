@@ -120,8 +120,16 @@
                 return { valid: false, reason: "نسخه مجوز پشتیبانی نمی‌شود." };
             }
 
-            if (!claims.licenseId || !claims.validFrom || !claims.validUntil || !claims.academicYear || !claims.studentId) {
-                return { valid: false, reason: "اطلاعات مجوز کامل نیست." };
+            if (
+                typeof claims.licenseId !== "string" || !claims.licenseId.trim() ||
+                typeof claims.gradeScope !== "string" || !claims.gradeScope.trim() ||
+                typeof claims.studentId !== "string" || !claims.studentId.trim() ||
+                typeof claims.installationBinding !== "string" || !claims.installationBinding.trim() ||
+                typeof claims.academicYear !== "string" || !claims.academicYear.trim() ||
+                typeof claims.validFrom !== "string" || !claims.validFrom.trim() ||
+                typeof claims.validUntil !== "string" || !claims.validUntil.trim()
+            ) {
+                return { valid: false, reason: "اطلاعات اتصال مجوز به پروفایل یا دستگاه کامل نیست." };
             }
 
             const validFrom = new Date(claims.validFrom);

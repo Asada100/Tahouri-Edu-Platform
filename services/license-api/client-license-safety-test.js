@@ -26,6 +26,22 @@ assert(
 );
 
 assert(
+    verifier.includes('typeof claims.gradeScope !== "string"') &&
+    verifier.includes('typeof claims.studentId !== "string"') &&
+    verifier.includes('typeof claims.installationBinding !== "string"'),
+    "Signed entitlement verification must require exact profile and installation bindings."
+);
+
+assert(
+    manager.includes("claims.gradeScope !== expectedGradeId") &&
+    manager.includes("claims.studentId !== expectedStudentId") &&
+    manager.includes("claims.installationBinding !== installationId") &&
+    manager.indexOf("TahouriEntitlementStore.write(response.entitlement)") >
+        manager.indexOf("claims.installationBinding !== installationId"),
+    "Remote activation must validate every signed binding before persisting the entitlement."
+);
+
+assert(
     store.includes("function readAll()") &&
     store.includes("function writeAll(entitlements)") &&
     store.includes("all.findIndex"),

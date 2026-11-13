@@ -1656,27 +1656,51 @@
             );
             if (!verified.valid) return {valid:false,message:verified.reason || "مجوز آنلاین معتبر نیست."};
             const claims = verified.claims;
-            if (claims.gradeScope && claims.gradeScope !== gradeId) return {valid:false,message:"مجوز مربوط به این پایه نیست."};
-            if (claims.studentId && claims.studentId !== String(studentId || getActiveStudentId()).trim()) return {valid:false,message:"این مجوز متعلق به پروفایل دیگری است."};
-            if (!window.TahouriEntitlementStore.write(response.entitlement)) return {valid:false,message:"ذخیره مجوز امن انجام نشد."};
+            const expectedStudentId = String(studentId || getActiveStudentId() || "").trim();
+            const expectedGradeId = String(gradeId || "").trim();
+            const activeProfile = getActiveProfile();
+            const activeProfileGrade = safeText(activeProfile && (activeProfile.grade || activeProfile.gradeId)).trim();
+
             if (
                 claims.productId !== "tahouri-edu" ||
                 claims.entitlementVersion !== 1 ||
-                claims.licenseId === undefined ||
-                claims.academicYear === undefined ||
-                claims.validFrom === undefined ||
-                claims.validUntil === undefined
+                typeof claims.licenseId !== "string" || !claims.licenseId.trim() ||
+                typeof claims.academicYear !== "string" || !claims.academicYear.trim() ||
+                typeof claims.validFrom !== "string" || !claims.validFrom.trim() ||
+                typeof claims.validUntil !== "string" || !claims.validUntil.trim() ||
+                typeof claims.gradeScope !== "string" || !claims.gradeScope.trim() ||
+                typeof claims.studentId !== "string" || !claims.studentId.trim() ||
+                typeof claims.installationBinding !== "string" || !claims.installationBinding.trim()
             ) {
-                return {
-                    valid: false,
-                    message: "اطلاعات مجوز دریافتی کامل نیست."
-                };
+                return { valid: false, message: "اطلاعات اتصال مجوز به پروفایل یا دستگاه کامل نیست." };
+            }
+            if (claims.gradeScope !== expectedGradeId || activeProfileGrade !== expectedGradeId) {
+                return {valid:false,message:"مجوز مربوط به این پایه یا پروفایل فعال نیست."};
+            }
+            if (claims.studentId !== expectedStudentId || getActiveStudentId() !== expectedStudentId) {
+                return {valid:false,message:"این مجوز متعلق به پروفایل دیگری است."};
+            }
+            if (claims.installationBinding !== installationId) {
+                return {valid:false,message:"این مجوز به دستگاه دیگری متصل است."};
             }
 
             const validFrom = new Date(claims.validFrom);
-            const isFutureRenewal =
-                !Number.isNaN(validFrom.getTime()) &&
-                Date.now() < validFrom.getTime();
+            const validUntil = new Date(claims.validUntil);
+            if (
+                Number.isNaN(validFrom.getTime()) ||
+                Number.isNaN(validUntil.getTime()) ||
+                validFrom.getTime() >= validUntil.getTime()
+            ) {
+                return {valid:false,message:"بازه اعتبار مجوز معتبر نیست."};
+            }
+
+            // Do not persist a response until every signed claim and the
+            // currently selected profile/device binding has been validated.
+            if (!window.TahouriEntitlementStore.write(response.entitlement)) {
+                return {valid:false,message:"ذخیره مجوز امن انجام نشد."};
+            }
+
+            const isFutureRenewal = Date.now() < validFrom.getTime();
 
             if (isFutureRenewal) {
                 await initializeRemoteEntitlement();
