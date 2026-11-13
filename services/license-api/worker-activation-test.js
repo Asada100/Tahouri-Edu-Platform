@@ -229,6 +229,35 @@ async function main() {
     db.prepare("INSERT INTO activation_codes (code_hash, code_preview, product_id, student_id, grade_id, academic_year, renewal_mode, status, created_at) VALUES (?, ?, 'tahouri-edu', 'student-1', 'grade6', ?, 'promotion', 'active', ?)")
         .run(codeHash, code.slice(0, 7) + "…" + code.slice(-6), String(year), new Date().toISOString());
 
+    const wrongStudent = await request(worker, env, "/api/licenses/activate", "POST", {
+        code, gradeId: "grade6", studentId: "student-2", installationId: "install-wrong-student"
+    });
+    assert.equal(wrongStudent.status, 409, "A code must not activate a different registered student's profile.");
+    assert.equal(db.prepare("SELECT status FROM activation_codes WHERE code_hash = ?").get(codeHash).status, "active",
+        "A student ID mismatch must not consume the activation code.");
+
+    const unregisteredCode = "THR-UNREGISTERED-" + year + "-TEST";
+    const unregisteredHash = await sha256(unregisteredCode);
+    db.prepare("INSERT INTO activation_codes (code_hash, code_preview, product_id, student_id, grade_id, academic_year, renewal_mode, status, created_at) VALUES (?, ?, 'tahouri-edu', 'student-not-registered', 'grade6', ?, 'promotion', 'active', ?)")
+        .run(unregisteredHash, "UNREG…TEST", String(year), new Date().toISOString());
+    const unregisteredAttempt = await request(worker, env, "/api/licenses/activate", "POST", {
+        code: unregisteredCode, gradeId: "grade6", studentId: "student-not-registered", installationId: "install-unregistered"
+    });
+    assert.equal(unregisteredAttempt.status, 409, "A code bound to an unregistered student must not activate.");
+    assert.equal(db.prepare("SELECT status FROM activation_codes WHERE code_hash = ?").get(unregisteredHash).status, "active",
+        "An unregistered student attempt must not consume the code.");
+
+    const legacyCode = "THR-LEGACY-UNBOUND-" + year + "-TEST";
+    const legacyHash = await sha256(legacyCode);
+    db.prepare("INSERT INTO activation_codes (code_hash, code_preview, product_id, student_id, grade_id, academic_year, renewal_mode, status, created_at) VALUES (?, ?, 'tahouri-edu', NULL, 'grade6', ?, 'promotion', 'active', ?)")
+        .run(legacyHash, "LEGACY…TEST", String(year), new Date().toISOString());
+    const legacyAttempt = await request(worker, env, "/api/licenses/activate", "POST", {
+        code: legacyCode, gradeId: "grade6", studentId: "student-1", installationId: "install-legacy"
+    });
+    assert.equal(legacyAttempt.status, 409, "A legacy unbound activation code must not activate a student profile.");
+    assert.equal(db.prepare("SELECT status FROM activation_codes WHERE code_hash = ?").get(legacyHash).status, "active",
+        "A legacy unbound code must remain unused after rejection.");
+
     const wrongGrade = await request(worker, env, "/api/licenses/activate", "POST", {
         code, gradeId: "grade5", studentId: "student-1", installationId: "install-1"
     });
