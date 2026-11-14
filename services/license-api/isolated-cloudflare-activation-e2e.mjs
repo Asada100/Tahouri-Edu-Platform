@@ -1,7 +1,7 @@
 "use strict";
 
-const assert = require("node:assert/strict");
-const crypto = require("node:crypto");
+import assert from "node:assert/strict";
+import crypto from "node:crypto";
 
 const base = "https://tahouri-license-api-student-import-test.asadtahouri1986.workers.dev/api";
 const origin = "https://asada100.github.io";
