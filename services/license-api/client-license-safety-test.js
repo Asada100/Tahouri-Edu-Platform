@@ -101,4 +101,19 @@ assert(
     "Activation gate managed-code and production fallback guards are incomplete."
 );
 
+
+assert(
+    manager.includes("async function activateRemote(code, gradeId, studentId") &&
+    manager.includes("window.TahouriLicenseClient.activate({code, gradeId, studentId: normalizedStudentId") &&
+    manager.includes("claims.studentId !== String(studentId || getActiveStudentId()).trim()"),
+    "Remote activation must send the active profile ID and reject an entitlement bound to another student."
+);
+
+assert(
+    gate.includes("const studentId =") &&
+    gate.includes("getActiveStudentId();") &&
+    gate.includes("LicenseManager.activateRemote(code, profileGrade, studentId)"),
+    "The activation gate must pass the currently selected profile ID into remote activation."
+);
+
 console.log("Tahouri client license safety test: PASS");
