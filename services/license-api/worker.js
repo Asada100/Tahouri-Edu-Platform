@@ -601,7 +601,7 @@ async function health(env, headers, requestId) {
     const requiredIndexes = await env.DB.prepare(
       "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'index' AND name IN ('idx_audit_actor_event_created','idx_licenses_code_hash_unique','idx_activation_grade_year_status','idx_student_accounts_grade_status','idx_activation_student_status')"
     ).first();
-    database = schemaVersion >= 4 && Number(requiredTables?.count || 0) === 8 &&
+    database = schemaVersion >= 5 && Number(requiredTables?.count || 0) === 8 &&
       Number(requiredIndexes?.count || 0) === 5
       ? "connected" : "schema_incomplete";
   } catch { database = "unavailable_or_unmigrated"; }
