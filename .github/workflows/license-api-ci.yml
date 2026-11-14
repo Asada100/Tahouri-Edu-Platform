@@ -58,6 +58,9 @@ jobs:
       - name: Profile-aware entitlement regression test
         run: node license-manager-mode-test.js
 
+      - name: Client-to-profile activation flow test
+        run: npm run client-profile-activation-test
+
       - name: Integration test
         run: npm run integration-test
       - name: Migration verification
