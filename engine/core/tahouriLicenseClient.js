@@ -11,7 +11,7 @@
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), Number(cfg.requestTimeoutMs) || 8000);
         try {
-            const response = await fetch(String(cfg.apiBaseUrl).replace(/\\/$/, "") + path, {
+            const response = await fetch(String(cfg.apiBaseUrl).replace(/\/$/, "") + path, {
                 ...(options || {}), signal: controller.signal,
                 headers: { "Content-Type": "application/json", ...((options && options.headers) || {}) }
             });
