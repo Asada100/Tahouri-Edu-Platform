@@ -716,6 +716,11 @@ createProfile: function (data) {
 
     this.save();
 
+    if (window.TahouriLicenseClient && typeof window.TahouriLicenseClient.registerProfile === "function") {
+        window.TahouriLicenseClient.registerProfile(profile).catch(function (error) {
+            console.warn("New profile could not be registered with the License API yet:", error.message);
+        });
+    }
 
     console.log(
         "Student Profile Created:",
