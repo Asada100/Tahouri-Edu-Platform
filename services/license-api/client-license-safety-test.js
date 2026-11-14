@@ -14,9 +14,32 @@ function assert(condition, message) {
 }
 
 const verifier = read("engine/core/tahouriEntitlementVerifier.js");
+const serviceConfig = read("engine/core/tahouriServiceConfig.js");
+const indexHtml = read("index.html");
 const store = read("engine/core/tahouriEntitlementStore.js");
 const manager = read("engine/core/licenseManager.js");
 const gate = read("engine/core/activationGate.js");
+
+assert(
+    serviceConfig.includes('mode: "production"') &&
+    serviceConfig.includes('https://tahouri-license-api.asadtahouri1986.workers.dev/api') &&
+    serviceConfig.includes('publicKeyPem: ""'),
+    "The deployed client must use the production License API without embedding a private key."
+);
+
+assert(
+    indexHtml.includes("tahouriServiceConfig.js?v=1.2") &&
+    indexHtml.includes("tahouriEntitlementVerifier.js?v=1.4"),
+    "Pages must bust cached versions of the production service config and verifier."
+);
+
+assert(
+    verifier.includes('config.mode === "production" && !/^https:\\/\\//i.test(apiBaseUrl)') &&
+    verifier.includes('redirect: "error"') &&
+    verifier.includes('credentials: "omit"') &&
+    verifier.includes('apiBaseUrl + "/public-key"'),
+    "Production public-key discovery must use HTTPS, reject redirects, and omit credentials."
+);
 
 assert(
     verifier.includes("const allowFuture = options.allowFuture === true;") &&
@@ -76,6 +99,21 @@ assert(
     gate.includes("if (!result && managedCode)") &&
     gate.includes("if (!result && !productionMode && !managedCode)"),
     "Activation gate managed-code and production fallback guards are incomplete."
+);
+
+
+assert(
+    manager.includes("async function activateRemote(code, gradeId, studentId") &&
+    manager.includes("window.TahouriLicenseClient.activate({code, gradeId, studentId: normalizedStudentId") &&
+    manager.includes("claims.studentId !== String(studentId || getActiveStudentId()).trim()"),
+    "Remote activation must send the active profile ID and reject an entitlement bound to another student."
+);
+
+assert(
+    gate.includes("const studentId =") &&
+    gate.includes("getActiveStudentId();") &&
+    gate.includes("LicenseManager.activateRemote(code, profileGrade, studentId)"),
+    "The activation gate must pass the currently selected profile ID into remote activation."
 );
 
 console.log("Tahouri client license safety test: PASS");

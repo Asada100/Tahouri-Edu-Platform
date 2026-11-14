@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Signed Entitlement Verifier
-// Version 1.3
+// Version 1.4
 // RSA-SHA256 / Web Crypto
 // =====================================
 
@@ -32,23 +32,30 @@
 
         if (config.publicKeyPem) return config.publicKeyPem;
 
-        if (config.mode !== "test") {
-            throw new Error("Production public key is not configured.");
+        const apiBaseUrl = String(config.apiBaseUrl || "").replace(/\/$/, "");
+        if (!apiBaseUrl) throw new Error("License API URL is not configured.");
+
+        // Production key discovery is allowed only over HTTPS. Redirects are
+        // rejected so the trust anchor cannot silently move to another host.
+        if (config.mode === "production" && !/^https:\/\//i.test(apiBaseUrl)) {
+            throw new Error("Production public key must be loaded over HTTPS.");
         }
 
-        const response = await fetch(config.apiBaseUrl + "/public-key", {
+        const response = await fetch(apiBaseUrl + "/public-key", {
             method: "GET",
-            cache: "no-store"
+            cache: "no-store",
+            credentials: "omit",
+            redirect: "error"
         });
 
         if (!response.ok) {
-            throw new Error("Development public key could not be loaded.");
+            throw new Error("License API public key could not be loaded.");
         }
 
         const payload = await response.json();
 
-        if (!payload || !payload.publicKeyPem) {
-            throw new Error("Development public key is missing.");
+        if (!payload || typeof payload.publicKeyPem !== "string" || !payload.publicKeyPem.trim()) {
+            throw new Error("License API public key is missing.");
         }
 
         return payload.publicKeyPem;
@@ -152,5 +159,5 @@
 
     window.TahouriEntitlementVerifier = { verifyEnvelope };
 
-    console.log("Tahouri Entitlement Verifier v1.3 Ready");
+    console.log("Tahouri Entitlement Verifier v1.4 Ready");
 })();

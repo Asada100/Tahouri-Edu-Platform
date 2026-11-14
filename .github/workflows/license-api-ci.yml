@@ -8,10 +8,14 @@ on:
       - "engine/core/activationGate.js"
       - "engine/core/tahouriEntitlementStore.js"
       - "engine/core/tahouriEntitlementVerifier.js"
+      - "engine/core/tahouriServiceConfig.js"
+      - "index.html"
       - ".github/workflows/license-api-ci.yml"
   pull_request:
     paths:
       - "services/license-api/**"
+      - "engine/core/tahouriEntitlementVerifier.js"
+      - "engine/core/tahouriServiceConfig.js"
       - ".github/workflows/license-api-ci.yml"
 
 jobs:
@@ -39,11 +43,23 @@ jobs:
       - name: Cloudflare Worker global-session revocation test
         run: node worker-session-revocation-test.mjs
 
+      - name: Cloudflare Worker student registry and bound activation test
+        run: node worker-activation-test.js
+
       - name: Client license safety test
         run: node client-license-safety-test.js
 
+      - name: Production entitlement public-key verification test
+        run: npm run client-verifier-test
+
+      - name: Read-only production public-key endpoint smoke test
+        run: node production-public-key-smoke-test.mjs
+
       - name: Profile-aware entitlement regression test
         run: node license-manager-mode-test.js
+
+      - name: Client-to-profile activation flow test
+        run: npm run client-profile-activation-test
 
       - name: Integration test
         run: npm run integration-test
