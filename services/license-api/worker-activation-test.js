@@ -7,7 +7,7 @@ const crypto = require("node:crypto");
 const { DatabaseSync } = require("node:sqlite");
 
 const db = new DatabaseSync(":memory:");
-for (const file of ["migrations/0001_initial_schema.sql", "migrations/0002_admin_login_attempts.sql", "migrations/0003_activation_integrity_indexes.sql", "migrations/0004_student_accounts.sql"]) {
+for (const file of ["migrations/0001_initial_schema.sql", "migrations/0002_admin_login_attempts.sql", "migrations/0003_activation_integrity_indexes.sql", "migrations/0004_student_accounts.sql", "migrations/0005_student_activation_status.sql"]) {
     db.exec(fs.readFileSync(path.join(__dirname, file), "utf8"));
 }
 
@@ -61,7 +61,7 @@ async function request(worker, env, pathName, method, body, origin = "https://as
 
 async function main() {
     const migrations = db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get();
-    assert.equal(Number(migrations.version), 4, "D1 migrations must create the version-4 student registry schema.");
+    assert.equal(Number(migrations.version), 5, "D1 migrations must create the version-5 student activation-status schema.");
 
     const pair = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
     const privatePem = pair.privateKey.export({ type: "pkcs8", format: "pem" });
@@ -102,6 +102,17 @@ async function main() {
     assert.equal(adminLogin.status, 200, "Worker admin login must succeed with its configured password.");
     const adminCookie = String(adminLogin.headers.get("set-cookie") || "").split(";")[0];
     assert.match(adminCookie, /^tahouri_admin_session=/);
+
+    const registrationProfile = { studentId: "auto-register-profile", fullName: "پروفایل خودکار", gradeId: "grade6" };
+    const autoRegistered = await request(worker, env, "/api/students/register", "POST", registrationProfile);
+    assert.equal(autoRegistered.status, 201, "A newly created app profile must register in D1 automatically.");
+    assert.equal((await autoRegistered.json()).activationStatus, "inactive");
+    assert.equal(db.prepare("SELECT activation_status FROM student_accounts WHERE student_id = ?").get(registrationProfile.studentId).activation_status, "inactive");
+    const duplicateRegistration = await request(worker, env, "/api/students/register", "POST", registrationProfile);
+    assert.equal(duplicateRegistration.status, 200, "Repeated startup sync must be idempotent.");
+    assert.equal((await duplicateRegistration.json()).alreadyRegistered, true);
+    const registrationConflict = await request(worker, env, "/api/students/register", "POST", { ...registrationProfile, gradeId: "grade5" });
+    assert.equal(registrationConflict.status, 409, "Registration must reject identity conflicts.");
 
     const importedProfiles = [
         { studentId: "worker-test-student", fullName: "آزمایش دانش‌آموز", gradeId: "grade6" },
@@ -281,6 +292,7 @@ async function main() {
     const stored = db.prepare("SELECT status, license_id FROM activation_codes WHERE code_hash = ?").get(codeHash);
     assert.equal(stored.status, "used");
     assert.equal(stored.license_id, activationBody.entitlement.claims.licenseId);
+    assert.equal(db.prepare("SELECT activation_status FROM student_accounts WHERE student_id = 'student-1'").get().activation_status, "active", "Successful activation must mark the profile active.");
 
     const status = await request(worker, env, "/api/licenses/status?licenseId=" + encodeURIComponent(stored.license_id), "GET");
     assert.equal(status.status, 200);
