@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Service Configuration
-// Version 1.1
+// Version 1.2
 // =====================================
 // Central configuration only.
 // No secret belongs in this file.
@@ -10,21 +10,20 @@
 
     const CONFIG = {
         enabled: true,
-        mode: "test",
-        apiBaseUrl: "http://localhost:8787/api",
+        mode: "production",
+        apiBaseUrl: "https://tahouri-license-api.asadtahouri1986.workers.dev/api",
         requestTimeoutMs: 8000,
         appVersion: "5.1.0",
         updateManifestUrl: "",
         productId: "tahouri-edu",
         entitlementVersion: 1,
 
-        // Production: pin the real public key here.
-        // Test mode obtains the development public key
-        // from the local development license API.
+        // The public key is served over HTTPS by the production License API.
+        // Never place the private signing key in client-side files.
         publicKeyPem: ""
     };
 
     window.TahouriServiceConfig = Object.freeze(CONFIG);
 
-    console.log("Tahouri Service Config v1.1 Ready");
+    console.log("Tahouri Service Config v1.2 Ready");
 })();
