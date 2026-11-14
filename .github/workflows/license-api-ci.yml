@@ -8,10 +8,13 @@ on:
       - "engine/core/activationGate.js"
       - "engine/core/tahouriEntitlementStore.js"
       - "engine/core/tahouriEntitlementVerifier.js"
+      - "engine/core/tahouriServiceConfig.js"
       - ".github/workflows/license-api-ci.yml"
   pull_request:
     paths:
       - "services/license-api/**"
+      - "engine/core/tahouriEntitlementVerifier.js"
+      - "engine/core/tahouriServiceConfig.js"
       - ".github/workflows/license-api-ci.yml"
 
 jobs:
@@ -44,6 +47,9 @@ jobs:
 
       - name: Client license safety test
         run: node client-license-safety-test.js
+
+      - name: Production entitlement public-key verification test
+        run: npm run client-verifier-test
 
       - name: Profile-aware entitlement regression test
         run: node license-manager-mode-test.js
