@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>پشتیبان‌گیری امن طهوری</title>
+<style>
+:root{color-scheme:light;--ink:#182230;--muted:#5b6573;--line:#d9e0e8;--surface:#fff;--bg:#f3f6fa;--accent:#2459a6;--ok:#176b45;--bad:#a52d2d}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Tahoma,"Segoe UI",sans-serif;line-height:1.9}
+main{width:min(760px,calc(100% - 28px));margin:32px auto}.panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px;margin:16px 0;box-shadow:0 4px 18px #172b4d0a}
+h1{font-size:1.45rem;margin:0 0 6px}h2{font-size:1.08rem;margin:0 0 10px}.muted{color:var(--muted);font-size:.92rem}
+button,.file-label{border:0;border-radius:9px;background:var(--accent);color:white;padding:11px 18px;font:inherit;cursor:pointer;display:inline-block}
+button:disabled{opacity:.5;cursor:wait}.secondary{background:#e8eef7;color:#1d3558}
+input[type=file]{max-width:100%;margin:12px 0}.notice{border-right:4px solid #c58a1b;background:#fff8e8;padding:12px 14px;border-radius:8px;font-size:.9rem}
+#status{margin-top:12px;white-space:pre-wrap}.ok{color:var(--ok)}.bad{color:var(--bad)}
+ul{padding-right:22px;margin:8px 0}.small{font-size:.83rem}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+</style>
+</head>
+<body>
+<main>
+<section class="panel">
+<h1>پشتیبان‌گیری اطلاعات طهوری</h1>
+<div class="muted">نسخهٔ مستقل ۱.۰ — فقط استخراج و اعتبارسنجی؛ بدون تغییر اطلاعات مرورگر</div>
+<p>این ابزار از تمام داده‌های ذخیره‌شده در حافظهٔ محلی همین مرورگر خروجی JSON تهیه می‌کند؛ از جمله پروفایل‌ها، پیشرفت، آمار، جلسات، زنجیرهٔ یادگیری و کلیدهای قدیمی یا ناشناخته.</p>
+<div class="notice">فایل خروجی ممکن است شامل اطلاعات مجوز و داده‌های خصوصی باشد. آن را فقط در محل امن نگه دارید و برای دیگران ارسال نکنید. این ابزار هیچ داده‌ای را پاک، جابه‌جا یا در سرور بارگذاری نمی‌کند.</div>
+<div class="actions"><button id="exportBtn">تهیهٔ نسخهٔ پشتیبان و دانلود JSON</button></div>
+<div id="status" class="muted" role="status" aria-live="polite"></div>
+</section>
+<section class="panel">
+<h2>اعتبارسنجی فایل پشتیبان</h2>
+<p class="muted">فایل JSON ذخیره‌شده را انتخاب کنید تا ساختار، تعداد داده‌ها و امضای صحت SHA-256 آن بررسی شود. این مرحله فقط بررسی می‌کند و چیزی را بازیابی نمی‌کند.</p>
+<input id="backupFile" type="file" accept=".json,application/json">
+<div class="actions"><button id="verifyBtn" class="secondary">بررسی فایل انتخاب‌شده</button></div>
+<div id="verifyStatus" class="muted" role="status" aria-live="polite"></div>
+</section>
+<section class="panel small">
+<h2>محدوده و محدودیت‌ها</h2>
+<ul>
+<li>خروجی فقط مربوط به همین مرورگر و همین مبدأ (دامنه) است؛ دادهٔ دستگاه‌های دیگر را شامل نمی‌شود.</li>
+<li>همهٔ کلیدها و مقادیر Local Storage عیناً نگهداری می‌شوند؛ داده‌ها تفسیر یا ادغام نمی‌شوند.</li>
+<li>داده‌های IndexedDB و فایل‌های Cache خارج از Local Storage در این نسخه نیستند.</li>
+<li>بازیابی یا ادغام شناسه‌ها عمداً در این ابزار فعال نشده است تا پیش از بررسی و تأیید نسخه‌های پشتیبان، داده‌ای بازنویسی نشود.</li>
+</ul>
+</section>
+</main>
+<script>
+(function(){
+"use strict";
+const $=id=>document.getElementById(id);
+const encoder=new TextEncoder();
+function canonical(value){return JSON.stringify(value);}
+async function sha256(text){
+ if(!crypto.subtle) throw new Error("مرورگر از SHA-256 امن پشتیبانی نمی‌کند؛ صفحه را از HTTPS باز کنید.");
+ const digest=await crypto.subtle.digest("SHA-256",encoder.encode(text));
+ return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,"0")).join("");
+}
+function parseProfiles(entries){
+ const item=entries.find(x=>x.key==="Tahouri_Profiles");
+ if(!item) return [];
+ try{
+  const value=JSON.parse(item.value);
+  return Array.isArray(value)?value.map(p=>({studentId:p?.studentId||null,name:p?.name||p?.fullName||"",grade:p?.grade||p?.gradeId||null})): [];
+ }catch(_){return [];}
+}
+function download(filename,text){
+ const blob=new Blob([text],{type:"application/json;charset=utf-8"});
+ const url=URL.createObjectURL(blob);
+ const a=document.createElement("a");a.href=url;a.download=filename;
+ document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+$("exportBtn").addEventListener("click",async function(){
+ const btn=this;btn.disabled=true;$("status").className="muted";$("status").textContent="در حال خواندن کلیدهای مرورگر و ساخت فایل…";
+ try{
+  const entries=[];
+  for(let i=0;i<localStorage.length;i++){
+   const key=localStorage.key(i);
+   if(key!==null) entries.push({key,value:localStorage.getItem(key)});
+  }
+  entries.sort((a,b)=>a.key.localeCompare(b.key));
+  const payload={
+   format:"tahouri-local-storage-backup",
+   version:1,
+   createdAt:new Date().toISOString(),
+   origin:location.origin,
+   storageType:"localStorage",
+   entryCount:entries.length,
+   profiles:parseProfiles(entries),
+   entries:entries
+  };
+  const checksum=await sha256(canonical(payload));
+  const file={...payload,integrity:{algorithm:"SHA-256",checksum:checksum}};
+  const stamp=new Date().toISOString().replace(/[:.]/g,"-");
+  download("tahouri-backup-"+stamp+".json",JSON.stringify(file,null,2));
+  $("status").className="ok";
+  $("status").textContent="نسخهٔ پشتیبان ساخته شد.\nتعداد کلیدها: "+entries.length+"\nتعداد پروفایل‌های ثبت‌شده در این مرورگر: "+payload.profiles.length+"\nSHA-256: "+checksum+"\nاطلاعات اصلی مرورگر تغییر نکرد.";
+ }catch(error){
+  $("status").className="bad";$("status").textContent="تهیهٔ نسخهٔ پشتیبان ناموفق بود: "+error.message;
+ }finally{btn.disabled=false;}
+});
+$("verifyBtn").addEventListener("click",async function(){
+ const btn=this;btn.disabled=true;$("verifyStatus").className="muted";$("verifyStatus").textContent="در حال بررسی…";
+ try{
+  const file=$("backupFile").files[0];if(!file) throw new Error("ابتدا یک فایل JSON انتخاب کنید.");
+  const parsed=JSON.parse(await file.text());
+  if(parsed.format!=="tahouri-local-storage-backup"||parsed.version!==1) throw new Error("قالب یا نسخهٔ فایل پشتیبان شناخته‌شده نیست.");
+  if(!Array.isArray(parsed.entries)||parsed.entryCount!==parsed.entries.length) throw new Error("ساختار فهرست داده‌ها یا تعداد کلیدها معتبر نیست.");
+  if(!parsed.integrity||parsed.integrity.algorithm!=="SHA-256"||typeof parsed.integrity.checksum!=="string") throw new Error("اطلاعات صحت‌سنجی فایل وجود ندارد.");
+  const payload={format:parsed.format,version:parsed.version,createdAt:parsed.createdAt,origin:parsed.origin,storageType:parsed.storageType,entryCount:parsed.entryCount,profiles:parsed.profiles,entries:parsed.entries};
+  const actual=await sha256(canonical(payload));
+  if(actual!==parsed.integrity.checksum) throw new Error("عدم تطابق SHA-256؛ فایل تغییر کرده یا آسیب دیده است.");
+  if(parsed.entries.some(e=>!e||typeof e.key!=="string"||!(typeof e.value==="string"||e.value===null))) throw new Error("ساختار یکی از رکوردهای ذخیره‌شده معتبر نیست.");
+  $("verifyStatus").className="ok";
+  $("verifyStatus").textContent="اعتبارسنجی موفق بود.\nتعداد کلیدها: "+parsed.entryCount+"\nتعداد پروفایل‌ها: "+(Array.isArray(parsed.profiles)?parsed.profiles.length:0)+"\nزمان تهیه: "+(parsed.createdAt||"نامشخص")+"\nمبدأ: "+(parsed.origin||"نامشخص")+"\nSHA-256 تأیید شد. هیچ داده‌ای بازیابی یا تغییر داده نشد.";
+ }catch(error){$("verifyStatus").className="bad";$("verifyStatus").textContent="اعتبارسنجی ناموفق: "+error.message;}
+ finally{btn.disabled=false;}
+});
+})();
+</script>
+</body>
+</html>
