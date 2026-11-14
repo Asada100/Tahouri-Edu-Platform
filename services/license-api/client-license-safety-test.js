@@ -14,9 +14,25 @@ function assert(condition, message) {
 }
 
 const verifier = read("engine/core/tahouriEntitlementVerifier.js");
+const serviceConfig = read("engine/core/tahouriServiceConfig.js");
 const store = read("engine/core/tahouriEntitlementStore.js");
 const manager = read("engine/core/licenseManager.js");
 const gate = read("engine/core/activationGate.js");
+
+assert(
+    serviceConfig.includes('mode: "production"') &&
+    serviceConfig.includes('https://tahouri-license-api.asadtahouri1986.workers.dev/api') &&
+    serviceConfig.includes('publicKeyPem: ""'),
+    "The deployed client must use the production License API without embedding a private key."
+);
+
+assert(
+    verifier.includes('config.mode === "production" && !/^https:\\/\\//i.test(apiBaseUrl)') &&
+    verifier.includes('redirect: "error"') &&
+    verifier.includes('credentials: "omit"') &&
+    verifier.includes('apiBaseUrl + "/public-key"'),
+    "Production public-key discovery must use HTTPS, reject redirects, and omit credentials."
+);
 
 assert(
     verifier.includes("const allowFuture = options.allowFuture === true;") &&
