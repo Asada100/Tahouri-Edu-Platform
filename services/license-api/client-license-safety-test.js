@@ -15,6 +15,7 @@ function assert(condition, message) {
 
 const verifier = read("engine/core/tahouriEntitlementVerifier.js");
 const serviceConfig = read("engine/core/tahouriServiceConfig.js");
+const indexHtml = read("index.html");
 const store = read("engine/core/tahouriEntitlementStore.js");
 const manager = read("engine/core/licenseManager.js");
 const gate = read("engine/core/activationGate.js");
@@ -24,6 +25,12 @@ assert(
     serviceConfig.includes('https://tahouri-license-api.asadtahouri1986.workers.dev/api') &&
     serviceConfig.includes('publicKeyPem: ""'),
     "The deployed client must use the production License API without embedding a private key."
+);
+
+assert(
+    indexHtml.includes("tahouriServiceConfig.js?v=1.2") &&
+    indexHtml.includes("tahouriEntitlementVerifier.js?v=1.4"),
+    "Pages must bust cached versions of the production service config and verifier."
 );
 
 assert(
