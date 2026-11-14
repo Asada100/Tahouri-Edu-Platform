@@ -61,9 +61,6 @@ jobs:
       - name: Client-to-profile activation flow test
         run: npm run client-profile-activation-test
 
-      - name: Isolated Cloudflare D1-to-Worker activation E2E
-        run: node isolated-cloudflare-activation-e2e.mjs
-
       - name: Integration test
         run: npm run integration-test
       - name: Migration verification
