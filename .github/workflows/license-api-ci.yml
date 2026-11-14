@@ -52,6 +52,9 @@ jobs:
       - name: Production entitlement public-key verification test
         run: npm run client-verifier-test
 
+      - name: Read-only production public-key endpoint smoke test
+        run: node production-public-key-smoke-test.mjs
+
       - name: Profile-aware entitlement regression test
         run: node license-manager-mode-test.js
 
