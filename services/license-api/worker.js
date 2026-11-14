@@ -302,9 +302,10 @@ async function activateLicense(request, env, headers) {
   const results = await env.DB.batch([
     env.DB.prepare("UPDATE activation_codes SET status = 'used', used_at = ?, license_id = ? WHERE code_hash = ? AND status = 'active' AND used_at IS NULL").bind(now, licenseId, codeHash),
     env.DB.prepare("INSERT INTO licenses (license_id, code_hash, product_id, student_id, grade_id, academic_year, valid_from, valid_until, installation_binding, status, entitlement_json, created_at) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM activation_codes WHERE code_hash = ? AND status = 'used' AND license_id = ?)").bind(licenseId, codeHash, PRODUCT_ID, studentId, gradeId, period.academicYear, period.validFrom, period.validUntil, installationId, futureRenewal ? "future" : "active", JSON.stringify(entitlement), now, codeHash, licenseId),
-    env.DB.prepare("INSERT INTO audit_log (event_type, actor, license_id, code_hash, created_at, metadata_json) SELECT ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM licenses WHERE license_id = ?)").bind(futureRenewal ? "license.renewal_reserved" : "license.activated", "client", licenseId, codeHash, now, JSON.stringify({ gradeId, studentId, academicYear: period.academicYear, validFrom: period.validFrom }), licenseId)
+    env.DB.prepare("INSERT INTO audit_log (event_type, actor, license_id, code_hash, created_at, metadata_json) SELECT ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM licenses WHERE license_id = ?)").bind(futureRenewal ? "license.renewal_reserved" : "license.activated", "client", licenseId, codeHash, now, JSON.stringify({ gradeId, studentId, academicYear: period.academicYear, validFrom: period.validFrom }), licenseId),
+    env.DB.prepare("UPDATE student_accounts SET activation_status = 'active', updated_at = ? WHERE student_id = ? AND status = 'active'").bind(now, studentId)
   ]);
-  if (Number(results?.[0]?.meta?.changes || 0) !== 1) return error("این کد قبلاً استفاده شده یا غیرفعال است.", 409, headers);
+  if (Number(results?.[0]?.meta?.changes || 0) !== 1 || Number(results?.[3]?.meta?.changes || 0) !== 1) return error("این کد قبلاً استفاده شده یا غیرفعال است.", 409, headers);
   return json({ valid: true, renewalStored: futureRenewal, entitlement }, 200, headers);
 }
 async function licenseStatus(request, env, url, headers) {
@@ -342,6 +343,31 @@ function normalizeStudentProfiles(profiles) {
   return [...normalized.values()];
 }
 
+async function registerStudentProfile(request, env, headers) {
+  if (!request.headers.get("Origin") || !allowedOrigin(request, env)) return error("مبدأ درخواست مجاز نیست.", 403, headers);
+  const body = await bodyJson(request);
+  const profile = normalizeStudentProfiles([body])[0];
+  const ipHash = await sha256(request.headers.get("CF-Connecting-IP") || "unknown");
+  const actor = "student-registration:" + ipHash;
+  const since = new Date(Date.now() - 60000).toISOString();
+  const attempts = await env.DB.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'student.registration.attempt' AND actor = ? AND created_at >= ?").bind(actor, since).first();
+  if (Number(attempts?.count || 0) >= 30) return error("تعداد ثبت پروفایل از این اتصال بیش از حد مجاز است.", 429, headers);
+  await audit(env, "student.registration.attempt", actor, { metadata: { studentId: profile.studentId } });
+  const existing = await env.DB.prepare("SELECT full_name AS fullName, grade_id AS gradeId, status, activation_status AS activationStatus FROM student_accounts WHERE student_id = ?").bind(profile.studentId).first();
+  if (existing) {
+    if (existing.status !== "active") return error("این شناسه قبلاً بایگانی شده است.", 409, headers);
+    if (existing.fullName !== profile.fullName || existing.gradeId !== profile.gradeId) return error("این شناسه قبلاً با نام یا پایهٔ متفاوت ثبت شده است.", 409, headers);
+    return json({ ok: true, registered: true, alreadyRegistered: true, activationStatus: existing.activationStatus }, 200, headers);
+  }
+  const createdAt = nowIso();
+  const results = await env.DB.batch([
+    env.DB.prepare("INSERT INTO student_accounts (student_id, full_name, grade_id, status, activation_status, created_at, updated_at) VALUES (?, ?, ?, 'active', 'inactive', ?, ?)").bind(profile.studentId, profile.fullName, profile.gradeId, createdAt, createdAt),
+    env.DB.prepare("INSERT INTO audit_log (event_type, actor, license_id, code_hash, created_at, metadata_json) VALUES ('student.registered', 'client', NULL, NULL, ?, ?)").bind(createdAt, JSON.stringify({ studentId: profile.studentId, gradeId: profile.gradeId }))
+  ]);
+  if (results.length !== 2 || results.some(result => Number(result?.meta?.changes || 0) !== 1)) return error("ثبت پروفایل در پایگاه داده کامل نشد.", 500, headers);
+  return json({ ok: true, registered: true, alreadyRegistered: false, activationStatus: "inactive" }, 201, headers);
+}
+
 async function importStudentProfiles(env, profiles) {
   const normalized = normalizeStudentProfiles(profiles);
   const imported = [];
@@ -358,7 +384,7 @@ async function importStudentProfiles(env, profiles) {
     const createdAt = nowIso();
     const statements = [];
     for (const profile of imported) {
-      statements.push(env.DB.prepare("INSERT INTO student_accounts (student_id, full_name, grade_id, status, created_at, updated_at) VALUES (?, ?, ?, 'active', ?, ?)").bind(profile.studentId, profile.fullName, profile.gradeId, createdAt, createdAt));
+      statements.push(env.DB.prepare("INSERT INTO student_accounts (student_id, full_name, grade_id, status, activation_status, created_at, updated_at) VALUES (?, ?, ?, 'active', 'inactive', ?, ?)").bind(profile.studentId, profile.fullName, profile.gradeId, createdAt, createdAt));
       statements.push(env.DB.prepare("INSERT INTO audit_log (event_type, actor, license_id, code_hash, created_at, metadata_json) VALUES ('student.imported', 'admin', NULL, NULL, ?, ?)").bind(createdAt, JSON.stringify({ studentId: profile.studentId, gradeId: profile.gradeId })));
     }
     const results = await env.DB.batch(statements);
@@ -402,14 +428,14 @@ async function adminRoute(request, env, url, headers) {
   }
   if (path === "/api/metrics/alerts" && request.method === "GET") return json({ ok: true, alerts: [] }, 200, headers);
   if (path === "/api/admin/students" && request.method === "GET") {
-    const students = await listRows(env, "SELECT student_id AS studentId, full_name AS fullName, grade_id AS gradeId, status, created_at AS createdAt, updated_at AS updatedAt FROM student_accounts ORDER BY created_at DESC LIMIT 1000");
+    const students = await listRows(env, "SELECT student_id AS studentId, full_name AS fullName, grade_id AS gradeId, status, activation_status AS activationStatus, created_at AS createdAt, updated_at AS updatedAt FROM student_accounts ORDER BY created_at DESC LIMIT 1000");
     return json({ ok: true, students }, 200, headers);
   }
   if (path === "/api/admin/students" && request.method === "POST") {
     const body = await bodyJson(request);
     const result = await importStudentProfiles(env, [body]);
     const profile = normalizeStudentProfiles([body])[0];
-    const student = await env.DB.prepare("SELECT student_id AS studentId, full_name AS fullName, grade_id AS gradeId, status, created_at AS createdAt, updated_at AS updatedAt FROM student_accounts WHERE student_id = ?").bind(profile.studentId).first();
+    const student = await env.DB.prepare("SELECT student_id AS studentId, full_name AS fullName, grade_id AS gradeId, status, activation_status AS activationStatus, created_at AS createdAt, updated_at AS updatedAt FROM student_accounts WHERE student_id = ?").bind(profile.studentId).first();
     return json({ ok: true, student, alreadyRegistered: result.alreadyRegistered === 1 }, result.imported ? 201 : 200, headers);
   }
   if (path === "/api/admin/students/import" && request.method === "POST") {
@@ -621,6 +647,8 @@ export default {
       }
       if (url.pathname === "/api/health" && request.method === "GET")
         return await health(env, headers, requestId);
+      if (url.pathname === "/api/students/register" && request.method === "POST")
+        return await registerStudentProfile(request, env, headers);
       if (url.pathname === "/api/licenses/activate" && request.method === "POST")
         return await activateLicense(request, env, headers);
       if (url.pathname === "/api/licenses/status" && request.method === "GET")
