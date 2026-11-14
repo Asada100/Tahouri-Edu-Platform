@@ -9,6 +9,7 @@ on:
       - "engine/core/tahouriEntitlementStore.js"
       - "engine/core/tahouriEntitlementVerifier.js"
       - "engine/core/tahouriServiceConfig.js"
+      - "index.html"
       - ".github/workflows/license-api-ci.yml"
   pull_request:
     paths:
