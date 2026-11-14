@@ -20,6 +20,7 @@
     "backup-recovery-test": "node backup-recovery-test.js",
     "offsite-backup": "node offsite-backup.js",
     "backup-scheduler": "node backup-scheduler.js",
-    "worker-test": "node worker-activation-test.js"
+    "worker-test": "node worker-activation-test.js",
+    "client-verifier-test": "node client-entitlement-verifier-test.js"
   }
 }
