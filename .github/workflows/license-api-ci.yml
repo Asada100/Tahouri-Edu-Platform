@@ -70,6 +70,10 @@ jobs:
 
   isolated-d1-worker-http-e2e:
     name: Isolated Cloudflare Worker HTTP race test
+    # The test endpoint resets a shared isolated D1 fixture; serialize all invocations.
+    concurrency:
+      group: tahouri-isolated-worker-http-race
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
