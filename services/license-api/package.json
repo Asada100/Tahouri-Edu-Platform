@@ -23,6 +23,7 @@
     "worker-test": "node worker-activation-test.js",
     "client-verifier-test": "node client-entitlement-verifier-test.js",
     "client-profile-activation-test": "node client-profile-activation-test.js",
-    "production-readiness-smoke": "node production-readiness-smoke-test.mjs"
+    "production-readiness-smoke": "node production-readiness-smoke-test.mjs",
+    "production-public-key-pin-test": "node production-public-key-pin-test.mjs"
   }
 }
