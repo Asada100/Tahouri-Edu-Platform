@@ -539,3 +539,18 @@ Compare شاخه جدید با master: ahead 9 / behind 0، دقیقاً ۷ فا
 - هیچ Production Worker/D1، Secret یا داده دانش‌آموز تغییر نکرد.
 - هیچ فایل محلی کاربر تغییر نکرد.
 - هنوز آزمون مستقل مرورگر واقعی روی دستگاه کاربر انجام نشده؛ CI و تست‌های شبیه‌سازی‌شده PASS هستند و این محدودیت باید پیش از فعال‌سازی Production در نظر گرفته شود.
+
+
+### ۲۰.۶. تکمیل آزمون رمزنگاری برای claimهای نامعتبر — نتیجه نهایی
+
+پس از اجرای موفق اولیه، پوشش آزمون verifier رمزنگاری واقعی گسترش یافت: claimهای ناقص یا با بازه زمانی وارونه با کلید خصوصی تست دوباره امضا می‌شوند تا آزمون، صرفاً شکست امضا را نسنجد؛ بلکه رد شدن claim نامعتبر پس از امضای معتبر را اثبات کند.
+
+- اجرای اول این گسترش، License API CI #897 را به‌علت خطای نام متغیر در سناریوی قدیمی tamper-signature متوقف کرد (`signature is not defined`). این خطا مربوط به fixture آزمون بود، نه منطق verifier.
+- fixture اصلاح شد تا از `envelope.signature` موجود استفاده کند.
+- اجرای نهایی commit `5546089ef76ed567015987044d617d0519ffe9e3`: License API CI #899 **PASS**؛ هر ۱۵ مرحله اصلی PASS.
+- Word Puzzle Drag Path Checks #229 **PASS**.
+- PR Preview Package #292 **PASS**.
+
+در آزمون جدید، verifier واقعی موارد missing grade، missing student، missing installation binding، missing academic year، missing license ID و بازه زمانی نامعتبر را با امضای رمزنگاری معتبر رد می‌کند. همچنین آزمون tampered signature قبلی حفظ شده است.
+
+Head فعلی PR #117: `5546089ef76ed567015987044d617d0519ffe9e3`. PR همچنان Draft و بدون merge است.
