@@ -619,3 +619,27 @@ PR #119: [ci: add read-only production license readiness gate](https://github.co
 - PR #119 باید به‌عنوان کنترل read-only readiness حفظ شود.
 - هیچ Production Worker، D1، secret، کلید یا داده دانش‌آموزی تغییر نکرد.
 - هیچ PRی merge نشده و هیچ فایل محلی کاربر تغییر نکرده است.
+
+
+### ۲۱.۶. آزمون یکپارچگی PRهای #117، #118 و #119
+
+برای جلوگیری از بررسی جداگانه و از دست رفتن تعارض بین PRها، شاخه مستقل `integration/security-release-gates-117-118-119-20261115` از master ساخته شد. تغییرات سه PR در آن کنار هم قرار گرفتند؛ PRهای اصلی دست‌نخورده و باز باقی ماندند.
+
+در ادغام آزمایشی مشخص شد تست `client-license-safety-test.js` در PR #118 هنوز `tahouriEntitlementVerifier.js?v=1.4` را انتظار دارد، درحالی‌که PR #117 آن را به v1.5 ارتقا داده است. تست ترکیبی اکنون هر دو شرط درست را هم‌زمان می‌سنجد:
+- verifier v1.5
+- license client v1.2
+- نبود `registerProfile`، `registerExistingProfiles` و endpoint عمومی ثبت‌نام در کلاینت
+
+PR یکپارچه #120:
+https://github.com/Asada100/Tahouri-Edu-Platform/pull/120
+
+Head نهایی: `18754c997ee3f61bb96848931bbe67b7dd4efa02`
+- 13 فایل تغییرکرده؛ 13 commit جلو و صفر عقب از master.
+- License API CI #925: **PASS**؛ همه مراحل شامل security، revocation، student registry/activation، client safety، public-key verification، read-only production health/D1 readiness، profile activation، integration، migration و backup/recovery.
+- PR Preview Package #300: **PASS**
+- Word Puzzle Drag Path Checks #232: **PASS**
+- PR #120 باز، Draft، mergeable=true، merged=false.
+
+نتیجه: سازگاری کد و تست‌های خودکار سه تغییر در شاخه ترکیبی تأیید شد. این نتیجه جایگزین تست واقعی مرورگر روی دستگاه و تأیید فرایند انسانی ورود پروفایل‌ها نیست.
+
+**محدودیت ایمنی حفظ‌شده:** هیچ PR merge نشده؛ هیچ Production Worker، D1، secret، کلید امضا، داده دانش‌آموز یا فایل محلی کاربر تغییر نکرده است.
