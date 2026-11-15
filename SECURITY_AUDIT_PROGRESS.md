@@ -746,3 +746,24 @@ Head نهایی PR #120: `f214157a468878fe65d9e26783ebc89d866c4227`.
 - PR #120: 26 commit جلو / صفر عقب؛ 14 فایل؛ Draft، mergeable=true، merged=false.
 
 این UI harness اجرای واقعی handler و درخواست‌ها را در محیط Node شبیه‌سازی می‌کند؛ جایگزین آزمون مرورگر واقعی یا دستگاه گوشی/Windows نیست. هنوز هیچ داده واقعی پروفایل یا Production تغییر نکرده است.
+
+
+### ۲۱.۱۲. بازبینی PR #103 و جایگزینی کنترل‌شده با PR #121 — کلید عمومی تولیدی
+
+PR #103 دوباره با master فعلی مقایسه شد:
+- PR #103: فقط یک فایل تغییر؛ 1 commit ahead / 6 commits behind؛ mergeable=false؛ Draft.
+- master فعلی از قبل `mode: production` و API URL تولیدی Worker را دارد؛ تنها تفاوت واقعی PR #103، قرار دادن یک public key ثابت در `publicKeyPem` است.
+- verifier فعلی وقتی `publicKeyPem` خالی است، کلید را از endpoint روی HTTPS می‌گیرد، redirect را رد می‌کند و credentials را نمی‌فرستد. بنابراین ادغام مستقیم شاخه قدیمی #103 توجیه ندارد.
+- کلید عمومی PR #103 به شاخه مستقل و تازه از master منتقل شد؛ private key یا secret منتقل نشده است.
+
+**PR جایگزین #121**:
+https://github.com/Asada100/Tahouri-Edu-Platform/pull/121
+- Branch: `security/pinned-production-key-verified-20261115`
+- 4 commit ahead / 0 behind؛ 3 فایل تغییر؛ Draft، mergeable=true، merged=false.
+- تست جدید `production-public-key-smoke-test.mjs` در صورت وجود publicKeyPem ثابت در config، آن را با کلید واقعی endpoint تولیدی مقایسه می‌کند.
+- client safety test اجازه public verification key می‌دهد اما وجود هرگونه private key را رد می‌کند.
+- CI #951: **PASS**؛ log صریحاً ثبت کرد: `Pinned production public key matches the live Worker endpoint.`
+- CI PR event #952: **PASS**.
+- PR Preview #316: **PASS**.
+
+این نتیجه اثبات می‌کند public key پین‌شده در #121 با کلید endpoint زنده Worker در زمان اجرای آزمون برابر است؛ این به معنی آزمون امضای مجوز با حساب واقعی یا تغییر Worker نیست. PR #103 باز و Draft می‌ماند و #121 جایگزین قابل بررسی آن است. هیچ Worker، D1، secret، کلید خصوصی، Pages deployment یا داده دانش‌آموز تغییر نکرده است.
