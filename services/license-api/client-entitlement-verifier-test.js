@@ -23,16 +23,20 @@ const claims = {
     academicYear: "1405",
     gradeScope: "grade6",
     studentId: "student-public-key-test",
+    installationBinding: "installation-public-key-test",
     validFrom: new Date(Date.now() - 60000).toISOString(),
     validUntil: new Date(Date.now() + 86400000).toISOString(),
     entitlementVersion: 1
 };
-const signature = crypto.sign(
-    "RSA-SHA256",
-    Buffer.from(JSON.stringify(claims)),
-    pair.privateKey
-).toString("base64");
-const envelope = { claims, signature };
+function signedEnvelope(value) {
+    const signature = crypto.sign(
+        "RSA-SHA256",
+        Buffer.from(JSON.stringify(value)),
+        pair.privateKey
+    ).toString("base64");
+    return { claims: value, signature };
+}
+const envelope = signedEnvelope(claims);
 
 function createVerifierContext(config, fetchImpl) {
     const window = { TahouriServiceConfig: config, crypto: crypto.webcrypto };
@@ -83,6 +87,22 @@ async function main() {
     assert.equal(requests[0].options.credentials, "omit");
     assert.equal(requests[0].options.redirect, "error");
 
+    const invalidClaimCases = [
+        { label: "missing grade", mutate: value => { value.gradeScope = ""; } },
+        { label: "missing student", mutate: value => { value.studentId = ""; } },
+        { label: "missing installation", mutate: value => { delete value.installationBinding; } },
+        { label: "missing academic year", mutate: value => { value.academicYear = ""; } },
+        { label: "missing license ID", mutate: value => { value.licenseId = ""; } },
+        { label: "invalid date range", mutate: value => { value.validFrom = new Date(Date.now() + 86400000).toISOString(); value.validUntil = new Date(Date.now() - 60000).toISOString(); } }
+    ];
+    for (const scenario of invalidClaimCases) {
+        const invalidClaims = { ...claims };
+        scenario.mutate(invalidClaims);
+        const invalidResult = await productionVerifier.verifyEnvelope(signedEnvelope(invalidClaims));
+        assert.equal(invalidResult.valid, false,
+            "A correctly signed entitlement with " + scenario.label + " must be rejected.");
+    }
+
     let insecureFetchCount = 0;
     const insecureVerifier = createVerifierContext({
         mode: "production",
@@ -114,7 +134,7 @@ async function main() {
 
     const tamperedEnvelope = {
         claims: { ...claims, studentId: "different-student" },
-        signature
+        signature: envelope.signature
     };
     const tamperedVerifier = createVerifierContext({
         mode: "production",
