@@ -134,7 +134,7 @@ async function main() {
 
     const tamperedEnvelope = {
         claims: { ...claims, studentId: "different-student" },
-        signature
+        signature: envelope.signature
     };
     const tamperedVerifier = createVerifierContext({
         mode: "production",
