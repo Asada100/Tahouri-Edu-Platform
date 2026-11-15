@@ -66,8 +66,35 @@ function randomHex(bytes = 16) {
   return [...data].map(x => x.toString(16).padStart(2, "0")).join("");
 }
 async function bodyJson(request) {
-  const text = await request.text();
-  if (text.length > MAX_BODY_BYTES) throw Object.assign(new Error("حجم درخواست بیش از حد مجاز است."), { status: 413 });
+  const reader = request.body?.getReader();
+  if (!reader) return {};
+
+  const chunks = [];
+  let totalBytes = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    totalBytes += value.byteLength;
+    if (totalBytes > MAX_BODY_BYTES) {
+      await reader.cancel();
+      throw Object.assign(new Error("حجم درخواست بیش از حد مجاز است."), { status: 413 });
+    }
+    chunks.push(value);
+  }
+
+  const bytes = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
+  let text;
+  try {
+    text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    throw Object.assign(new Error("کدگذاری متن درخواست معتبر نیست."), { status: 400 });
+  }
   try { return text ? JSON.parse(text) : {}; }
   catch { throw Object.assign(new Error("JSON درخواست معتبر نیست."), { status: 400 }); }
 }
