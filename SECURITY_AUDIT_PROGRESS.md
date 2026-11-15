@@ -351,3 +351,12 @@
 - /api/metrics و /api/metrics/alerts دادهٔ واقعی پایش تولید نمی‌کنند و فعلاً مقدارهای ثابت/خالی برمی‌گردانند؛ نباید این endpointها را monitoring فعال تلقی کرد.
 
 تصمیم اجرایی: SEC-01 بدون طرح enrollment معتبر اصلاح نمی‌شود. قرار دادن secret ثابت در برنامهٔ کلاینت راه‌حل نیست. پیش از تغییر قرارداد ثبت‌نام باید مشخص شود حساب‌ها فقط از پنل مدیر provision می‌شوند یا enrollment proof یک‌بارمصرف برای هر دانش‌آموز صادر خواهد شد.
+## ۱۶. بررسی سازگاری کلاینت با پاسخ محدودشدهٔ API وضعیت
+
+بازبینی فایل‌های موجود در master انجام شد:
+- `engine/core/tahouriLicenseClient.js` پاسخ JSON را بدون وابستگی به فیلدهای `license` یا `reason` برمی‌گرداند.
+- `engine/core/licenseManager.js` در `refreshRemoteLicenseStatus()` فقط فیلد `result.valid` را برای معتبر/نامعتبر بودن بررسی می‌کند؛ در این مسیر از `result.license`، `studentId`، `gradeId`، `academicYear` یا `validUntil` استفاده نمی‌شود.
+- مشخصات هویتی و تاریخ‌های لازم برای اعتبارسنجی محلی از `claims` داخل entitlement امضاشده خوانده می‌شوند؛ نه از پاسخ عمومی status.
+- `engine/core/tahouriEntitlementVerifier.js` امضای RSA-SHA256 و ادعاهای محصول، نسخه، شناسه دانش‌آموز و بازه اعتبار را مستقل بررسی می‌کند.
+
+نتیجه: در مسیرهای بررسی‌شده، حذف شیء `license` و فیلد `reason` از پاسخ status با مصرف فعلی کلاینت تعارضی ندارد. این بررسی ایستا است؛ آزمون end-to-end روی مرورگر/نسخه منتشرشده هنوز انجام نشده است.
