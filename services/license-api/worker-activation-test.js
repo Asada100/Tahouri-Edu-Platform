@@ -212,6 +212,23 @@ async function main() {
         { studentId: "student-2", fullName: "دانش‌آموز دو", gradeId: "grade6" },
         { studentId: "student-future", fullName: "دانش‌آموز آینده", gradeId: "grade6" }
     ];
+    const oversizedUnicodeBody = JSON.stringify({
+        profiles: [{ studentId: "oversized-body-must-not-import", fullName: "آزمون", gradeId: "grade6" }],
+        padding: "ا".repeat(33000)
+    });
+    assert(Buffer.byteLength(oversizedUnicodeBody, "utf8") > 65536,
+        "The oversized Unicode regression fixture must exceed the byte limit.");
+    const oversizedUnicodeImport = await worker.fetch(new Request("https://api.example.test/api/admin/students/import", {
+        method: "POST",
+        headers: { "content-type": "application/json", "origin": env.ADMIN_ORIGIN, "cookie": adminCookie },
+        body: oversizedUnicodeBody
+    }), env);
+    assert.equal(oversizedUnicodeImport.status, 413,
+        "UTF-8 multibyte payloads over the byte limit must be rejected.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM student_accounts WHERE student_id = ?")
+        .get("oversized-body-must-not-import").count), 0,
+        "An oversized Unicode request must not create a student account.");
+
     const importResponse = await worker.fetch(new Request("https://api.example.test/api/admin/students/import", {
         method: "POST",
         headers: { "content-type": "application/json", "origin": env.ADMIN_ORIGIN, "cookie": adminCookie },
