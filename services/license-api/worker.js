@@ -397,6 +397,22 @@ async function importStudentProfiles(env, profiles) {
 
 async function adminRoute(request, env, url, headers) {
   const path = url.pathname;
+
+  // Browser admin mutations must carry an explicit trusted Origin and JSON content type.
+  // SameSite cookies are defense in depth, not a replacement for server-side CSRF checks.
+  if (request.method === "POST") {
+    const origin = request.headers.get("Origin");
+    if (!origin || !allowedOrigin(request, env)) {
+      return error("مبدأ درخواست مجاز نیست.", 403, headers);
+    }
+    if (path === "/api/admin/login" || path === "/api/admin/logout") {
+      const contentType = String(request.headers.get("Content-Type") || "")
+        .split(";")[0].trim().toLowerCase();
+      if (contentType !== "application/json") {
+        return error("نوع محتوای درخواست باید application/json باشد.", 415, headers);
+      }
+    }
+  }
   if (path === "/api/admin/login" && request.method === "POST") return login(request, env, headers);
   if (path === "/api/admin/logout" && request.method === "POST") {
     const id = parseCookie(request, COOKIE_NAME);
@@ -407,6 +423,14 @@ async function adminRoute(request, env, url, headers) {
     return await requireAdmin(request, env) ? json({ ok: true }, 200, headers) : json({ ok: false }, 401, headers);
   }
   if (!await requireAdmin(request, env)) return json({ ok: false, message: "نشست مدیر معتبر نیست." }, 401, headers);
+
+  if (request.method === "POST") {
+    const contentType = String(request.headers.get("Content-Type") || "")
+      .split(";")[0].trim().toLowerCase();
+    if (contentType !== "application/json") {
+      return error("نوع محتوای درخواست باید application/json باشد.", 415, headers);
+    }
+  }
 
   if (path === "/api/admin/sessions/revoke-all" && request.method === "POST") {
     const revokedAt = nowIso();
