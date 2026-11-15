@@ -9,7 +9,7 @@ const response = await fetch(endpoint, {
   redirect: "error",
   signal: AbortSignal.timeout(15000)
 });
-assert.equal(response.status, 200, \`Public-key endpoint returned HTTP \${response.status}\`);
+assert.equal(response.status, 200, "Public-key endpoint returned HTTP " + response.status);
 
 const payload = await response.json();
 assert.equal(typeof payload.publicKeyPem, "string", "Worker publicKeyPem is missing");
