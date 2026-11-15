@@ -322,6 +322,36 @@ async function main() {
     assert.equal(db.prepare("SELECT status FROM activation_codes WHERE code_hash = ?").get(codeHash).status, "active");
 
     // Simulate another request consuming the code just before this request's D1 batch.
+    // A profile archived after preflight but before the atomic D1 batch must not consume a code.
+    const archiveRaceStudent = "student-archive-race";
+    db.prepare("INSERT INTO student_accounts (student_id, full_name, grade_id, status, activation_status, created_at, updated_at) VALUES (?, ?, 'grade6', 'active', 'inactive', ?, ?)")
+        .run(archiveRaceStudent, "آزمون بایگانی هم‌زمان", new Date().toISOString(), new Date().toISOString());
+    const archiveRaceCode = "THR-ARCHIVE-RACE-" + year + "-TEST";
+    const archiveRaceHash = await sha256(archiveRaceCode);
+    db.prepare("INSERT INTO activation_codes (code_hash, code_preview, product_id, student_id, grade_id, academic_year, renewal_mode, status, created_at) VALUES (?, ?, 'tahouri-edu', ?, 'grade6', ?, 'promotion', 'active', ?)")
+        .run(archiveRaceHash, "ARCHIVE…TEST", archiveRaceStudent, String(year), new Date().toISOString());
+    const originalArchiveBatch = D1.batch;
+    let injectConcurrentArchive = true;
+    D1.batch = async statements => {
+        if (injectConcurrentArchive) {
+            injectConcurrentArchive = false;
+            db.prepare("UPDATE student_accounts SET status = 'archived', updated_at = ? WHERE student_id = ? AND status = 'active'")
+                .run(new Date().toISOString(), archiveRaceStudent);
+        }
+        return originalArchiveBatch.call(D1, statements);
+    };
+    const archiveRaceLoser = await request(worker, env, "/api/licenses/activate", "POST", {
+        code: archiveRaceCode, gradeId: "grade6", studentId: archiveRaceStudent, installationId: "install-archive-race"
+    });
+    D1.batch = originalArchiveBatch;
+    assert.equal(archiveRaceLoser.status, 409, "An account archived immediately before the activation batch must be rejected.");
+    assert.equal(db.prepare("SELECT status FROM activation_codes WHERE code_hash = ?").get(archiveRaceHash).status, "active",
+        "A concurrent account archive must prevent activation-code consumption.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM licenses WHERE code_hash = ?").get(archiveRaceHash).count), 0,
+        "A concurrent account archive must not create a license.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE code_hash = ?").get(archiveRaceHash).count), 0,
+        "A concurrent account archive must not create an activation audit event.");
+
     const raceCode = "THR-RACE-" + year + "-TEST";
     const raceHash = await sha256(raceCode);
     db.prepare("UPDATE student_accounts SET activation_status = 'inactive' WHERE student_id = 'student-2'").run();
