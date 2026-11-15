@@ -40,7 +40,7 @@ assert.equal(health.capabilities?.licenseVerification, true,
 const keyPayload = await getJson("/public-key");
 assert.equal(typeof keyPayload.publicKeyPem, "string");
 assert.match(keyPayload.publicKeyPem,
-  /-----BEGIN PUBLIC KEY-----[\\s\\S]+-----END PUBLIC KEY-----/);
+  /-----BEGIN PUBLIC KEY-----[\s\S]+-----END PUBLIC KEY-----/);
 const publicKey = createPublicKey(keyPayload.publicKeyPem);
 assert.equal(publicKey.asymmetricKeyType, "rsa");
 assert.ok((publicKey.asymmetricKeyDetails?.modulusLength ?? 0) >= 2048,
