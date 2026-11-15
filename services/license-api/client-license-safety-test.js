@@ -29,7 +29,7 @@ assert(
 
 assert(
     indexHtml.includes("tahouriServiceConfig.js?v=1.2") &&
-    indexHtml.includes("tahouriEntitlementVerifier.js?v=1.4"),
+    indexHtml.includes("tahouriEntitlementVerifier.js?v=1.5"),
     "Pages must bust cached versions of the production service config and verifier."
 );
 
