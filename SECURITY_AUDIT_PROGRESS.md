@@ -659,3 +659,19 @@ Head نهایی: `18754c997ee3f61bb96848931bbe67b7dd4efa02`
 
 Head پس از اصلاحات: `36d42e8d7b1624e7b7c3497047d422c2bbc4b509`.
 آزمون CI و Preview برای این head باید مجدداً PASS شوند؛ نتایج قبلی مربوط به head پیشین هستند.
+
+
+### ۲۱.۸. نتیجه آزمون نهایی read-only/privacy و head نهایی PR #120
+
+پس از افزودن آزمون شناسه ناموجود، اجرای مجدد روی head نهایی `36d42e8d7b1624e7b7c3497047d422c2bbc4b509`:
+- License API CI #931: **PASS**؛ تمام مراحل اصلی.
+- Worker activation integration test: **PASS**؛ شامل پاسخ محدود وضعیت، پاسخ یکسان شناسه ناشناخته و revoked، due-future، تکرار GET و عدم تغییر status ذخیره‌شده.
+- Client license safety: **PASS**.
+- Production public-key verification و read-only readiness: **PASS**؛ D1 connected، schema v5، RSA 2048-bit.
+- Profile-aware entitlement و Client-to-profile activation: **PASS**.
+- Integration، migration و backup/recovery: **PASS**.
+- PR Preview Package #304: **PASS**.
+- Word Puzzle Drag Path Checks #235: **PASS**.
+- PR #120: 16 commit جلو / صفر عقب، 13 فایل، mergeable=true، Draft، merged=false.
+
+در این نسخه، اصلاح read-only/privacy مربوط به PR #114 نیز همراه #117، #118 و #119 در همان شاخه ترکیبی آزمایش شده است. هیچ‌یک از PRهای اصلی merge نشده‌اند.
