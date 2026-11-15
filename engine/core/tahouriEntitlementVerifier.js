@@ -171,5 +171,5 @@
 
     window.TahouriEntitlementVerifier = { verifyEnvelope };
 
-    console.log("Tahouri Entitlement Verifier v1.4 Ready");
+    console.log("Tahouri Entitlement Verifier v1.5 Ready");
 })();
