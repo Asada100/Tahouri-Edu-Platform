@@ -13,16 +13,16 @@ assert.equal(response.status, 200, `Public-key endpoint returned HTTP ${response
 
 const payload = await response.json();
 assert.equal(typeof payload.publicKeyPem, "string", "Worker publicKeyPem is missing");
-assert.match(payload.publicKeyPem, /-----BEGIN PUBLIC KEY-----[\\s\\S]+-----END PUBLIC KEY-----/, "Worker did not return a PEM public key");
+assert.ok(payload.publicKeyPem.includes("-----BEGIN PUBLIC KEY-----") && payload.publicKeyPem.includes("-----END PUBLIC KEY-----"), "Worker did not return a PEM public key");
 
 const source = await readFile(new URL("../../engine/core/tahouriServiceConfig.js", import.meta.url), "utf8");
-const match = source.match(/publicKeyPem:\\s*("(?:\\\\.|[^"])*")/);
-assert.ok(match, "Client service config must declare publicKeyPem");
-const pinned = JSON.parse(match[1]);
+const configLine = source.split("\\n").find(line => line.trim().startsWith("publicKeyPem:"));
+assert.ok(configLine, "Client service config must declare publicKeyPem");
+const pinned = JSON.parse(configLine.slice(configLine.indexOf(":") + 1).trim().replace(/,$/, ""));
 assert.ok(pinned.trim(), "A production release must not rely on runtime key discovery without a pinned key");
 assert.ok(!pinned.includes("BEGIN PRIVATE KEY"), "Private signing keys must never be shipped to the browser");
 
-const normalize = value => value.replace(/\\r/g, "").trim().replace(/\\n/g, "\\n");
+const normalize = value => value.replace(/\\r\\n/g, "\\n").replace(/\\r/g, "\\n").trim();
 assert.equal(normalize(pinned), normalize(payload.publicKeyPem), "Pinned client key does not match the live production Worker key");
 
 const key = createPublicKey(pinned);
