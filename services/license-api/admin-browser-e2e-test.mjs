@@ -72,7 +72,7 @@ try {
   await page.locator('[data-action="importStudentsFile"]').click();
   assert.equal((await duplicateImportResponse).status(), 200);
   const duplicateDialog = await duplicateImportDialog;
-  assert.match(duplicateDialog.message(), /قبلاً ثبت‌شده:\\s*4/,
+  assert.match(duplicateDialog.message(), /قبلاً ثبت‌شده:\s*4/,
     "Duplicate import must report all four profiles as already registered.");
   await page.waitForFunction(() => document.querySelector("#students")?.innerText.includes("synthetic-student-04"));
   const studentsResponse = await page.request.get(baseUrl + "/api/admin/students", {
