@@ -30,6 +30,7 @@ const entitlement = {
         academicYear: "1405",
         gradeScope: "grade6",
         studentId: profile.studentId,
+        installationBinding: "e2e-installation-id",
         validFrom: new Date(Date.now() - 60000).toISOString(),
         validUntil: new Date(Date.now() + 86400000).toISOString(),
         entitlementVersion: 1
