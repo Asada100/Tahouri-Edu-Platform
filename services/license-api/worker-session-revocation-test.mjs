@@ -61,6 +61,7 @@ const response = await worker.fetch(new Request(
   "https://worker.example.test/api/admin/sessions/revoke-all",
   { method: "POST", headers: {
     Origin: env.ADMIN_ORIGIN,
+    "Content-Type": "application/json",
     Cookie: "tahouri_admin_session=" + token,
   } }
 ), env);
