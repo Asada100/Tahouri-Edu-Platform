@@ -103,6 +103,55 @@ async function main() {
     const adminCookie = String(adminLogin.headers.get("set-cookie") || "").split(";")[0];
     assert.match(adminCookie, /^tahouri_admin_session=/);
 
+    // CSRF regression tests: a valid admin session alone must not authorize
+    // a cross-origin or simple-content-type browser mutation.
+    const codeCountBeforeCsrf = Number(db.prepare("SELECT COUNT(*) AS count FROM activation_codes").get().count);
+    const csrfBody = JSON.stringify({
+        gradeId: "grade6",
+        academicYear: String(currentIranianYear()),
+        count: 1
+    });
+    const crossOriginMutation = await worker.fetch(new Request("https://api.example.test/api/admin/codes", {
+        method: "POST",
+        headers: {
+            "content-type": "application/json",
+            "origin": "https://attacker.example",
+            "cookie": adminCookie
+        },
+        body: csrfBody
+    }), env);
+    assert.equal(crossOriginMutation.status, 403,
+        "An authenticated admin mutation from an untrusted Origin must be rejected.");
+
+    const missingOriginMutation = await worker.fetch(new Request("https://api.example.test/api/admin/codes", {
+        method: "POST",
+        headers: {
+            "content-type": "application/json",
+            "cookie": adminCookie
+        },
+        body: csrfBody
+    }), env);
+    assert.equal(missingOriginMutation.status, 403,
+        "An authenticated browser admin mutation without Origin must be rejected.");
+
+    const simpleContentTypeMutation = await worker.fetch(new Request("https://api.example.test/api/admin/codes", {
+        method: "POST",
+        headers: {
+            "content-type": "text/plain",
+            "origin": env.ADMIN_ORIGIN,
+            "cookie": adminCookie
+        },
+        body: csrfBody
+    }), env);
+    assert.equal(simpleContentTypeMutation.status, 415,
+        "Admin mutations must reject simple text/plain content types.");
+
+    assert.equal(
+        Number(db.prepare("SELECT COUNT(*) AS count FROM activation_codes").get().count),
+        codeCountBeforeCsrf,
+        "Rejected CSRF attempts must not create activation codes."
+    );
+
     const registrationProfile = { studentId: "auto-register-profile", fullName: "پروفایل خودکار", gradeId: "grade6" };
     const autoRegistered = await request(worker, env, "/api/students/register", "POST", registrationProfile);
     assert.equal(autoRegistered.status, 201, "A newly created app profile must register in D1 automatically.");
