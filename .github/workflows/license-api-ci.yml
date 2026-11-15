@@ -55,6 +55,9 @@ jobs:
       - name: Read-only production public-key endpoint smoke test
         run: node production-public-key-smoke-test.mjs
 
+      - name: Production Worker health and D1 readiness smoke test
+        run: npm run production-readiness-smoke
+
       - name: Profile-aware entitlement regression test
         run: node license-manager-mode-test.js
 
