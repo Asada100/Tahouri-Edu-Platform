@@ -312,16 +312,25 @@ async function licenseStatus(request, env, url, headers) {
   const licenseId = String(url.searchParams.get("licenseId") || "").trim();
   if (!licenseId) return json({ ok: false, valid: false, message: "licenseId الزامی است." }, 400, headers);
   if (!/^[A-Za-z0-9._:-]{1,128}$/.test(licenseId)) return json({ ok: false, valid: false, message: "licenseId نامعتبر است." }, 400, headers);
-  const row = await env.DB.prepare("SELECT license_id AS licenseId, student_id AS studentId, grade_id AS gradeId, academic_year AS academicYear, valid_from AS validFrom, valid_until AS validUntil, status FROM licenses WHERE license_id = ?").bind(licenseId).first();
-  if (!row) return json({ ok: true, valid: false, reason: "not_found" }, 200, headers);
-  if (row.status === "revoked") return json({ ok: true, valid: false, reason: "revoked" }, 200, headers);
+
+  // This public endpoint is deliberately read-only and returns no student or enrollment metadata.
+  // Keep invalid outcomes indistinguishable so callers cannot enumerate license state.
+  const row = await env.DB.prepare(
+    "SELECT valid_from AS validFrom, valid_until AS validUntil, status FROM licenses WHERE license_id = ?"
+  ).bind(licenseId).first();
+  if (!row || row.status === "revoked") return json({ ok: true, valid: false }, 200, headers);
+
   const from = Date.parse(row.validFrom), until = Date.parse(row.validUntil);
-  if (!Number.isFinite(from) || !Number.isFinite(until)) return json({ ok: true, valid: false, reason: "invalid_dates" }, 200, headers);
-  if (from > Date.now()) return json({ ok: true, valid: false, reason: "future" }, 200, headers);
-  if (until <= Date.now()) return json({ ok: true, valid: false, reason: "expired" }, 200, headers);
-  if (row.status === "future") await env.DB.prepare("UPDATE licenses SET status = 'active' WHERE license_id = ? AND status = 'future'").bind(licenseId).run();
-  else if (row.status !== "active") return json({ ok: true, valid: false, reason: row.status }, 200, headers);
-  return json({ ok: true, valid: true, license: { licenseId: row.licenseId, studentId: row.studentId, gradeId: row.gradeId, academicYear: row.academicYear, validFrom: row.validFrom, validUntil: row.validUntil, status: row.status === "future" ? "active" : row.status } }, 200, headers);
+  if (!Number.isFinite(from) || !Number.isFinite(until) ||
+      from > Date.now() || until <= Date.now()) {
+    return json({ ok: true, valid: false }, 200, headers);
+  }
+  if (row.status !== "active" && row.status !== "future") {
+    return json({ ok: true, valid: false }, 200, headers);
+  }
+
+  // A due future license is effective by date, but GET must never persist a status transition.
+  return json({ ok: true, valid: true }, 200, headers);
 }
 
 function normalizeStudentProfiles(profiles) {
