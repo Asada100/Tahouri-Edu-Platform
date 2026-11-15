@@ -531,7 +531,7 @@ Worker جاری master از قبل `installationBinding: installationId` را د
 
 آزمون‌های جدید مسیر entitlement معتبر و حالت‌های ردشده شامل پایه اشتباه/خالی، دانش‌آموز اشتباه/خالی، دستگاه اشتباه/خالی، سال تحصیلی ناقص، شناسه مجوز ناقص و بازه زمانی نامعتبر را پوشش می‌دهند. تست profile-aware بررسی می‌کند که حالت‌های ردشده هیچ write اضافه‌ای انجام ندهند.
 
-Compare شاخه جدید با master: ahead 9 / behind 0، دقیقاً ۷ فایل تغییرکرده.
+Compare شاخه جدید با master در پایان مرحله: ahead 11 / behind 0، دقیقاً ۷ فایل تغییرکرده.
 
 ### ۲۰.۵. تصمیم و ایمنی
 - PR #117 باز و Draft است، mergeable=true و merged=false.
@@ -554,3 +554,9 @@ Compare شاخه جدید با master: ahead 9 / behind 0، دقیقاً ۷ فا
 در آزمون جدید، verifier واقعی موارد missing grade، missing student، missing installation binding، missing academic year، missing license ID و بازه زمانی نامعتبر را با امضای رمزنگاری معتبر رد می‌کند. همچنین آزمون tampered signature قبلی حفظ شده است.
 
 Head فعلی PR #117: `5546089ef76ed567015987044d617d0519ffe9e3`. PR همچنان Draft و بدون merge است.
+
+
+### ۲۰.۷. وضعیت نهایی پس از ثبت گزارش
+- PR #117 head: `5546089ef76ed567015987044d617d0519ffe9e3`؛ open، Draft، mergeable=true، merged=false.
+- Compare نهایی: ahead 11 / behind 0؛ ۷ فایل مرتبط.
+- گزارش ممیزی حاضر با commit `f5f89d035638fa8e5d33a43d5be3e319f327f56b` به‌روزرسانی شد؛ Preview #293 **PASS**.
