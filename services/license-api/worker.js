@@ -343,31 +343,6 @@ function normalizeStudentProfiles(profiles) {
   return [...normalized.values()];
 }
 
-async function registerStudentProfile(request, env, headers) {
-  if (!request.headers.get("Origin") || !allowedOrigin(request, env)) return error("مبدأ درخواست مجاز نیست.", 403, headers);
-  const body = await bodyJson(request);
-  const profile = normalizeStudentProfiles([body])[0];
-  const ipHash = await sha256(request.headers.get("CF-Connecting-IP") || "unknown");
-  const actor = "student-registration:" + ipHash;
-  const since = new Date(Date.now() - 60000).toISOString();
-  const attempts = await env.DB.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'student.registration.attempt' AND actor = ? AND created_at >= ?").bind(actor, since).first();
-  if (Number(attempts?.count || 0) >= 30) return error("تعداد ثبت پروفایل از این اتصال بیش از حد مجاز است.", 429, headers);
-  await audit(env, "student.registration.attempt", actor, { metadata: { studentId: profile.studentId } });
-  const existing = await env.DB.prepare("SELECT full_name AS fullName, grade_id AS gradeId, status, activation_status AS activationStatus FROM student_accounts WHERE student_id = ?").bind(profile.studentId).first();
-  if (existing) {
-    if (existing.status !== "active") return error("این شناسه قبلاً بایگانی شده است.", 409, headers);
-    if (existing.fullName !== profile.fullName || existing.gradeId !== profile.gradeId) return error("این شناسه قبلاً با نام یا پایهٔ متفاوت ثبت شده است.", 409, headers);
-    return json({ ok: true, registered: true, alreadyRegistered: true, activationStatus: existing.activationStatus }, 200, headers);
-  }
-  const createdAt = nowIso();
-  const results = await env.DB.batch([
-    env.DB.prepare("INSERT INTO student_accounts (student_id, full_name, grade_id, status, activation_status, created_at, updated_at) VALUES (?, ?, ?, 'active', 'inactive', ?, ?)").bind(profile.studentId, profile.fullName, profile.gradeId, createdAt, createdAt),
-    env.DB.prepare("INSERT INTO audit_log (event_type, actor, license_id, code_hash, created_at, metadata_json) VALUES ('student.registered', 'client', NULL, NULL, ?, ?)").bind(createdAt, JSON.stringify({ studentId: profile.studentId, gradeId: profile.gradeId }))
-  ]);
-  if (results.length !== 2 || results.some(result => Number(result?.meta?.changes || 0) !== 1)) return error("ثبت پروفایل در پایگاه داده کامل نشد.", 500, headers);
-  return json({ ok: true, registered: true, alreadyRegistered: false, activationStatus: "inactive" }, 201, headers);
-}
-
 async function importStudentProfiles(env, profiles) {
   const normalized = normalizeStudentProfiles(profiles);
   const imported = [];
@@ -647,8 +622,9 @@ export default {
       }
       if (url.pathname === "/api/health" && request.method === "GET")
         return await health(env, headers, requestId);
-      if (url.pathname === "/api/students/register" && request.method === "POST")
-        return await registerStudentProfile(request, env, headers);
+      if (url.pathname === "/api/students/register")
+        return json({ ok: false, code: "enrollment_requires_admin",
+          message: "ثبت عمومی پروفایل غیرفعال است؛ ورود پروفایل باید از پنل مدیریت انجام شود." }, 410, headers);
       if (url.pathname === "/api/licenses/activate" && request.method === "POST")
         return await activateLicense(request, env, headers);
       if (url.pathname === "/api/licenses/status" && request.method === "GET")
