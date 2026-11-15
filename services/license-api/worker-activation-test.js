@@ -85,10 +85,19 @@ async function main() {
     const adminHtml = await adminPage.text();
     assert.doesNotMatch(adminHtml, /\son[a-z]+\s*=/i);
     assert.match(adminHtml, /data-action="login"/);
+    assert.match(adminHtml, /data-action="importStudentsFile"/,
+        "The authenticated admin UI must expose the profile import action after public registration is disabled.");
+    assert.match(adminHtml, /id="studentProfilesFile"/,
+        "The admin UI must provide a file input for the exported profile JSON.");
 
     const adminScript = await worker.fetch(new Request("https://api.example.test/admin.js"), env);
     assert.equal(adminScript.status, 200);
-    assert.match(await adminScript.text(), /document\.addEventListener/);
+    const adminScriptText = await adminScript.text();
+    assert.match(adminScriptText, /document\.addEventListener/);
+    assert.match(adminScriptText, /async function importStudentsFile/);
+    assert.match(adminScriptText, /\/api\/admin\/students\/import/);
+    assert.match(adminScriptText, /credentials:\\?"include\\?"/,
+        "The profile import client must send the authenticated admin session.");
 
     const publicKeyResponse = await request(worker, env, "/api/public-key", "GET");
     assert.equal(publicKeyResponse.status, 200);
