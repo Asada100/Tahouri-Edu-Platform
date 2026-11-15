@@ -295,6 +295,15 @@
 - آزمون‌های رگرسیون برای Origin غیرمجاز، Origin مفقود و `text/plain` اضافه شده‌اند؛ همچنین تعداد کدها قبل و بعد از درخواست‌های ردشده مقایسه می‌شود.
 - PR عمداً Draft است و ادغام نشده؛ هیچ Worker یا D1 مستقر نشده است.
 - این آزمون‌ها از SQLite حافظه‌ای/adapter شبیه D1 استفاده می‌کنند و جای آزمون مرورگر واقعی یا D1 ایزوله را نمی‌گیرند.
-- در لحظه ثبت این گزارش، نتیجه Workflow از ابزار بازیابی نشده است؛ بنابراین هیچ PASS اعلام نمی‌شود.
+- اجرای اصلاح‌شده GitHub Actions برای Commit `990c5a02dfb1f82e4e30b6352d216c27ec607e0c` موفق شد: `License API CI` run #861 و `PR Preview Package` run #266 هر دو با نتیجه success.
 
 **گام بعد:** دریافت نتیجه CI مربوط به PR #113؛ در صورت شکست، اصلاح فقط در همان شاخه و اجرای مجدد. پس از آن ممیزی SEC-01 تا SEC-04 ادامه می‌یابد.
+
+
+### نتیجه آزمون PR #113
+- Commit بررسی‌شده: `990c5a02dfb1f82e4e30b6352d216c27ec607e0c`
+- GitHub Actions: `License API CI` شماره 861 — **PASS**
+- GitHub Actions: `PR Preview Package` شماره 266 — **PASS**
+- تمام ۱۵ مرحله Job مربوط به License API CI با موفقیت پایان یافتند؛ از جمله آزمون Worker session revocation، Worker activation، security، integration، migration و backup/recovery.
+- اولین اجرای CI پیش از اصلاح، به علت نبود Content-Type در تست قدیمی لغو نشست مدیر شکست خورد؛ قرارداد تست به JSON اصلاح شد و اجرای بعدی کامل PASS شد.
+- این PASS مربوط به CI شبیه‌سازی‌شده/محلی پروژه است؛ اثبات آزمون مرورگر واقعی یا D1 واقعی Cloudflare نیست.
