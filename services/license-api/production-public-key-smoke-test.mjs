@@ -26,11 +26,11 @@ const serviceConfigSource = await readFile(
   new URL("../../engine/core/tahouriServiceConfig.js", import.meta.url),
   "utf8"
 );
-const pinnedKeyMatch = serviceConfigSource.match(/publicKeyPem:\s*("(?:\\\\.|[^"\\\\])*")/);
+const pinnedKeyMatch = serviceConfigSource.match(/publicKeyPem:\s*("[^"]*")/);
 assert.ok(pinnedKeyMatch, "Service config must declare publicKeyPem.");
 const pinnedPublicKeyPem = JSON.parse(pinnedKeyMatch[1]);
 if (pinnedPublicKeyPem.trim()) {
-  const normalizePem = value => value.replace(/\\r\\n/g, "\\n").trim();
+  const normalizePem = value => value.replace(/\r/g, "").trim();
   assert.equal(
     normalizePem(pinnedPublicKeyPem),
     normalizePem(payload.publicKeyPem),
