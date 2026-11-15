@@ -13,8 +13,7 @@ try {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   const page = await context.newPage();
   page.on("pageerror", error => pageErrors.push(error.message));
-  const dialogMessages = [];
-  page.on("dialog", dialog => { dialogMessages.push(dialog.message()); return dialog.accept(); });
+  page.on("dialog", dialog => dialog.accept());
 
   const harness = await page.request.get(baseUrl + "/__test/health");
   assert.equal(harness.status(), 200);
@@ -69,10 +68,13 @@ try {
     buffer: fixtureBuffer
   });
   const duplicateImportResponse = page.waitForResponse(response => response.url().endsWith("/api/admin/students/import"));
+  const duplicateImportDialog = page.waitForEvent("dialog");
   await page.locator('[data-action="importStudentsFile"]').click();
   assert.equal((await duplicateImportResponse).status(), 200);
+  const duplicateDialog = await duplicateImportDialog;
+  assert.match(duplicateDialog.message(), /قبلاً ثبت‌شده:\\s*4/,
+    "Duplicate import must report all four profiles as already registered.");
   await page.waitForFunction(() => document.querySelector("#students")?.innerText.includes("synthetic-student-04"));
-  assert.ok(dialogMessages.some(message => message.includes("قبلاً ثبت‌شده: 4")), "Duplicate import must be reported as already registered.");
   const studentsResponse = await page.request.get(baseUrl + "/api/admin/students", {
     headers: { cookie: await context.cookies().then(cookies => cookies.map(c => c.name + "=" + c.value).join("; ")) }
   });
