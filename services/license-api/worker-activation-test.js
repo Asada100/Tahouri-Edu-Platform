@@ -125,7 +125,7 @@ async function main() {
         alert: message => uiAlerts.push(String(message)),
         confirm: () => true
     };
-    const executableAdminScript = adminScriptText.replace(/\\n?loadHealth\\(\\);checkSession\\(\\);\\s*$/, "");
+    const executableAdminScript = adminScriptText.replace(/loadHealth\\(\\);checkSession\\(\\);\\s*$/, "");
     vm.runInNewContext(executableAdminScript, uiContext);
     const profileFileInput = getUiElement("studentProfilesFile");
     profileFileInput.files = [{
