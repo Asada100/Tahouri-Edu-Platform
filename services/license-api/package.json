@@ -22,6 +22,7 @@
     "backup-scheduler": "node backup-scheduler.js",
     "worker-test": "node worker-activation-test.js",
     "client-verifier-test": "node client-entitlement-verifier-test.js",
-    "client-profile-activation-test": "node client-profile-activation-test.js"
+    "client-profile-activation-test": "node client-profile-activation-test.js",
+    "production-readiness-smoke": "node production-readiness-smoke-test.mjs"
   }
 }
