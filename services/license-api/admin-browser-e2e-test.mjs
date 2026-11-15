@@ -149,7 +149,15 @@ try {
   await page.locator("#studentId").selectOption("synthetic-student-02");
   assert.equal(await page.locator("#grade").inputValue(), "grade6");
   await page.locator("#count").fill("1");
+  const secondCodeResponse = page.waitForResponse(response =>
+    response.url().endsWith("/api/admin/codes") && response.request().method() === "POST"
+  );
   await page.locator('[data-action="createCodes"]').click();
+  assert.equal((await secondCodeResponse).status(), 201);
+  await page.waitForFunction(previousCode =>
+    document.querySelector("#newCodes")?.textContent.trim() !== previousCode,
+    codeOne
+  );
   const codeTwo = (await page.locator("#newCodes").innerText()).trim();
   assert.match(codeTwo, /^THR-/);
   assert.notEqual(codeTwo, codeOne);
