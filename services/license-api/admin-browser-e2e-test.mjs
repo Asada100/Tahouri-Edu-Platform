@@ -191,7 +191,10 @@ try {
     "Each profile must receive its own license."
   );
 
-  const licensesResponse = await page.request.get(baseUrl + "/api/admin/licenses");
+  const adminCookieHeader = (await context.cookies(baseUrl)).map(cookie => cookie.name + "=" + cookie.value).join("; ");
+  const licensesResponse = await page.request.get(baseUrl + "/api/admin/licenses", {
+    headers: { cookie: adminCookieHeader }
+  });
   assert.equal(licensesResponse.status(), 200);
   const licenses = (await licensesResponse.json()).licenses;
   const licenseOne = licenses.find(item => item.studentId === "synthetic-student-01");
