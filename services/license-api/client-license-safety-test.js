@@ -19,6 +19,7 @@ const indexHtml = read("index.html");
 const store = read("engine/core/tahouriEntitlementStore.js");
 const manager = read("engine/core/licenseManager.js");
 const gate = read("engine/core/activationGate.js");
+const licenseClient = read("engine/core/tahouriLicenseClient.js");
 
 assert(
     serviceConfig.includes('mode: "production"') &&
@@ -29,8 +30,17 @@ assert(
 
 assert(
     indexHtml.includes("tahouriServiceConfig.js?v=1.2") &&
-    indexHtml.includes("tahouriEntitlementVerifier.js?v=1.4"),
-    "Pages must bust cached versions of the production service config and verifier."
+    indexHtml.includes("tahouriEntitlementVerifier.js?v=1.4") &&
+    indexHtml.includes("tahouriLicenseClient.js?v=1.2"),
+    "Pages must bust cached versions of the production service config, verifier, and license client."
+);
+
+assert(
+    !licenseClient.includes("registerExistingProfiles") &&
+    !licenseClient.includes("registerProfile") &&
+    !licenseClient.includes("/students/register") &&
+    licenseClient.includes("window.TahouriLicenseClient = { activate, health, status };"),
+    "The browser client must not auto-register profiles through a public enrollment endpoint."
 );
 
 assert(
