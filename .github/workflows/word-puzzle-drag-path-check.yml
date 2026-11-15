@@ -22,7 +22,6 @@ on:
       - "engine/wordPuzzle/**"
       - "engine/ui/wordPuzzleScreen.js"
       - "engine/ui/wordPuzzle.css"
-      - "index.html"
       - "tests/word-puzzle-drag-path.test.js"
       - ".github/workflows/word-puzzle-drag-path-check.yml"
   workflow_dispatch:
