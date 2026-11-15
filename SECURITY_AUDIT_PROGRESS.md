@@ -480,10 +480,10 @@ Worker آزمایشی `tahouri-activation-race-test-20261115` پس از تکمی
 ### ۱۹.۲. اصلاح workflowها
 از workflowهای شاخه‌های #115 و #116، jobی که endpoint عمومی HTTP را فراخوانی می‌کرد حذف شد تا CIهای آینده به endpointی که اکنون عمداً بسته شده وابسته نباشند. آزمون HTTP ده‌دوره‌ای قبلی همچنان در سابقه CI و شواهد PR ثبت است؛ تکرار آن نیازمند راهکار احراز هویت امن و secret مستقل برای Worker و CI خواهد بود.
 
-### ۱۹.۳. اجرای CI پس از بستن endpoint
-- شاخه PR #115: License API CI #881 و Preview #282 در زمان ثبت اولیه در حال اجرا بودند.
-- شاخه PR #116: License API CI #882 و Preview #283 در زمان ثبت اولیه در حال اجرا بودند.
-- نتیجه نهایی این اجراها باید پس از تکمیل workflow ثبت شود؛ صرف شروع آن‌ها به معنی PASS نیست.
+### ۱۹.۳. اجرای CI پس از بستن endpoint — نتیجه نهایی
+- شاخه PR #115، commit `b40600f155cc5fd2731408bfca2e9a9920fc3c24`: License API CI #881 **PASS** و Preview #282 **PASS**.
+- شاخه PR #116، commit `c01037e303135bff3116a4e7c859d3272e6d39c1`: License API CI #882 **PASS** و Preview #283 **PASS**.
+- شاخه مستندات، commit `46f8085ed9e605523b190865d79a3e9ee0dce8e8`: Preview #284 **PASS**.
 
 ### ۱۹.۴. وضعیت
 سطح دسترسی عمومی endpoint آزمایشی بسته شد و با GET مجدد Cloudflare API تأیید شد. منابع تستی حفظ شده‌اند. هیچ PR merge نشده است.
