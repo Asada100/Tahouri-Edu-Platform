@@ -1,6 +1,7 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const vm = require("node:vm");
 const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
@@ -98,6 +99,51 @@ async function main() {
     assert.match(adminScriptText, /\/api\/admin\/students\/import/);
     assert.match(adminScriptText, /credentials:"include"/,
         "The profile import client must send the authenticated admin session.");
+
+    // Execute the actual admin UI import function against a minimal DOM/fetch harness.
+    const uiElements = new Map();
+    const getUiElement = id => {
+        if (!uiElements.has(id)) uiElements.set(id, { id, files: [], value: "", hidden: false, textContent: "", innerHTML: "" });
+        return uiElements.get(id);
+    };
+    const uiFetchCalls = [];
+    const uiAlerts = [];
+    const uiProfile = { studentId: "ui-import-student-01", fullName: "پروفایل آزمون رابط", gradeId: "grade6" };
+    const uiContext = {
+        window: { location: { origin: "https://api.example.test" } },
+        document: { getElementById: getUiElement, addEventListener() {} },
+        fetch: async (url, options = {}) => {
+            uiFetchCalls.push({ url: String(url), options });
+            if (String(url).endsWith("/api/admin/students/import")) {
+                return { ok: true, status: 200, json: async () => ({ ok: true, imported: 1, alreadyRegistered: 0, total: 1 }) };
+            }
+            if (String(url).endsWith("/api/admin/students")) {
+                return { ok: true, status: 200, json: async () => ({ ok: true, students: [uiProfile] }) };
+            }
+            throw new Error("Unexpected admin UI fetch: " + url);
+        },
+        alert: message => uiAlerts.push(String(message)),
+        confirm: () => true
+    };
+    const executableAdminScript = adminScriptText.replace(/\\n?loadHealth\\(\\);checkSession\\(\\);\\s*$/, "");
+    vm.runInNewContext(executableAdminScript, uiContext);
+    const profileFileInput = getUiElement("studentProfilesFile");
+    profileFileInput.files = [{
+        text: async () => JSON.stringify({ format: "tahouri-student-profiles", version: 1, profiles: [uiProfile] })
+    }];
+    profileFileInput.value = "profiles.json";
+    await uiContext.importStudentsFile();
+    const importCall = uiFetchCalls.find(call => call.url.endsWith("/api/admin/students/import"));
+    assert(importCall, "The real admin UI import handler must call the authenticated import endpoint.");
+    assert.equal(importCall.options.method, "POST");
+    assert.equal(importCall.options.credentials, "include");
+    assert.equal(importCall.options.headers["Content-Type"], "application/json");
+    assert.deepEqual(JSON.parse(importCall.options.body), { profiles: [uiProfile] });
+    assert.equal(profileFileInput.value, "", "The UI must clear the selected file after successful import.");
+    assert.match(getUiElement("students").innerHTML, /ui-import-student-01/,
+        "The UI must refresh and render the imported profile in the student list.");
+    assert.match(uiAlerts[0] || "", /پروفایل جدید: 1/,
+        "The UI must report the import result to the administrator.");
 
     const publicKeyResponse = await request(worker, env, "/api/public-key", "GET");
     assert.equal(publicKeyResponse.status, 200);
