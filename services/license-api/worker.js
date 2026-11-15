@@ -303,9 +303,16 @@ async function activateLicense(request, env, headers) {
     env.DB.prepare("UPDATE activation_codes SET status = 'used', used_at = ?, license_id = ? WHERE code_hash = ? AND status = 'active' AND used_at IS NULL").bind(now, licenseId, codeHash),
     env.DB.prepare("INSERT INTO licenses (license_id, code_hash, product_id, student_id, grade_id, academic_year, valid_from, valid_until, installation_binding, status, entitlement_json, created_at) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM activation_codes WHERE code_hash = ? AND status = 'used' AND license_id = ?)").bind(licenseId, codeHash, PRODUCT_ID, studentId, gradeId, period.academicYear, period.validFrom, period.validUntil, installationId, futureRenewal ? "future" : "active", JSON.stringify(entitlement), now, codeHash, licenseId),
     env.DB.prepare("INSERT INTO audit_log (event_type, actor, license_id, code_hash, created_at, metadata_json) SELECT ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM licenses WHERE license_id = ?)").bind(futureRenewal ? "license.renewal_reserved" : "license.activated", "client", licenseId, codeHash, now, JSON.stringify({ gradeId, studentId, academicYear: period.academicYear, validFrom: period.validFrom }), licenseId),
-    env.DB.prepare("UPDATE student_accounts SET activation_status = 'active', updated_at = ? WHERE student_id = ? AND status = 'active'").bind(now, studentId)
+    env.DB.prepare(`UPDATE student_accounts SET activation_status = 'active', updated_at = ?
+      WHERE student_id = ? AND status = 'active'
+      AND EXISTS (SELECT 1 FROM licenses WHERE license_id = ? AND student_id = ?)`).bind(now, studentId, licenseId, studentId)
   ]);
-  if (Number(results?.[0]?.meta?.changes || 0) !== 1 || Number(results?.[3]?.meta?.changes || 0) !== 1) return error("این کد قبلاً استفاده شده یا غیرفعال است.", 409, headers);
+  if (Number(results?.[0]?.meta?.changes || 0) !== 1 ||
+      Number(results?.[1]?.meta?.changes || 0) !== 1 ||
+      Number(results?.[2]?.meta?.changes || 0) !== 1 ||
+      Number(results?.[3]?.meta?.changes || 0) !== 1) {
+    return error("این کد قبلاً استفاده شده یا غیرفعال است.", 409, headers);
+  }
   return json({ valid: true, renewalStored: futureRenewal, entitlement }, 200, headers);
 }
 async function licenseStatus(request, env, url, headers) {
@@ -381,6 +388,22 @@ async function importStudentProfiles(env, profiles) {
 
 async function adminRoute(request, env, url, headers) {
   const path = url.pathname;
+
+  // Browser admin mutations must carry a trusted Origin and JSON content type.
+  // SameSite cookies are defense in depth, not a replacement for server-side CSRF checks.
+  if (request.method === "POST") {
+    const origin = request.headers.get("Origin");
+    if (!origin || !allowedOrigin(request, env)) {
+      return error("مبدأ درخواست مجاز نیست.", 403, headers);
+    }
+    if (path === "/api/admin/login" || path === "/api/admin/logout") {
+      const contentType = String(request.headers.get("Content-Type") || "")
+        .split(";")[0].trim().toLowerCase();
+      if (contentType !== "application/json") {
+        return error("نوع محتوای درخواست باید application/json باشد.", 415, headers);
+      }
+    }
+  }
   if (path === "/api/admin/login" && request.method === "POST") return login(request, env, headers);
   if (path === "/api/admin/logout" && request.method === "POST") {
     const id = parseCookie(request, COOKIE_NAME);
@@ -391,6 +414,14 @@ async function adminRoute(request, env, url, headers) {
     return await requireAdmin(request, env) ? json({ ok: true }, 200, headers) : json({ ok: false }, 401, headers);
   }
   if (!await requireAdmin(request, env)) return json({ ok: false, message: "نشست مدیر معتبر نیست." }, 401, headers);
+
+  if (request.method === "POST") {
+    const contentType = String(request.headers.get("Content-Type") || "")
+      .split(";")[0].trim().toLowerCase();
+    if (contentType !== "application/json") {
+      return error("نوع محتوای درخواست باید application/json باشد.", 415, headers);
+    }
+  }
 
   if (path === "/api/admin/sessions/revoke-all" && request.method === "POST") {
     const revokedAt = nowIso();
