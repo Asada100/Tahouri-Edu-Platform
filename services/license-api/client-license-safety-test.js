@@ -30,7 +30,7 @@ assert(
 );
 
 assert(
-    indexHtml.includes("tahouriServiceConfig.js?v=1.2") &&
+    indexHtml.includes("tahouriServiceConfig.js?v=1.3") &&
     indexHtml.includes("tahouriEntitlementVerifier.js?v=1.5") &&
     indexHtml.includes("tahouriLicenseClient.js?v=1.2"),
     "Pages must bust cached versions of the production service config, verifier, and license client."
