@@ -191,10 +191,11 @@ try {
     "Each profile must receive its own license."
   );
 
-  const adminCookieHeader = (await context.cookies(baseUrl)).map(cookie => cookie.name + "=" + cookie.value).join("; ");
-  const licensesResponse = await page.request.get(baseUrl + "/api/admin/licenses", {
-    headers: { cookie: adminCookieHeader }
-  });
+  const licensesResponsePromise = page.waitForResponse(response =>
+    response.url().endsWith("/api/admin/licenses") && response.request().method() === "GET"
+  );
+  await page.locator('[data-action="loadLicenses"]').click();
+  const licensesResponse = await licensesResponsePromise;
   assert.equal(licensesResponse.status(), 200);
   const licenses = (await licensesResponse.json()).licenses;
   const licenseOne = licenses.find(item => item.studentId === "synthetic-student-01");
@@ -207,8 +208,10 @@ try {
   await page.locator('[data-action="logout"]').click();
   await page.locator("#loginCard:not([hidden])").waitFor();
   assert.equal(await page.locator("#panel").isVisible(), false);
-  const expiredSession = await page.request.get(baseUrl + "/api/admin/session");
-  assert.equal(expiredSession.status(), 401, "Logout must invalidate the admin session.");
+  const expiredSessionStatus = await page.evaluate(async () =>
+    (await fetch("/api/admin/session", { credentials: "include" })).status
+  );
+  assert.equal(expiredSessionStatus, 401, "Logout must invalidate the browser's admin session cookie.");
 
   // A separate mobile-sized browser context checks the real responsive page.
   const mobileContext = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true });
