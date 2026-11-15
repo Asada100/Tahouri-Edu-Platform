@@ -300,7 +300,7 @@ async function activateLicense(request, env, headers) {
   const entitlement = await signEntitlement(claims, env);
   const now = nowIso();
   const results = await env.DB.batch([
-    env.DB.prepare("UPDATE activation_codes SET status = 'used', used_at = ?, license_id = ? WHERE code_hash = ? AND status = 'active' AND used_at IS NULL").bind(now, licenseId, codeHash),
+    env.DB.prepare("UPDATE activation_codes SET status = 'used', used_at = ?, license_id = ? WHERE code_hash = ? AND status = 'active' AND used_at IS NULL AND EXISTS (SELECT 1 FROM student_accounts WHERE student_id = ? AND status = 'active')").bind(now, licenseId, codeHash, studentId),
     env.DB.prepare("INSERT INTO licenses (license_id, code_hash, product_id, student_id, grade_id, academic_year, valid_from, valid_until, installation_binding, status, entitlement_json, created_at) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM activation_codes WHERE code_hash = ? AND status = 'used' AND license_id = ?)").bind(licenseId, codeHash, PRODUCT_ID, studentId, gradeId, period.academicYear, period.validFrom, period.validUntil, installationId, futureRenewal ? "future" : "active", JSON.stringify(entitlement), now, codeHash, licenseId),
     env.DB.prepare("INSERT INTO audit_log (event_type, actor, license_id, code_hash, created_at, metadata_json) SELECT ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM licenses WHERE license_id = ?)").bind(futureRenewal ? "license.renewal_reserved" : "license.activated", "client", licenseId, codeHash, now, JSON.stringify({ gradeId, studentId, academicYear: period.academicYear, validFrom: period.validFrom }), licenseId),
     env.DB.prepare(`UPDATE student_accounts SET activation_status = 'active', updated_at = ?
