@@ -560,3 +560,62 @@ Head فعلی PR #117: `5546089ef76ed567015987044d617d0519ffe9e3`. PR همچنا
 - PR #117 head: `5546089ef76ed567015987044d617d0519ffe9e3`؛ open، Draft، mergeable=true، merged=false.
 - Compare نهایی: ahead 11 / behind 0؛ ۷ فایل مرتبط.
 - گزارش ممیزی حاضر با commit `f5f89d035638fa8e5d33a43d5be3e319f327f56b` به‌روزرسانی شد؛ Preview #293 **PASS**.
+
+
+## ۲۱. دروازه انتشار Production و بستن ثبت‌نام عمومی — ۱۵ نوامبر ۲۰۲۶
+
+### ۲۱.۱. بازبینی PR #103
+PR #103 بر پایه `d865f8cfa3cb9fdf96888eb3ba4c1c0776030255` ساخته شده و نسبت به master جاری `9ee93702314d56203cd436a9a6f55bb6cb44cc70` یک commit جلو و شش commit عقب است. ادغام مستقیم توصیه نمی‌شود.
+
+فایل فعلی `engine/core/tahouriServiceConfig.js` در master از قبل:
+- `mode: production`
+- API URL فعلی Worker با مسیر `/api`
+- `publicKeyPem: ""` و دریافت کلید عمومی از endpoint HTTPS همان Worker با `redirect: error` و بدون credentials
+
+را دارد. کلید hardcode شده در PR #103 با مقدار secret جاری تطبیق داده نشده و secret نیز خوانده نشده است؛ بنابراین انتقال آن لازم/مجاز تشخیص داده نشد.
+
+### ۲۱.۲. شمارش فقط‌خواندنی D1 تولیدی
+Cloudflare D1 با شناسه `bc958420-184a-43ff-b728-069654f58058` پاسخ موفق داد. فقط SELECT اجرا شد:
+- activation_codes: 1
+- licenses: 1
+- student_accounts: 11
+- audit_log: 66
+
+خروجی Cloudflare: `changed_db=false` و `rows_written=0`. این وضعیت با توضیح قدیمی PR #103 مبنی بر خالی بودن دیتابیس تفاوت دارد. هیچ مقدار شخصی یا محتوای رکوردها خوانده نشد.
+
+### ۲۱.۳. کشف و رفع ثبت‌نام عمومی ناامن
+در master، `POST /api/students/register` تنها Origin را بررسی می‌کرد؛ Origin به‌تنهایی اثبات هویت نیست. کلاینت نیز هنگام بارگذاری، همه پروفایل‌های محلی را به‌صورت خودکار به endpoint می‌فرستاد.
+
+PR #118: [security: disable unauthenticated public student enrollment](https://github.com/Asada100/Tahouri-Edu-Platform/pull/118)
+- endpoint عمومی اکنون پاسخ 410 با `enrollment_requires_admin` می‌دهد و هیچ D1 write انجام نمی‌دهد.
+- تابع ثبت عمومی Worker و همگام‌سازی خودکار کلاینت حذف شد.
+- import از مسیر موجود پنل مدیریت و نشست احرازشده باقی ماند.
+- cache version کلاینت از 1.1 به 1.2 ارتقا یافت.
+- تست POST، تکرار POST، GET، عدم ایجاد account/audit و حفظ admin import را پوشش می‌دهد.
+- License API CI #905 **PASS**، Preview #296 **PASS**، Word Puzzle Checks #231 **PASS**.
+- head: `e0dcadb67fdd7bef8369362c7162e330c4d30492`; open، Draft، mergeable، unmerged.
+
+### ۲۱.۴. دروازه زنده و فقط‌خواندنی Production
+PR #119: [ci: add read-only production license readiness gate](https://github.com/Asada100/Tahouri-Edu-Platform/pull/119)
+- دو GET به `/api/health` و `/api/public-key` اجرا می‌شود؛ بدون POST، registration، activation یا D1 write.
+- CORS باید فقط Origin رسمی Pages را مجاز کند؛ redirect رد و credentials ارسال نمی‌شوند.
+- health باید HTTP 200، healthy، D1 connected، schema version حداقل 5 و capabilityهای activation/verification فعال را گزارش کند.
+- public key باید PEM قابل‌خواندن، RSA و حداقل 2048-bit باشد.
+- health در Worker تطابق کلید خصوصی/عمومی را با sign/verify challenge بررسی می‌کند.
+
+نتیجه واقعی endpoint:
+- HTTP 200، `ok=true`، `status=healthy`
+- D1 `connected`، schemaVersion 5
+- licenseActivation=true و licenseVerification=true
+- public key: RSA 2048-bit
+- License API CI #912 **PASS**؛ Preview #298 **PASS**.
+- خروجی CI: `{"service":"tahouri-license-api","version":"0.3.0-worker-signed-activation","database":"connected","schemaVersion":5,"licenseActivation":true,"licenseVerification":true,"publicKeyType":"rsa","publicKeyBits":2048}`
+- head: `a544be74d76d22b50d49f83abfabdc2a28450d0d`; open، Draft، mergeable، unmerged.
+
+### ۲۱.۵. تصمیم انتشار
+- Worker و D1 تولیدی از نظر health، schema و جفت کلید امضا/اعتبارسنجی در smoke test فقط‌خواندنی PASS شدند.
+- PR #103 هنوز نباید merge شود؛ شاخه آن قدیمی است و تغییر hardcoded key لازم نیست.
+- PR #118 باید پیش از هر انتشار client-side بازبینی و ادغام شود تا مسیر ثبت عمومی بسته بماند.
+- PR #119 باید به‌عنوان کنترل read-only readiness حفظ شود.
+- هیچ Production Worker، D1، secret، کلید یا داده دانش‌آموزی تغییر نکرد.
+- هیچ PRی merge نشده و هیچ فایل محلی کاربر تغییر نکرده است.
