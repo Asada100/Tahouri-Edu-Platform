@@ -215,3 +215,67 @@ git ls-files --others --exclude-standard
 - آزمون منفی برای Origin غیرمجاز، text/plain، فرم ساده و نشست معتبر در محیط ایزوله اضافه شود.
 
 **وضعیت:** ریسک کاندید شناسایی شد؛ اثبات مرورگری و اصلاح انجام نشده است.
+
+
+## ۹. فهرست اولیه سطح حمله Worker
+
+بر اساس dispatch و route handlerهای `worker.js` در Commit بررسی‌شده:
+
+### مسیرهای عمومی
+| روش | مسیر | کنترل مشاهده‌شده |
+|---|---|---|
+| GET | `/api/public-key` | کلید عمومی؛ بدون احراز هویت، مورد انتظار |
+| GET | `/api/health` | وضعیت سرویس و schema/capability؛ بدون احراز هویت |
+| POST | `/api/students/register` | Origin allowlist و محدودیت IP؛ بدون نشست یا enrollment proof |
+| POST | `/api/licenses/activate` | کد یک‌بارمصرف، تطبیق studentId/grade و محدودیت IP |
+| GET | `/api/licenses/status` | licenseId؛ بدون نشست؛ اطلاعات محدود مجوز در پاسخ |
+
+### مسیرهای مدیریت
+مسیرهای زیر از `adminRoute()` عبور می‌کنند و قبل از عملیات مدیریتی، نشست مدیر بررسی می‌شود؛ مسیرهای login، logout و session استثناهای جداگانه دارند:
+
+- `POST /api/admin/login`
+- `POST /api/admin/logout`
+- `GET /api/admin/session`
+- `POST /api/admin/sessions/revoke-all`
+- `GET /api/metrics`
+- `GET /api/metrics/alerts`
+- `GET, POST /api/admin/students`
+- `POST /api/admin/students/import`
+- `POST /api/admin/students/archive`
+- `GET, POST /api/admin/codes`
+- `POST /api/admin/codes/revoke`
+- `GET /api/admin/licenses`
+- `POST /api/admin/licenses/revoke`
+- `POST /api/admin/licenses/extend` — فعلاً با پاسخ 501 غیرفعال
+- `GET /api/admin/payments`
+- `GET /api/admin/audit`
+- `GET /api/admin/search`
+
+**نکته معماری:** در master بررسی‌شده، جریان ورود/ثبت‌نام مستقل دانش‌آموزیِ مبتنی بر حساب و نشست که در PR #97 پیشنهاد شده، در dispatch فعال Worker مشاهده نشد. نباید PR باز را قابلیت مستقرشده فرض کرد. این موضوع برای طراحی APK/EXE و همگام‌سازی باید پیش از هر توسعه تعیین تکلیف شود.
+
+## ۱۰. پوشش آزمون Worker — بررسی ایستا
+
+فایل `worker-activation-test.js`:
+- از SQLite حافظه‌ای و adapter شبیه‌ساز D1 استفاده می‌کند.
+- ثبت موفق، ثبت تکراری، تعارض شناسه/پایه، فعال‌سازی با دانش‌آموز اشتباه، حساب ثبت‌نشده، کد قدیمی بدون اتصال به دانش‌آموز و پایه اشتباه را بررسی می‌کند.
+- آزمون‌هایی برای برخی عملیات مدیریتی و امضای مجوز دارد.
+- helper آزمون به‌طور پیش‌فرض Origin مجاز را در درخواست‌ها قرار می‌دهد.
+
+مواردی که در بررسی ایستای این فایل پوشش مشخصی برایشان دیده نشد:
+- ثبت‌نام با Origin جعلی از یک کلاینت غیرمرورگری؛
+- درخواست‌های مدیریتی ساده با `text/plain` و نشست معتبر از مبدأ غیرمجاز؛
+- آزمون CSRF در مرورگر واقعی؛
+- آزمون هم‌زمانی واقعی D1 برای مصرف یک کد؛
+- آزمون واقعی Cloudflare D1 در محیط ایزوله؛
+- آزمون افشای داده از مسیر status با licenseId افشاشده؛
+- آزمون جامع BOLA/IDOR برای تمام منابع و شناسه‌ها.
+
+این فهرست بر اساس فایل آزمون خوانده‌شده است و به معنی اثبات نبودن چنین آزمون‌هایی در تمام workflowها یا PRهای دیگر نیست؛ باید پس از بررسی CI و PRهای مرتبط تکمیل شود.
+
+## ۱۱. وضعیت به‌روزرسانی سند در GitHub
+
+- فایل `SECURITY_AUDIT_PROGRESS.md` در شاخه `docs/security-audit-roadmap-20261115` ثبت شد.
+- Commit آخر این گزارش: `7b520fcbcb53db460fbb9f8336d08c9cd805562`.
+- PR #112 به‌روزرسانی شد تا هر دو فایل و یافته‌های اولیه را معرفی کند.
+- PR #112 همچنان Draft و ادغام‌نشده است.
+- هیچ کد اجرایی یا تنظیم Production تغییر نکرده است.
