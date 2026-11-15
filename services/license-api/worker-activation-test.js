@@ -103,6 +103,36 @@ async function main() {
     const adminCookie = String(adminLogin.headers.get("set-cookie") || "").split(";")[0];
     assert.match(adminCookie, /^tahouri_admin_session=/);
 
+    // CSRF regression: a valid admin session must not authorize cross-origin mutations.
+    const codeCountBeforeCsrf = Number(db.prepare("SELECT COUNT(*) AS count FROM activation_codes").get().count);
+    const csrfBody = JSON.stringify({ gradeId: "grade6", academicYear: String(currentIranianYear()), count: 1 });
+    const crossOriginMutation = await worker.fetch(new Request("https://api.example.test/api/admin/codes", {
+        method: "POST",
+        headers: { "content-type": "application/json", "origin": "https://attacker.example", "cookie": adminCookie },
+        body: csrfBody
+    }), env);
+    assert.equal(crossOriginMutation.status, 403,
+        "An authenticated admin mutation from an untrusted Origin must be rejected.");
+
+    const missingOriginMutation = await worker.fetch(new Request("https://api.example.test/api/admin/codes", {
+        method: "POST",
+        headers: { "content-type": "application/json", "cookie": adminCookie },
+        body: csrfBody
+    }), env);
+    assert.equal(missingOriginMutation.status, 403,
+        "An authenticated browser admin mutation without Origin must be rejected.");
+
+    const simpleContentTypeMutation = await worker.fetch(new Request("https://api.example.test/api/admin/codes", {
+        method: "POST",
+        headers: { "content-type": "text/plain", "origin": env.ADMIN_ORIGIN, "cookie": adminCookie },
+        body: csrfBody
+    }), env);
+    assert.equal(simpleContentTypeMutation.status, 415,
+        "Admin mutations must reject simple text/plain content types.");
+
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM activation_codes").get().count), codeCountBeforeCsrf,
+        "Rejected CSRF attempts must not create activation codes.");
+
     const registrationProfile = { studentId: "auto-register-profile", fullName: "پروفایل خودکار", gradeId: "grade6" };
     const publicRegistration = await request(worker, env, "/api/students/register", "POST", registrationProfile);
     assert.equal(publicRegistration.status, 410,
@@ -281,6 +311,32 @@ async function main() {
     });
     assert.equal(wrongGrade.status, 400);
     assert.equal(db.prepare("SELECT status FROM activation_codes WHERE code_hash = ?").get(codeHash).status, "active");
+
+    // Simulate another request consuming the code just before this request's D1 batch.
+    const raceCode = "THR-RACE-" + year + "-TEST";
+    const raceHash = await sha256(raceCode);
+    db.prepare("UPDATE student_accounts SET activation_status = 'inactive' WHERE student_id = 'student-2'").run();
+    db.prepare("INSERT INTO activation_codes (code_hash, code_preview, product_id, student_id, grade_id, academic_year, renewal_mode, status, created_at) VALUES (?, ?, 'tahouri-edu', 'student-2', 'grade6', ?, 'promotion', 'active', ?)")
+        .run(raceHash, "RACE…TEST", String(year), new Date().toISOString());
+    const originalBatch = D1.batch;
+    let injectConcurrentConsumption = true;
+    D1.batch = async statements => {
+        if (injectConcurrentConsumption) {
+            injectConcurrentConsumption = false;
+            db.prepare("UPDATE activation_codes SET status = 'used', used_at = ?, license_id = 'lic_concurrent_winner' WHERE code_hash = ? AND status = 'active'")
+                .run(new Date().toISOString(), raceHash);
+        }
+        return originalBatch.call(D1, statements);
+    };
+    const raceLoser = await request(worker, env, "/api/licenses/activate", "POST", {
+        code: raceCode, gradeId: "grade6", studentId: "student-2", installationId: "install-race-loser"
+    });
+    D1.batch = originalBatch;
+    assert.equal(raceLoser.status, 409, "A request that loses the one-time-code race must be rejected.");
+    assert.equal(db.prepare("SELECT activation_status FROM student_accounts WHERE student_id = 'student-2'").get().activation_status, "inactive",
+        "A losing activation race must not mark the student account as activated.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM licenses WHERE code_hash = ?").get().count), 0,
+        "A losing activation race must not create a license.");
 
     const activated = await request(worker, env, "/api/licenses/activate", "POST", {
         code, gradeId: "grade6", studentId: "student-1", installationId: "install-1"
