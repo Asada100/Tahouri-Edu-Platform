@@ -46,6 +46,24 @@ jobs:
       - name: Cloudflare Worker student registry and bound activation test
         run: node worker-activation-test.js
 
+      - name: Install isolated browser test runner
+        run: |
+          npm install --no-save --package-lock=false playwright@1.56.1
+          npx playwright install --with-deps chromium
+
+      - name: Admin browser end-to-end import and activation test
+        run: |
+          node admin-browser-e2e-server.mjs > "$RUNNER_TEMP/tahouri-browser-e2e-server.log" 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if node -e 'fetch("http://127.0.0.1:8787/__test/health").then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))'; then
+              break
+            fi
+            sleep 1
+          done
+          node admin-browser-e2e-test.mjs
+
       - name: Client license safety test
         run: node client-license-safety-test.js
 
