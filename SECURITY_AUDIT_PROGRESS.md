@@ -487,3 +487,55 @@ Worker آزمایشی `tahouri-activation-race-test-20261115` پس از تکمی
 
 ### ۱۹.۴. وضعیت
 سطح دسترسی عمومی endpoint آزمایشی بسته شد و با GET مجدد Cloudflare API تأیید شد. منابع تستی حفظ شده‌اند. هیچ PR merge نشده است.
+
+
+## ۲۰. بازپایه‌گذاری اصلاحات entitlement از PR #102 — ۱۵ نوامبر ۲۰۲۶
+
+### ۲۰.۱. وضعیت شاخه قدیمی
+PR #102 با عنوان Harden signed entitlement profile and device validation روی شاخه `fix/strict-signed-entitlement-activation` نسبت به master جاری واگرا بود:
+- ahead: 5 commits
+- behind: 6 commits
+- merge base: `d865f8cfa3cb9fdf96888eb3ba4c1c0776030255`
+بنابراین ادغام مستقیم یا جایگزینی کامل فایل‌های آن امن نبود.
+
+### ۲۰.۲. بازسازی روی master جاری
+شاخه مستقل `security/rebased-entitlement-hardening-20261115` دقیقاً از master با SHA `9ee93702314d56203cd436a9a6f55bb6cb44cc70` ساخته شد. تغییرات به‌صورت انتخابی روی نسخه فعلی فایل‌ها اعمال شدند؛ نسخه verifier v1.4 و اصلاحات جدیدتر master حفظ شدند.
+
+PR جدید: [#117](https://github.com/Asada100/Tahouri-Edu-Platform/pull/117)
+
+هفت فایل مرتبط تغییر کردند:
+- `engine/core/licenseManager.js`
+- `engine/core/tahouriEntitlementVerifier.js`
+- `index.html`
+- `services/license-api/client-entitlement-verifier-test.js`
+- `services/license-api/client-license-safety-test.js`
+- `services/license-api/client-profile-activation-test.js`
+- `services/license-api/license-manager-mode-test.js`
+
+### ۲۰.۳. تغییرات امنیتی
+- همه claimهای ضروری با نوع string و مقدار غیرخالی الزامی شدند: licenseId، academicYear، gradeScope، studentId، installationBinding، validFrom و validUntil.
+- پایه و دانش‌آموز entitlement با پروفایل فعال تطبیق داده می‌شوند؛ نبودن پروفایل یا اختلاف پایه/شناسه موجب رد می‌شود.
+- installationBinding باید دقیقاً با شناسه نصب همین دستگاه برابر باشد.
+- بازه زمانی باید قابل‌تفسیر باشد و validFrom قبل از validUntil قرار گیرد.
+- ذخیره entitlement فقط بعد از پایان موفق همه بررسی‌ها انجام می‌شود.
+- نسخه verifier از 1.4 به 1.5 تغییر کرد و query نسخه در `index.html` نیز ارتقا یافت تا cache مرورگر نسخه قبلی را تحویل ندهد.
+- fixtureهای آزمون رمزنگاری و فعال‌سازی کلاینت با installationBinding معتبر هماهنگ شدند.
+
+Worker جاری master از قبل `installationBinding: installationId` را در claims امضاشده صادر می‌کرد؛ بنابراین تغییر قرارداد سمت سرور یا migration لازم نبود.
+
+### ۲۰.۴. آزمون‌ها
+برای commit نهایی `5165d061a410dee733e8036c1a72ca4e0bf7ac32`:
+- License API CI #895: **PASS**؛ همه ۱۵ مرحله اصلی موفق.
+- Word Puzzle Drag Path Checks #227: **PASS**.
+- PR Preview Package #289: **PASS**.
+
+آزمون‌های جدید مسیر entitlement معتبر و حالت‌های ردشده شامل پایه اشتباه/خالی، دانش‌آموز اشتباه/خالی، دستگاه اشتباه/خالی، سال تحصیلی ناقص، شناسه مجوز ناقص و بازه زمانی نامعتبر را پوشش می‌دهند. تست profile-aware بررسی می‌کند که حالت‌های ردشده هیچ write اضافه‌ای انجام ندهند.
+
+Compare شاخه جدید با master: ahead 9 / behind 0، دقیقاً ۷ فایل تغییرکرده.
+
+### ۲۰.۵. تصمیم و ایمنی
+- PR #117 باز و Draft است، mergeable=true و merged=false.
+- PR قدیمی #102 باز و بدون merge باقی مانده؛ comment آن را به PR جایگزین #117 ارجاع می‌دهد.
+- هیچ Production Worker/D1، Secret یا داده دانش‌آموز تغییر نکرد.
+- هیچ فایل محلی کاربر تغییر نکرد.
+- هنوز آزمون مستقل مرورگر واقعی روی دستگاه کاربر انجام نشده؛ CI و تست‌های شبیه‌سازی‌شده PASS هستند و این محدودیت باید پیش از فعال‌سازی Production در نظر گرفته شود.
