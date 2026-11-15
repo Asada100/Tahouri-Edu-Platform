@@ -67,3 +67,38 @@ jobs:
         run: npm run migration-test
       - name: Backup and recovery verification
         run: npm run backup-recovery-test
+
+  isolated-d1-worker-http-e2e:
+    name: Isolated Cloudflare Worker HTTP race test
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify isolated Worker health and D1 binding
+        run: |
+          curl --fail-with-body --silent --show-error \
+            "https://tahouri-activation-race-test-20261115.asadtahouri1986.workers.dev/health" \
+            | jq -e '.ok == true and .presentTables == .expectedTables'
+
+      - name: Run ten concurrent activation races through the deployed Worker
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 10); do
+            response="$(curl --fail-with-body --silent --show-error \
+              -X POST \
+              -H "content-type: application/json" \
+              --data '{}' \
+              "https://tahouri-activation-race-test-20261115.asadtahouri1986.workers.dev/run")"
+            echo "$response" | jq -e '
+              .ok == true and
+              (.outcomes | map(select(.status == 200)) | length) == 1 and
+              (.outcomes | map(select(.status == 409)) | length) == 1 and
+              (.outcomes | map(select(.status == 200))[0].changes == [1,1,1,1]) and
+              (.outcomes | map(select(.status == 409))[0].changes == [0,0,0,0]) and
+              .finalState.licenseCount == 1 and
+              .finalState.auditCount == 1 and
+              .finalState.studentActivationStatus == "active" and
+              .finalState.activationCode.status == "used" and
+              ([.assertions[]] | all)
+            ' >/dev/null
+            echo "Worker HTTP race iteration $attempt/10: PASS"
+          done
