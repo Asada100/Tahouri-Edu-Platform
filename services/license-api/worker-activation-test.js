@@ -296,7 +296,14 @@ async function main() {
 
     const status = await request(worker, env, "/api/licenses/status?licenseId=" + encodeURIComponent(stored.license_id), "GET");
     assert.equal(status.status, 200);
-    assert.equal((await status.json()).valid, true);
+    const statusBody = await status.json();
+    assert.deepEqual(statusBody, { ok: true, valid: true },
+        "Public license status must not disclose student identity, grade, academic year, or validity dates.");
+    assert.equal(
+        db.prepare("SELECT status FROM licenses WHERE license_id = ?").get(stored.license_id).status,
+        "active",
+        "A status GET must not change the license record."
+    );
 
     const duplicate = await request(worker, env, "/api/licenses/activate", "POST", {
         code, gradeId: "grade6", studentId: "student-2", installationId: "install-2"
@@ -305,7 +312,8 @@ async function main() {
 
     db.prepare("UPDATE licenses SET status = 'revoked' WHERE license_id = ?").run(stored.license_id);
     const revoked = await request(worker, env, "/api/licenses/status?licenseId=" + encodeURIComponent(stored.license_id), "GET");
-    assert.equal((await revoked.json()).valid, false);
+    assert.deepEqual(await revoked.json(), { ok: true, valid: false },
+        "Revoked and unknown licenses must have the same public response shape.");
 
     const futureStudent = "student-future";
     const now = Date.now();
@@ -344,8 +352,26 @@ async function main() {
     assert.equal(futureStatus.status, 200);
     const futureStatusBody = await futureStatus.json();
     assert.equal(futureStatusBody.valid, false);
-    assert.equal(futureStatusBody.reason, "future",
-        "A future-dated reservation must not be reported as currently active.");
+    assert.deepEqual(futureStatusBody, { ok: true, valid: false },
+        "A future-dated reservation must not be reported as currently active or disclose its state.");
+
+    const dueFutureLicenseId = "lic_due_future_readonly_test";
+    db.prepare("INSERT INTO licenses (license_id, product_id, student_id, grade_id, academic_year, valid_from, valid_until, installation_binding, status, entitlement_json, created_at) VALUES (?, 'tahouri-edu', ?, 'grade6', ?, ?, ?, ?, 'future', '{}', ?)")
+        .run(dueFutureLicenseId, futureStudent, String(year),
+            new Date(now - 86400000).toISOString(), new Date(now + 86400000).toISOString(),
+            "install-future", new Date().toISOString());
+    const dueFutureStatus = await request(worker, env,
+        "/api/licenses/status?licenseId=" + encodeURIComponent(dueFutureLicenseId), "GET");
+    assert.equal(dueFutureStatus.status, 200);
+    assert.deepEqual(await dueFutureStatus.json(), { ok: true, valid: true },
+        "A future status whose validity window has begun must be effective without a write.");
+    assert.equal(db.prepare("SELECT status FROM licenses WHERE license_id = ?").get(dueFutureLicenseId).status,
+        "future", "GET must not persist a future-to-active status transition.");
+    const repeatedDueFutureStatus = await request(worker, env,
+        "/api/licenses/status?licenseId=" + encodeURIComponent(dueFutureLicenseId), "GET");
+    assert.deepEqual(await repeatedDueFutureStatus.json(), { ok: true, valid: true });
+    assert.equal(db.prepare("SELECT status FROM licenses WHERE license_id = ?").get(dueFutureLicenseId).status,
+        "future", "Repeated GET requests must remain read-only.");
 
     const repeatCode = "THR-GRADE6-" + (year + 1) + "-REPEAT-TEST";
     const repeatHash = await sha256(repeatCode);
