@@ -96,7 +96,7 @@ async function main() {
     assert.match(adminScriptText, /document\.addEventListener/);
     assert.match(adminScriptText, /async function importStudentsFile/);
     assert.match(adminScriptText, /\/api\/admin\/students\/import/);
-    assert.match(adminScriptText, /credentials:\\?"include\\?"/,
+    assert.match(adminScriptText, /credentials:"include"/,
         "The profile import client must send the authenticated admin session.");
 
     const publicKeyResponse = await request(worker, env, "/api/public-key", "GET");
