@@ -703,3 +703,23 @@ Head نهایی فعلی PR #120: `da4d0c79893c48d98ceb38cc5a023462179808c5`.
 - Word Puzzle Drag Path Checks #238: **PASS**.
 
 این شاخه اکنون اصلاحات #113، #114، #115، #117، #118 و #119 را یکپارچه می‌کند؛ همه PRهای اصلی باز و بدون merge باقی می‌مانند. هیچ Production Worker، D1، secret، کلید یا داده دانش‌آموز تغییر نکرده است.
+
+
+### ۲۱.۱۰. تأیید مسیر واقعی ورود پروفایل در پنل مدیریت
+
+بازبینی فایل‌های جداگانه `services/license-api/admin/*` به‌تنهایی کافی نبود؛ Worker صفحه مدیریت خود را از ثابت‌های `ADMIN_HTML` و `ADMIN_JS` در `worker.js` سرو می‌کند. نسخه Worker شاخه ترکیبی بررسی شد:
+- پنل مدیریت دارای ورودی فایل JSON با شناسه `studentProfilesFile` و دکمه `importStudentsFile` است.
+- تابع `importStudentsFile()` ساختار export طهوری را بررسی می‌کند و درخواست را به `POST /api/admin/students/import` می‌فرستد.
+- helper درخواست، `credentials: include` و `Content-Type: application/json` می‌فرستد؛ بنابراین با CSRF guard جدید سازگار است.
+- `loadStudents()` فهرست حساب‌ها را می‌خواند و حساب را برای ساخت کد فعال‌سازی در select قرار می‌دهد.
+- آزمون Worker اکنون وجود دکمه و file input، تابع import، endpoint و ارسال نشست مدیر را بررسی می‌کند؛ همچنین import مدیریتی واقعی در محیط تست موفق است.
+
+نتیجه head نهایی `f7c9cda742d23962f7326d377cac9fd79798fe0c`:
+- License API CI #941: **PASS**
+- Worker activation integration: **PASS**؛ شامل CSRF، race loser، enrollment shutdown، admin import، status read-only/privacy و due-future.
+- Client safety، entitlement/profile activation، production key/health/D1 readiness، migration و backup/recovery: **PASS**
+- PR Preview Package #312: **PASS**
+- Word Puzzle Drag Path Checks #240: **PASS**
+- PR #120: 21 commit جلو / صفر عقب؛ 14 فایل؛ Draft، mergeable=true، merged=false.
+
+این مرحله وجود و سازگاری مسیر ورود پروفایل در پنل را از نظر کد و آزمون خودکار تأیید می‌کند؛ ورود واقعی فایل روی مرورگر/دستگاه کاربر هنوز تست نشده است.
