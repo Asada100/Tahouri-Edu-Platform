@@ -342,7 +342,7 @@ async function main() {
     };
     const archiveRaceLoser = await request(worker, env, "/api/licenses/activate", "POST", {
         code: archiveRaceCode, gradeId: "grade6", studentId: archiveRaceStudent, installationId: "install-archive-race"
-    });
+    }, "https://asada100.github.io", "203.0.113.99");
     D1.batch = originalArchiveBatch;
     assert.equal(archiveRaceLoser.status, 409, "An account archived immediately before the activation batch must be rejected.");
     assert.equal(db.prepare("SELECT status FROM activation_codes WHERE code_hash = ?").get(archiveRaceHash).status, "active",
