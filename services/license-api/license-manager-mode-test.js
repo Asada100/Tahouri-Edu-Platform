@@ -182,6 +182,53 @@ async function main() {
     assert.equal(manager.isGradeActivated("grade6", studentB.studentId), false,
         "A missing grade binding must not authorize a profile.");
 
+    // Remote activation must validate all signed bindings before storage.
+    let activationWrites = 0;
+    let activationPayload = null;
+    window.TahouriEntitlementStore.write = item => {
+        activationWrites++;
+        return Boolean(item && item.claims);
+    };
+    window.TahouriLicenseClient.activate = async payload => {
+        activationPayload = payload;
+        const validClaims = makeClaims(payload.studentId, payload.gradeId, "lic_activation_valid");
+        validClaims.installationBinding = payload.installationId;
+        return { valid: true, entitlement: envelope(validClaims) };
+    };
+
+    const validActivation = await manager.activateRemote("THR-TEST-CODE", "grade6", studentB.studentId);
+    assert.equal(validActivation.valid, true,
+        "A fully bound signed entitlement must activate successfully.");
+    assert.equal(activationWrites, 1,
+        "A valid entitlement must be persisted exactly once.");
+    assert.equal(activationPayload.studentId, studentB.studentId);
+    assert.equal(activationPayload.gradeId, "grade6");
+
+    const rejectedClaims = [
+        { label: "missing grade", mutate: c => { c.gradeScope = ""; } },
+        { label: "wrong grade", mutate: c => { c.gradeScope = "grade5"; } },
+        { label: "missing student", mutate: c => { c.studentId = ""; } },
+        { label: "wrong student", mutate: c => { c.studentId = studentA.studentId; } },
+        { label: "missing installation", mutate: c => { c.installationBinding = ""; } },
+        { label: "wrong installation", mutate: c => { c.installationBinding = "another-installation"; } },
+        { label: "missing academic year", mutate: c => { c.academicYear = ""; } },
+        { label: "missing license ID", mutate: c => { c.licenseId = ""; } },
+        { label: "invalid date range", mutate: c => { c.validFrom = new Date(Date.now() + 86400000).toISOString(); c.validUntil = new Date(Date.now() - 60000).toISOString(); } }
+    ];
+    for (const scenario of rejectedClaims) {
+        window.TahouriLicenseClient.activate = async payload => {
+            const claims = makeClaims(payload.studentId, payload.gradeId, "lic_rejected_" + scenario.label.replace(/ /g, "_"));
+            claims.installationBinding = payload.installationId;
+            scenario.mutate(claims);
+            return { valid: true, entitlement: envelope(claims) };
+        };
+        const rejected = await manager.activateRemote("THR-TEST-CODE", "grade6", studentB.studentId);
+        assert.equal(rejected.valid, false,
+            "Remote activation must reject " + scenario.label + " claims.");
+        assert.equal(activationWrites, 1,
+            "Rejected " + scenario.label + " claims must never be persisted.");
+    }
+
     console.log("License Manager mode and entitlement test: PASS");
 }
 
