@@ -2,7 +2,10 @@ name: PR Preview Package
 
 on:
   pull_request:
-    branches: [master]
+    branches:
+      - master
+      - integration/security-release-gates-117-118-119-20261115
+      - fix/integrated-production-public-key-pin-20261116
     types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches:
