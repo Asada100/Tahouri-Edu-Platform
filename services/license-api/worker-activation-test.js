@@ -153,7 +153,7 @@ async function main() {
         headers: { "origin": env.ADMIN_ORIGIN, "cookie": adminCookie }
     }), env);
     assert.equal(listedStudents.status, 200);
-    assert.equal((await listedStudents.json()).students.length, 5, "The automatic registration should appear alongside four imported profiles.");
+    assert.equal((await listedStudents.json()).students.length, 4, "Only the four administrator-imported profiles should appear; public enrollment must not create accounts.");
 
     const manualProfile = {
         studentId: "manual-student-uuid-0001",
