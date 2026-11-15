@@ -675,3 +675,31 @@ Head پس از اصلاحات: `36d42e8d7b1624e7b7c3497047d422c2bbc4b509`.
 - PR #120: 16 commit جلو / صفر عقب، 13 فایل، mergeable=true، Draft، merged=false.
 
 در این نسخه، اصلاح read-only/privacy مربوط به PR #114 نیز همراه #117، #118 و #119 در همان شاخه ترکیبی آزمایش شده است. هیچ‌یک از PRهای اصلی merge نشده‌اند.
+
+
+### ۲۱.۹. ادغام CSRF و رفع race فعال‌سازی — آزمون نهایی
+
+در ادامه بازبینی، دو کنترل از PRهای #113 و #115 نیز به شاخه یکپارچه #120 اضافه شد؛ زیرا master جاری آن‌ها را نداشت و صرف وجود PRهای مستقل به معنی اعمال‌شدن آن‌ها نبود.
+
+**CSRF (#113):**
+- تمام POSTهای مدیریتی به Origin مجاز نیاز دارند.
+- همه mutationهای مدیریتی فقط `application/json` می‌پذیرند؛ login/logout نیز Origin و JSON را بررسی می‌کنند.
+- تست‌های نشست معتبر با Origin مهاجم، Origin مفقود و `text/plain` را رد می‌کنند و ثابت می‌کنند هیچ activation code ساخته نمی‌شود.
+- تست global session revocation با Content-Type جدید هماهنگ شد.
+
+**Activation race (#115):**
+- تغییر `student_accounts.activation_status` فقط وقتی انجام می‌شود که license ساخته‌شده با همان `licenseId` و `studentId` در D1 وجود داشته باشد.
+- موفقیت هر چهار statement batch بررسی می‌شود.
+- تست race با تزریق مصرف هم‌زمان کد توسط درخواست برنده، اثبات می‌کند درخواست بازنده 409 می‌گیرد، license نمی‌سازد و حساب دانش‌آموز را فعال نمی‌کند.
+
+Head نهایی فعلی PR #120: `da4d0c79893c48d98ceb38cc5a023462179808c5`.
+- License API CI #937: **PASS**؛ همه مراحل اصلی.
+- CSRF tests و global session revocation: **PASS**.
+- Worker activation integration (شامل race loser و public enrollment shutdown و read-only status): **PASS**.
+- Client safety و entitlement/profile activation: **PASS**.
+- Production public-key و health/D1 readiness: **PASS**.
+- Migration و backup/recovery: **PASS**.
+- PR Preview Package #309: **PASS**.
+- Word Puzzle Drag Path Checks #238: **PASS**.
+
+این شاخه اکنون اصلاحات #113، #114، #115، #117، #118 و #119 را یکپارچه می‌کند؛ همه PRهای اصلی باز و بدون merge باقی می‌مانند. هیچ Production Worker، D1، secret، کلید یا داده دانش‌آموز تغییر نکرده است.
