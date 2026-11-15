@@ -79,6 +79,12 @@ try {
   assert.equal(studentsResponse.status(), 200);
   const studentsBody = await studentsResponse.json();
   assert.equal(studentsBody.students.length, 4, "Duplicate import must not duplicate student accounts.");
+  const storedProfileOne = studentsBody.students.find(student => student.studentId === "synthetic-student-01");
+  assert.ok(storedProfileOne);
+  for (const field of ["totalScore", "totalActivities", "currentStreak", "settings"]) {
+    assert.equal(Object.hasOwn(storedProfileOne, field), false,
+      "Profile import must not transfer local game progress or settings into the license registry: " + field);
+  }
 
   const academicYear = "1405";
   const installOne = "browser-e2e-installation-one";
