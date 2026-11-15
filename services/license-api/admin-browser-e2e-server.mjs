@@ -67,6 +67,7 @@ const server = createServer(async (incoming, outgoing) => {
     }
     const method = incoming.method || "GET";
     const headers = new Headers(incoming.headers);
+    for (const name of ["host", "connection", "content-length", "transfer-encoding", "accept-encoding"]) headers.delete(name);
     if (!headers.has("cf-connecting-ip")) headers.set("cf-connecting-ip", "127.0.0.1");
     const body = ["GET", "HEAD"].includes(method) ? undefined : await readBody(incoming);
     const request = new Request("http://127.0.0.1:8787" + incoming.url, {
