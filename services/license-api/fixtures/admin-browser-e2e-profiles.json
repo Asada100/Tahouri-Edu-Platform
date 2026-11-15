@@ -1,0 +1,11 @@
+{
+  "format": "tahouri-student-profiles",
+  "version": 1,
+  "exportedAt": "2026-11-15T00:00:00.000Z",
+  "profiles": [
+    { "studentId": "synthetic-student-01", "fullName": "دانش‌آموز آزمایشی یک", "gradeId": "grade6" },
+    { "studentId": "synthetic-student-02", "fullName": "دانش‌آموز آزمایشی دو", "gradeId": "grade6" },
+    { "studentId": "synthetic-student-03", "fullName": "دانش‌آموز آزمایشی سه", "gradeId": "grade5" },
+    { "studentId": "synthetic-student-04", "fullName": "دانش‌آموز آزمایشی چهار", "gradeId": "grade4" }
+  ]
+}
