@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Service Configuration
-// Version 1.2
+// Version 1.3
 // =====================================
 // Central configuration only.
 // No secret belongs in this file.
@@ -25,5 +25,5 @@
 
     window.TahouriServiceConfig = Object.freeze(CONFIG);
 
-    console.log("Tahouri Service Config v1.2 Ready");
+    console.log("Tahouri Service Config v1.3 Ready");
 })();
