@@ -104,15 +104,22 @@ async function main() {
     assert.match(adminCookie, /^tahouri_admin_session=/);
 
     const registrationProfile = { studentId: "auto-register-profile", fullName: "پروفایل خودکار", gradeId: "grade6" };
-    const autoRegistered = await request(worker, env, "/api/students/register", "POST", registrationProfile);
-    assert.equal(autoRegistered.status, 201, "A newly created app profile must register in D1 automatically.");
-    assert.equal((await autoRegistered.json()).activationStatus, "inactive");
-    assert.equal(db.prepare("SELECT activation_status FROM student_accounts WHERE student_id = ?").get(registrationProfile.studentId).activation_status, "inactive");
-    const duplicateRegistration = await request(worker, env, "/api/students/register", "POST", registrationProfile);
-    assert.equal(duplicateRegistration.status, 200, "Repeated startup sync must be idempotent.");
-    assert.equal((await duplicateRegistration.json()).alreadyRegistered, true);
-    const registrationConflict = await request(worker, env, "/api/students/register", "POST", { ...registrationProfile, gradeId: "grade5" });
-    assert.equal(registrationConflict.status, 409, "Registration must reject identity conflicts.");
+    const publicRegistration = await request(worker, env, "/api/students/register", "POST", registrationProfile);
+    assert.equal(publicRegistration.status, 410,
+        "Public profile enrollment must be disabled and require an authenticated administrator import.");
+    assert.deepEqual(await publicRegistration.json(), {
+        ok: false,
+        code: "enrollment_requires_admin",
+        message: "ثبت عمومی پروفایل غیرفعال است؛ ورود پروفایل باید از پنل مدیریت انجام شود."
+    });
+    const repeatedPublicRegistration = await request(worker, env, "/api/students/register", "POST", registrationProfile);
+    assert.equal(repeatedPublicRegistration.status, 410, "Repeated public enrollment attempts must remain disabled.");
+    const publicRegistrationGet = await request(worker, env, "/api/students/register", "GET");
+    assert.equal(publicRegistrationGet.status, 410, "The retired public enrollment route must not expose another method.");
+    assert.equal(db.prepare("SELECT COUNT(*) AS count FROM student_accounts WHERE student_id = ?").get(registrationProfile.studentId).count, 0,
+        "Public enrollment attempts must not create student accounts.");
+    assert.equal(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'student.registered'").get().count, 0,
+        "Public enrollment attempts must not write student registration audit events.");
 
     const importedProfiles = [
         { studentId: "worker-test-student", fullName: "آزمایش دانش‌آموز", gradeId: "grade6" },
