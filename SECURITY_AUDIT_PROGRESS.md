@@ -723,3 +723,26 @@ Head نهایی فعلی PR #120: `da4d0c79893c48d98ceb38cc5a023462179808c5`.
 - PR #120: 21 commit جلو / صفر عقب؛ 14 فایل؛ Draft، mergeable=true، merged=false.
 
 این مرحله وجود و سازگاری مسیر ورود پروفایل در پنل را از نظر کد و آزمون خودکار تأیید می‌کند؛ ورود واقعی فایل روی مرورگر/دستگاه کاربر هنوز تست نشده است.
+
+
+### ۲۱.۱۱. بستن race میان بایگانی حساب و مصرف کد فعال‌سازی + اجرای واقعی handler پنل
+
+بازبینی ترتیب عملیات فعال‌سازی نشان داد preflight حساب فعال پیش از D1 batch کافی نیست: اگر حساب پس از preflight و درست پیش از batch بایگانی شود، statement مصرف کد باید خودش دوباره active بودن حساب را تضمین کند. اصلاح شد:
+- UPDATE مصرف کد اکنون علاوه بر active بودن و مصرف‌نشده بودن کد، وجود همان `student_id` در `student_accounts` با `status='active'` را در خود SQL اجباری می‌کند.
+- تست race جدید، بایگانی هم‌زمان را دقیقاً پس از preflight و قبل از اجرای batch تزریق می‌کند.
+- نتیجه مورد انتظار و تأییدشده: HTTP 409، کد همچنان active و مصرف‌نشده، صفر license، صفر audit event مربوط به activation.
+- تست race قبلی نیز همچنان تضمین می‌کند درخواست بازنده در رقابت مصرف کد، حساب را فعال نمی‌کند و license نمی‌سازد.
+
+همچنین آزمون پنل از بررسی ایستا فراتر رفت و تابع واقعی `importStudentsFile()` در `ADMIN_JS` با DOM/fetch harness اجرا شد:
+- فایل JSON با قالب `tahouri-student-profiles` خوانده می‌شود.
+- POST احرازشده با `credentials: include` و `Content-Type: application/json` به endpoint واردسازی ارسال می‌شود.
+- پس از موفقیت، فهرست دانش‌آموزان دوباره بارگذاری و شناسه پروفایل در جدول نمایش داده می‌شود.
+- ورودی فایل پاک و نتیجه واردسازی به مدیر اعلام می‌شود.
+
+Head نهایی PR #120: `f214157a468878fe65d9e26783ebc89d866c4227`.
+- License API CI #947: **PASS**؛ تمام مراحل، شامل Worker activation, admin UI import handler, CSRF, archive/activation race, entitlement, health/key/D1, migration و backup/restore.
+- Preview #314: **PASS**
+- Word Puzzle Checks #241: **PASS**
+- PR #120: 26 commit جلو / صفر عقب؛ 14 فایل؛ Draft، mergeable=true، merged=false.
+
+این UI harness اجرای واقعی handler و درخواست‌ها را در محیط Node شبیه‌سازی می‌کند؛ جایگزین آزمون مرورگر واقعی یا دستگاه گوشی/Windows نیست. هنوز هیچ داده واقعی پروفایل یا Production تغییر نکرده است.
