@@ -317,6 +317,11 @@ async function main() {
     const revoked = await request(worker, env, "/api/licenses/status?licenseId=" + encodeURIComponent(stored.license_id), "GET");
     assert.deepEqual(await revoked.json(), { ok: true, valid: false },
         "Revoked and unknown licenses must have the same public response shape.");
+    const unknownStatus = await request(worker, env,
+        "/api/licenses/status?licenseId=lic_unknown_privacy_test", "GET");
+    assert.equal(unknownStatus.status, 200);
+    assert.deepEqual(await unknownStatus.json(), { ok: true, valid: false },
+        "Unknown license IDs must be indistinguishable from revoked licenses.");
 
     const futureStudent = "student-future";
     const now = Date.now();
