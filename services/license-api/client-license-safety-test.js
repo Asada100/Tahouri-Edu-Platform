@@ -20,11 +20,15 @@ const store = read("engine/core/tahouriEntitlementStore.js");
 const manager = read("engine/core/licenseManager.js");
 const gate = read("engine/core/activationGate.js");
 
+const configuredPublicKeyMatch = serviceConfig.match(/publicKeyPem:\s*("[^"]*")/);
+assert(configuredPublicKeyMatch, "The service config must declare publicKeyPem.");
+const configuredPublicKey = JSON.parse(configuredPublicKeyMatch[1]);
 assert(
     serviceConfig.includes('mode: "production"') &&
     serviceConfig.includes('https://tahouri-license-api.asadtahouri1986.workers.dev/api') &&
-    serviceConfig.includes('publicKeyPem: ""'),
-    "The deployed client must use the production License API without embedding a private key."
+    !configuredPublicKey.includes("BEGIN PRIVATE KEY") &&
+    (!configuredPublicKey || configuredPublicKey.includes("BEGIN PUBLIC KEY")),
+    "The deployed client must use the production License API and may contain only a public verification key, never a private key."
 );
 
 assert(
