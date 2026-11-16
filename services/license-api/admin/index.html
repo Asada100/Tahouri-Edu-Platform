@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>پنل مدیریت طهوری</title>
-<link rel="stylesheet" href="/admin/admin.css">
+<link rel="stylesheet" href="/admin.css?v=20261030-1">
 </head>
 <body>
 <main>
@@ -16,62 +16,72 @@
 <section class="card" id="loginCard">
   <h2>ورود مدیر</h2>
   <p class="muted">دسترسی این صفحه فقط برای مدیر سرویس است.</p>
-  <div class="form-row"><input id="adminKey" type="password" autocomplete="current-password" placeholder="رمز مدیریت"><button onclick="login()">ورود</button></div>
+  <div class="form-row"><input id="adminKey" type="password" autocomplete="current-password" placeholder="رمز مدیریت"><button data-action="login">ورود</button></div>
   <div id="loginError" class="error" hidden></div>
 </section>
 
 <section id="panel" hidden>
   <div class="toolbar">
-    <button onclick="loadAll()">↻ به‌روزرسانی همه</button>
-    <button class="secondary" onclick="logout()">خروج</button>
+    <button data-action="loadAll">↻ به‌روزرسانی همه</button>
+    <button class="secondary" data-action="logout">خروج</button>
+    <button class="danger" data-action="revokeAllSessions">خروج از همه دستگاه‌ها</button>
   </div>
 
   <section class="stats" id="stats"></section>
   <section class="card" id="alertsCard" hidden><h2>هشدارهای عملیاتی</h2><div id="alerts"></div></section>
 
+  <section class="card">
+    <h2>اتصال پروفایل‌های موجود بازی</h2>
+    <p class="muted">فقط فایل خروجی پروفایل‌های طهوری را وارد کنید؛ شناسه‌ها حفظ می‌شوند و نمره‌ها و تنظیمات منتقل نمی‌شوند.</p>
+    <label>فایل فهرست پروفایل‌ها (JSON)<input id="studentProfilesFile" type="file" accept=".json,application/json"></label>
+    <button class="secondary" data-action="importStudentsFile">وارد کردن فهرست پروفایل‌ها</button>
+    <div id="students"></div>
+  </section>
+
   <section class="grid">
     <div class="card">
       <h2>ساخت کد فعال‌سازی</h2>
       <div class="form-grid">
+        <label>حساب دانش‌آموز<select id="studentId"><option value="">ابتدا فهرست را وارد کنید</option></select></label>
         <label>پایه<input id="grade" value="grade6"></label>
         <label>سال تحصیلی<input id="year" value="1405"></label>
         <label>تعداد<input id="count" type="number" min="1" max="100" value="5"></label>
         <label>نوع کد<select id="renewalMode"><option value="promotion" selected>پایه سال بعد</option><option value="repeat">تکرار پایه (مردودی)</option></select></label>
       </div>
-      <button onclick="createCodes()">ساخت کدهای جدید</button>
+      <button data-action="createCodes">ساخت کدهای جدید</button>
       <div id="newCodes" class="code-box" hidden></div>
     </div>
 
     <div class="card">
       <h2>لغو کد فعال‌سازی</h2>
       <p class="muted">کد کامل را وارد کنید. کدهای استفاده‌شده قابل لغو نیستند.</p>
-      <div class="form-row"><input id="revokeCode" placeholder="THR-GRADE6-1405-..."><button class="danger" onclick="revokeCode()">لغو کد</button></div>
+      <div class="form-row"><input id="revokeCode" placeholder="THR-GRADE6-1405-..."><button class="danger" data-action="revokeCode">لغو کد</button></div>
     </div>
   </section>
 
   <section class="card">
-    <div class="section-head"><h2>جست‌وجو</h2><button class="secondary" onclick="searchAll()">جست‌وجو</button></div>
-    <div class="form-row"><input id="searchQ" placeholder="شناسه مجوز، پروفایل یا پایه" onkeydown="if(event.key==='Enter')searchAll()"></div>
+    <div class="section-head"><h2>جست‌وجو</h2><button class="secondary" data-action="searchAll">جست‌وجو</button></div>
+    <div class="form-row"><input id="searchQ" placeholder="شناسه مجوز، پروفایل یا پایه" data-enter-action="searchAll"></div>
     <div id="searchResults"></div>
   </section>
 
-  <section class="card"><div class="section-head"><h2>کدهای فعال‌سازی</h2><button class="secondary" onclick="loadCodes()">به‌روزرسانی</button></div><div id="codes"></div></section>
+  <section class="card"><div class="section-head"><h2>کدهای فعال‌سازی</h2><button class="secondary" data-action="loadCodes">به‌روزرسانی</button></div><div id="codes"></div></section>
 
   <section class="card">
-    <div class="section-head"><h2>مجوزها</h2><button class="secondary" onclick="loadLicenses()">به‌روزرسانی</button></div>
+    <div class="section-head"><h2>مجوزها</h2><button class="secondary" data-action="loadLicenses">به‌روزرسانی</button></div>
     <div id="licenses"></div>
     <div class="action-box">
       <input id="licenseIdAction" placeholder="License ID">
       <input id="extendUntil" type="datetime-local">
-      <button onclick="extendLicense()">تمدید</button>
-      <button class="danger" onclick="revokeLicense()">لغو مجوز</button>
+      <button disabled title="تا تکمیل و آزمون امضای امن مجوز غیرفعال است">تمدید (فعلاً غیرفعال)</button>
+      <button class="danger" data-action="revokeLicense">لغو مجوز</button>
     </div>
   </section>
 
-  <section class="card"><div class="section-head"><h2>پرداخت‌ها</h2><button class="secondary" onclick="loadPayments()">به‌روزرسانی</button></div><div id="payments"></div></section>
-  <section class="card"><div class="section-head"><h2>گزارش عملیات</h2><button class="secondary" onclick="loadAudit()">به‌روزرسانی</button></div><div id="audit"></div></section>
+  <section class="card"><div class="section-head"><h2>پرداخت‌ها</h2><button class="secondary" data-action="loadPayments">به‌روزرسانی</button></div><div id="payments"></div></section>
+  <section class="card"><div class="section-head"><h2>گزارش عملیات</h2><button class="secondary" data-action="loadAudit">به‌روزرسانی</button></div><div id="audit"></div></section>
 </section>
 </main>
-<script src="/admin/admin.js"></script>
+<script src="/admin.js?v=20261030-1"></script>
 </body>
 </html>
