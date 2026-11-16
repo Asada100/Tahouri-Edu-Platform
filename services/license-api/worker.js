@@ -473,8 +473,21 @@ async function adminRoute(request, env, url, headers) {
   }
 
   if (path === "/api/metrics" && request.method === "GET") {
-    return json({ ok: true, metrics: { requests: 0, activations: 0, activationFailures: 0,
-      licenseRevocations: 0, responses5xx: 0, note: "آمار لحظه‌ای درخواست‌ها در این نسخه نگهداری نمی‌شود." } }, 200, headers);
+    const [activations, activationAttempts, licenseRevocations, activeLicenses, activeStudents] = await Promise.all([
+      env.DB.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type IN ('license.activated', 'license.renewal_reserved')").first(),
+      env.DB.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'activation.attempt'").first(),
+      env.DB.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'license.revoked'").first(),
+      env.DB.prepare("SELECT COUNT(*) AS count FROM licenses WHERE status = 'active'").first(),
+      env.DB.prepare("SELECT COUNT(*) AS count FROM student_accounts WHERE status = 'active' AND activation_status = 'active'").first()
+    ]);
+    return json({ ok: true, metrics: {
+      activations: Number(activations?.count || 0),
+      activationAttempts: Number(activationAttempts?.count || 0),
+      licenseRevocations: Number(licenseRevocations?.count || 0),
+      activeLicenses: Number(activeLicenses?.count || 0),
+      activeStudents: Number(activeStudents?.count || 0),
+      note: "آمار از گزارش عملیات و جداول زنده D1 خوانده می‌شود؛ درخواست‌ها و خطاهای 5xx در این نسخه ثبت نمی‌شوند."
+    } }, 200, headers);
   }
   if (path === "/api/metrics/alerts" && request.method === "GET") return json({ ok: true, alerts: [] }, 200, headers);
   if (path === "/api/admin/students" && request.method === "GET") {
