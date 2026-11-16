@@ -1,0 +1,106 @@
+name: Required PR Gate
+
+on:
+  pull_request:
+    branches: [master]
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  required-pr-gate:
+    name: required-pr-gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout pull request code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+
+      - name: License API release and security checks
+        working-directory: services/license-api
+        run: npm run release-check
+
+      - name: Cloudflare Worker session revocation checks
+        working-directory: services/license-api
+        run: node worker-session-revocation-test.mjs
+
+      - name: Cloudflare Worker activation checks
+        working-directory: services/license-api
+        run: node worker-activation-test.js
+
+      - name: Client license safety checks
+        working-directory: services/license-api
+        run: node client-license-safety-test.js
+
+      - name: Entitlement verifier checks
+        working-directory: services/license-api
+        run: npm run client-verifier-test
+
+      - name: Profile-aware entitlement regression checks
+        working-directory: services/license-api
+        run: node license-manager-mode-test.js
+
+      - name: Client profile activation checks
+        working-directory: services/license-api
+        run: npm run client-profile-activation-test
+
+      - name: Integration checks
+        working-directory: services/license-api
+        run: npm run integration-test
+
+      - name: Migration checks
+        working-directory: services/license-api
+        run: npm run migration-test
+
+      - name: Backup and recovery checks
+        working-directory: services/license-api
+        run: npm run backup-recovery-test
+
+      - name: Word Puzzle regression checks
+        run: |
+          node --check engine/wordPuzzle/wordPuzzleEngine.js
+          node --check engine/ui/wordPuzzleScreen.js
+          node --check tests/word-puzzle-drag-path.test.js
+          node tests/word-puzzle-drag-path.test.js
+
+      - name: Production public-key and readiness checks when included
+        if: ${{ hashFiles('services/license-api/production-public-key-smoke-test.mjs', 'services/license-api/production-public-key-pin-test.mjs') != '' }}
+        working-directory: services/license-api
+        run: |
+          if [ -f production-public-key-smoke-test.mjs ]; then node production-public-key-smoke-test.mjs; fi
+          if [ -f production-public-key-pin-test.mjs ]; then node production-public-key-pin-test.mjs; fi
+          if node -e 'const p=require("./package.json"); process.exit(p.scripts?.["production-readiness-smoke"] ? 0 : 1)'; then
+            npm run production-readiness-smoke
+          fi
+
+      - name: Admin browser E2E when included
+        if: ${{ hashFiles('services/license-api/admin-browser-e2e-test.mjs', 'services/license-api/admin-browser-e2e-server.mjs') != '' }}
+        working-directory: services/license-api
+        run: |
+          npm install --no-save --package-lock=false --ignore-scripts playwright@1.65.1
+          npx playwright install --with-deps chromium
+          node admin-browser-e2e-server.mjs > "$RUNNER_TEMP/tahouri-browser-e2e-server.log" 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if node -e 'fetch("http://127.0.0.1:8787/__test/health").then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))'; then
+              break
+            fi
+            sleep 1
+          done
+          node admin-browser-e2e-test.mjs
+
+      - name: Build static preview archive
+        run: |
+          zip -r "$RUNNER_TEMP/tahouri-pr-preview.zip" . \
+            -x ".git/*" \
+            -x "node_modules/*" \
+            -x ".github/*"
+          test -s "$RUNNER_TEMP/tahouri-pr-preview.zip"
