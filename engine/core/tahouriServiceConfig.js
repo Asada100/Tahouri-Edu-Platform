@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Service Configuration
-// Version 1.2
+// Version 1.3
 // =====================================
 // Central configuration only.
 // No secret belongs in this file.
@@ -20,10 +20,10 @@
 
         // The public key is served over HTTPS by the production License API.
         // Never place the private signing key in client-side files.
-        publicKeyPem: ""
+        publicKeyPem: "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvhmSKnBfAiOJHgZRY2ax\nA8YZA4ie0nAZ4r2ysABPjNS6RppjQ5gm4pZIy9d4Py+VFUohox/g5vURMqIUrhJJ\nqpDGWv4367EMsqqVWBkaryF9RRje4OGzz8KBdwOdPm1OJkXWoiK4IGXmpCRsR/2z\nv7Md5iJFvL2/h++pQjUbbsvQH3v4B3orAjhH/oC2WQcp55L5nboUKc3jcrK42hSL\nAmH2y8JXS4g0uXUrcbcxu0eJKk0abX0P3fdoxe24FK4TQty63XkZ/YbNSZ7zblz9\nyTswEEmYD3TJlebdZptYHtKfQuc4xooa/dAOwmUKPG3Iv91Isn84mMxzcnpirG9h\nIwIDAQAB\n-----END PUBLIC KEY-----"
     };
 
     window.TahouriServiceConfig = Object.freeze(CONFIG);
 
-    console.log("Tahouri Service Config v1.2 Ready");
+    console.log("Tahouri Service Config v1.3 Ready");
 })();

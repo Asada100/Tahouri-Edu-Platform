@@ -2,8 +2,16 @@ name: PR Preview Package
 
 on:
   pull_request:
-    branches: [master]
+    branches:
+      - master
+      - integration/security-release-gates-117-118-119-20261115
+      - fix/integrated-production-public-key-pin-20261116
     types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches:
+      - integration/security-release-gates-117-118-119-20261115
+      - fix/integrated-production-public-key-pin-20261116
+      - test/integrated-security-public-key-browser-e2e-20261116
   workflow_dispatch:
 
 permissions:
@@ -11,10 +19,11 @@ permissions:
 
 jobs:
   package-preview:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - name: Check out pull request code
-        uses: actions/checkout@v4
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
@@ -26,7 +35,7 @@ jobs:
             -x ".github/*"
 
       - name: Upload preview package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: tahouri-even-odd-sum-preview
           path: ${{ runner.temp }}/tahouri-preview.zip

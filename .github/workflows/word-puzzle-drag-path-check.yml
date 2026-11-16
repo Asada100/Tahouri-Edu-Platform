@@ -2,12 +2,26 @@ name: Word Puzzle Drag Path Checks
 
 on:
   pull_request:
-    branches: ["master"]
+    branches:
+      - master
+      - integration/security-release-gates-117-118-119-20261115
+      - fix/integrated-production-public-key-pin-20261116
     paths:
       - "engine/wordPuzzle/**"
       - "engine/ui/wordPuzzleScreen.js"
       - "engine/ui/wordPuzzle.css"
       - "index.html"
+      - "tests/word-puzzle-drag-path.test.js"
+      - ".github/workflows/word-puzzle-drag-path-check.yml"
+  push:
+    branches:
+      - integration/security-release-gates-117-118-119-20261115
+      - fix/integrated-production-public-key-pin-20261116
+      - test/integrated-security-public-key-browser-e2e-20261116
+    paths:
+      - "engine/wordPuzzle/**"
+      - "engine/ui/wordPuzzleScreen.js"
+      - "engine/ui/wordPuzzle.css"
       - "tests/word-puzzle-drag-path.test.js"
       - ".github/workflows/word-puzzle-drag-path-check.yml"
   workflow_dispatch:
@@ -17,12 +31,13 @@ permissions:
 
 jobs:
   word-puzzle-regression:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - name: Checkout PR code
-        uses: actions/checkout@v4
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: "22"
       - name: Check JavaScript syntax

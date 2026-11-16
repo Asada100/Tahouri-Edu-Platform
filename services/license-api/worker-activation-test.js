@@ -1,6 +1,7 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const vm = require("node:vm");
 const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
@@ -51,10 +52,12 @@ async function sha256(value) {
     const digest = await crypto.webcrypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
     return Buffer.from(digest).toString("hex");
 }
-async function request(worker, env, pathName, method, body, origin = "https://asada100.github.io", ip = "203.0.113.10") {
+async function request(worker, env, pathName, method, body, origin = "https://asada100.github.io", ip = "203.0.113.10", contentType = "application/json") {
+    const headers = { "content-type": contentType, "cf-connecting-ip": ip };
+    if (origin) headers.origin = origin;
     return worker.fetch(new Request("https://api.example.test" + pathName, {
         method,
-        headers: { "content-type": "application/json", "origin": origin, "cf-connecting-ip": ip },
+        headers,
         body: body === undefined ? undefined : JSON.stringify(body)
     }), env);
 }
@@ -85,10 +88,64 @@ async function main() {
     const adminHtml = await adminPage.text();
     assert.doesNotMatch(adminHtml, /\son[a-z]+\s*=/i);
     assert.match(adminHtml, /data-action="login"/);
+    assert.match(adminHtml, /data-action="importStudentsFile"/,
+        "The authenticated admin UI must expose the profile import action after public registration is disabled.");
+    assert.match(adminHtml, /id="studentProfilesFile"/,
+        "The admin UI must provide a file input for the exported profile JSON.");
 
     const adminScript = await worker.fetch(new Request("https://api.example.test/admin.js"), env);
     assert.equal(adminScript.status, 200);
-    assert.match(await adminScript.text(), /document\.addEventListener/);
+    const adminScriptText = await adminScript.text();
+    assert.match(adminScriptText, /document\.addEventListener/);
+    assert.match(adminScriptText, /async function importStudentsFile/);
+    assert.match(adminScriptText, /\/api\/admin\/students\/import/);
+    assert.match(adminScriptText, /credentials:"include"/,
+        "The profile import client must send the authenticated admin session.");
+
+    // Execute the actual admin UI import function against a minimal DOM/fetch harness.
+    const uiElements = new Map();
+    const getUiElement = id => {
+        if (!uiElements.has(id)) uiElements.set(id, { id, files: [], value: "", hidden: false, textContent: "", innerHTML: "" });
+        return uiElements.get(id);
+    };
+    const uiFetchCalls = [];
+    const uiAlerts = [];
+    const uiProfile = { studentId: "ui-import-student-01", fullName: "پروفایل آزمون رابط", gradeId: "grade6" };
+    const uiContext = {
+        window: { location: { origin: "https://api.example.test" } },
+        document: { getElementById: getUiElement, addEventListener() {} },
+        fetch: async (url, options = {}) => {
+            uiFetchCalls.push({ url: String(url), options });
+            if (String(url).endsWith("/api/admin/students/import")) {
+                return { ok: true, status: 200, json: async () => ({ ok: true, imported: 1, alreadyRegistered: 0, total: 1 }) };
+            }
+            if (String(url).endsWith("/api/admin/students")) {
+                return { ok: true, status: 200, json: async () => ({ ok: true, students: [uiProfile] }) };
+            }
+            throw new Error("Unexpected admin UI fetch: " + url);
+        },
+        alert: message => uiAlerts.push(String(message)),
+        confirm: () => true
+    };
+    const executableAdminScript = adminScriptText.replace(/loadHealth\\(\\);checkSession\\(\\);\\s*$/, "");
+    vm.runInNewContext(executableAdminScript, uiContext);
+    const profileFileInput = getUiElement("studentProfilesFile");
+    profileFileInput.files = [{
+        text: async () => JSON.stringify({ format: "tahouri-student-profiles", version: 1, profiles: [uiProfile] })
+    }];
+    profileFileInput.value = "profiles.json";
+    await uiContext.importStudentsFile();
+    const importCall = uiFetchCalls.find(call => call.url.endsWith("/api/admin/students/import"));
+    assert(importCall, "The real admin UI import handler must call the authenticated import endpoint.");
+    assert.equal(importCall.options.method, "POST");
+    assert.equal(importCall.options.credentials, "include");
+    assert.equal(importCall.options.headers["Content-Type"], "application/json");
+    assert.deepEqual(JSON.parse(importCall.options.body), { profiles: [uiProfile] });
+    assert.equal(profileFileInput.value, "", "The UI must clear the selected file after successful import.");
+    assert.match(getUiElement("students").innerHTML, /ui-import-student-01/,
+        "The UI must refresh and render the imported profile in the student list.");
+    assert.match(uiAlerts[0] || "", /پروفایل جدید: 1/,
+        "The UI must report the import result to the administrator.");
 
     const publicKeyResponse = await request(worker, env, "/api/public-key", "GET");
     assert.equal(publicKeyResponse.status, 200);
@@ -103,16 +160,53 @@ async function main() {
     const adminCookie = String(adminLogin.headers.get("set-cookie") || "").split(";")[0];
     assert.match(adminCookie, /^tahouri_admin_session=/);
 
+    // CSRF regression: a valid admin session must not authorize cross-origin mutations.
+    const codeCountBeforeCsrf = Number(db.prepare("SELECT COUNT(*) AS count FROM activation_codes").get().count);
+    const csrfBody = JSON.stringify({ gradeId: "grade6", academicYear: String(currentIranianYear()), count: 1 });
+    const crossOriginMutation = await worker.fetch(new Request("https://api.example.test/api/admin/codes", {
+        method: "POST",
+        headers: { "content-type": "application/json", "origin": "https://attacker.example", "cookie": adminCookie },
+        body: csrfBody
+    }), env);
+    assert.equal(crossOriginMutation.status, 403,
+        "An authenticated admin mutation from an untrusted Origin must be rejected.");
+
+    const missingOriginMutation = await worker.fetch(new Request("https://api.example.test/api/admin/codes", {
+        method: "POST",
+        headers: { "content-type": "application/json", "cookie": adminCookie },
+        body: csrfBody
+    }), env);
+    assert.equal(missingOriginMutation.status, 403,
+        "An authenticated browser admin mutation without Origin must be rejected.");
+
+    const simpleContentTypeMutation = await worker.fetch(new Request("https://api.example.test/api/admin/codes", {
+        method: "POST",
+        headers: { "content-type": "text/plain", "origin": env.ADMIN_ORIGIN, "cookie": adminCookie },
+        body: csrfBody
+    }), env);
+    assert.equal(simpleContentTypeMutation.status, 415,
+        "Admin mutations must reject simple text/plain content types.");
+
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM activation_codes").get().count), codeCountBeforeCsrf,
+        "Rejected CSRF attempts must not create activation codes.");
+
     const registrationProfile = { studentId: "auto-register-profile", fullName: "پروفایل خودکار", gradeId: "grade6" };
-    const autoRegistered = await request(worker, env, "/api/students/register", "POST", registrationProfile);
-    assert.equal(autoRegistered.status, 201, "A newly created app profile must register in D1 automatically.");
-    assert.equal((await autoRegistered.json()).activationStatus, "inactive");
-    assert.equal(db.prepare("SELECT activation_status FROM student_accounts WHERE student_id = ?").get(registrationProfile.studentId).activation_status, "inactive");
-    const duplicateRegistration = await request(worker, env, "/api/students/register", "POST", registrationProfile);
-    assert.equal(duplicateRegistration.status, 200, "Repeated startup sync must be idempotent.");
-    assert.equal((await duplicateRegistration.json()).alreadyRegistered, true);
-    const registrationConflict = await request(worker, env, "/api/students/register", "POST", { ...registrationProfile, gradeId: "grade5" });
-    assert.equal(registrationConflict.status, 409, "Registration must reject identity conflicts.");
+    const publicRegistration = await request(worker, env, "/api/students/register", "POST", registrationProfile);
+    assert.equal(publicRegistration.status, 410,
+        "Public profile enrollment must be disabled and require an authenticated administrator import.");
+    assert.deepEqual(await publicRegistration.json(), {
+        ok: false,
+        code: "enrollment_requires_admin",
+        message: "ثبت عمومی پروفایل غیرفعال است؛ ورود پروفایل باید از پنل مدیریت انجام شود."
+    });
+    const repeatedPublicRegistration = await request(worker, env, "/api/students/register", "POST", registrationProfile);
+    assert.equal(repeatedPublicRegistration.status, 410, "Repeated public enrollment attempts must remain disabled.");
+    const publicRegistrationGet = await request(worker, env, "/api/students/register", "GET");
+    assert.equal(publicRegistrationGet.status, 410, "The retired public enrollment route must not expose another method.");
+    assert.equal(db.prepare("SELECT COUNT(*) AS count FROM student_accounts WHERE student_id = ?").get(registrationProfile.studentId).count, 0,
+        "Public enrollment attempts must not create student accounts.");
+    assert.equal(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'student.registered'").get().count, 0,
+        "Public enrollment attempts must not write student registration audit events.");
 
     const importedProfiles = [
         { studentId: "worker-test-student", fullName: "آزمایش دانش‌آموز", gradeId: "grade6" },
@@ -120,6 +214,23 @@ async function main() {
         { studentId: "student-2", fullName: "دانش‌آموز دو", gradeId: "grade6" },
         { studentId: "student-future", fullName: "دانش‌آموز آینده", gradeId: "grade6" }
     ];
+    const oversizedUnicodeBody = JSON.stringify({
+        profiles: [{ studentId: "oversized-body-must-not-import", fullName: "آزمون", gradeId: "grade6" }],
+        padding: "ا".repeat(33000)
+    });
+    assert(Buffer.byteLength(oversizedUnicodeBody, "utf8") > 65536,
+        "The oversized Unicode regression fixture must exceed the byte limit.");
+    const oversizedUnicodeImport = await worker.fetch(new Request("https://api.example.test/api/admin/students/import", {
+        method: "POST",
+        headers: { "content-type": "application/json", "origin": env.ADMIN_ORIGIN, "cookie": adminCookie },
+        body: oversizedUnicodeBody
+    }), env);
+    assert.equal(oversizedUnicodeImport.status, 413,
+        "UTF-8 multibyte payloads over the byte limit must be rejected.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM student_accounts WHERE student_id = ?")
+        .get("oversized-body-must-not-import").count), 0,
+        "An oversized Unicode request must not create a student account.");
+
     const importResponse = await worker.fetch(new Request("https://api.example.test/api/admin/students/import", {
         method: "POST",
         headers: { "content-type": "application/json", "origin": env.ADMIN_ORIGIN, "cookie": adminCookie },
@@ -146,7 +257,7 @@ async function main() {
         headers: { "origin": env.ADMIN_ORIGIN, "cookie": adminCookie }
     }), env);
     assert.equal(listedStudents.status, 200);
-    assert.equal((await listedStudents.json()).students.length, 5, "The automatic registration should appear alongside four imported profiles.");
+    assert.equal((await listedStudents.json()).students.length, 4, "Only the four administrator-imported profiles should appear; public enrollment must not create accounts.");
 
     const manualProfile = {
         studentId: "manual-student-uuid-0001",
@@ -183,6 +294,11 @@ async function main() {
     }), env);
     assert.equal(manualCode.status, 201, "An active registered student must be eligible for code issuance.");
 
+    const manualFutureLicenseId = "lic_archived_student_future";
+    db.prepare("INSERT INTO licenses (license_id, product_id, student_id, grade_id, academic_year, valid_from, valid_until, installation_binding, status, entitlement_json, created_at) VALUES (?, 'tahouri-edu', ?, 'grade5', ?, ?, ?, ?, 'future', '{}', ?)")
+        .run(manualFutureLicenseId, manualProfile.studentId, String(currentIranianYear() + 1),
+            new Date(Date.now() + 86400000).toISOString(), new Date(Date.now() + 366 * 86400000).toISOString(),
+            "install-archived-future", new Date().toISOString());
     const archiveManual = await worker.fetch(new Request("https://api.example.test/api/admin/students/archive", {
         method: "POST",
         headers: { "content-type": "application/json", "origin": env.ADMIN_ORIGIN, "cookie": adminCookie },
@@ -192,6 +308,8 @@ async function main() {
     const manualCodeValue = (await manualCode.json()).codes[0];
     assert.equal(db.prepare("SELECT status FROM activation_codes WHERE code_hash = ?").get(await sha256(manualCodeValue)).status, "revoked",
         "Archiving a student must revoke their unused active codes.");
+    assert.equal(db.prepare("SELECT status FROM licenses WHERE license_id = ?").get(manualFutureLicenseId).status, "revoked",
+        "Archiving a student must also revoke future license reservations.");
 
     const archivedCode = await worker.fetch(new Request("https://api.example.test/api/admin/codes", {
         method: "POST",
@@ -240,6 +358,25 @@ async function main() {
     db.prepare("INSERT INTO activation_codes (code_hash, code_preview, product_id, student_id, grade_id, academic_year, renewal_mode, status, created_at) VALUES (?, ?, 'tahouri-edu', 'student-1', 'grade6', ?, 'promotion', 'active', ?)")
         .run(codeHash, code.slice(0, 7) + "…" + code.slice(-6), String(year), new Date().toISOString());
 
+    // The public activation endpoint must reject missing/untrusted browser origins and
+    // simple content types before writing even an activation-attempt audit event.
+    const activationAttemptsBeforeGuards = Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'activation.attempt'").get().count);
+    const missingOriginActivation = await request(worker, env, "/api/licenses/activate", "POST", {
+        code, gradeId: "grade6", studentId: "student-1", installationId: "install-no-origin"
+    }, null);
+    assert.equal(missingOriginActivation.status, 403,
+        "Activation requests without an explicit Origin must be rejected.");
+    const simpleContentTypeActivation = await request(worker, env, "/api/licenses/activate", "POST", {
+        code, gradeId: "grade6", studentId: "student-1", installationId: "install-simple-content-type"
+    }, "https://asada100.github.io", "203.0.113.10", "text/plain");
+    assert.equal(simpleContentTypeActivation.status, 415,
+        "Activation requests using a simple text/plain content type must be rejected.");
+    const activationAttemptsAfterGuards = Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'activation.attempt'").get().count);
+    assert.equal(activationAttemptsAfterGuards, activationAttemptsBeforeGuards,
+        "Rejected activation request guards must not write activation-attempt audit events.");
+    assert.equal(db.prepare("SELECT status FROM activation_codes WHERE code_hash = ?").get(codeHash).status, "active",
+        "Rejected activation request guards must not consume the activation code.");
+
     const wrongStudent = await request(worker, env, "/api/licenses/activate", "POST", {
         code, gradeId: "grade6", studentId: "student-2", installationId: "install-wrong-student"
     });
@@ -275,6 +412,62 @@ async function main() {
     assert.equal(wrongGrade.status, 400);
     assert.equal(db.prepare("SELECT status FROM activation_codes WHERE code_hash = ?").get(codeHash).status, "active");
 
+    // Simulate another request consuming the code just before this request's D1 batch.
+    // A profile archived after preflight but before the atomic D1 batch must not consume a code.
+    const archiveRaceStudent = "student-archive-race";
+    db.prepare("INSERT INTO student_accounts (student_id, full_name, grade_id, status, activation_status, created_at, updated_at) VALUES (?, ?, 'grade6', 'active', 'inactive', ?, ?)")
+        .run(archiveRaceStudent, "آزمون بایگانی هم‌زمان", new Date().toISOString(), new Date().toISOString());
+    const archiveRaceCode = "THR-ARCHIVE-RACE-" + year + "-TEST";
+    const archiveRaceHash = await sha256(archiveRaceCode);
+    db.prepare("INSERT INTO activation_codes (code_hash, code_preview, product_id, student_id, grade_id, academic_year, renewal_mode, status, created_at) VALUES (?, ?, 'tahouri-edu', ?, 'grade6', ?, 'promotion', 'active', ?)")
+        .run(archiveRaceHash, "ARCHIVE…TEST", archiveRaceStudent, String(year), new Date().toISOString());
+    const originalArchiveBatch = D1.batch;
+    let injectConcurrentArchive = true;
+    D1.batch = async statements => {
+        if (injectConcurrentArchive) {
+            injectConcurrentArchive = false;
+            db.prepare("UPDATE student_accounts SET status = 'archived', updated_at = ? WHERE student_id = ? AND status = 'active'")
+                .run(new Date().toISOString(), archiveRaceStudent);
+        }
+        return originalArchiveBatch.call(D1, statements);
+    };
+    const archiveRaceLoser = await request(worker, env, "/api/licenses/activate", "POST", {
+        code: archiveRaceCode, gradeId: "grade6", studentId: archiveRaceStudent, installationId: "install-archive-race"
+    }, "https://asada100.github.io", "203.0.113.99");
+    D1.batch = originalArchiveBatch;
+    assert.equal(archiveRaceLoser.status, 409, "An account archived immediately before the activation batch must be rejected.");
+    assert.equal(db.prepare("SELECT status FROM activation_codes WHERE code_hash = ?").get(archiveRaceHash).status, "active",
+        "A concurrent account archive must prevent activation-code consumption.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM licenses WHERE code_hash = ?").get(archiveRaceHash).count), 0,
+        "A concurrent account archive must not create a license.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE code_hash = ?").get(archiveRaceHash).count), 0,
+        "A concurrent account archive must not create an activation audit event.");
+
+    const raceCode = "THR-RACE-" + year + "-TEST";
+    const raceHash = await sha256(raceCode);
+    db.prepare("UPDATE student_accounts SET activation_status = 'inactive' WHERE student_id = 'student-2'").run();
+    db.prepare("INSERT INTO activation_codes (code_hash, code_preview, product_id, student_id, grade_id, academic_year, renewal_mode, status, created_at) VALUES (?, ?, 'tahouri-edu', 'student-2', 'grade6', ?, 'promotion', 'active', ?)")
+        .run(raceHash, "RACE…TEST", String(year), new Date().toISOString());
+    const originalBatch = D1.batch;
+    let injectConcurrentConsumption = true;
+    D1.batch = async statements => {
+        if (injectConcurrentConsumption) {
+            injectConcurrentConsumption = false;
+            db.prepare("UPDATE activation_codes SET status = 'used', used_at = ?, license_id = 'lic_concurrent_winner' WHERE code_hash = ? AND status = 'active'")
+                .run(new Date().toISOString(), raceHash);
+        }
+        return originalBatch.call(D1, statements);
+    };
+    const raceLoser = await request(worker, env, "/api/licenses/activate", "POST", {
+        code: raceCode, gradeId: "grade6", studentId: "student-2", installationId: "install-race-loser"
+    });
+    D1.batch = originalBatch;
+    assert.equal(raceLoser.status, 409, "A request that loses the one-time-code race must be rejected.");
+    assert.equal(db.prepare("SELECT activation_status FROM student_accounts WHERE student_id = 'student-2'").get().activation_status, "inactive",
+        "A losing activation race must not mark the student account as activated.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM licenses WHERE code_hash = ?").get().count), 0,
+        "A losing activation race must not create a license.");
+
     const activated = await request(worker, env, "/api/licenses/activate", "POST", {
         code, gradeId: "grade6", studentId: "student-1", installationId: "install-1"
     });
@@ -296,7 +489,23 @@ async function main() {
 
     const status = await request(worker, env, "/api/licenses/status?licenseId=" + encodeURIComponent(stored.license_id), "GET");
     assert.equal(status.status, 200);
-    assert.equal((await status.json()).valid, true);
+    assert.deepEqual(await status.json(), { ok: true, valid: true },
+        "Public license status must not disclose student identity, grade, academic year, or validity dates.");
+    assert.equal(db.prepare("SELECT status FROM licenses WHERE license_id = ?").get(stored.license_id).status,
+        "active", "A status GET must not change the license record.");
+
+    const archiveActivatedStudent = await worker.fetch(new Request("https://api.example.test/api/admin/students/archive", {
+        method: "POST",
+        headers: { "content-type": "application/json", "origin": env.ADMIN_ORIGIN, "cookie": adminCookie },
+        body: JSON.stringify({ studentId: "student-1" })
+    }), env);
+    assert.equal(archiveActivatedStudent.status, 200, "Archiving a student with an active license must succeed.");
+    assert.equal(db.prepare("SELECT status FROM licenses WHERE license_id = ?").get(stored.license_id).status,
+        "revoked", "Archiving a student must revoke their existing active license.");
+    const archivedStudentStatus = await request(worker, env,
+        "/api/licenses/status?licenseId=" + encodeURIComponent(stored.license_id), "GET");
+    assert.deepEqual(await archivedStudentStatus.json(), { ok: true, valid: false },
+        "A license belonging to an archived student must no longer validate.");
 
     const duplicate = await request(worker, env, "/api/licenses/activate", "POST", {
         code, gradeId: "grade6", studentId: "student-2", installationId: "install-2"
@@ -305,7 +514,13 @@ async function main() {
 
     db.prepare("UPDATE licenses SET status = 'revoked' WHERE license_id = ?").run(stored.license_id);
     const revoked = await request(worker, env, "/api/licenses/status?licenseId=" + encodeURIComponent(stored.license_id), "GET");
-    assert.equal((await revoked.json()).valid, false);
+    assert.deepEqual(await revoked.json(), { ok: true, valid: false },
+        "Revoked and unknown licenses must have the same public response shape.");
+    const unknownStatus = await request(worker, env,
+        "/api/licenses/status?licenseId=lic_unknown_privacy_test", "GET");
+    assert.equal(unknownStatus.status, 200);
+    assert.deepEqual(await unknownStatus.json(), { ok: true, valid: false },
+        "Unknown license IDs must be indistinguishable from revoked licenses.");
 
     const futureStudent = "student-future";
     const now = Date.now();
@@ -342,10 +557,26 @@ async function main() {
     const futureStatus = await request(worker, env,
         "/api/licenses/status?licenseId=" + encodeURIComponent(futureBody.entitlement.claims.licenseId), "GET");
     assert.equal(futureStatus.status, 200);
-    const futureStatusBody = await futureStatus.json();
-    assert.equal(futureStatusBody.valid, false);
-    assert.equal(futureStatusBody.reason, "future",
-        "A future-dated reservation must not be reported as currently active.");
+    assert.deepEqual(await futureStatus.json(), { ok: true, valid: false },
+        "A future-dated reservation must not be reported as currently active or disclose its state.");
+
+    const dueFutureLicenseId = "lic_due_future_readonly_test";
+    db.prepare("INSERT INTO licenses (license_id, product_id, student_id, grade_id, academic_year, valid_from, valid_until, installation_binding, status, entitlement_json, created_at) VALUES (?, 'tahouri-edu', ?, 'grade6', ?, ?, ?, ?, 'future', '{}', ?)")
+        .run(dueFutureLicenseId, futureStudent, String(year),
+            new Date(now - 86400000).toISOString(), new Date(now + 86400000).toISOString(),
+            "install-future", new Date().toISOString());
+    const dueFutureStatus = await request(worker, env,
+        "/api/licenses/status?licenseId=" + encodeURIComponent(dueFutureLicenseId), "GET");
+    assert.equal(dueFutureStatus.status, 200);
+    assert.deepEqual(await dueFutureStatus.json(), { ok: true, valid: true },
+        "A future status whose validity window has begun must be effective without a write.");
+    assert.equal(db.prepare("SELECT status FROM licenses WHERE license_id = ?").get(dueFutureLicenseId).status,
+        "future", "GET must not persist a future-to-active status transition.");
+    const repeatedDueFutureStatus = await request(worker, env,
+        "/api/licenses/status?licenseId=" + encodeURIComponent(dueFutureLicenseId), "GET");
+    assert.deepEqual(await repeatedDueFutureStatus.json(), { ok: true, valid: true });
+    assert.equal(db.prepare("SELECT status FROM licenses WHERE license_id = ?").get(dueFutureLicenseId).status,
+        "future", "Repeated GET requests must remain read-only.");
 
     const repeatCode = "THR-GRADE6-" + (year + 1) + "-REPEAT-TEST";
     const repeatHash = await sha256(repeatCode);

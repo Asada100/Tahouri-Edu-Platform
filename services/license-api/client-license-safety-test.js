@@ -19,18 +19,29 @@ const indexHtml = read("index.html");
 const store = read("engine/core/tahouriEntitlementStore.js");
 const manager = read("engine/core/licenseManager.js");
 const gate = read("engine/core/activationGate.js");
+const licenseClient = read("engine/core/tahouriLicenseClient.js");
 
 assert(
     serviceConfig.includes('mode: "production"') &&
     serviceConfig.includes('https://tahouri-license-api.asadtahouri1986.workers.dev/api') &&
-    serviceConfig.includes('publicKeyPem: ""'),
-    "The deployed client must use the production License API without embedding a private key."
+    serviceConfig.includes("-----BEGIN PUBLIC KEY-----") &&
+    !serviceConfig.includes("BEGIN PRIVATE KEY"),
+    "The deployed client must pin a public verification key and must never embed a private key."
 );
 
 assert(
-    indexHtml.includes("tahouriServiceConfig.js?v=1.2") &&
-    indexHtml.includes("tahouriEntitlementVerifier.js?v=1.4"),
-    "Pages must bust cached versions of the production service config and verifier."
+    indexHtml.includes("tahouriServiceConfig.js?v=1.3") &&
+    indexHtml.includes("tahouriEntitlementVerifier.js?v=1.5") &&
+    indexHtml.includes("tahouriLicenseClient.js?v=1.2"),
+    "Pages must bust cached versions of the production service config, verifier, and license client."
+);
+
+assert(
+    !licenseClient.includes("registerExistingProfiles") &&
+    !licenseClient.includes("registerProfile") &&
+    !licenseClient.includes("/students/register") &&
+    licenseClient.includes("window.TahouriLicenseClient = { activate, health, status };"),
+    "The browser client must not auto-register profiles through a public enrollment endpoint."
 );
 
 assert(
@@ -105,8 +116,23 @@ assert(
 assert(
     manager.includes("async function activateRemote(code, gradeId, studentId") &&
     manager.includes("window.TahouriLicenseClient.activate({code, gradeId, studentId: normalizedStudentId") &&
-    manager.includes("claims.studentId !== String(studentId || getActiveStudentId()).trim()"),
-    "Remote activation must send the active profile ID and reject an entitlement bound to another student."
+    manager.includes('typeof claims.gradeScope !== "string"') &&
+    manager.includes('typeof claims.studentId !== "string"') &&
+    manager.includes('typeof claims.installationBinding !== "string"') &&
+    manager.includes("claims.gradeScope !== expectedGradeId") &&
+    manager.includes("claims.studentId !== expectedStudentId") &&
+    manager.includes("claims.installationBinding !== installationId") &&
+    manager.indexOf("TahouriEntitlementStore.write(response.entitlement)") >
+        manager.indexOf("claims.installationBinding !== installationId"),
+    "Remote activation must validate exact profile and installation bindings before persisting the signed entitlement."
+);
+
+assert(
+    verifier.includes('typeof claims.gradeScope !== "string"') &&
+    verifier.includes('typeof claims.studentId !== "string"') &&
+    verifier.includes('typeof claims.installationBinding !== "string"') &&
+    verifier.includes("validFrom.getTime() >= validUntil.getTime()"),
+    "The signed entitlement verifier must reject incomplete bindings and invalid validity windows."
 );
 
 assert(

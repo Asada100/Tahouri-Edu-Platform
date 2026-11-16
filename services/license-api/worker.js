@@ -66,8 +66,35 @@ function randomHex(bytes = 16) {
   return [...data].map(x => x.toString(16).padStart(2, "0")).join("");
 }
 async function bodyJson(request) {
-  const text = await request.text();
-  if (text.length > MAX_BODY_BYTES) throw Object.assign(new Error("حجم درخواست بیش از حد مجاز است."), { status: 413 });
+  const reader = request.body?.getReader();
+  if (!reader) return {};
+
+  const chunks = [];
+  let totalBytes = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    totalBytes += value.byteLength;
+    if (totalBytes > MAX_BODY_BYTES) {
+      await reader.cancel();
+      throw Object.assign(new Error("حجم درخواست بیش از حد مجاز است."), { status: 413 });
+    }
+    chunks.push(value);
+  }
+
+  const bytes = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
+  let text;
+  try {
+    text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    throw Object.assign(new Error("کدگذاری متن درخواست معتبر نیست."), { status: 400 });
+  }
   try { return text ? JSON.parse(text) : {}; }
   catch { throw Object.assign(new Error("JSON درخواست معتبر نیست."), { status: 400 }); }
 }
@@ -242,7 +269,15 @@ function gradeLevel(gradeId) {
   return match ? Number(match[1]) : null;
 }
 async function activateLicense(request, env, headers) {
-  if (request.headers.get("Origin") && !allowedOrigin(request, env)) return error("مبدأ درخواست مجاز نیست.", 403, headers);
+  // Activation is a browser-facing cross-origin POST: require an explicitly trusted Origin.
+  // Reject simple content types so cross-site HTML forms cannot submit activation payloads.
+  const origin = request.headers.get("Origin");
+  if (!origin || !allowedOrigin(request, env)) return error("مبدأ درخواست مجاز نیست.", 403, headers);
+  const contentType = String(request.headers.get("Content-Type") || "")
+    .split(";")[0].trim().toLowerCase();
+  if (contentType !== "application/json") {
+    return error("نوع محتوای درخواست باید application/json باشد.", 415, headers);
+  }
   const body = await bodyJson(request);
   const code = bounded(body.code, 256, "code").toUpperCase();
   const gradeId = validIdentifier(body.gradeId, "gradeId");
@@ -300,28 +335,44 @@ async function activateLicense(request, env, headers) {
   const entitlement = await signEntitlement(claims, env);
   const now = nowIso();
   const results = await env.DB.batch([
-    env.DB.prepare("UPDATE activation_codes SET status = 'used', used_at = ?, license_id = ? WHERE code_hash = ? AND status = 'active' AND used_at IS NULL").bind(now, licenseId, codeHash),
+    env.DB.prepare("UPDATE activation_codes SET status = 'used', used_at = ?, license_id = ? WHERE code_hash = ? AND status = 'active' AND used_at IS NULL AND EXISTS (SELECT 1 FROM student_accounts WHERE student_id = ? AND status = 'active')").bind(now, licenseId, codeHash, studentId),
     env.DB.prepare("INSERT INTO licenses (license_id, code_hash, product_id, student_id, grade_id, academic_year, valid_from, valid_until, installation_binding, status, entitlement_json, created_at) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM activation_codes WHERE code_hash = ? AND status = 'used' AND license_id = ?)").bind(licenseId, codeHash, PRODUCT_ID, studentId, gradeId, period.academicYear, period.validFrom, period.validUntil, installationId, futureRenewal ? "future" : "active", JSON.stringify(entitlement), now, codeHash, licenseId),
     env.DB.prepare("INSERT INTO audit_log (event_type, actor, license_id, code_hash, created_at, metadata_json) SELECT ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM licenses WHERE license_id = ?)").bind(futureRenewal ? "license.renewal_reserved" : "license.activated", "client", licenseId, codeHash, now, JSON.stringify({ gradeId, studentId, academicYear: period.academicYear, validFrom: period.validFrom }), licenseId),
-    env.DB.prepare("UPDATE student_accounts SET activation_status = 'active', updated_at = ? WHERE student_id = ? AND status = 'active'").bind(now, studentId)
+    env.DB.prepare(`UPDATE student_accounts SET activation_status = 'active', updated_at = ?
+      WHERE student_id = ? AND status = 'active'
+      AND EXISTS (SELECT 1 FROM licenses WHERE license_id = ? AND student_id = ?)`).bind(now, studentId, licenseId, studentId)
   ]);
-  if (Number(results?.[0]?.meta?.changes || 0) !== 1 || Number(results?.[3]?.meta?.changes || 0) !== 1) return error("این کد قبلاً استفاده شده یا غیرفعال است.", 409, headers);
+  if (Number(results?.[0]?.meta?.changes || 0) !== 1 ||
+      Number(results?.[1]?.meta?.changes || 0) !== 1 ||
+      Number(results?.[2]?.meta?.changes || 0) !== 1 ||
+      Number(results?.[3]?.meta?.changes || 0) !== 1) {
+    return error("این کد قبلاً استفاده شده یا غیرفعال است.", 409, headers);
+  }
   return json({ valid: true, renewalStored: futureRenewal, entitlement }, 200, headers);
 }
 async function licenseStatus(request, env, url, headers) {
   const licenseId = String(url.searchParams.get("licenseId") || "").trim();
   if (!licenseId) return json({ ok: false, valid: false, message: "licenseId الزامی است." }, 400, headers);
   if (!/^[A-Za-z0-9._:-]{1,128}$/.test(licenseId)) return json({ ok: false, valid: false, message: "licenseId نامعتبر است." }, 400, headers);
-  const row = await env.DB.prepare("SELECT license_id AS licenseId, student_id AS studentId, grade_id AS gradeId, academic_year AS academicYear, valid_from AS validFrom, valid_until AS validUntil, status FROM licenses WHERE license_id = ?").bind(licenseId).first();
-  if (!row) return json({ ok: true, valid: false, reason: "not_found" }, 200, headers);
-  if (row.status === "revoked") return json({ ok: true, valid: false, reason: "revoked" }, 200, headers);
+
+  // This public endpoint is deliberately read-only and returns no student or enrollment metadata.
+  // Keep invalid outcomes indistinguishable so callers cannot enumerate license state.
+  const row = await env.DB.prepare(
+    "SELECT valid_from AS validFrom, valid_until AS validUntil, status FROM licenses WHERE license_id = ?"
+  ).bind(licenseId).first();
+  if (!row || row.status === "revoked") return json({ ok: true, valid: false }, 200, headers);
+
   const from = Date.parse(row.validFrom), until = Date.parse(row.validUntil);
-  if (!Number.isFinite(from) || !Number.isFinite(until)) return json({ ok: true, valid: false, reason: "invalid_dates" }, 200, headers);
-  if (from > Date.now()) return json({ ok: true, valid: false, reason: "future" }, 200, headers);
-  if (until <= Date.now()) return json({ ok: true, valid: false, reason: "expired" }, 200, headers);
-  if (row.status === "future") await env.DB.prepare("UPDATE licenses SET status = 'active' WHERE license_id = ? AND status = 'future'").bind(licenseId).run();
-  else if (row.status !== "active") return json({ ok: true, valid: false, reason: row.status }, 200, headers);
-  return json({ ok: true, valid: true, license: { licenseId: row.licenseId, studentId: row.studentId, gradeId: row.gradeId, academicYear: row.academicYear, validFrom: row.validFrom, validUntil: row.validUntil, status: row.status === "future" ? "active" : row.status } }, 200, headers);
+  if (!Number.isFinite(from) || !Number.isFinite(until) ||
+      from > Date.now() || until <= Date.now()) {
+    return json({ ok: true, valid: false }, 200, headers);
+  }
+  if (row.status !== "active" && row.status !== "future") {
+    return json({ ok: true, valid: false }, 200, headers);
+  }
+
+  // A due future license is effective by date, but GET must never persist a status transition.
+  return json({ ok: true, valid: true }, 200, headers);
 }
 
 function normalizeStudentProfiles(profiles) {
@@ -341,31 +392,6 @@ function normalizeStudentProfiles(profiles) {
     normalized.set(studentId, { studentId, fullName, gradeId });
   }
   return [...normalized.values()];
-}
-
-async function registerStudentProfile(request, env, headers) {
-  if (!request.headers.get("Origin") || !allowedOrigin(request, env)) return error("مبدأ درخواست مجاز نیست.", 403, headers);
-  const body = await bodyJson(request);
-  const profile = normalizeStudentProfiles([body])[0];
-  const ipHash = await sha256(request.headers.get("CF-Connecting-IP") || "unknown");
-  const actor = "student-registration:" + ipHash;
-  const since = new Date(Date.now() - 60000).toISOString();
-  const attempts = await env.DB.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'student.registration.attempt' AND actor = ? AND created_at >= ?").bind(actor, since).first();
-  if (Number(attempts?.count || 0) >= 30) return error("تعداد ثبت پروفایل از این اتصال بیش از حد مجاز است.", 429, headers);
-  await audit(env, "student.registration.attempt", actor, { metadata: { studentId: profile.studentId } });
-  const existing = await env.DB.prepare("SELECT full_name AS fullName, grade_id AS gradeId, status, activation_status AS activationStatus FROM student_accounts WHERE student_id = ?").bind(profile.studentId).first();
-  if (existing) {
-    if (existing.status !== "active") return error("این شناسه قبلاً بایگانی شده است.", 409, headers);
-    if (existing.fullName !== profile.fullName || existing.gradeId !== profile.gradeId) return error("این شناسه قبلاً با نام یا پایهٔ متفاوت ثبت شده است.", 409, headers);
-    return json({ ok: true, registered: true, alreadyRegistered: true, activationStatus: existing.activationStatus }, 200, headers);
-  }
-  const createdAt = nowIso();
-  const results = await env.DB.batch([
-    env.DB.prepare("INSERT INTO student_accounts (student_id, full_name, grade_id, status, activation_status, created_at, updated_at) VALUES (?, ?, ?, 'active', 'inactive', ?, ?)").bind(profile.studentId, profile.fullName, profile.gradeId, createdAt, createdAt),
-    env.DB.prepare("INSERT INTO audit_log (event_type, actor, license_id, code_hash, created_at, metadata_json) VALUES ('student.registered', 'client', NULL, NULL, ?, ?)").bind(createdAt, JSON.stringify({ studentId: profile.studentId, gradeId: profile.gradeId }))
-  ]);
-  if (results.length !== 2 || results.some(result => Number(result?.meta?.changes || 0) !== 1)) return error("ثبت پروفایل در پایگاه داده کامل نشد.", 500, headers);
-  return json({ ok: true, registered: true, alreadyRegistered: false, activationStatus: "inactive" }, 201, headers);
 }
 
 async function importStudentProfiles(env, profiles) {
@@ -397,6 +423,22 @@ async function importStudentProfiles(env, profiles) {
 
 async function adminRoute(request, env, url, headers) {
   const path = url.pathname;
+
+  // Browser admin mutations must carry a trusted Origin and JSON content type.
+  // SameSite cookies are defense in depth, not a replacement for server-side CSRF checks.
+  if (request.method === "POST") {
+    const origin = request.headers.get("Origin");
+    if (!origin || !allowedOrigin(request, env)) {
+      return error("مبدأ درخواست مجاز نیست.", 403, headers);
+    }
+    if (path === "/api/admin/login" || path === "/api/admin/logout") {
+      const contentType = String(request.headers.get("Content-Type") || "")
+        .split(";")[0].trim().toLowerCase();
+      if (contentType !== "application/json") {
+        return error("نوع محتوای درخواست باید application/json باشد.", 415, headers);
+      }
+    }
+  }
   if (path === "/api/admin/login" && request.method === "POST") return login(request, env, headers);
   if (path === "/api/admin/logout" && request.method === "POST") {
     const id = parseCookie(request, COOKIE_NAME);
@@ -407,6 +449,14 @@ async function adminRoute(request, env, url, headers) {
     return await requireAdmin(request, env) ? json({ ok: true }, 200, headers) : json({ ok: false }, 401, headers);
   }
   if (!await requireAdmin(request, env)) return json({ ok: false, message: "نشست مدیر معتبر نیست." }, 401, headers);
+
+  if (request.method === "POST") {
+    const contentType = String(request.headers.get("Content-Type") || "")
+      .split(";")[0].trim().toLowerCase();
+    if (contentType !== "application/json") {
+      return error("نوع محتوای درخواست باید application/json باشد.", 415, headers);
+    }
+  }
 
   if (path === "/api/admin/sessions/revoke-all" && request.method === "POST") {
     const revokedAt = nowIso();
@@ -450,7 +500,8 @@ async function adminRoute(request, env, url, headers) {
     const results = await env.DB.batch([
       env.DB.prepare("INSERT INTO audit_log (event_type, actor, license_id, code_hash, created_at, metadata_json) SELECT 'student.archived', 'admin', NULL, NULL, ?, ? WHERE EXISTS (SELECT 1 FROM student_accounts WHERE student_id = ? AND status = 'active')").bind(updatedAt, JSON.stringify({ studentId }), studentId),
       env.DB.prepare("UPDATE student_accounts SET status = 'archived', updated_at = ? WHERE student_id = ? AND status = 'active'").bind(updatedAt, studentId),
-      env.DB.prepare("UPDATE activation_codes SET status = 'revoked' WHERE student_id = ? AND status = 'active' AND used_at IS NULL").bind(studentId)
+      env.DB.prepare("UPDATE activation_codes SET status = 'revoked' WHERE student_id = ? AND status = 'active' AND used_at IS NULL").bind(studentId),
+      env.DB.prepare("UPDATE licenses SET status = 'revoked', revoked_at = ? WHERE student_id = ? AND status IN ('active', 'future')").bind(updatedAt, studentId)
     ]);
     if (!results?.[0]?.meta?.changes || !results?.[1]?.meta?.changes) return error("حساب فعال دانش‌آموز پیدا نشد.", 404, headers);
     return json({ ok: true }, 200, headers);
@@ -647,8 +698,9 @@ export default {
       }
       if (url.pathname === "/api/health" && request.method === "GET")
         return await health(env, headers, requestId);
-      if (url.pathname === "/api/students/register" && request.method === "POST")
-        return await registerStudentProfile(request, env, headers);
+      if (url.pathname === "/api/students/register")
+        return json({ ok: false, code: "enrollment_requires_admin",
+          message: "ثبت عمومی پروفایل غیرفعال است؛ ورود پروفایل باید از پنل مدیریت انجام شود." }, 410, headers);
       if (url.pathname === "/api/licenses/activate" && request.method === "POST")
         return await activateLicense(request, env, headers);
       if (url.pathname === "/api/licenses/status" && request.method === "GET")
