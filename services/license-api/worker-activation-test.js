@@ -212,6 +212,23 @@ async function main() {
         { studentId: "student-2", fullName: "دانش‌آموز دو", gradeId: "grade6" },
         { studentId: "student-future", fullName: "دانش‌آموز آینده", gradeId: "grade6" }
     ];
+    const oversizedUnicodeBody = JSON.stringify({
+        profiles: [{ studentId: "oversized-body-must-not-import", fullName: "آزمون", gradeId: "grade6" }],
+        padding: "ا".repeat(33000)
+    });
+    assert(Buffer.byteLength(oversizedUnicodeBody, "utf8") > 65536,
+        "The oversized Unicode regression fixture must exceed the byte limit.");
+    const oversizedUnicodeImport = await worker.fetch(new Request("https://api.example.test/api/admin/students/import", {
+        method: "POST",
+        headers: { "content-type": "application/json", "origin": env.ADMIN_ORIGIN, "cookie": adminCookie },
+        body: oversizedUnicodeBody
+    }), env);
+    assert.equal(oversizedUnicodeImport.status, 413,
+        "UTF-8 multibyte payloads over the byte limit must be rejected.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM student_accounts WHERE student_id = ?")
+        .get("oversized-body-must-not-import").count), 0,
+        "An oversized Unicode request must not create a student account.");
+
     const importResponse = await worker.fetch(new Request("https://api.example.test/api/admin/students/import", {
         method: "POST",
         headers: { "content-type": "application/json", "origin": env.ADMIN_ORIGIN, "cookie": adminCookie },
@@ -275,6 +292,11 @@ async function main() {
     }), env);
     assert.equal(manualCode.status, 201, "An active registered student must be eligible for code issuance.");
 
+    const manualFutureLicenseId = "lic_archived_student_future";
+    db.prepare("INSERT INTO licenses (license_id, product_id, student_id, grade_id, academic_year, valid_from, valid_until, installation_binding, status, entitlement_json, created_at) VALUES (?, 'tahouri-edu', ?, 'grade5', ?, ?, ?, ?, 'future', '{}', ?)")
+        .run(manualFutureLicenseId, manualProfile.studentId, String(currentIranianYear() + 1),
+            new Date(Date.now() + 86400000).toISOString(), new Date(Date.now() + 366 * 86400000).toISOString(),
+            "install-archived-future", new Date().toISOString());
     const archiveManual = await worker.fetch(new Request("https://api.example.test/api/admin/students/archive", {
         method: "POST",
         headers: { "content-type": "application/json", "origin": env.ADMIN_ORIGIN, "cookie": adminCookie },
@@ -284,6 +306,8 @@ async function main() {
     const manualCodeValue = (await manualCode.json()).codes[0];
     assert.equal(db.prepare("SELECT status FROM activation_codes WHERE code_hash = ?").get(await sha256(manualCodeValue)).status, "revoked",
         "Archiving a student must revoke their unused active codes.");
+    assert.equal(db.prepare("SELECT status FROM licenses WHERE license_id = ?").get(manualFutureLicenseId).status, "revoked",
+        "Archiving a student must also revoke future license reservations.");
 
     const archivedCode = await worker.fetch(new Request("https://api.example.test/api/admin/codes", {
         method: "POST",
@@ -448,6 +472,19 @@ async function main() {
         "Public license status must not disclose student identity, grade, academic year, or validity dates.");
     assert.equal(db.prepare("SELECT status FROM licenses WHERE license_id = ?").get(stored.license_id).status,
         "active", "A status GET must not change the license record.");
+
+    const archiveActivatedStudent = await worker.fetch(new Request("https://api.example.test/api/admin/students/archive", {
+        method: "POST",
+        headers: { "content-type": "application/json", "origin": env.ADMIN_ORIGIN, "cookie": adminCookie },
+        body: JSON.stringify({ studentId: "student-1" })
+    }), env);
+    assert.equal(archiveActivatedStudent.status, 200, "Archiving a student with an active license must succeed.");
+    assert.equal(db.prepare("SELECT status FROM licenses WHERE license_id = ?").get(stored.license_id).status,
+        "revoked", "Archiving a student must revoke their existing active license.");
+    const archivedStudentStatus = await request(worker, env,
+        "/api/licenses/status?licenseId=" + encodeURIComponent(stored.license_id), "GET");
+    assert.deepEqual(await archivedStudentStatus.json(), { ok: true, valid: false },
+        "A license belonging to an archived student must no longer validate.");
 
     const duplicate = await request(worker, env, "/api/licenses/activate", "POST", {
         code, gradeId: "grade6", studentId: "student-2", installationId: "install-2"
