@@ -292,6 +292,11 @@ async function main() {
     }), env);
     assert.equal(manualCode.status, 201, "An active registered student must be eligible for code issuance.");
 
+    const manualFutureLicenseId = "lic_archived_student_future";
+    db.prepare("INSERT INTO licenses (license_id, product_id, student_id, grade_id, academic_year, valid_from, valid_until, installation_binding, status, entitlement_json, created_at) VALUES (?, 'tahouri-edu', ?, 'grade5', ?, ?, ?, ?, 'future', '{}', ?)")
+        .run(manualFutureLicenseId, manualProfile.studentId, String(currentIranianYear() + 1),
+            new Date(Date.now() + 86400000).toISOString(), new Date(Date.now() + 366 * 86400000).toISOString(),
+            "install-archived-future", new Date().toISOString());
     const archiveManual = await worker.fetch(new Request("https://api.example.test/api/admin/students/archive", {
         method: "POST",
         headers: { "content-type": "application/json", "origin": env.ADMIN_ORIGIN, "cookie": adminCookie },
@@ -301,6 +306,8 @@ async function main() {
     const manualCodeValue = (await manualCode.json()).codes[0];
     assert.equal(db.prepare("SELECT status FROM activation_codes WHERE code_hash = ?").get(await sha256(manualCodeValue)).status, "revoked",
         "Archiving a student must revoke their unused active codes.");
+    assert.equal(db.prepare("SELECT status FROM licenses WHERE license_id = ?").get(manualFutureLicenseId).status, "revoked",
+        "Archiving a student must also revoke future license reservations.");
 
     const archivedCode = await worker.fetch(new Request("https://api.example.test/api/admin/codes", {
         method: "POST",
