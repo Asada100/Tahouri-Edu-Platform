@@ -52,10 +52,12 @@ async function sha256(value) {
     const digest = await crypto.webcrypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
     return Buffer.from(digest).toString("hex");
 }
-async function request(worker, env, pathName, method, body, origin = "https://asada100.github.io", ip = "203.0.113.10") {
+async function request(worker, env, pathName, method, body, origin = "https://asada100.github.io", ip = "203.0.113.10", contentType = "application/json") {
+    const headers = { "content-type": contentType, "cf-connecting-ip": ip };
+    if (origin) headers.origin = origin;
     return worker.fetch(new Request("https://api.example.test" + pathName, {
         method,
-        headers: { "content-type": "application/json", "origin": origin, "cf-connecting-ip": ip },
+        headers,
         body: body === undefined ? undefined : JSON.stringify(body)
     }), env);
 }
@@ -331,6 +333,25 @@ async function main() {
     const codeHash = await sha256(code);
     db.prepare("INSERT INTO activation_codes (code_hash, code_preview, product_id, student_id, grade_id, academic_year, renewal_mode, status, created_at) VALUES (?, ?, 'tahouri-edu', 'student-1', 'grade6', ?, 'promotion', 'active', ?)")
         .run(codeHash, code.slice(0, 7) + "…" + code.slice(-6), String(year), new Date().toISOString());
+
+    // The public activation endpoint must reject missing/untrusted browser origins and
+    // simple content types before writing even an activation-attempt audit event.
+    const activationAttemptsBeforeGuards = Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'activation.attempt'").get().count);
+    const missingOriginActivation = await request(worker, env, "/api/licenses/activate", "POST", {
+        code, gradeId: "grade6", studentId: "student-1", installationId: "install-no-origin"
+    }, null);
+    assert.equal(missingOriginActivation.status, 403,
+        "Activation requests without an explicit Origin must be rejected.");
+    const simpleContentTypeActivation = await request(worker, env, "/api/licenses/activate", "POST", {
+        code, gradeId: "grade6", studentId: "student-1", installationId: "install-simple-content-type"
+    }, "https://asada100.github.io", "203.0.113.10", "text/plain");
+    assert.equal(simpleContentTypeActivation.status, 415,
+        "Activation requests using a simple text/plain content type must be rejected.");
+    const activationAttemptsAfterGuards = Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'activation.attempt'").get().count);
+    assert.equal(activationAttemptsAfterGuards, activationAttemptsBeforeGuards,
+        "Rejected activation request guards must not write activation-attempt audit events.");
+    assert.equal(db.prepare("SELECT status FROM activation_codes WHERE code_hash = ?").get(codeHash).status, "active",
+        "Rejected activation request guards must not consume the activation code.");
 
     const wrongStudent = await request(worker, env, "/api/licenses/activate", "POST", {
         code, gradeId: "grade6", studentId: "student-2", installationId: "install-wrong-student"

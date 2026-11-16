@@ -242,7 +242,15 @@ function gradeLevel(gradeId) {
   return match ? Number(match[1]) : null;
 }
 async function activateLicense(request, env, headers) {
-  if (request.headers.get("Origin") && !allowedOrigin(request, env)) return error("مبدأ درخواست مجاز نیست.", 403, headers);
+  // Activation is a browser-facing cross-origin POST: require an explicitly trusted Origin.
+  // Reject simple content types so cross-site HTML forms cannot submit activation payloads.
+  const origin = request.headers.get("Origin");
+  if (!origin || !allowedOrigin(request, env)) return error("مبدأ درخواست مجاز نیست.", 403, headers);
+  const contentType = String(request.headers.get("Content-Type") || "")
+    .split(";")[0].trim().toLowerCase();
+  if (contentType !== "application/json") {
+    return error("نوع محتوای درخواست باید application/json باشد.", 415, headers);
+  }
   const body = await bodyJson(request);
   const code = bounded(body.code, 256, "code").toUpperCase();
   const gradeId = validIdentifier(body.gradeId, "gradeId");
