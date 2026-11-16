@@ -26,3 +26,21 @@ dev-private-key.pem
 
 # Production secret directory
 secrets/
+
+# Local environment files (keep checked-in examples)
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Local license API state and backups
+/services/license-api/data/
+/services/license-api/backups/
+
+# SQLite databases, sidecars, and encrypted local backups
+*.sqlite
+*.sqlite3
+*.sqlite-*
+*.db
+*.db-*
+*.sqlite.enc

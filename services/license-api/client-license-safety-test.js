@@ -24,12 +24,13 @@ const licenseClient = read("engine/core/tahouriLicenseClient.js");
 assert(
     serviceConfig.includes('mode: "production"') &&
     serviceConfig.includes('https://tahouri-license-api.asadtahouri1986.workers.dev/api') &&
-    serviceConfig.includes('publicKeyPem: ""'),
-    "The deployed client must use the production License API without embedding a private key."
+    serviceConfig.includes("-----BEGIN PUBLIC KEY-----") &&
+    !serviceConfig.includes("BEGIN PRIVATE KEY"),
+    "The deployed client must pin a public verification key and must never embed a private key."
 );
 
 assert(
-    indexHtml.includes("tahouriServiceConfig.js?v=1.2") &&
+    indexHtml.includes("tahouriServiceConfig.js?v=1.3") &&
     indexHtml.includes("tahouriEntitlementVerifier.js?v=1.5") &&
     indexHtml.includes("tahouriLicenseClient.js?v=1.2"),
     "Pages must bust cached versions of the production service config, verifier, and license client."

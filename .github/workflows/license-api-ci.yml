@@ -18,19 +18,23 @@ on:
       - "engine/core/tahouriServiceConfig.js"
       - ".github/workflows/license-api-ci.yml"
 
+permissions:
+  contents: read
+
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: services/license-api
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24
 
@@ -46,6 +50,24 @@ jobs:
       - name: Cloudflare Worker student registry and bound activation test
         run: node worker-activation-test.js
 
+      - name: Install isolated browser test runner
+        run: |
+          npm install --no-save --package-lock=false --ignore-scripts playwright@1.65.1
+          npx playwright install --with-deps chromium
+
+      - name: Admin browser end-to-end import and activation test
+        run: |
+          node admin-browser-e2e-server.mjs > "$RUNNER_TEMP/tahouri-browser-e2e-server.log" 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if node -e 'fetch("http://127.0.0.1:8787/__test/health").then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))'; then
+              break
+            fi
+            sleep 1
+          done
+          node admin-browser-e2e-test.mjs
+
       - name: Client license safety test
         run: node client-license-safety-test.js
 
@@ -54,6 +76,9 @@ jobs:
 
       - name: Read-only production public-key endpoint smoke test
         run: node production-public-key-smoke-test.mjs
+
+      - name: Verify pinned client key against production Worker
+        run: node production-public-key-pin-test.mjs
 
       - name: Production Worker health and D1 readiness smoke test
         run: npm run production-readiness-smoke
