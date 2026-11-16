@@ -90,7 +90,7 @@ try {
 
   const academicYear = "1405";
   const installOne = "browser-e2e-installation-one";
-  const installTwo = "browser-e2e-installation-two";
+  // All three synthetic children intentionally share this one device installation.
 
   // First profile: the selector must preserve identity and auto-fill its grade.
   await page.locator("#studentId").selectOption("synthetic-student-01");
@@ -190,14 +190,53 @@ try {
       })
     });
     return { status: response.status, body: await response.json() };
-  }, { code: codeTwo, installationId: installTwo });
+  }, { code: codeTwo, installationId: installOne });
   assert.equal(activationTwo.status, 200);
   assert.equal(activationTwo.body.entitlement.claims.studentId, "synthetic-student-02");
+  assert.equal(activationTwo.body.entitlement.claims.installationBinding, installOne,
+    "The second child must be allowed to use the same device installation.");
   assert.notEqual(
     activationOne.body.entitlement.claims.licenseId,
     activationTwo.body.entitlement.claims.licenseId,
     "Each profile must receive its own license."
   );
+
+  // Third child: a different grade and profile must also activate on the same device.
+  await page.locator("#studentId").selectOption("synthetic-student-03");
+  assert.equal(await page.locator("#grade").inputValue(), "grade5");
+  await page.locator("#count").fill("1");
+  const thirdCodeResponse = page.waitForResponse(response =>
+    response.url().endsWith("/api/admin/codes") && response.request().method() === "POST"
+  );
+  await page.locator('[data-action="createCodes"]').click();
+  assert.equal((await thirdCodeResponse).status(), 201);
+  await page.waitForFunction(previousCode =>
+    document.querySelector("#newCodes")?.textContent.trim() !== previousCode,
+    codeTwo
+  );
+  const codeThree = (await page.locator("#newCodes").innerText()).trim();
+  assert.match(codeThree, /^THR-/);
+  assert.notEqual(codeThree, codeTwo);
+
+  const activationThree = await page.evaluate(async ({ code, installationId }) => {
+    const response = await fetch("/api/licenses/activate", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        code, gradeId: "grade5", studentId: "synthetic-student-03", installationId
+      })
+    });
+    return { status: response.status, body: await response.json() };
+  }, { code: codeThree, installationId: installOne });
+  assert.equal(activationThree.status, 200,
+    "A third child with a separate profile and grade must activate on the same device.");
+  assert.equal(activationThree.body.entitlement.claims.studentId, "synthetic-student-03");
+  assert.equal(activationThree.body.entitlement.claims.gradeScope, "grade5");
+  assert.equal(activationThree.body.entitlement.claims.installationBinding, installOne);
+  assert.equal(new Set([
+    activationOne.body.entitlement.claims.licenseId,
+    activationTwo.body.entitlement.claims.licenseId,
+    activationThree.body.entitlement.claims.licenseId
+  ]).size, 3, "Three children on one device must receive three distinct licenses.");
 
   const licensesResponsePromise = page.waitForResponse(response =>
     response.url().endsWith("/api/admin/licenses") && response.request().method() === "GET"
@@ -208,9 +247,12 @@ try {
   const licenses = (await licensesResponse.json()).licenses;
   const licenseOne = licenses.find(item => item.studentId === "synthetic-student-01");
   const licenseTwo = licenses.find(item => item.studentId === "synthetic-student-02");
-  assert.ok(licenseOne && licenseTwo, "Both profiles must have separate server-side licenses.");
+  const licenseThree = licenses.find(item => item.studentId === "synthetic-student-03");
+  assert.ok(licenseOne && licenseTwo && licenseThree,
+    "All three profiles must have separate server-side licenses.");
   assert.equal(licenseOne.licenseId, activationOne.body.entitlement.claims.licenseId);
   assert.equal(licenseTwo.licenseId, activationTwo.body.entitlement.claims.licenseId);
+  assert.equal(licenseThree.licenseId, activationThree.body.entitlement.claims.licenseId);
 
   // Logout must revoke the authenticated browser session.
   await page.locator('[data-action="logout"]').click();
@@ -244,8 +286,9 @@ try {
   assert.deepEqual(pageErrors, [], "The admin UI must not produce uncaught browser JavaScript errors.");
   console.log("Admin browser E2E: PASS");
   console.log("PASS: login, invalid password, real JSON file selection/import, duplicate import, profile listing");
-  console.log("PASS: code creation, wrong-student/grade rejection, one-time activation, two-profile isolation");
-  console.log("PASS: separate license records, logout/session invalidation, 390px mobile layout");
+  console.log("PASS: code creation, wrong-student/grade rejection, one-time activation");
+  console.log("PASS: three children, three separate licenses, one shared device installation");
+  console.log("PASS: logout/session invalidation, 390px mobile layout");
   await mobileContext.close();
   await context.close();
 } catch (error) {
