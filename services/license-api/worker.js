@@ -492,7 +492,8 @@ async function adminRoute(request, env, url, headers) {
     const results = await env.DB.batch([
       env.DB.prepare("INSERT INTO audit_log (event_type, actor, license_id, code_hash, created_at, metadata_json) SELECT 'student.archived', 'admin', NULL, NULL, ?, ? WHERE EXISTS (SELECT 1 FROM student_accounts WHERE student_id = ? AND status = 'active')").bind(updatedAt, JSON.stringify({ studentId }), studentId),
       env.DB.prepare("UPDATE student_accounts SET status = 'archived', updated_at = ? WHERE student_id = ? AND status = 'active'").bind(updatedAt, studentId),
-      env.DB.prepare("UPDATE activation_codes SET status = 'revoked' WHERE student_id = ? AND status = 'active' AND used_at IS NULL").bind(studentId)
+      env.DB.prepare("UPDATE activation_codes SET status = 'revoked' WHERE student_id = ? AND status = 'active' AND used_at IS NULL").bind(studentId),
+      env.DB.prepare("UPDATE licenses SET status = 'revoked', revoked_at = ? WHERE student_id = ? AND status IN ('active', 'future')").bind(updatedAt, studentId)
     ]);
     if (!results?.[0]?.meta?.changes || !results?.[1]?.meta?.changes) return error("حساب فعال دانش‌آموز پیدا نشد.", 404, headers);
     return json({ ok: true }, 200, headers);
