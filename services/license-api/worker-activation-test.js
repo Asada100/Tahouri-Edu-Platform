@@ -473,6 +473,19 @@ async function main() {
     assert.equal(db.prepare("SELECT status FROM licenses WHERE license_id = ?").get(stored.license_id).status,
         "active", "A status GET must not change the license record.");
 
+    const archiveActivatedStudent = await worker.fetch(new Request("https://api.example.test/api/admin/students/archive", {
+        method: "POST",
+        headers: { "content-type": "application/json", "origin": env.ADMIN_ORIGIN, "cookie": adminCookie },
+        body: JSON.stringify({ studentId: "student-1" })
+    }), env);
+    assert.equal(archiveActivatedStudent.status, 200, "Archiving a student with an active license must succeed.");
+    assert.equal(db.prepare("SELECT status FROM licenses WHERE license_id = ?").get(stored.license_id).status,
+        "revoked", "Archiving a student must revoke their existing active license.");
+    const archivedStudentStatus = await request(worker, env,
+        "/api/licenses/status?licenseId=" + encodeURIComponent(stored.license_id), "GET");
+    assert.deepEqual(await archivedStudentStatus.json(), { ok: true, valid: false },
+        "A license belonging to an archived student must no longer validate.");
+
     const duplicate = await request(worker, env, "/api/licenses/activate", "POST", {
         code, gradeId: "grade6", studentId: "student-2", installationId: "install-2"
     });
