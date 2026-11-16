@@ -1,2 +1,0 @@
-Temporary file for verifying the Protect master branch ruleset.
-This file must not be merged and should be removed when the verification pull request is closed.
