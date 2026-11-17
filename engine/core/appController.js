@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Edu Platform
-// App Controller v5.4
+// App Controller v5.5
 // =====================================
 
 const App = {
@@ -32,6 +32,17 @@ const App = {
                     "App startup: Content lock file could not be loaded; safe default locks remain active."
                 );
             }
+        }
+
+        // Wait only for local signed-entitlement selection. ActivationGate.ready
+        // resolves before its background server-status request, so startup
+        // never waits for network availability to recognize an offline license.
+        if (
+            window.ActivationGate &&
+            ActivationGate.ready &&
+            typeof ActivationGate.ready.then === "function"
+        ) {
+            await ActivationGate.ready;
         }
 
         Screen.showHome();
@@ -163,4 +174,4 @@ const App = {
 window.App = App;
 window.AppController = App;
 
-console.log("App Controller v5.4 Ready");
+console.log("App Controller v5.5 Ready");
