@@ -327,6 +327,19 @@ const ProfileScreen = {
         return "⚠ فعال‌سازی برای این پروفایل انجام نشده است. " + (result.reason || "");
     },
 
+    refreshSelectedProfileEntitlement: async function () {
+        if (window.ActivationGate &&
+            typeof ActivationGate.refreshActiveProfileEntitlement === "function") {
+            return ActivationGate.refreshActiveProfileEntitlement();
+        }
+
+        const manager = window.LicenseManager;
+        if (manager && typeof manager.initializeRemoteEntitlement === "function") {
+            return manager.initializeRemoteEntitlement();
+        }
+        return false;
+    },
+
     refreshProfileLicenseStatus: async function (profile) {
         const statusElement = document.getElementById("profileLicenseStatus");
         const activateButton = document.getElementById("activateCurrentProfileBtn");
@@ -412,10 +425,7 @@ const ProfileScreen = {
         }
 
         try {
-            const manager = window.LicenseManager;
-            if (manager && typeof manager.initializeRemoteEntitlement === "function") {
-                await manager.initializeRemoteEntitlement();
-            }
+            await this.refreshSelectedProfileEntitlement();
         } catch (error) {
             console.warn("Profile Screen: Selected profile entitlement could not be initialized.", error);
         }
@@ -444,10 +454,7 @@ const ProfileScreen = {
         }
 
         try {
-            const manager = window.LicenseManager;
-            if (manager && typeof manager.initializeRemoteEntitlement === "function") {
-                await manager.initializeRemoteEntitlement();
-            }
+            await this.refreshSelectedProfileEntitlement();
         } catch (error) {
             console.warn("Profile Screen: Entitlement selection before activation failed.", error);
         }
@@ -576,10 +583,7 @@ const ProfileScreen = {
 
                 setTimeout(async function () {
                     try {
-                        const manager = window.LicenseManager;
-                        if (manager && typeof manager.initializeRemoteEntitlement === "function") {
-                            await manager.initializeRemoteEntitlement();
-                        }
+                        await ProfileScreen.refreshSelectedProfileEntitlement();
                     } catch (error) {
                         console.warn("Profile Screen: New profile entitlement initialization failed.", error);
                     }
@@ -672,10 +676,7 @@ const ProfileScreen = {
                 message.innerHTML = "✓ تغییرات ذخیره شد؛ وضعیت مجوز پایه جدید بررسی می‌شود.";
 
                 setTimeout(async function () {
-                    const manager = window.LicenseManager;
-                    if (manager && typeof manager.initializeRemoteEntitlement === "function") {
-                        await manager.initializeRemoteEntitlement();
-                    }
+                    await ProfileScreen.refreshSelectedProfileEntitlement();
                     ProfileScreen.show();
                 }, 350);
             } else {
