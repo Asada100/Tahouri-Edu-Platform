@@ -1,6 +1,6 @@
 /* =====================================
    Tahouri Edu Platform
-   Profile UI Polish v2.5
+   Profile UI Polish v2.6
    ===================================== */
 
 .profile-screen {
@@ -163,6 +163,99 @@
 .profiles-screen .profile-select-card button:disabled {
     opacity: .75;
     cursor: default;
+}
+
+.profile-license-panel {
+    box-sizing: border-box;
+    width: min(760px, 100%);
+    margin: 18px auto;
+    padding: 18px 20px;
+    border: 1px solid #dfe6ef;
+    border-radius: 16px;
+    background: #f8fafc;
+    text-align: right;
+}
+
+.profile-license-panel h2 {
+    margin: 0 0 7px;
+    color: #25324a;
+    font-size: 17px;
+    line-height: 1.7;
+    font-weight: 800;
+}
+
+.profile-license-panel > p {
+    margin: 4px 0;
+    color: #667085;
+    font-size: 13px;
+    line-height: 1.9;
+}
+
+.profile-license-status {
+    margin: 10px 0 !important;
+    padding: 10px 12px;
+    border: 1px solid #e5eaf0;
+    border-radius: 11px;
+    background: #ffffff;
+    color: #6b5b2a !important;
+    font-weight: 700;
+}
+
+.profile-license-status.is-active {
+    border-color: #b9dfc8;
+    background: #f0fdf4;
+    color: #166534 !important;
+}
+
+.profile-license-status.is-inactive {
+    border-color: #f0d6b8;
+    background: #fffaf3;
+    color: #8a4b12 !important;
+}
+
+.profile-license-panel #activateCurrentProfileBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    margin-top: 8px;
+    padding: 9px 16px;
+    border: 1px solid #d8e0ea;
+    border-radius: 12px;
+    background: #ffffff;
+    color: #273449;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.profile-license-panel #activateCurrentProfileBtn[hidden],
+.profiles-screen .profile-select-card button[hidden] {
+    display: none !important;
+}
+
+.profiles-screen .profile-select-card .profile-license-status {
+    min-height: 48px;
+    box-sizing: border-box;
+    margin: 9px 0 !important;
+    padding: 8px 10px;
+    font-size: 12px;
+    line-height: 1.8;
+}
+
+.profile-license-help {
+    box-sizing: border-box;
+    width: min(600px, 100%);
+    margin: 10px auto 14px !important;
+    padding: 11px 14px;
+    border: 1px solid #dfe6ef;
+    border-radius: 12px;
+    background: #f8fafc;
+    color: #475467;
+    font-size: 13px;
+    line-height: 1.9;
+    text-align: right;
 }
 
 .profile-edit-screen,
