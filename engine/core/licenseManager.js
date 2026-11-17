@@ -2028,7 +2028,10 @@
 
         initializeRemoteEntitlement:
             initializeRemoteEntitlement,
-\n        getProfileEntitlementStatus:\n            getProfileEntitlementStatus,\n
+
+        getProfileEntitlementStatus:
+            getProfileEntitlementStatus,
+
 
         // Internal / Testing
         removeLicense:
