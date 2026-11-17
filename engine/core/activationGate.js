@@ -1,6 +1,6 @@
 // Tahouri Edu Platform
 // Activation Gate
-// Version 8.4
+// Version 8.5
 // Profile + License Binding
 // =====================================
 
@@ -1651,6 +1651,15 @@
 
         renderGate();
 
+        // Keep the profile screen status in sync with the newly stored
+        // signed entitlement when the activation form was opened from there.
+        if (
+            window.ProfileScreen &&
+            typeof ProfileScreen.refreshProfileLicenseStatus === "function"
+        ) {
+            ProfileScreen.refreshProfileLicenseStatus(getActiveProfile());
+        }
+
     }
 
 
@@ -2304,7 +2313,7 @@
 
 
     console.log(
-        "Activation Gate v8.4 Ready"
+        "Activation Gate v8.5 Ready"
     );
 
 })();
