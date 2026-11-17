@@ -1,11 +1,13 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 5.0
+// Version 5.1
 // Profile Screen
 // Multi Profile + Personal Settings
 // =====================================
 
 const ProfileScreen = {
+    profileSwitchSequence: 0,
+    licenseStatusSequence: 0,
 
     // =====================================
     // Show Profile
@@ -61,6 +63,13 @@ const ProfileScreen = {
             <p>${this.formatDate(profile.createdAt)}</p>
         </div>
     </div>
+
+    <section class="profile-license-panel" aria-labelledby="profileLicenseHeading">
+        <h2 id="profileLicenseHeading">🔐 وضعیت مجوز یادگیری</h2>
+        <p>مجوز هر دانش‌آموز برای پایه و سال تحصیلی خودش جداگانه بررسی می‌شود.</p>
+        <p id="profileLicenseStatus" class="profile-license-status" aria-live="polite">در حال بررسی مجوز این پروفایل...</p>
+        <button id="activateCurrentProfileBtn" type="button" hidden>🔐 فعال‌سازی این پروفایل</button>
+    </section>
 
     <hr>
 
@@ -131,9 +140,17 @@ const ProfileScreen = {
             ProfileScreen.showCreate();
         };
 
-        this.bindSettings();
+        const activateButton = document.getElementById("activateCurrentProfileBtn");
+        if (activateButton) {
+            activateButton.onclick = function () {
+                ProfileScreen.activateProfile(profile.studentId, profile.grade, activateButton);
+            };
+        }
 
-        console.log("Profile Screen v5.0 Displayed:", profile);
+        this.bindSettings();
+        this.refreshProfileLicenseStatus(profile);
+
+        console.log("Profile Screen v5.1 Displayed:", profile);
     },
 
     // =====================================
@@ -209,58 +226,39 @@ const ProfileScreen = {
     // =====================================
 
     showProfiles: function () {
-
         const app = document.getElementById("app");
-
-        if (!app) {
-            return;
-        }
+        if (!app) return;
 
         const profiles = ProfileManager.getAll();
         const activeProfile = ProfileManager.get();
 
         app.innerHTML = `
 <div class="screen profiles-screen">
-
     <h1>👥 پروفایل‌های دانش‌آموزان</h1>
-
-    <p>پروفایل دانش‌آموز موردنظر را انتخاب کنید.</p>
+    <p>با انتخاب هر پروفایل، وارد صفحه همان دانش‌آموز می‌شوید. وضعیت مجوز و دکمه فعال‌سازی هم در همان صفحه مشخص است.</p>
     <button id="exportProfilesForAdminBtn" type="button">دانلود فهرست پروفایل‌ها برای پنل مدیریت</button>
     <p id="exportProfilesMessage" aria-live="polite"></p>
-
     <hr>
-
     <div class="profiles-list">
-        ${
-            profiles.map(function (profile) {
-                const active = activeProfile && activeProfile.studentId === profile.studentId;
-
-                return `
+        ${profiles.map(function (profile) {
+            const active = activeProfile && activeProfile.studentId === profile.studentId;
+            const studentId = ProfileScreen.escapeHtml(profile.studentId);
+            const name = ProfileScreen.escapeHtml(profile.name || "دانش‌آموز");
+            const grade = ProfileScreen.escapeHtml(ProfileScreen.getGradeTitle(profile.grade));
+            return `
 <div class="profile-select-card">
-    <h2>${active ? "⭐ " : ""}${profile.name}</h2>
-    <p>🎓 ${ProfileScreen.getGradeTitle(profile.grade)}</p>
-    <p>📅 ${ProfileScreen.formatDate(profile.createdAt)}</p>
-
-    ${
-        active
-        ? `
-        <button type="button" disabled>
-            ✓ پروفایل فعال
-        </button>
-        `
-        : `
-        <button type="button" data-profile-id="${profile.studentId}">
-            ورود به این پروفایل
-        </button>
-        `
-    }
-</div>
-                `;
-            }).join("")
-        }
+    <h2>${active ? "⭐ " : ""}${name}</h2>
+    <p>🎓 ${grade}</p>
+    <p>📅 ${ProfileScreen.escapeHtml(ProfileScreen.formatDate(profile.createdAt))}</p>
+    <p class="profile-license-status" data-profile-license-status="${studentId}" aria-live="polite">در حال بررسی وضعیت مجوز...</p>
+    ${active
+        ? `<button type="button" disabled>✓ پروفایل انتخاب‌شده</button>`
+        : `<button type="button" data-profile-id="${studentId}">ورود به این پروفایل</button>`}
+    <button type="button" data-profile-activate-id="${studentId}" hidden>🔐 فعال‌سازی این پروفایل</button>
+</div>`;
+        }).join("")}
     </div>
-</div>
-        `;
+</div>`;
 
         const exportButton = document.getElementById("exportProfilesForAdminBtn");
         if (exportButton) {
@@ -269,20 +267,218 @@ const ProfileScreen = {
             };
         }
 
-        const buttons = document.querySelectorAll("[data-profile-id]");
-
-        buttons.forEach(function (button) {
+        document.querySelectorAll("[data-profile-id]").forEach(function (button) {
             button.onclick = function () {
-                const studentId = button.getAttribute("data-profile-id");
-                ProfileManager.switchProfile(studentId);
-                ProfileScreen.show();
+                ProfileScreen.selectProfile(button.getAttribute("data-profile-id"), button);
             };
+        });
+
+        document.querySelectorAll("[data-profile-activate-id]").forEach(function (button) {
+            button.onclick = function () {
+                const studentId = button.getAttribute("data-profile-activate-id");
+                const profile = profiles.find(item => String(item.studentId) === String(studentId));
+                if (profile) {
+                    ProfileScreen.activateProfile(profile.studentId, profile.grade, button);
+                }
+            };
+        });
+
+        profiles.forEach(function (profile) {
+            ProfileScreen.refreshProfileCardLicenseStatus(profile);
         });
 
         console.log("Profile List Displayed:", profiles);
     },
 
     // =====================================
+    // Profile License Status and Actions
+    // =====================================
+
+    escapeHtml: function (value) {
+        return String(value == null ? "" : value).replace(/[&<>"']/g, function (character) {
+            return {
+                "&": "&amp;",
+                "<": "&lt;",
+                ">": "&gt;",
+                '"': "&quot;",
+                "'": "&#39;"
+            }[character];
+        });
+    },
+
+    getLicenseStatusText: function (result) {
+        if (!result) return "وضعیت مجوز مشخص نشد.";
+        if (result.active) {
+            return "✓ مجوز فعال است · سال تحصیلی " +
+                (result.academicYearText || result.academicYear || "");
+        }
+        if (result.status === "pending") {
+            return "🕒 " + (result.reason || "مجوز در انتظار شروع اعتبار است.");
+        }
+        if (result.status === "expired") {
+            return "⛔ " + (result.reason || "مجوز منقضی شده است.");
+        }
+        if (result.status === "renewal_required") {
+            return "⚠ " + (result.reason || "مجوز سال تحصیلی جاری فعال نیست.");
+        }
+        if (result.status === "inactive") {
+            return "⚠ مجوز یادگیری این پروفایل فعال نیست.";
+        }
+        if (result.status === "invalid") {
+            return "⚠ وضعیت مجوز نیاز به بررسی دارد. " + (result.reason || "");
+        }
+        if (result.status === "unavailable") {
+            return "ℹ " + (result.reason || "وضعیت مجوز فعلاً قابل بررسی نیست.");
+        }
+        return "⚠ فعال‌سازی برای این پروفایل انجام نشده است. " + (result.reason || "");
+    },
+
+    refreshSelectedProfileEntitlement: async function () {
+        if (window.ActivationGate &&
+            typeof ActivationGate.refreshActiveProfileEntitlement === "function") {
+            return ActivationGate.refreshActiveProfileEntitlement();
+        }
+
+        const manager = window.LicenseManager;
+        if (manager && typeof manager.initializeRemoteEntitlement === "function") {
+            return manager.initializeRemoteEntitlement();
+        }
+        return false;
+    },
+
+    refreshProfileLicenseStatus: async function (profile) {
+        const statusElement = document.getElementById("profileLicenseStatus");
+        const activateButton = document.getElementById("activateCurrentProfileBtn");
+        if (!statusElement || !profile) return;
+
+        const sequence = ++this.licenseStatusSequence;
+        const manager = window.LicenseManager;
+        if (!manager || typeof manager.getProfileEntitlementStatus !== "function") {
+            statusElement.textContent = "وضعیت مجوز در این نسخه قابل بررسی نیست.";
+            if (activateButton) activateButton.hidden = false;
+            return;
+        }
+
+        try {
+            const result = await manager.getProfileEntitlementStatus(profile.studentId, profile.grade);
+            const activeProfile = ProfileManager.get();
+            if (sequence !== this.licenseStatusSequence ||
+                !activeProfile || activeProfile.studentId !== profile.studentId) return;
+
+            statusElement.textContent = this.getLicenseStatusText(result);
+            statusElement.className = "profile-license-status " +
+                (result && result.active ? "is-active" : "is-inactive");
+
+            if (activateButton) {
+                const canActivate = !result || ["inactive", "invalid", "expired", "renewal_required"].includes(result.status);
+                activateButton.hidden = !canActivate;
+                activateButton.textContent = result && ["expired", "renewal_required"].includes(result.status)
+                    ? "🔄 تمدید مجوز این پروفایل"
+                    : "🔐 فعال‌سازی این پروفایل";
+            }
+        } catch (error) {
+            console.warn("Profile Screen: License status lookup failed.", error);
+            if (sequence === this.licenseStatusSequence) {
+                statusElement.textContent = "وضعیت مجوز فعلاً قابل بررسی نیست.";
+                if (activateButton) activateButton.hidden = true;
+            }
+        }
+    },
+
+    refreshProfileCardLicenseStatus: async function (profile) {
+        const manager = window.LicenseManager;
+        if (!manager || typeof manager.getProfileEntitlementStatus !== "function") return;
+
+        const statusElement = Array.from(document.querySelectorAll("[data-profile-license-status]"))
+            .find(element => element.getAttribute("data-profile-license-status") === String(profile.studentId));
+        const activateButton = Array.from(document.querySelectorAll("[data-profile-activate-id]"))
+            .find(element => element.getAttribute("data-profile-activate-id") === String(profile.studentId));
+        if (!statusElement) return;
+
+        try {
+            const result = await manager.getProfileEntitlementStatus(profile.studentId, profile.grade);
+            if (!statusElement.isConnected) return;
+            statusElement.textContent = this.getLicenseStatusText(result);
+            statusElement.className = "profile-license-status " +
+                (result && result.active ? "is-active" : "is-inactive");
+
+            if (activateButton) {
+                const canActivate = !result || ["inactive", "invalid", "expired", "renewal_required"].includes(result.status);
+                activateButton.hidden = !canActivate;
+                activateButton.textContent = result && ["expired", "renewal_required"].includes(result.status)
+                    ? "🔄 تمدید مجوز این پروفایل"
+                    : "🔐 فعال‌سازی این پروفایل";
+            }
+        } catch (error) {
+            console.warn("Profile Screen: Profile card license status failed.", error);
+            statusElement.textContent = "وضعیت مجوز فعلاً قابل بررسی نیست.";
+        }
+    },
+
+    selectProfile: async function (studentId, button) {
+        const sequence = ++this.profileSwitchSequence;
+        if (button) {
+            button.disabled = true;
+            button.textContent = "در حال آماده‌سازی پروفایل...";
+        }
+
+        if (!ProfileManager.switchProfile(studentId)) {
+            if (button) {
+                button.disabled = false;
+                button.textContent = "ورود به این پروفایل";
+            }
+            return false;
+        }
+
+        try {
+            await this.refreshSelectedProfileEntitlement();
+        } catch (error) {
+            console.warn("Profile Screen: Selected profile entitlement could not be initialized.", error);
+        }
+
+        if (sequence !== this.profileSwitchSequence) return false;
+        const current = ProfileManager.get();
+        if (!current || current.studentId !== studentId) return false;
+
+        this.show();
+        return true;
+    },
+
+    activateProfile: async function (studentId, gradeId, button) {
+        const sequence = ++this.profileSwitchSequence;
+        if (button) {
+            button.disabled = true;
+            button.textContent = "در حال آماده‌سازی...";
+        }
+
+        const current = ProfileManager.get();
+        if (!current || current.studentId !== studentId) {
+            if (!ProfileManager.switchProfile(studentId)) {
+                if (button) button.disabled = false;
+                return false;
+            }
+        }
+
+        try {
+            await this.refreshSelectedProfileEntitlement();
+        } catch (error) {
+            console.warn("Profile Screen: Entitlement selection before activation failed.", error);
+        }
+
+        if (sequence !== this.profileSwitchSequence) return false;
+        const selected = ProfileManager.get();
+        if (!selected || selected.studentId !== studentId) return false;
+
+        this.show();
+        if (window.ActivationGate && typeof ActivationGate.openGrade === "function") {
+            return ActivationGate.openGrade(gradeId);
+        }
+        if (window.ActivationGate && typeof ActivationGate.open === "function") {
+            ActivationGate.open();
+        }
+        return false;
+    },
+
     // Export Existing Profiles for License Admin
     // =====================================
 
@@ -338,6 +534,7 @@ const ProfileScreen = {
 <div class="screen profile-create-screen">
     <h1>➕ ایجاد پروفایل دانش‌آموز</h1>
     <p>برای هر دانش‌آموز یک پروفایل جداگانه بسازید.</p>
+    <p class="profile-license-help">ساخت پروفایل به معنی فعال شدن مجوز یادگیری نیست. پس از ایجاد، وضعیت مجوز در صفحه پروفایل نمایش داده می‌شود و می‌توانید همان‌جا آن را فعال کنید.</p>
     <hr>
 
     <label for="newProfileName">نام دانش‌آموز</label>
@@ -388,15 +585,16 @@ const ProfileScreen = {
                     return;
                 }
 
-                message.innerHTML = "✓ پروفایل با موفقیت ایجاد شد.";
+                message.innerHTML = "✓ پروفایل ساخته شد؛ وضعیت مجوز را در صفحه بعد ببینید.";
 
-                setTimeout(function () {
-                    if (typeof ActivationGate !== "undefined" && typeof ActivationGate.open === "function") {
-                        ActivationGate.open();
-                    } else {
-                        ProfileScreen.show();
+                setTimeout(async function () {
+                    try {
+                        await ProfileScreen.refreshSelectedProfileEntitlement();
+                    } catch (error) {
+                        console.warn("Profile Screen: New profile entitlement initialization failed.", error);
                     }
-                }, 500);
+                    ProfileScreen.show();
+                }, 350);
             } catch (error) {
                 console.error("Profile Create Error:", error);
                 message.innerHTML = "⚠ خطا در ایجاد پروفایل.";
@@ -481,15 +679,12 @@ const ProfileScreen = {
             ProfileManager.update({ name: name, grade: grade });
 
             if (oldGrade !== grade) {
-                message.innerHTML = "✓ تغییرات ذخیره شد.";
+                message.innerHTML = "✓ تغییرات ذخیره شد؛ وضعیت مجوز پایه جدید بررسی می‌شود.";
 
-                setTimeout(function () {
-                    if (typeof ActivationGate !== "undefined" && typeof ActivationGate.open === "function") {
-                        ActivationGate.open();
-                    } else {
-                        ProfileScreen.show();
-                    }
-                }, 500);
+                setTimeout(async function () {
+                    await ProfileScreen.refreshSelectedProfileEntitlement();
+                    ProfileScreen.show();
+                }, 350);
             } else {
                 message.innerHTML = "✓ تغییرات ذخیره شد.";
 
@@ -555,4 +750,4 @@ const ProfileScreen = {
     }
 };
 
-console.log("Profile Screen v5.0 Ready");
+console.log("Profile Screen v5.1 Ready");

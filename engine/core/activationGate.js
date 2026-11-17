@@ -1,6 +1,6 @@
 // Tahouri Edu Platform
 // Activation Gate
-// Version 8.2
+// Version 8.5
 // Profile + License Binding
 // =====================================
 
@@ -1651,6 +1651,15 @@
 
         renderGate();
 
+        // Keep the profile screen status in sync with the newly stored
+        // signed entitlement when the activation form was opened from there.
+        if (
+            window.ProfileScreen &&
+            typeof ProfileScreen.refreshProfileLicenseStatus === "function"
+        ) {
+            ProfileScreen.refreshProfileLicenseStatus(getActiveProfile());
+        }
+
     }
 
 
@@ -1789,6 +1798,42 @@
         }).catch(function (error) {
             console.warn("Activation Gate: Background status refresh failed.", error);
         });
+    }
+
+
+    // Re-select the active profile's signed entitlement after changes made
+    // outside the activation-gate profile dropdown (profile management screen).
+    async function refreshActiveProfileEntitlement() {
+        const studentId = getActiveStudentId();
+        const sequence = ++profileSwitchSequence;
+        const manager = window.LicenseManager;
+        licenseStatusReason = null;
+        licenseSelectionPending = Boolean(studentId);
+
+        const selection = manager &&
+            typeof manager.initializeRemoteEntitlement === "function"
+            ? manager.initializeRemoteEntitlement()
+            : Promise.resolve(false);
+
+        if (gateElement) renderGate();
+
+        let selected = false;
+        try {
+            selected = await selection;
+        } catch (error) {
+            console.warn("Activation Gate: Active profile entitlement refresh failed.", error);
+        }
+
+        if (sequence !== profileSwitchSequence) return false;
+
+        licenseSelectionPending = false;
+        if (gateElement) renderGate();
+
+        if (selected && studentId === getActiveStudentId()) {
+            revalidateInBackground(studentId, sequence);
+        }
+
+        return selected;
     }
 
 
@@ -2237,7 +2282,10 @@
             openLicenseManagement,
 
         openProfileManagement:
-            openProfileManagement
+            openProfileManagement,
+
+        refreshActiveProfileEntitlement:
+            refreshActiveProfileEntitlement
 
     };
 
@@ -2265,7 +2313,7 @@
 
 
     console.log(
-        "Activation Gate v8.3 Ready"
+        "Activation Gate v8.5 Ready"
     );
 
 })();

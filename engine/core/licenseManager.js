@@ -1796,6 +1796,136 @@
         }
     }
 
+    async function getProfileEntitlementStatus(studentId, gradeId) {
+        const normalizedStudentId = normalizeStudentId(studentId);
+        const expectedGradeId = safeText(gradeId).trim();
+
+        if (!normalizedStudentId || !expectedGradeId) {
+            return { active: false, status: "invalid", reason: "شناسه پروفایل یا پایه مشخص نیست." };
+        }
+
+        const currentAcademicYear = String(getAcademicYear() || "");
+
+        if (!isRemoteProductionMode()) {
+            const license = getProfileLicense(normalizedStudentId, expectedGradeId);
+            if (!license) {
+                return { active: false, status: "inactive", reason: "برای این پروفایل هنوز مجوزی ثبت نشده است." };
+            }
+            if (String(license.academicYear || "") !== currentAcademicYear) {
+                return { active: false, status: "renewal_required", reason: "مجوز این پروفایل مربوط به سال تحصیلی دیگری است." };
+            }
+
+            const validFrom = new Date(license.validFrom || license.activatedAt || "");
+            const validUntil = new Date(license.validUntil || "");
+            if (Number.isNaN(validFrom.getTime()) || Number.isNaN(validUntil.getTime()) ||
+                validFrom.getTime() >= validUntil.getTime()) {
+                return { active: false, status: "invalid", reason: "بازه اعتبار مجوز معتبر نیست." };
+            }
+            if (Date.now() < validFrom.getTime()) {
+                return { active: false, status: "pending", reason: "زمان شروع اعتبار مجوز هنوز نرسیده است." };
+            }
+            if (Date.now() >= validUntil.getTime()) {
+                return { active: false, status: "expired", reason: "مجوز این پروفایل منقضی شده است." };
+            }
+
+            return {
+                active: true,
+                status: "active",
+                academicYear: currentAcademicYear,
+                academicYearText: getAcademicYearText(),
+                validUntil: license.validUntil
+            };
+        }
+
+        const store = window.TahouriEntitlementStore;
+        const verifier = window.TahouriEntitlementVerifier;
+        if (!store || !verifier || typeof verifier.verifyEnvelope !== "function") {
+            return { active: false, status: "unavailable", reason: "امکان بررسی مجوز ذخیره‌شده وجود ندارد." };
+        }
+
+        let matchingEntitlementFound = false;
+        let lastStatus = "inactive";
+        let lastReason = "برای این پروفایل هنوز مجوزی ثبت نشده است.";
+
+        try {
+            const envelopes = typeof store.readAll === "function"
+                ? store.readAll()
+                : [store.read()].filter(Boolean);
+            const installationId = getOrCreateInstallationId();
+
+            for (const envelope of envelopes) {
+                const storedClaims = envelope && envelope.claims;
+                if (!storedClaims ||
+                    normalizeStudentId(storedClaims.studentId) !== normalizedStudentId ||
+                    safeText(storedClaims.gradeScope).trim() !== expectedGradeId) {
+                    continue;
+                }
+
+                matchingEntitlementFound = true;
+                const verification = await verifier.verifyEnvelope(envelope, { allowFuture: true });
+                if (!verification || !verification.valid || !verification.claims) {
+                    lastReason = verification && verification.reason
+                        ? verification.reason
+                        : "اعتبار امضای مجوز تأیید نشد.";
+                    lastStatus = /منقضی/.test(lastReason) ? "expired" : "invalid";
+                    continue;
+                }
+
+                const claims = verification.claims;
+                if (claims.installationBinding !== installationId) {
+                    lastStatus = "invalid";
+                    lastReason = "این مجوز به دستگاه دیگری متصل است.";
+                    continue;
+                }
+                if (String(claims.academicYear) !== currentAcademicYear) {
+                    lastStatus = "renewal_required";
+                    lastReason = "مجوز این پروفایل مربوط به سال تحصیلی دیگری است.";
+                    continue;
+                }
+
+                const validFrom = new Date(claims.validFrom);
+                const validUntil = new Date(claims.validUntil);
+                if (Number.isNaN(validFrom.getTime()) || Number.isNaN(validUntil.getTime()) ||
+                    validFrom.getTime() >= validUntil.getTime()) {
+                    lastStatus = "invalid";
+                    lastReason = "بازه اعتبار مجوز معتبر نیست.";
+                    continue;
+                }
+                if (Date.now() < validFrom.getTime()) {
+                    return {
+                        active: false,
+                        status: "pending",
+                        reason: "اعتبار این مجوز از تاریخ شروع سال تحصیلی فعال می‌شود.",
+                        academicYear: String(claims.academicYear),
+                        validFrom: claims.validFrom
+                    };
+                }
+                if (Date.now() >= validUntil.getTime()) {
+                    lastStatus = "expired";
+                    lastReason = "مجوز این پروفایل منقضی شده است.";
+                    continue;
+                }
+
+                return {
+                    active: true,
+                    status: "active",
+                    academicYear: String(claims.academicYear),
+                    academicYearText: getAcademicYearText(),
+                    validUntil: claims.validUntil
+                };
+            }
+        } catch (error) {
+            console.warn("License Manager: Profile entitlement status check failed.", error);
+            return { active: false, status: "unavailable", reason: "بررسی مجوز ذخیره‌شده با خطا روبه‌رو شد." };
+        }
+
+        return {
+            active: false,
+            status: matchingEntitlementFound ? lastStatus : "inactive",
+            reason: lastReason
+        };
+    }
+
     function hasValidRemoteEntitlement(gradeId) {
         const claims = verifiedRemoteEntitlement;
         if (!claims || claims.productId !== "tahouri-edu") return false;
@@ -1899,6 +2029,9 @@
         initializeRemoteEntitlement:
             initializeRemoteEntitlement,
 
+        getProfileEntitlementStatus:
+            getProfileEntitlementStatus,
+
 
         // Internal / Testing
         removeLicense:
@@ -1916,7 +2049,7 @@
 
 
     console.log(
-        "License Manager v2.1 Ready"
+        "License Manager v2.2 Ready"
     );
 
 })();
