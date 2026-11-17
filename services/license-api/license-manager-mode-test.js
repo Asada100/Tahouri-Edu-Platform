@@ -19,6 +19,7 @@ const profile = { studentId: "license-mode-test-student", grade: "grade6", grade
 const window = {
     ProfileManager: { get: () => profile },
     TahouriServiceConfig: { mode: "test" },
+    crypto: { randomUUID: () => "install-test-profile-status" },
     localStorage: storage
 };
 const context = {
@@ -248,6 +249,79 @@ async function main() {
         assert.equal(activationWrites, 1,
             "Rejected " + scenario.label + " claims must never be persisted.");
     }
+
+    // Profile cards must be able to inspect every locally stored entitlement
+    // without changing the currently selected profile or contacting the API.
+    window.TahouriServiceConfig.mode = "production";
+    const currentYear = String(manager.getAcademicYear());
+    const statusClaimsA = makeClaims(studentA.studentId, "grade6", "lic_status_A");
+    statusClaimsA.academicYear = currentYear;
+    statusClaimsA.installationBinding = "install-test-profile-status";
+    statusClaimsA.validFrom = new Date(Date.now() - 60000).toISOString();
+    statusClaimsA.validUntil = new Date(Date.now() + 86400000).toISOString();
+
+    const statusClaimsB = makeClaims(studentB.studentId, "grade6", "lic_status_B");
+    statusClaimsB.academicYear = currentYear;
+    statusClaimsB.installationBinding = "install-test-profile-status";
+    statusClaimsB.validFrom = new Date(Date.now() - 60000).toISOString();
+    statusClaimsB.validUntil = new Date(Date.now() + 86400000).toISOString();
+
+    window.TahouriEntitlementStore.readAll = () => [
+        envelope(statusClaimsA),
+        envelope(statusClaimsB)
+    ];
+    window.TahouriEntitlementVerifier.verifyEnvelope = async item => ({
+        valid: true,
+        claims: item.claims
+    });
+
+    const profileAStatus = await manager.getProfileEntitlementStatus(studentA.studentId, "grade6");
+    assert.equal(profileAStatus.active, true,
+        "A valid locally stored entitlement must be reported active for its matching profile.");
+    assert.equal(profileAStatus.status, "active");
+
+    const profileBStatus = await manager.getProfileEntitlementStatus(studentB.studentId, "grade6");
+    assert.equal(profileBStatus.active, true,
+        "The status lookup must find another profile's entitlement in the same local store.");
+
+    const wrongGradeStatus = await manager.getProfileEntitlementStatus(studentA.studentId, "grade5");
+    assert.equal(wrongGradeStatus.active, false,
+        "A signed entitlement must not activate a different grade.");
+    assert.equal(wrongGradeStatus.status, "inactive");
+
+    const wrongInstallation = { ...statusClaimsA, installationBinding: "another-device" };
+    window.TahouriEntitlementStore.readAll = () => [envelope(wrongInstallation)];
+    const wrongDeviceStatus = await manager.getProfileEntitlementStatus(studentA.studentId, "grade6");
+    assert.equal(wrongDeviceStatus.active, false,
+        "A profile entitlement bound to another installation must not be shown as active.");
+    assert.equal(wrongDeviceStatus.status, "invalid");
+
+    const oldYear = { ...statusClaimsA, academicYear: String(Number(currentYear) - 1) };
+    window.TahouriEntitlementStore.readAll = () => [envelope(oldYear)];
+    const oldYearStatus = await manager.getProfileEntitlementStatus(studentA.studentId, "grade6");
+    assert.equal(oldYearStatus.active, false);
+    assert.equal(oldYearStatus.status, "renewal_required",
+        "An entitlement from a previous academic year must be shown as requiring renewal.");
+
+    const futureStart = {
+        ...statusClaimsA,
+        validFrom: new Date(Date.now() + 86400000).toISOString()
+    };
+    window.TahouriEntitlementStore.readAll = () => [envelope(futureStart)];
+    const futureStatus = await manager.getProfileEntitlementStatus(studentA.studentId, "grade6");
+    assert.equal(futureStatus.active, false);
+    assert.equal(futureStatus.status, "pending",
+        "A future entitlement must be shown as pending rather than active.");
+
+    const expired = {
+        ...statusClaimsA,
+        validUntil: new Date(Date.now() - 60000).toISOString()
+    };
+    window.TahouriEntitlementStore.readAll = () => [envelope(expired)];
+    const expiredStatus = await manager.getProfileEntitlementStatus(studentA.studentId, "grade6");
+    assert.equal(expiredStatus.active, false);
+    assert.equal(expiredStatus.status, "expired",
+        "An expired entitlement must be reported as expired.");
 
     console.log("License Manager mode and entitlement test: PASS");
 }
