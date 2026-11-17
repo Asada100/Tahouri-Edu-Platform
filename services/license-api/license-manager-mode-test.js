@@ -316,7 +316,8 @@ async function main() {
 
     const expired = {
         ...statusClaimsA,
-        validUntil: new Date(Date.now() - 60000).toISOString()
+        validFrom: new Date(Date.now() - 172800000).toISOString(),
+        validUntil: new Date(Date.now() - 86400000).toISOString()
     };
     window.TahouriEntitlementStore.readAll = () => [envelope(expired)];
     const expiredStatus = await manager.getProfileEntitlementStatus(studentA.studentId, "grade6");
