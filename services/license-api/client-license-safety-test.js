@@ -37,7 +37,7 @@ assert(
     indexHtml.includes("tahouriLicenseClient.js?v=1.2") &&
     indexHtml.includes("profileScreen.js?v=5.1") &&
     indexHtml.includes("licenseManager.js?v=2.2") &&
-    indexHtml.includes("activationGate.js?v=8.4") &&
+    indexHtml.includes("activationGate.js?v=8.5") &&
     indexHtml.includes("profilePolish.css?v=2.6"),
     "Pages must bust cached versions of the production service config, verifier, and license client."
 );
@@ -200,6 +200,7 @@ assert(
     profileScreen.includes("selectProfile: async function (studentId, button)") &&
     gate.includes("async function refreshActiveProfileEntitlement()") &&
     gate.includes("refreshActiveProfileEntitlement:") &&
+    gate.includes("ProfileScreen.refreshProfileLicenseStatus(getActiveProfile())") &&
     profileScreen.includes("getProfileEntitlementStatus(profile.studentId, profile.grade)") &&
     profileScreen.includes("data-profile-license-status") &&
     profileScreen.includes("data-profile-activate-id") &&
