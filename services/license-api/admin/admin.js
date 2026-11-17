@@ -52,13 +52,17 @@ async function createBulkCodesFromFile(){
   const studentIds=data.profiles.map(profile=>String(profile?.studentId||"").trim());
   if(studentIds.some(id=>!id)||new Set(studentIds).size!==studentIds.length)throw Error("شناسه‌های فایل خالی یا تکراری هستند.");
   if(!confirm("برای "+studentIds.length+" پروفایل، دقیقاً یک کد با پایه فعلی و برای سال تحصیلی جاری صادر شود؟ کدها فقط همین بار نمایش داده می‌شوند."))return;
-  const d=await api("/api/admin/codes/bulk",{method:"POST",body:JSON.stringify({studentIds})});
-  const box=document.getElementById("bulkNewCodes");
-  box.textContent="سال تحصیلی "+d.academicYear+" — تعداد کد: "+d.count+"\\n"+d.codes.map(x=>[x.fullName,x.studentId,x.gradeId,x.code].join(" | ")).join("\\n");
-  box.hidden=false;
-  input.value="";
-  await loadCodes();
-  alert("صدور گروهی کامل شد. "+d.count+" کد ساخته شد؛ کدها را اکنون ذخیره کنید.");
+  const button=document.getElementById("bulkIssueButton");
+  if(button)button.disabled=true;
+  try{
+   const d=await api("/api/admin/codes/bulk",{method:"POST",body:JSON.stringify({studentIds})});
+   const box=document.getElementById("bulkNewCodes");
+   box.textContent="سال تحصیلی "+d.academicYear+" — تعداد کد: "+d.count+"\\n"+d.codes.map(x=>[x.fullName,x.studentId,x.gradeId,x.code].join(" | ")).join("\\n");
+   box.hidden=false;
+   input.value="";
+   await loadCodes();
+   alert("صدور گروهی کامل شد. "+d.count+" کد ساخته شد؛ کدها را اکنون ذخیره کنید.");
+  }finally{if(button)button.disabled=false;}
  }catch(x){alert(x.message)}
 }
 async function createCodes(){try{const count=Number(document.getElementById("count").value);if(!Number.isInteger(count)||count<1||count>100)throw Error("تعداد باید بین ۱ تا ۱۰۰ باشد.");const d=await api("/api/admin/codes",{method:"POST",body:JSON.stringify({studentId:document.getElementById("studentId").value,gradeId:document.getElementById("grade").value.trim(),academicYear:document.getElementById("year").value.trim(),renewalMode:document.getElementById("renewalMode").value,count})});const box=document.getElementById("newCodes");box.textContent=d.codes.join("\n");box.hidden=false;await loadCodes();alert("کدها ساخته شدند. کد کامل را همین حالا ذخیره کنید.")}catch(x){alert(x.message)}}
