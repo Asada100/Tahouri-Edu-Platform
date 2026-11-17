@@ -235,7 +235,7 @@ const ProfileScreen = {
         app.innerHTML = `
 <div class="screen profiles-screen">
     <h1>👥 پروفایل‌های دانش‌آموزان</h1>
-    <p>پروفایل موردنظر را انتخاب کنید. وضعیت مجوز هر دانش‌آموز همین‌جا نمایش داده می‌شود.</p>
+    <p>با انتخاب هر پروفایل، وارد صفحه همان دانش‌آموز می‌شوید. وضعیت مجوز و دکمه فعال‌سازی هم در همان صفحه مشخص است.</p>
     <button id="exportProfilesForAdminBtn" type="button">دانلود فهرست پروفایل‌ها برای پنل مدیریت</button>
     <p id="exportProfilesMessage" aria-live="polite"></p>
     <hr>
@@ -320,6 +320,12 @@ const ProfileScreen = {
         }
         if (result.status === "renewal_required") {
             return "⚠ " + (result.reason || "مجوز سال تحصیلی جاری فعال نیست.");
+        }
+        if (result.status === "inactive") {
+            return "⚠ مجوز یادگیری این پروفایل فعال نیست.";
+        }
+        if (result.status === "invalid") {
+            return "⚠ وضعیت مجوز نیاز به بررسی دارد. " + (result.reason || "");
         }
         if (result.status === "unavailable") {
             return "ℹ " + (result.reason || "وضعیت مجوز فعلاً قابل بررسی نیست.");
