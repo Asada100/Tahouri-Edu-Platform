@@ -1,6 +1,6 @@
 // Tahouri Edu Platform
 // Activation Gate
-// Version 8.2
+// Version 8.4
 // Profile + License Binding
 // =====================================
 
@@ -1792,6 +1792,42 @@
     }
 
 
+    // Re-select the active profile's signed entitlement after changes made
+    // outside the activation-gate profile dropdown (profile management screen).
+    async function refreshActiveProfileEntitlement() {
+        const studentId = getActiveStudentId();
+        const sequence = ++profileSwitchSequence;
+        const manager = window.LicenseManager;
+        licenseStatusReason = null;
+        licenseSelectionPending = Boolean(studentId);
+
+        const selection = manager &&
+            typeof manager.initializeRemoteEntitlement === "function"
+            ? manager.initializeRemoteEntitlement()
+            : Promise.resolve(false);
+
+        if (gateElement) renderGate();
+
+        let selected = false;
+        try {
+            selected = await selection;
+        } catch (error) {
+            console.warn("Activation Gate: Active profile entitlement refresh failed.", error);
+        }
+
+        if (sequence !== profileSwitchSequence) return false;
+
+        licenseSelectionPending = false;
+        if (gateElement) renderGate();
+
+        if (selected && studentId === getActiveStudentId()) {
+            revalidateInBackground(studentId, sequence);
+        }
+
+        return selected;
+    }
+
+
     // =====================================
     // Enter Grade
     // =====================================
@@ -2237,7 +2273,10 @@
             openLicenseManagement,
 
         openProfileManagement:
-            openProfileManagement
+            openProfileManagement,
+
+        refreshActiveProfileEntitlement:
+            refreshActiveProfileEntitlement
 
     };
 
@@ -2265,7 +2304,7 @@
 
 
     console.log(
-        "Activation Gate v8.3 Ready"
+        "Activation Gate v8.4 Ready"
     );
 
 })();
