@@ -88,6 +88,26 @@ async function main() {
     assert.equal(refreshedLicenseId, claims.licenseId,
         "Remote status refresh must query the selected active profile's license ID.");
 
+    window.TahouriLicenseClient.status = async () => {
+        throw new Error("offline");
+    };
+    const offlineStatus = await manager.refreshRemoteLicenseStatus();
+    assert.equal(offlineStatus.reason, "network_error",
+        "A network outage must be reported without discarding the locally verified entitlement.");
+    assert.equal(manager.isGradeActivated("grade6", profile.studentId), true,
+        "A locally verified, unexpired entitlement must continue to authorize offline.");
+
+    window.TahouriLicenseClient.status = async () => ({ valid: false });
+    const revokedStatus = await manager.refreshRemoteLicenseStatus();
+    assert.equal(revokedStatus.valid, false,
+        "A definitive server rejection must invalidate the local remote entitlement.");
+    assert.equal(manager.isGradeActivated("grade6", profile.studentId), false,
+        "A revoked or missing server license must not remain authorized.");
+
+    window.TahouriLicenseClient.status = async () => ({ valid: true });
+    assert.equal(await manager.initializeRemoteEntitlement(), true,
+        "A still-valid signed local entitlement can be selected again before subsequent profile-switch tests.");
+
     // The first stored entitlement may belong to another student. The active
     // student's matching entitlement must still be found later in the store.
     const studentA = { studentId: "student-A", grade: "grade6" };

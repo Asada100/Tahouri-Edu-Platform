@@ -6,6 +6,7 @@ on:
       - "services/license-api/**"
       - "engine/core/licenseManager.js"
       - "engine/core/activationGate.js"
+      - "engine/core/appController.js"
       - "engine/core/tahouriEntitlementStore.js"
       - "engine/core/tahouriEntitlementVerifier.js"
       - "engine/core/tahouriServiceConfig.js"
@@ -14,6 +15,10 @@ on:
   pull_request:
     paths:
       - "services/license-api/**"
+      - "engine/core/licenseManager.js"
+      - "engine/core/activationGate.js"
+      - "engine/core/appController.js"
+      - "index.html"
       - "engine/core/tahouriEntitlementVerifier.js"
       - "engine/core/tahouriServiceConfig.js"
       - ".github/workflows/license-api-ci.yml"
