@@ -19,6 +19,7 @@ const indexHtml = read("index.html");
 const store = read("engine/core/tahouriEntitlementStore.js");
 const manager = read("engine/core/licenseManager.js");
 const gate = read("engine/core/activationGate.js");
+const appController = read("engine/core/appController.js");
 const licenseClient = read("engine/core/tahouriLicenseClient.js");
 
 assert(
@@ -140,6 +141,45 @@ assert(
     gate.includes("getActiveStudentId();") &&
     gate.includes("LicenseManager.activateRemote(code, profileGrade, studentId)"),
     "The activation gate must pass the currently selected profile ID into remote activation."
+);
+
+
+assert(
+    gate.includes("let licenseSelectionPending = false;") &&
+    gate.includes("ready: ready,") &&
+    gate.includes("function revalidateInBackground(studentId, sequence)") &&
+    gate.includes("licenseSelectionPending ?") &&
+    gate.includes("revalidateInBackground(studentId, sequence);"),
+    "Profile entitlement selection must show a neutral checking state and perform server revalidation in the background."
+);
+
+const enterGradeStart = gate.indexOf("async function enterGrade(");
+const enterGradeEnd = gate.indexOf("// Initialize", enterGradeStart);
+const enterGradeSource = gate.slice(enterGradeStart, enterGradeEnd);
+assert(
+    enterGradeStart >= 0 &&
+    enterGradeEnd > enterGradeStart &&
+    !enterGradeSource.includes("await revalidateCurrentLicense()") &&
+    enterGradeSource.includes("!isCurrentProfileActivated(profileGrade)"),
+    "Entering a locally verified profile must not wait for an online status request."
+);
+
+const initializeStart = gate.indexOf("async function initialize()");
+const initializeEnd = gate.indexOf("// Open", initializeStart);
+const initializeSource = gate.slice(initializeStart, initializeEnd);
+assert(
+    initializeStart >= 0 &&
+    initializeEnd > initializeStart &&
+    initializeSource.includes("resolveReady(true)") &&
+    !initializeSource.includes("await revalidateCurrentLicense()") &&
+    initializeSource.includes("revalidateInBackground(studentId, profileSwitchSequence)"),
+    "Startup must resolve local entitlement readiness before running server revalidation in the background."
+);
+
+assert(
+    appController.includes("await ActivationGate.ready;") &&
+    appController.indexOf("await ActivationGate.ready;") < appController.indexOf("Screen.showHome();"),
+    "The home screen must wait for local entitlement selection, not for the remote API."
 );
 
 console.log("Tahouri client license safety test: PASS");
