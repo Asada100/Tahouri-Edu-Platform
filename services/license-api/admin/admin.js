@@ -41,6 +41,30 @@ async function loadLicenses(){const d=await api("/api/admin/licenses");document.
 async function loadPayments(){const d=await api("/api/admin/payments");document.getElementById("payments").innerHTML=table(["شناسه","درگاه","وضعیت","مبلغ","پایه","سال","مجوز","زمان"],d.payments.map(x=>[x.paymentId,x.provider,x.status,(x.amount??"")+" "+(x.currency??""),x.gradeId||"—",x.academicYear||"—",x.licenseId||"—",x.createdAt]))}
 async function loadAudit(){const d=await api("/api/admin/audit");document.getElementById("audit").innerHTML=table(["رویداد","عامل","مجوز","زمان","جزئیات"],d.audit.map(x=>[x.eventType,x.actor,x.licenseId||"—",x.createdAt,JSON.stringify(x.metadata||{})]))}
 function table(headers,rows){if(!rows.length)return "<p class='muted'>موردی وجود ندارد.</p>";return "<div class='table-wrap'><table><thead><tr>"+headers.map(h=>"<th>"+e(h)+"</th>").join("")+"</tr></thead><tbody>"+rows.map(r=>"<tr>"+r.map(v=>"<td>"+e(v)+"</td>").join("")+"</tr>").join("")+"</tbody></table></div>"}
+async function createBulkCodesFromFile(){
+ try{
+  const input=document.getElementById("bulkProfilesFile");
+  const file=input.files&&input.files[0];
+  if(!file)throw Error("ابتدا فایل خروجی پروفایل‌های طهوری را انتخاب کنید.");
+  const data=JSON.parse(await file.text());
+  if(data.format!=="tahouri-student-profiles"||data.version!==1||!Array.isArray(data.profiles))throw Error("ساختار فایل پروفایل‌های طهوری معتبر نیست.");
+  if(data.profiles.length<1||data.profiles.length>100)throw Error("تعداد پروفایل‌ها باید بین ۱ تا ۱۰۰ باشد.");
+  const studentIds=data.profiles.map(profile=>String(profile?.studentId||"").trim());
+  if(studentIds.some(id=>!id)||new Set(studentIds).size!==studentIds.length)throw Error("شناسه‌های فایل خالی یا تکراری هستند.");
+  if(!confirm("برای "+studentIds.length+" پروفایل، دقیقاً یک کد با پایه فعلی و برای سال تحصیلی جاری صادر شود؟ کدها فقط همین بار نمایش داده می‌شوند."))return;
+  const button=document.getElementById("bulkIssueButton");
+  if(button)button.disabled=true;
+  try{
+   const d=await api("/api/admin/codes/bulk",{method:"POST",body:JSON.stringify({studentIds})});
+   const box=document.getElementById("bulkNewCodes");
+   box.textContent="سال تحصیلی "+d.academicYear+" — تعداد کد: "+d.count+"\\n"+d.codes.map(x=>[x.fullName,x.studentId,x.gradeId,x.code].join(" | ")).join("\\n");
+   box.hidden=false;
+   input.value="";
+   await loadCodes();
+   alert("صدور گروهی کامل شد. "+d.count+" کد ساخته شد؛ کدها را اکنون ذخیره کنید.");
+  }finally{if(button)button.disabled=false;}
+ }catch(x){alert(x.message)}
+}
 async function createCodes(){try{const count=Number(document.getElementById("count").value);if(!Number.isInteger(count)||count<1||count>100)throw Error("تعداد باید بین ۱ تا ۱۰۰ باشد.");const d=await api("/api/admin/codes",{method:"POST",body:JSON.stringify({studentId:document.getElementById("studentId").value,gradeId:document.getElementById("grade").value.trim(),academicYear:document.getElementById("year").value.trim(),renewalMode:document.getElementById("renewalMode").value,count})});const box=document.getElementById("newCodes");box.textContent=d.codes.join("\n");box.hidden=false;await loadCodes();alert("کدها ساخته شدند. کد کامل را همین حالا ذخیره کنید.")}catch(x){alert(x.message)}}
 async function revokeCode(){try{const code=document.getElementById("revokeCode").value.trim();if(!code)throw Error("کد را وارد کنید.");if(!confirm("این کد لغو شود؟"))return;await api("/api/admin/codes/revoke",{method:"POST",body:JSON.stringify({code})});document.getElementById("revokeCode").value="";await loadCodes();alert("کد لغو شد.")}catch(x){alert(x.message)}}
 async function revokeLicense(){try{const licenseId=document.getElementById("licenseIdAction").value.trim();if(!licenseId)throw Error("License ID را وارد کنید.");if(!confirm("این مجوز لغو شود؟"))return;await api("/api/admin/licenses/revoke",{method:"POST",body:JSON.stringify({licenseId})});await loadLicenses();alert("مجوز لغو شد.")}catch(x){alert(x.message)}}
@@ -51,7 +75,7 @@ document.addEventListener("click", event => {
   const target = event.target.closest("[data-action]");
   if (!target) return;
   const action = target.dataset.action;
-  const actions = { login, loadAll, logout, revokeAllSessions, searchAll, loadStudents, importStudentsFile, loadCodes, createCodes, revokeCode, loadLicenses, revokeLicense, loadPayments, loadAudit };
+  const actions = { login, loadAll, logout, revokeAllSessions, searchAll, loadStudents, importStudentsFile, createBulkCodesFromFile, loadCodes, createCodes, revokeCode, loadLicenses, revokeLicense, loadPayments, loadAudit };
   if (Object.prototype.hasOwnProperty.call(actions, action)) actions[action]();
 });
 document.addEventListener("keydown", event => {

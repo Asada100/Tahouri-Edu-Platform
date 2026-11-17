@@ -88,6 +88,43 @@ try {
       "Profile import must not transfer local game progress or settings into the license registry: " + field);
   }
 
+  // Add two isolated synthetic accounts, then exercise the actual JSON-file bulk issuance UI.
+  const bulkProfiles = [
+    { studentId: "synthetic-bulk-01", fullName: "پروفایل گروهی یک", gradeId: "grade2" },
+    { studentId: "synthetic-bulk-02", fullName: "پروفایل گروهی دو", gradeId: "grade4" }
+  ];
+  const bulkImport = await page.evaluate(async profiles => {
+    const response = await fetch("/api/admin/students/import", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profiles })
+    });
+    return { status: response.status, body: await response.json() };
+  }, bulkProfiles);
+  assert.equal(bulkImport.status, 200);
+  assert.equal(bulkImport.body.imported, 2);
+  const bulkFileBuffer = Buffer.from(JSON.stringify({
+    format: "tahouri-student-profiles", version: 1, profiles: bulkProfiles
+  }));
+  await page.locator("#bulkProfilesFile").setInputFiles({
+    name: "synthetic-bulk-profiles.json", mimeType: "application/json", buffer: bulkFileBuffer
+  });
+  const bulkIssueResponse = page.waitForResponse(response =>
+    response.url().endsWith("/api/admin/codes/bulk") && response.request().method() === "POST"
+  );
+  await page.locator('[data-action="createBulkCodesFromFile"]').click();
+  const bulkIssue = await bulkIssueResponse;
+  assert.equal(bulkIssue.status(), 201, "The authenticated browser UI must issue a batch of student-bound codes.");
+  const bulkIssueBody = await bulkIssue.json();
+  assert.equal(bulkIssueBody.count, 2);
+  assert.equal(bulkIssueBody.codes.length, 2);
+  assert.equal(bulkIssueBody.codes.find(item => item.studentId === "synthetic-bulk-01").gradeId, "grade2");
+  assert.equal(bulkIssueBody.codes.find(item => item.studentId === "synthetic-bulk-02").gradeId, "grade4");
+  const bulkCodeText = await page.locator("#bulkNewCodes").innerText();
+  assert.match(bulkCodeText, /THR-GRADE2-/);
+  assert.match(bulkCodeText, /THR-GRADE4-/);
+  assert.equal(await page.locator("#bulkProfilesFile").inputValue(), "",
+    "The bulk file input must be cleared after successful one-time code display.");
+
   const academicYear = "1405";
   const installOne = "browser-e2e-installation-one";
   // All three synthetic children intentionally share this one device installation.

@@ -92,6 +92,10 @@ async function main() {
         "The authenticated admin UI must expose the profile import action after public registration is disabled.");
     assert.match(adminHtml, /id="studentProfilesFile"/,
         "The admin UI must provide a file input for the exported profile JSON.");
+    assert.match(adminHtml, /data-action="createBulkCodesFromFile"/,
+        "The authenticated admin UI must expose the bulk issuance action.");
+    assert.match(adminHtml, /id="bulkProfilesFile"/,
+        "The bulk issuance UI must accept the original profile export file.");
 
     const adminScript = await worker.fetch(new Request("https://api.example.test/admin.js"), env);
     assert.equal(adminScript.status, 200);
@@ -101,6 +105,9 @@ async function main() {
     assert.match(adminScriptText, /\/api\/admin\/students\/import/);
     assert.match(adminScriptText, /credentials:"include"/,
         "The profile import client must send the authenticated admin session.");
+    assert.match(adminScriptText, /async function createBulkCodesFromFile/);
+    assert.match(adminScriptText, /\/api\/admin\/codes\/bulk/,
+        "The bulk issuance client must call the authenticated Worker endpoint.");
 
     // Execute the actual admin UI import function against a minimal DOM/fetch harness.
     const uiElements = new Map();
@@ -121,6 +128,15 @@ async function main() {
             }
             if (String(url).endsWith("/api/admin/students")) {
                 return { ok: true, status: 200, json: async () => ({ ok: true, students: [uiProfile] }) };
+            }
+            if (String(url).endsWith("/api/admin/codes/bulk")) {
+                return { ok: true, status: 201, json: async () => ({ ok: true, academicYear: String(currentIranianYear()), count: 2, codes: [
+                    { studentId: "ui-bulk-01", fullName: "دانش‌آموز یک", gradeId: "grade2", code: "THR-GRADE2-1405-TEST001" },
+                    { studentId: "ui-bulk-02", fullName: "دانش‌آموز دو", gradeId: "grade4", code: "THR-GRADE4-1405-TEST002" }
+                ] }) };
+            }
+            if (String(url).endsWith("/api/admin/codes")) {
+                return { ok: true, status: 200, json: async () => ({ ok: true, codes: [] }) };
             }
             throw new Error("Unexpected admin UI fetch: " + url);
         },
@@ -146,6 +162,25 @@ async function main() {
         "The UI must refresh and render the imported profile in the student list.");
     assert.match(uiAlerts[0] || "", /پروفایل جدید: 1/,
         "The UI must report the import result to the administrator.");
+
+    const bulkFileInput = getUiElement("bulkProfilesFile");
+    const bulkProfiles = [
+        { studentId: "ui-bulk-01", fullName: "دانش‌آموز یک", gradeId: "grade2" },
+        { studentId: "ui-bulk-02", fullName: "دانش‌آموز دو", gradeId: "grade4" }
+    ];
+    bulkFileInput.files = [{ text: async () => JSON.stringify({ format: "tahouri-student-profiles", version: 1, profiles: bulkProfiles }) }];
+    bulkFileInput.value = "bulk-profiles.json";
+    await uiContext.createBulkCodesFromFile();
+    const bulkCall = uiFetchCalls.find(call => call.url.endsWith("/api/admin/codes/bulk"));
+    assert(bulkCall, "The bulk UI handler must call the authenticated batch endpoint.");
+    assert.equal(bulkCall.options.method, "POST");
+    assert.equal(bulkCall.options.credentials, "include");
+    assert.deepEqual(JSON.parse(bulkCall.options.body), { studentIds: ["ui-bulk-01", "ui-bulk-02"] });
+    assert.match(getUiElement("bulkNewCodes").textContent, /THR-GRADE2-1405-TEST001/);
+    assert.match(getUiElement("bulkNewCodes").textContent, /THR-GRADE4-1405-TEST002/);
+    assert.equal(bulkFileInput.value, "", "The UI must clear the bulk file after successful issuance.");
+    assert.match(uiAlerts[1] || "", /2 کد ساخته شد/,
+        "The UI must confirm the number of generated bulk codes.");
 
     const publicKeyResponse = await request(worker, env, "/api/public-key", "GET");
     assert.equal(publicKeyResponse.status, 200);
@@ -189,6 +224,20 @@ async function main() {
 
     assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM activation_codes").get().count), codeCountBeforeCsrf,
         "Rejected CSRF attempts must not create activation codes.");
+    const bulkCsrf = await worker.fetch(new Request("https://api.example.test/api/admin/codes/bulk", {
+        method: "POST",
+        headers: { "content-type": "application/json", "origin": "https://attacker.example", "cookie": adminCookie },
+        body: JSON.stringify({ studentIds: ["worker-test-student"] })
+    }), env);
+    assert.equal(bulkCsrf.status, 403, "Bulk code issuance must enforce the same trusted-Origin CSRF guard.");
+    const bulkUnauthenticated = await worker.fetch(new Request("https://api.example.test/api/admin/codes/bulk", {
+        method: "POST",
+        headers: { "content-type": "application/json", "origin": env.ADMIN_ORIGIN },
+        body: JSON.stringify({ studentIds: ["worker-test-student"] })
+    }), env);
+    assert.equal(bulkUnauthenticated.status, 401, "Bulk code issuance must require an authenticated admin session.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM activation_codes").get().count), codeCountBeforeCsrf,
+        "Rejected bulk requests must not create activation codes.");
 
     const registrationProfile = { studentId: "auto-register-profile", fullName: "پروفایل خودکار", gradeId: "grade6" };
     const publicRegistration = await request(worker, env, "/api/students/register", "POST", registrationProfile);
@@ -259,6 +308,36 @@ async function main() {
     assert.equal(listedStudents.status, 200);
     assert.equal((await listedStudents.json()).students.length, 4, "Only the four administrator-imported profiles should appear; public enrollment must not create accounts.");
 
+    const bulkCodeCountBefore = Number(db.prepare("SELECT COUNT(*) AS count FROM activation_codes").get().count);
+    const bulkCodesResponse = await worker.fetch(new Request("https://api.example.test/api/admin/codes/bulk", {
+        method: "POST",
+        headers: { "content-type": "application/json", "origin": env.ADMIN_ORIGIN, "cookie": adminCookie },
+        body: JSON.stringify({ studentIds: importedProfiles.map(profile => profile.studentId) })
+    }), env);
+    assert.equal(bulkCodesResponse.status, 201, "Authenticated bulk issuance must create one current-year code per eligible profile.");
+    const bulkCodesBody = await bulkCodesResponse.json();
+    assert.equal(bulkCodesBody.count, 4);
+    assert.equal(bulkCodesBody.academicYear, String(currentIranianYear()));
+    assert.equal(bulkCodesBody.codes.length, 4);
+    for (const profile of importedProfiles) {
+        const issued = bulkCodesBody.codes.find(item => item.studentId === profile.studentId);
+        assert.ok(issued, "Every requested profile must receive exactly one code.");
+        assert.equal(issued.gradeId, profile.gradeId, "Bulk code grade must match the profile's current grade.");
+        const stored = db.prepare("SELECT grade_id AS gradeId, academic_year AS academicYear, status FROM activation_codes WHERE code_hash = ?")
+            .get(await sha256(issued.code));
+        assert.deepEqual({ ...stored }, { gradeId: profile.gradeId, academicYear: String(currentIranianYear()), status: "active" });
+    }
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'codes.created'").get().count), 4,
+        "Each bulk-created code must have an individual audit event.");
+    const duplicateBulk = await worker.fetch(new Request("https://api.example.test/api/admin/codes/bulk", {
+        method: "POST",
+        headers: { "content-type": "application/json", "origin": env.ADMIN_ORIGIN, "cookie": adminCookie },
+        body: JSON.stringify({ studentIds: importedProfiles.map(profile => profile.studentId) })
+    }), env);
+    assert.equal(duplicateBulk.status, 409, "Bulk issuance must reject duplicate current-year issuance.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM activation_codes").get().count), bulkCodeCountBefore + 4,
+        "A rejected duplicate bulk request must not create partial codes.");
+
     const manualProfile = {
         studentId: "manual-student-uuid-0001",
         fullName: "دانش‌آموز ثبت دستی",
@@ -325,6 +404,7 @@ async function main() {
     }), env);
     assert.equal(archivedImport.status, 409, "Archived student IDs must not be silently reactivated.");
 
+    const singleCodeAuditBefore = Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'codes.created'").get().count);
     const createCodes = await worker.fetch(new Request("https://api.example.test/api/admin/codes", {
         method: "POST",
         headers: { "content-type": "application/json", "origin": env.ADMIN_ORIGIN, "cookie": adminCookie },
@@ -335,7 +415,7 @@ async function main() {
     assert.equal(createdCodes.codes.length, 2);
     const createdHash = await sha256(createdCodes.codes[0]);
     assert.equal(db.prepare("SELECT status FROM activation_codes WHERE code_hash = ?").get(createdHash).status, "active");
-    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'codes.created'").get().count), 2,
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'codes.created'").get().count), singleCodeAuditBefore + 1,
         "Code creation must write its audit event in the same D1 batch.");
 
     const revokeCode = await worker.fetch(new Request("https://api.example.test/api/admin/codes/revoke", {
