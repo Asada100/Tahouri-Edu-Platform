@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 5.0
+// Version 5.1
 // Profile Screen
 // Multi Profile + Personal Settings
 // =====================================
@@ -324,7 +324,7 @@ const ProfileScreen = {
         if (result.status === "unavailable") {
             return "ℹ " + (result.reason || "وضعیت مجوز فعلاً قابل بررسی نیست.");
         }
-        return "⚠ فعال‌سازی برای این پروفایل انجام نشده است.";
+        return "⚠ فعال‌سازی برای این پروفایل انجام نشده است. " + (result.reason || "");
     },
 
     refreshProfileLicenseStatus: async function (profile) {
