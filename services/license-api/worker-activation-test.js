@@ -327,7 +327,7 @@ async function main() {
             .get(await sha256(issued.code));
         assert.deepEqual({ ...stored }, { gradeId: profile.gradeId, academicYear: String(currentIranianYear()), status: "active" });
     }
-    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'codes.created' AND json_extract(metadata_json, '$.batch') = 1").get().count), 4,
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'codes.created' AND json_extract(metadata_json, '$.batch') IS NULL AND json_extract(metadata_json, '$.batch') = 1").get().count), 4,
         "Each bulk-created code must have an individual audit event.");
     const duplicateBulk = await worker.fetch(new Request("https://api.example.test/api/admin/codes/bulk", {
         method: "POST",
