@@ -21,6 +21,7 @@ const manager = read("engine/core/licenseManager.js");
 const gate = read("engine/core/activationGate.js");
 const appController = read("engine/core/appController.js");
 const licenseClient = read("engine/core/tahouriLicenseClient.js");
+const profileScreen = read("engine/ui/profileScreen.js");
 
 assert(
     serviceConfig.includes('mode: "production"') &&
@@ -33,7 +34,10 @@ assert(
 assert(
     indexHtml.includes("tahouriServiceConfig.js?v=1.3") &&
     indexHtml.includes("tahouriEntitlementVerifier.js?v=1.5") &&
-    indexHtml.includes("tahouriLicenseClient.js?v=1.2"),
+    indexHtml.includes("tahouriLicenseClient.js?v=1.2") &&
+    indexHtml.includes("profileScreen.js?v=5.1") &&
+    indexHtml.includes("licenseManager.js?v=2.2") &&
+    indexHtml.includes("profilePolish.css?v=2.6"),
     "Pages must bust cached versions of the production service config, verifier, and license client."
 );
 
@@ -180,6 +184,36 @@ assert(
     appController.includes("await ActivationGate.ready;") &&
     appController.indexOf("await ActivationGate.ready;") < appController.indexOf("Screen.showHome();"),
     "The home screen must wait for local entitlement selection, not for the remote API."
+);
+
+assert(
+    manager.includes("async function getProfileEntitlementStatus(studentId, gradeId)") &&
+    manager.includes("verifier.verifyEnvelope(envelope, { allowFuture: true })") &&
+    manager.includes('status: "renewal_required"') &&
+    manager.includes('status: "expired"'),
+    "Profile status must be derived from locally verified, profile-bound signed entitlements and the current academic year."
+);
+
+assert(
+    profileScreen.includes("await manager.initializeRemoteEntitlement();") &&
+    profileScreen.includes("async selectProfile(studentId, button)") &&
+    profileScreen.includes("getProfileEntitlementStatus(profile.studentId, profile.grade)") &&
+    profileScreen.includes("data-profile-license-status") &&
+    profileScreen.includes("data-profile-activate-id") &&
+    profileScreen.includes("activateProfile(profile.studentId, profile.grade, activateButton)"),
+    "The profile management screen must re-select a profile's local entitlement and expose its activation status and direct action."
+);
+
+const createProfileStart = profileScreen.indexOf("showCreate: function ()");
+const createProfileEnd = profileScreen.indexOf("// Edit Profile", createProfileStart);
+const createProfileSource = profileScreen.slice(createProfileStart, createProfileEnd);
+assert(
+    createProfileStart >= 0 &&
+    createProfileEnd > createProfileStart &&
+    createProfileSource.includes("ProfileScreen.show();") &&
+    !createProfileSource.includes("ActivationGate.open();") &&
+    createProfileSource.includes("ساخت پروفایل به معنی فعال شدن مجوز یادگیری نیست"),
+    "Creating a profile must explain the next step and show its license state instead of unexpectedly opening the learning gate."
 );
 
 console.log("Tahouri client license safety test: PASS");
