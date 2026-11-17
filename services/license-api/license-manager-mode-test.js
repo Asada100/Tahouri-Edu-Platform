@@ -305,7 +305,8 @@ async function main() {
 
     const futureStart = {
         ...statusClaimsA,
-        validFrom: new Date(Date.now() + 86400000).toISOString()
+        validFrom: new Date(Date.now() + 86400000).toISOString(),
+        validUntil: new Date(Date.now() + 172800000).toISOString()
     };
     window.TahouriEntitlementStore.readAll = () => [envelope(futureStart)];
     const futureStatus = await manager.getProfileEntitlementStatus(studentA.studentId, "grade6");
