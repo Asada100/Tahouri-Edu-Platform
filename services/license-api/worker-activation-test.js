@@ -415,7 +415,7 @@ async function main() {
     assert.equal(createdCodes.codes.length, 2);
     const createdHash = await sha256(createdCodes.codes[0]);
     assert.equal(db.prepare("SELECT status FROM activation_codes WHERE code_hash = ?").get(createdHash).status, "active");
-    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'codes.created'").get().count), 2,
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'codes.created'").get().count), singleCodeAuditBefore + 1,
         "Code creation must write its audit event in the same D1 batch.");
 
     const revokeCode = await worker.fetch(new Request("https://api.example.test/api/admin/codes/revoke", {
