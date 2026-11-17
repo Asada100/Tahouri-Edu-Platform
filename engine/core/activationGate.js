@@ -17,6 +17,9 @@
     let selectedGradeId = null;
     let licenseStatusReason = null;
     let profileSwitchSequence = 0;
+    let licenseSelectionPending = false;
+    let resolveReady;
+    const ready = new Promise(function (resolve) { resolveReady = resolve; });
 
 
     // =====================================
@@ -769,6 +772,12 @@
         const activeLicenseCount =
             profileLicenses.length;
 
+        const licenseActionMarkup = licenseSelectionPending
+            ? '<button id="tahouriLicenseCheckingButton" type="button" disabled aria-live="polite" style="width:100%;height:46px;margin:18px auto 0 auto;display:block;border:0;border-radius:11px;background:#64748b;color:#fff;font-family:Tahoma,sans-serif;font-size:14px;font-weight:bold;cursor:wait">⏳ بررسی مجوز...</button>'
+            : profileActivated
+                ? '<button id="tahouriEnterGradeButton" type="button" style="width:100%;height:46px;margin:18px auto 0 auto;display:block;border:0;border-radius:11px;background:#059669;color:#fff;font-family:Tahoma,sans-serif;font-size:15px;font-weight:bold;cursor:pointer">▶️ ورود به ' + profileGradeTitle + '</button>'
+                : '<button id="tahouriShowActivationButton" type="button" style="width:100%;height:46px;margin:18px auto 0 auto;display:block;border:0;border-radius:11px;background:#2563eb;color:#fff;font-family:Tahoma,sans-serif;font-size:15px;font-weight:bold;cursor:pointer">🔑 فعال‌سازی ' + profileGradeTitle + '</button>';
+
         let licenseNotice = "";
         if (licenseStatusReason === "expired") {
             licenseNotice = "مجوز آموزشی این پروفایل به پایان رسیده است. برای ادامه، مجوز را تمدید یا کد جدید را فعال کنید.";
@@ -991,11 +1000,7 @@
                             font-size:34px;
                             margin-bottom:7px;
                         ">
-                            ${
-                                profileActivated
-                                    ? "🎓"
-                                    : "🔑"
-                            }
+                            ${licenseSelectionPending ? "⏳" : (profileActivated ? "🎓" : "🔑")}
                         </div>
 
                         <h2 style="
@@ -1013,62 +1018,12 @@
                             font-size:14px;
                         ">
 
-                            ${
-                                profileActivated
-                                    ? "مجوز این پایه برای این پروفایل فعال است."
-                                    : "برای این پروفایل هنوز مجوز این پایه فعال نشده است."
-                            }
+                            ${licenseSelectionPending ? "در حال بررسی مجوز ذخیره‌شدهٔ این پروفایل..." : (profileActivated ? "مجوز این پایه برای این پروفایل فعال است." : "برای این پروفایل هنوز مجوز این پایه فعال نشده است.")}
 
                         </p>
 
 
-                        ${
-                            profileActivated
-                            ? `
-                                <button
-                                    id="tahouriEnterGradeButton"
-                                    type="button"
-                                    style="
-                                        width:100%;
-                                        height:46px;
-                                        margin:18px auto 0 auto;
-                                        display:block;
-                                        border:0;
-                                        border-radius:11px;
-                                        background:#059669;
-                                        color:#fff;
-                                        font-family:'B Yekan',Tahoma,sans-serif;
-                                        font-size:15px;
-                                        font-weight:bold;
-                                        cursor:pointer;
-                                    "
-                                >
-                                    ▶️ ورود به ${profileGradeTitle}
-                                </button>
-                            `
-                            : `
-                                <button
-                                    id="tahouriShowActivationButton"
-                                    type="button"
-                                    style="
-                                        width:100%;
-                                        height:46px;
-                                        margin:18px auto 0 auto;
-                                        display:block;
-                                        border:0;
-                                        border-radius:11px;
-                                        background:#2563eb;
-                                        color:#fff;
-                                        font-family:'B Yekan',Tahoma,sans-serif;
-                                        font-size:15px;
-                                        font-weight:bold;
-                                        cursor:pointer;
-                                    "
-                                >
-                                    🔑 فعال‌سازی ${profileGradeTitle}
-                                </button>
-                            `
-                        }
+                        ${licenseActionMarkup}
 
                     </div>
 
@@ -1184,24 +1139,36 @@
 
                     const sequence = ++profileSwitchSequence;
                     const manager = window.LicenseManager;
+                    licenseStatusReason = null;
+                    licenseSelectionPending = true;
+
                     const selection = manager &&
                         typeof manager.initializeRemoteEntitlement === "function"
                         ? manager.initializeRemoteEntitlement()
                         : Promise.resolve(false);
 
-                    // Fail closed immediately while the new profile is checked.
+                    // Show a neutral local-verification state instead of a
+                    // false activation prompt while the selected profile's
+                    // signed entitlement is being checked.
                     renderGate();
 
-                    await selection;
-                    if (sequence !== profileSwitchSequence) return;
-
-                    if (manager &&
-                        typeof manager.refreshRemoteLicenseStatus === "function") {
-                        await revalidateCurrentLicense();
+                    let selected = false;
+                    try {
+                        selected = await selection;
+                    } catch (error) {
+                        console.warn("Activation Gate: Local entitlement selection failed.", error);
                     }
 
                     if (sequence !== profileSwitchSequence) return;
+
+                    licenseSelectionPending = false;
                     renderGate();
+
+                    // Server status is checked in the background. A network
+                    // failure keeps the locally verified signed entitlement.
+                    if (selected) {
+                        revalidateInBackground(studentId, sequence);
+                    }
                 }
             );
 
@@ -1782,6 +1749,50 @@
 
 
     // =====================================
+    // Background License Revalidation
+    // =====================================
+
+    function revalidateInBackground(studentId, sequence) {
+        if (
+            !window.LicenseManager ||
+            typeof LicenseManager.refreshRemoteLicenseStatus !== "function"
+        ) {
+            return;
+        }
+
+        Promise.resolve(revalidateCurrentLicense()).then(function (valid) {
+            if (
+                sequence !== profileSwitchSequence ||
+                studentId !== getActiveStudentId()
+            ) {
+                return;
+            }
+
+            const gateOpen = Boolean(
+                document.getElementById("tahouriActivationGate")
+            );
+
+            if (!valid && licenseStatusReason !== "network_error") {
+                // A definitive server rejection still blocks access. If the
+                // student already entered, reopen the gate immediately.
+                if (gateOpen) {
+                    renderGate();
+                } else {
+                    open();
+                }
+                return;
+            }
+
+            if (gateOpen) {
+                renderGate();
+            }
+        }).catch(function (error) {
+            console.warn("Activation Gate: Background status refresh failed.", error);
+        });
+    }
+
+
+    // =====================================
     // Enter Grade
     // =====================================
 
@@ -1834,20 +1845,20 @@
         }
 
 
+        // Entry uses the already verified, profile- and device-bound
+        // signed entitlement. Server status is refreshed asynchronously
+        // after selection/startup and must not delay every entry click.
         if (
-            !await revalidateCurrentLicense()
+            licenseSelectionPending ||
+            !isCurrentProfileActivated(profileGrade)
         ) {
-
             renderGate();
 
-
-            showActivationForm(
-                profileGrade
-            );
-
+            if (!licenseSelectionPending) {
+                showActivationForm(profileGrade);
+            }
 
             return;
-
         }
 
 
@@ -1934,31 +1945,42 @@
     // =====================================
 
     async function initialize() {
+        console.log("Activation Gate: Initializing...");
 
-        console.log(
-            "Activation Gate: Initializing..."
-        );
+        const studentId = getActiveStudentId();
+        const hasProfile = Boolean(studentId && getProfileGrade());
+        let selected = false;
 
-        if (
-            window.LicenseManager &&
-            typeof LicenseManager.initializeRemoteEntitlement === "function"
-        ) {
-            await LicenseManager.initializeRemoteEntitlement();
+        licenseSelectionPending = hasProfile;
+
+        try {
+            // The first screen is a local-verification state, never a false
+            // activation form while the signed entitlement is being loaded.
+            if (hasProfile) {
+                renderGate();
+            }
+
+            if (
+                window.LicenseManager &&
+                typeof LicenseManager.initializeRemoteEntitlement === "function"
+            ) {
+                selected = await LicenseManager.initializeRemoteEntitlement();
+            }
+
+            licenseSelectionPending = false;
+            renderGate();
+        } catch (error) {
+            licenseSelectionPending = false;
+            console.warn("Activation Gate: Startup entitlement selection failed.", error);
+            renderGate();
+        } finally {
+            resolveReady(true);
         }
 
-        // Revalidate an already bound remote license at startup.
-        // Network errors keep the signed local entitlement as fallback.
-        if (
-            getActiveStudentId() &&
-            getProfileGrade() &&
-            window.LicenseManager &&
-            typeof LicenseManager.refreshRemoteLicenseStatus === "function"
-        ) {
-            await revalidateCurrentLicense();
+        // Do not hold application startup or profile entry on a network call.
+        if (selected && studentId === getActiveStudentId()) {
+            revalidateInBackground(studentId, profileSwitchSequence);
         }
-
-        renderGate();
-
     }
 
 
@@ -2080,6 +2102,12 @@
         }
 
 
+        if (licenseSelectionPending) {
+            open();
+            return false;
+        }
+
+
         if (
             gradeId !== profileGrade
         ) {
@@ -2186,6 +2214,10 @@
 
     window.ActivationGate = {
 
+        // Resolves after local signed-entitlement selection and initial gate render.
+        // App startup can await this without waiting for the license API.
+        ready: ready,
+
         open:
             open,
 
@@ -2233,7 +2265,7 @@
 
 
     console.log(
-        "Activation Gate v8.1 Ready"
+        "Activation Gate v8.3 Ready"
     );
 
 })();
