@@ -1177,6 +1177,14 @@
                                     >
                                         رد درخواست اتصال دستگاه دوم
                                     </button>
+                                    <button
+                                        id="tahouriPairingRefreshButton"
+                                        type="button"
+                                        class="tahouri-license-button secondary"
+                                    >
+                                        📥 مشاهده درخواست‌های در انتظار
+                                    </button>
+                                    <div id="tahouriPendingPairings" class="tahouri-license-note" style="display:none;"></div>
 
                                 `
 
@@ -1444,6 +1452,8 @@
         if (pairingRejectButton) pairingRejectButton.addEventListener("click", function () {
             decidePairingFromPrimary("rejected");
         });
+        const pairingRefreshButton = document.getElementById("tahouriPairingRefreshButton");
+        if (pairingRefreshButton) pairingRefreshButton.addEventListener("click", loadPendingPairings);
 
         const pairingRequestButton = document.getElementById("tahouriPairingRequestButton");
         if (pairingRequestButton) pairingRequestButton.addEventListener("click", beginPairingRequest);
@@ -2141,44 +2151,87 @@
         }
     }
 
-    async function decidePairingFromPrimary(decision) {
-        const id = window.prompt("شناسه درخواست جفت‌سازی را وارد کنید:");
-        if (!id) return;
+    async function getActiveSignedLicenseClaims() {
         const profile = getActiveProfile();
         const identity = await window.TahouriDeviceIdentity.getOrCreate();
         const envelopes = window.TahouriEntitlementStore && typeof TahouriEntitlementStore.readAll === "function"
             ? TahouriEntitlementStore.readAll() : [];
-        let claims = null;
         for (const envelope of envelopes) {
             const checked = await window.TahouriEntitlementVerifier.verifyEnvelope(envelope, { allowFuture: true });
             if (checked.valid && checked.claims &&
                 checked.claims.installationBinding === identity.installationId &&
                 checked.claims.studentId === String(profile && profile.studentId || "") &&
                 checked.claims.gradeScope === String(profile && profile.grade || "")) {
-                claims = checked.claims;
-                break;
+                return checked.claims;
             }
         }
+        return null;
+    }
+
+    async function decidePairingFromPrimary(decision, suppliedPairingId) {
+        const id = suppliedPairingId || window.prompt("شناسه درخواست جفت‌سازی را وارد کنید:");
+        if (!id) return;
+        const claims = await getActiveSignedLicenseClaims();
         if (!claims || !claims.licenseId) {
             window.alert("مجوز امضاشدهٔ همین پروفایل و دستگاه پیدا نشد.");
             return;
         }
         if (!window.TahouriLicenseClient) {
-            showManagementError("سرویس اتصال دستگاه در دسترس نیست.");
+            window.alert("سرویس اتصال دستگاه در دسترس نیست.");
             return;
         }
         try {
             const challenge = await TahouriLicenseClient.requestPairingChallenge(id, claims.licenseId);
-            const message = decision === "approved"
-                ? "درخواست دستگاه دوم تأیید شود؟"
-                : "درخواست دستگاه دوم رد شود؟";
+            const message = decision === "approved" ? "درخواست دستگاه دوم تأیید شود؟" : "درخواست دستگاه دوم رد شود؟";
             if (!window.confirm(message)) return;
             await TahouriLicenseClient.decidePairing(challenge, decision);
             window.alert(decision === "approved"
-                ? "اتصال دستگاه دوم تأیید شد. دستگاه دوم اکنون می‌تواند نتیجه را دریافت کند."
+                ? "اتصال دستگاه دوم تأیید شد."
                 : "درخواست اتصال دستگاه دوم رد شد.");
+            await loadPendingPairings();
         } catch (error) {
-            showManagementError(error.message || "ثبت تصمیم جفت‌سازی ناموفق بود.");
+            window.alert(error.message || "ثبت تصمیم جفت‌سازی ناموفق بود.");
+        }
+    }
+
+    async function loadPendingPairings() {
+        const panel = document.getElementById("tahouriPendingPairings");
+        if (!panel) return;
+        try {
+            const claims = await getActiveSignedLicenseClaims();
+            if (!claims || !claims.licenseId) throw new Error("مجوز امضاشدهٔ این دستگاه پیدا نشد.");
+            const result = await TahouriLicenseClient.listPendingPairings(claims.licenseId);
+            panel.textContent = "";
+            panel.style.display = "block";
+            if (!result.requests || !result.requests.length) {
+                panel.textContent = "در حال حاضر درخواست در انتظاری وجود ندارد.";
+                return;
+            }
+            result.requests.forEach(function (item) {
+                const row = document.createElement("div");
+                row.style.cssText = "padding:10px 0;border-bottom:1px solid #ddd;text-align:right;";
+                const info = document.createElement("div");
+                info.textContent = "شناسه: " + item.pairingId + " | دستگاه: " +
+                    (item.requesterDeviceType === "phone" ? "گوشی" : "رایانه") +
+                    " | پایان مهلت: " + new Date(item.expiresAt).toLocaleString("fa-IR");
+                row.appendChild(info);
+                const approve = document.createElement("button");
+                approve.type = "button";
+                approve.className = "tahouri-license-button management";
+                approve.textContent = "تأیید";
+                approve.addEventListener("click", function () { decidePairingFromPrimary("approved", item.pairingId); });
+                row.appendChild(approve);
+                const reject = document.createElement("button");
+                reject.type = "button";
+                reject.className = "tahouri-license-button secondary";
+                reject.textContent = "رد";
+                reject.addEventListener("click", function () { decidePairingFromPrimary("rejected", item.pairingId); });
+                row.appendChild(reject);
+                panel.appendChild(row);
+            });
+        } catch (error) {
+            panel.textContent = error.message || "دریافت درخواست‌ها ناموفق بود.";
+            panel.style.display = "block";
         }
     }
 
