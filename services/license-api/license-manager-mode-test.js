@@ -181,11 +181,11 @@ async function main() {
         else if (item.claims.studentId === studentB.studentId) resolveB = resolve;
     });
     const staleSelection = manager.initializeRemoteEntitlement();
-    await Promise.resolve();
+    await new Promise(resolve => setTimeout(resolve, 0));
     profile.studentId = studentB.studentId;
     window.TahouriEntitlementStore.readAll = () => [envelope(claimsB)];
     const currentSelection = manager.initializeRemoteEntitlement();
-    await Promise.resolve();
+    await new Promise(resolve => setTimeout(resolve, 0));
     assert.equal(typeof resolveA, "function", "The first profile verification must be pending.");
     assert.equal(typeof resolveB, "function", "The second profile verification must be pending.");
     resolveB({ valid: true, claims: claimsB });
