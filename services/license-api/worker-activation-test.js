@@ -661,6 +661,26 @@ async function main() {
 
     const approverFingerprint = crypto.createHash("sha256")
         .update(activationDevicePair.publicKey.export({ type: "spki", format: "der" })).digest("hex");
+    const listPendingProof = {
+        purpose: "tahouri-device-pairing-list-v1",
+        licenseId: stored.license_id, approverDeviceType: "phone",
+        approverInstallationId: "install-1", approverKeyFingerprint: approverFingerprint
+    };
+    const pendingList = await request(worker, env, "/api/licenses/pairing/pending", "POST", {
+        licenseId: stored.license_id, approverDeviceType: "phone",
+        approverInstallationId: "install-1",
+        approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(listPendingProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(pendingList.status, 200, "A registered device may list its pending pairing requests with a valid signature.");
+    const pendingListBody = await pendingList.json();
+    assert.equal(pendingListBody.requests.length, 1);
+    assert.equal(pendingListBody.requests[0].pairingId, pairingBody.pairingId);
+    const forgedPendingList = await request(worker, env, "/api/licenses/pairing/pending", "POST", {
+        licenseId: stored.license_id, approverDeviceType: "phone",
+        approverInstallationId: "install-1", approverSignature: "A".repeat(344)
+    });
+    assert.equal(forgedPendingList.status, 400, "A malformed signature must not reveal pending requests.");
     const challengeRequestProof = {
         purpose: "tahouri-device-pairing-challenge-request-v1",
         pairingId: pairingBody.pairingId, licenseId: stored.license_id,
