@@ -819,6 +819,81 @@ async function main() {
 
 
 
+
+    // A bound phone must explicitly authorize revocation of the exact occupied computer slot.
+    const targetFingerprint = storedPairing.requester_key_fingerprint;
+    const revocationChallengeProof = {
+        purpose: "tahouri-device-revocation-challenge-v1",
+        licenseId: stored.license_id,
+        targetDeviceType: "computer",
+        targetInstallationId: "install-computer-1",
+        targetKeyFingerprint: targetFingerprint,
+        approverDeviceType: "phone",
+        approverInstallationId: "install-1",
+        approverKeyFingerprint: approverFingerprint
+    };
+    const forgedRevocationChallenge = await request(worker, env, "/api/licenses/device-revocation/challenge", "POST", {
+        licenseId: stored.license_id, targetDeviceType: "computer",
+        targetInstallationId: "install-computer-1", approverDeviceType: "phone",
+        approverInstallationId: "install-1", approverSignature: "A".repeat(344)
+    });
+    assert.equal(forgedRevocationChallenge.status, 401, "A forged complementary-device signature must not issue a revocation challenge.");
+    const revocationChallengeResponse = await request(worker, env, "/api/licenses/device-revocation/challenge", "POST", {
+        licenseId: stored.license_id, targetDeviceType: "computer",
+        targetInstallationId: "install-computer-1", approverDeviceType: "phone",
+        approverInstallationId: "install-1",
+        approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(revocationChallengeProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(revocationChallengeResponse.status, 200, "The complementary phone must be able to issue a revocation challenge.");
+    const revocationChallenge = await revocationChallengeResponse.json();
+    assert.equal(revocationChallenge.targetKeyFingerprint, targetFingerprint);
+    assert(Date.parse(revocationChallenge.expiresAt) > Date.now(), "Revocation challenges must expire in the future.");
+    const revocationProof = {
+        purpose: "tahouri-device-revocation-v1",
+        challengeId: revocationChallenge.challengeId,
+        nonce: revocationChallenge.nonce,
+        licenseId: stored.license_id,
+        targetDeviceType: "computer",
+        targetInstallationId: "install-computer-1",
+        targetKeyFingerprint: targetFingerprint,
+        approverDeviceType: "phone",
+        approverInstallationId: "install-1",
+        approverKeyFingerprint: approverFingerprint,
+        expiresAt: revocationChallenge.expiresAt
+    };
+    const forgedRevocation = await request(worker, env, "/api/licenses/device-revocation/execute", "POST", {
+        challengeId: revocationChallenge.challengeId, nonce: revocationChallenge.nonce,
+        approverSignature: "A".repeat(344)
+    });
+    assert.equal(forgedRevocation.status, 401, "A forged signature must not revoke a device.");
+    const revocation = await request(worker, env, "/api/licenses/device-revocation/execute", "POST", {
+        challengeId: revocationChallenge.challengeId, nonce: revocationChallenge.nonce,
+        approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(revocationProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(revocation.status, 200, "A valid complementary-device signature must revoke the exact target slot.");
+    assert.equal((await revocation.json()).status, "revoked");
+    assert(db.prepare("SELECT revoked_at FROM license_device_slots WHERE license_id = ? AND device_type = 'computer' AND installation_id = 'install-computer-1' AND key_fingerprint = ?").get(stored.license_id, targetFingerprint).revoked_at,
+        "The exact target computer slot must be marked revoked.");
+    assert.equal(db.prepare("SELECT revoked_at FROM license_device_slots WHERE license_id = ? AND device_type = 'phone' AND installation_id = 'install-1'").get(stored.license_id).revoked_at,
+        null, "Revoking the computer must preserve the complementary phone.");
+    assert.equal(db.prepare("SELECT consumed_at FROM device_revocation_challenges WHERE challenge_id = ?").get(revocationChallenge.challengeId).consumed_at !== null,
+        true, "A successful revocation must consume its one-use challenge.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'device.revoked' AND license_id = ?").get(stored.license_id).count), 1,
+        "A successful device revocation must be audited.");
+    const revocationReplay = await request(worker, env, "/api/licenses/device-revocation/execute", "POST", {
+        challengeId: revocationChallenge.challengeId, nonce: revocationChallenge.nonce,
+        approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(revocationProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(revocationReplay.status, 409, "A consumed revocation challenge must not be replayable.");
+    const replacementPairing = await request(worker, env, "/api/licenses/pairing/request", "POST", {
+        code, gradeId: "grade6", studentId: "student-1",
+        installationId: "install-computer-replacement", deviceType: "computer"
+    });
+    assert.equal(replacementPairing.status, 201, "A replacement computer may request pairing only after the old slot is revoked.");
+
     const occupiedPairingSlot = await request(worker, env, "/api/licenses/pairing/request", "POST", {
         code, gradeId: "grade6", studentId: "student-1", installationId: "install-computer-2", deviceType: "phone"
     });
