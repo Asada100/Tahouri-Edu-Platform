@@ -11,7 +11,7 @@ for (const name of [
   "0004_student_accounts.sql",
   "0005_student_activation_status.sql",
   "0006_one_phone_one_computer.sql",
-  "0007_device_slot_public_keys.sql"
+  "0007_device_slot_public_keys.sql", "0008_pairing_request_identity.sql"
 ]) db.exec(await readFile(new URL("./migrations/" + name, import.meta.url), "utf8"));
 
 class TestD1Statement {
