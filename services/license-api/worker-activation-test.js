@@ -604,7 +604,7 @@ async function main() {
     assert.equal(phoneSlot?.revoked_at, null,
         "The successful initial activation must atomically bind its phone slot.");
     const storedDeviceIdentity = db.prepare("SELECT public_key_pem, key_fingerprint FROM license_device_slots WHERE license_id = ? AND device_type = 'phone'").get(stored.license_id);
-    assert.equal(storedDeviceIdentity.public_key_pem, activationDevicePair.publicKey.export({ type: "spki", format: "pem" }));
+    assert.equal(storedDeviceIdentity.public_key_pem, activationDevicePair.publicKey.export({ type: "spki", format: "pem" }).trim());
     assert.match(storedDeviceIdentity.key_fingerprint, /^[a-f0-9]{64}$/);
     assert.equal(activationBody.entitlement.claims.deviceType, "phone");
     assert.equal(activationBody.entitlement.claims.deviceKeyFingerprint, storedDeviceIdentity.key_fingerprint);
