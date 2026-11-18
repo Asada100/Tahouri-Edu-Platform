@@ -2113,6 +2113,8 @@
                 if (window.LicenseManager && typeof LicenseManager.initializeRemoteEntitlement === "function") {
                     await LicenseManager.initializeRemoteEntitlement();
                 }
+                pairingMessage("مجوز دستگاه دوم ذخیره شد. صفحه برای ورود به‌روزرسانی می‌شود.", true);
+                renderList();
                 return;
             }
             if (result.status === "rejected" || result.status === "expired") {
@@ -2150,7 +2152,7 @@
                 : "درخواست دستگاه دوم رد شود؟";
             if (!window.confirm(message)) return;
             await TahouriLicenseClient.decidePairing(challenge, decision);
-            showManagementSuccess(decision === "approved"
+            window.alert(decision === "approved"
                 ? "اتصال دستگاه دوم تأیید شد. دستگاه دوم اکنون می‌تواند نتیجه را دریافت کند."
                 : "درخواست اتصال دستگاه دوم رد شد.");
         } catch (error) {
