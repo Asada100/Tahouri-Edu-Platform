@@ -312,10 +312,10 @@ async function verifyDeviceActivationProof(body, fields) {
   const valid = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, signature,
     new TextEncoder().encode(proof));
   if (!valid) throw Object.assign(new Error("اثبات رمزنگاری‌شده هویت دستگاه معتبر نیست."), { status: 401 });
-  return {
-    publicKeyPem: pem,
-    fingerprint: await sha256(der)
-  };
+  const fingerprintDigest = await crypto.subtle.digest("SHA-256", der);
+  const fingerprint = [...new Uint8Array(fingerprintDigest)]
+    .map(byte => byte.toString(16).padStart(2, "0")).join("");
+  return { publicKeyPem: pem, fingerprint };
 }
 
 async function activateLicense(request, env, headers) {
