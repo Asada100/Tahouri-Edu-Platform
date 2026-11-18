@@ -107,7 +107,7 @@ async function main() {
     assert(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'license_device_slots'").get(), "Migration 6 must create device slots.");
     assert(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'device_pairing_requests'").get(), "Migration 6 must create pairing requests.");
     const pairingColumns = db.prepare("PRAGMA table_info(device_pairing_requests)").all().map(row => row.name);
-    for (const column of ["requester_student_id", "requester_grade_id", "requester_public_key_pem", "requester_key_fingerprint", "challenge_id", "challenge_nonce_hash", "challenge_expires_at", "challenge_consumed_at", "decision", "decided_at", "approver_device_type", "approver_installation_id"]) {
+    for (const column of ["requester_student_id", "requester_grade_id", "requester_public_key_pem", "requester_key_fingerprint", "challenge_id", "challenge_nonce_hash", "challenge_expires_at", "challenge_consumed_at", "decision", "decided_at", "approver_device_type", "approver_installation_id", "approved_entitlement_json"]) {
         assert(pairingColumns.includes(column), "Pairing requests must persist verified requester field " + column + ".");
     }
     const deviceSlotColumns = db.prepare("PRAGMA table_info(license_device_slots)").all().map(row => row.name);
