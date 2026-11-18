@@ -283,6 +283,8 @@ async function activateLicense(request, env, headers) {
   const gradeId = validIdentifier(body.gradeId, "gradeId");
   const studentId = validIdentifier(body.studentId, "studentId");
   const installationId = validIdentifier(body.installationId, "installationId");
+  const deviceType = String(body.deviceType || (/Android|iPhone|iPod|Mobile|Windows Phone/i.test(request.headers.get("User-Agent") || "") ? "phone" : "computer")).trim().toLowerCase();
+  if (!["phone", "computer"].includes(deviceType)) return error("نوع دستگاه معتبر نیست.", 400, headers);
   const renewalMode = String(body.renewalMode || "promotion").trim().toLowerCase();
   if (!["promotion", "repeat"].includes(renewalMode)) return error("نوع رزرو سال بعد معتبر نیست.", 400, headers);
 
@@ -337,6 +339,7 @@ async function activateLicense(request, env, headers) {
   const results = await env.DB.batch([
     env.DB.prepare("UPDATE activation_codes SET status = 'used', used_at = ?, license_id = ? WHERE code_hash = ? AND status = 'active' AND used_at IS NULL AND EXISTS (SELECT 1 FROM student_accounts WHERE student_id = ? AND status = 'active')").bind(now, licenseId, codeHash, studentId),
     env.DB.prepare("INSERT INTO licenses (license_id, code_hash, product_id, student_id, grade_id, academic_year, valid_from, valid_until, installation_binding, status, entitlement_json, created_at) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM activation_codes WHERE code_hash = ? AND status = 'used' AND license_id = ?)").bind(licenseId, codeHash, PRODUCT_ID, studentId, gradeId, period.academicYear, period.validFrom, period.validUntil, installationId, futureRenewal ? "future" : "active", JSON.stringify(entitlement), now, codeHash, licenseId),
+    env.DB.prepare("INSERT INTO license_device_slots (license_id, device_type, installation_id, bound_at) SELECT ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM licenses WHERE license_id = ?)").bind(licenseId, deviceType, installationId, now, licenseId),
     env.DB.prepare("INSERT INTO audit_log (event_type, actor, license_id, code_hash, created_at, metadata_json) SELECT ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM licenses WHERE license_id = ?)").bind(futureRenewal ? "license.renewal_reserved" : "license.activated", "client", licenseId, codeHash, now, JSON.stringify({ gradeId, studentId, academicYear: period.academicYear, validFrom: period.validFrom }), licenseId),
     env.DB.prepare(`UPDATE student_accounts SET activation_status = 'active', updated_at = ?
       WHERE student_id = ? AND status = 'active'
@@ -345,7 +348,8 @@ async function activateLicense(request, env, headers) {
   if (Number(results?.[0]?.meta?.changes || 0) !== 1 ||
       Number(results?.[1]?.meta?.changes || 0) !== 1 ||
       Number(results?.[2]?.meta?.changes || 0) !== 1 ||
-      Number(results?.[3]?.meta?.changes || 0) !== 1) {
+      Number(results?.[3]?.meta?.changes || 0) !== 1 ||
+      Number(results?.[4]?.meta?.changes || 0) !== 1) {
     return error("این کد قبلاً استفاده شده یا غیرفعال است.", 409, headers);
   }
   return json({ valid: true, renewalStored: futureRenewal, entitlement }, 200, headers);
