@@ -2,7 +2,7 @@
 -- Preserve all existing binding and fingerprint history.
 ALTER TABLE license_device_slots RENAME TO license_device_slots_v10;
 CREATE TABLE license_device_slots (
-  slot_id TEXT PRIMARY KEY,
+  slot_id INTEGER PRIMARY KEY AUTOINCREMENT,
   license_id TEXT NOT NULL,
   device_type TEXT NOT NULL CHECK (device_type IN ('phone','computer')),
   installation_id TEXT NOT NULL,
@@ -12,8 +12,8 @@ CREATE TABLE license_device_slots (
   key_fingerprint TEXT,
   FOREIGN KEY (license_id) REFERENCES licenses(license_id)
 );
-INSERT INTO license_device_slots (slot_id, license_id, device_type, installation_id, bound_at, revoked_at, public_key_pem, key_fingerprint)
-SELECT lower(hex(randomblob(16))), license_id, device_type, installation_id, bound_at, revoked_at, public_key_pem, key_fingerprint
+INSERT INTO license_device_slots (license_id, device_type, installation_id, bound_at, revoked_at, public_key_pem, key_fingerprint)
+SELECT license_id, device_type, installation_id, bound_at, revoked_at, public_key_pem, key_fingerprint
 FROM license_device_slots_v10;
 DROP TABLE license_device_slots_v10;
 CREATE INDEX idx_device_slots_installation ON license_device_slots(installation_id);
