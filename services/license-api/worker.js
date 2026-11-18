@@ -272,10 +272,10 @@ function gradeLevel(gradeId) {
 async function verifyDeviceActivationProof(body, fields) {
   const pem = bounded(body.devicePublicKeyPem, 4096, "devicePublicKeyPem");
   const signatureText = bounded(body.deviceSignature, 2048, "deviceSignature");
-  if (!/^-----BEGIN PUBLIC KEY-----\\s+[A-Za-z0-9+/=\\s]+-----END PUBLIC KEY-----$/.test(pem)) {
+  if (!/^-----BEGIN PUBLIC KEY-----\s+[A-Za-z0-9+/=\s]+-----END PUBLIC KEY-----$/.test(pem)) {
     throw Object.assign(new Error("کلید عمومی هویت دستگاه معتبر نیست."), { status: 400 });
   }
-  const encoded = pem.replace(/-----BEGIN PUBLIC KEY-----|-----END PUBLIC KEY-----|\\s/g, "");
+  const encoded = pem.replace(/-----BEGIN PUBLIC KEY-----|-----END PUBLIC KEY-----|\s/g, "");
   if (!/^[A-Za-z0-9+/]+={0,2}$/.test(encoded)) {
     throw Object.assign(new Error("کدگذاری کلید عمومی دستگاه معتبر نیست."), { status: 400 });
   }
