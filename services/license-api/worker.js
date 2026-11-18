@@ -695,14 +695,15 @@ async function decideDevicePairing(request, env, headers, decision) {
         approverDeviceType, approverInstallationId, row.licenseId, row.requesterDeviceType),
     env.DB.prepare(`UPDATE device_pairing_requests
       SET decision = 'approved', approved_at = ?, decided_at = ?, consumed_at = ?,
-          challenge_consumed_at = ?, approver_device_type = ?, approver_installation_id = ?
+          challenge_consumed_at = ?, approver_device_type = ?, approver_installation_id = ?,
+          approved_entitlement_json = ?
       WHERE pairing_id = ? AND decision IS NULL AND consumed_at IS NULL
         AND cancelled_at IS NULL AND challenge_id = ? AND challenge_nonce_hash = ?
         AND challenge_consumed_at IS NULL AND challenge_expires_at > ? AND expires_at > ?
         AND EXISTS (SELECT 1 FROM license_device_slots WHERE license_id = ?
           AND device_type = ? AND installation_id = ? AND key_fingerprint = ? AND revoked_at IS NULL)`)
       .bind(nowText, nowText, nowText, nowText, approverDeviceType, approverInstallationId,
-        pairingId, challengeId, await sha256(nonce), nowText, nowText,
+        JSON.stringify(entitlement), pairingId, challengeId, await sha256(nonce), nowText, nowText,
         row.licenseId, row.requesterDeviceType, row.requesterInstallationId, row.requesterFingerprint),
     env.DB.prepare(`INSERT INTO audit_log (event_type, actor, license_id, code_hash, created_at, metadata_json)
       SELECT 'device.pairing.approved', ?, ?, NULL, ?, ?
@@ -731,13 +732,19 @@ async function getDevicePairingStatus(request, env, headers) {
   const tokenHash = await sha256(token);
   const row = await env.DB.prepare(`SELECT decision, expires_at AS expiresAt, consumed_at AS consumedAt,
       cancelled_at AS cancelledAt, approved_at AS approvedAt
+      , approved_entitlement_json AS approvedEntitlementJson
     FROM device_pairing_requests WHERE pairing_id = ? AND token_hash = ?`)
     .bind(pairingId, tokenHash).first();
   if (!row) return error("درخواست جفت‌سازی پیدا نشد.", 404, headers);
   if (!row.decision && (row.cancelledAt || Date.parse(row.expiresAt) <= Date.now()))
     return json({ ok: true, status: "expired" }, 200, headers);
+  let entitlement = null;
+  if (row.decision === "approved" && row.approvedEntitlementJson) {
+    try { entitlement = JSON.parse(row.approvedEntitlementJson); }
+    catch { return error("دریافت مجوز تأییدشده ممکن نیست.", 500, headers); }
+  }
   return json({ ok: true, status: row.decision || "pending_approval",
-    approvedAt: row.approvedAt || null }, 200, headers);
+    approvedAt: row.approvedAt || null, entitlement }, 200, headers);
 }
 
 async function licenseStatus(request, env, url, headers) {
