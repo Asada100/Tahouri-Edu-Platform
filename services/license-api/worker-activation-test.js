@@ -53,11 +53,28 @@ async function sha256(value) {
     return Buffer.from(digest).toString("hex");
 }
 let activationDevicePair = null;
+let pairingDevicePair = null;
 let requestSequence = 0;
 async function request(worker, env, pathName, method, body, origin = "https://asada100.github.io", ip = null, contentType = "application/json") {
     if (!ip) {
         requestSequence += 1;
         ip = "203.0.113." + (100 + (requestSequence % 100));
+    }
+    if (pathName === "/api/licenses/pairing/request" && body && pairingDevicePair) {
+        body = { ...body };
+        const deviceType = body.deviceType || "computer";
+        const codeHash = await sha256(String(body.code || "").trim().toUpperCase());
+        const proof = JSON.stringify({
+            purpose: "tahouri-device-pairing-request-v1",
+            installationId: body.installationId,
+            deviceType,
+            studentId: body.studentId,
+            gradeId: body.gradeId,
+            codeHash
+        });
+        body.deviceType = deviceType;
+        body.devicePublicKeyPem = pairingDevicePair.publicKey.export({ type: "spki", format: "pem" });
+        body.deviceSignature = crypto.sign("RSA-SHA256", Buffer.from(proof), pairingDevicePair.privateKey).toString("base64");
     }
     if (pathName === "/api/licenses/activate" && body && activationDevicePair) {
         body = { ...body };
@@ -86,9 +103,13 @@ async function request(worker, env, pathName, method, body, origin = "https://as
 
 async function main() {
     const migrations = db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get();
-    assert.equal(Number(migrations.version), 7, "D1 migrations must create the version-7 device identity schema.");
+    assert.equal(Number(migrations.version), 8, "D1 migrations must create the version-8 pairing requester identity schema.");
     assert(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'license_device_slots'").get(), "Migration 6 must create device slots.");
     assert(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'device_pairing_requests'").get(), "Migration 6 must create pairing requests.");
+    const pairingColumns = db.prepare("PRAGMA table_info(device_pairing_requests)").all().map(row => row.name);
+    for (const column of ["requester_student_id", "requester_grade_id", "requester_public_key_pem", "requester_key_fingerprint"]) {
+        assert(pairingColumns.includes(column), "Pairing requests must persist verified requester field " + column + ".");
+    }
     const deviceSlotColumns = db.prepare("PRAGMA table_info(license_device_slots)").all().map(row => row.name);
     assert.equal(deviceSlotColumns.includes("device_type"), true, "Device slots must distinguish phone and computer.");
     assert.equal(deviceSlotColumns.includes("public_key_pem"), true, "Device slots must persist the verified public key.");
@@ -618,6 +639,31 @@ async function main() {
     assert.equal(activationBody.entitlement.claims.deviceKeyFingerprint, storedDeviceIdentity.key_fingerprint);
     assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id = ?").get(stored.license_id).count), 1,
         "Only one slot should be bound after initial phone activation.");
+
+    pairingDevicePair = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
+    const pairingRequest = await request(worker, env, "/api/licenses/pairing/request", "POST", {
+        code, gradeId: "grade6", studentId: "student-1", installationId: "install-computer-1", deviceType: "computer"
+    });
+    assert.equal(pairingRequest.status, 201, "A second device class must create an approval-gated pairing request instead of binding immediately.");
+    const pairingBody = await pairingRequest.json();
+    assert.equal(pairingBody.ok, true);
+    assert.equal(pairingBody.status, "pending_approval");
+    const storedPairing = db.prepare("SELECT license_id, requester_device_type, requester_installation_id, requester_public_key_pem, requester_key_fingerprint, token_hash, expires_at FROM device_pairing_requests WHERE pairing_id = ?").get(pairingBody.pairingId);
+    assert.equal(storedPairing.license_id, stored.license_id);
+    assert.equal(storedPairing.requester_device_type, "computer");
+    assert.equal(storedPairing.requester_installation_id, "install-computer-1");
+    assert.equal(storedPairing.requester_public_key_pem, pairingDevicePair.publicKey.export({ type: "spki", format: "pem" }).trim());
+    assert.equal(storedPairing.requester_key_fingerprint, crypto.createHash("sha256").update(pairingDevicePair.publicKey.export({ type: "spki", format: "der" })).digest("hex"));
+    assert.equal(storedPairing.token_hash, await sha256(pairingBody.token));
+    assert(Date.parse(storedPairing.expires_at) > Date.now(), "Pairing requests must expire in the future.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id = ? AND device_type = 'computer'").get(stored.license_id).count), 0,
+        "A pairing request must not bind the second device before approval.");
+
+    const occupiedPairingSlot = await request(worker, env, "/api/licenses/pairing/request", "POST", {
+        code, gradeId: "grade6", studentId: "student-1", installationId: "install-computer-2", deviceType: "phone"
+    });
+    assert.equal(occupiedPairingSlot.status, 409, "A request must not replace an already occupied device-class slot.");
+
     assert.throws(() => db.prepare("INSERT INTO license_device_slots (license_id, device_type, installation_id, bound_at) VALUES (?, 'phone', 'install-phone-2', ?)").run(stored.license_id, new Date().toISOString()),
         /UNIQUE constraint failed/,
         "A second phone must not be inserted into the same license slot.");
