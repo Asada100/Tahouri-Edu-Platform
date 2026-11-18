@@ -164,12 +164,69 @@
         });
     }
 
+
+    async function requestDeviceRevocationChallenge(licenseId, targetDeviceType, targetInstallationId, targetKeyFingerprint) {
+        const identity = await window.TahouriDeviceIdentity.getOrCreate();
+        const approverDeviceType = detectDeviceType();
+        if (!licenseId || !targetInstallationId || !targetKeyFingerprint ||
+            !["phone", "computer"].includes(targetDeviceType) || targetDeviceType === approverDeviceType) {
+            throw new Error("اطلاعات دستگاه مقصد برای تعویض معتبر نیست.");
+        }
+        const approverKeyFingerprint = await publicKeyFingerprint(identity.publicKey);
+        const proof = {
+            purpose: "tahouri-device-revocation-challenge-v1",
+            licenseId: String(licenseId).trim(),
+            targetDeviceType,
+            targetInstallationId: String(targetInstallationId).trim(),
+            targetKeyFingerprint: String(targetKeyFingerprint).trim(),
+            approverDeviceType,
+            approverInstallationId: identity.installationId,
+            approverKeyFingerprint
+        };
+        const signed = await signedPayload(proof);
+        return request("/licenses/device-revocation/challenge", {
+            method: "POST",
+            body: JSON.stringify({
+                licenseId: proof.licenseId, targetDeviceType,
+                targetInstallationId: proof.targetInstallationId,
+                approverDeviceType, approverInstallationId: identity.installationId,
+                approverSignature: signed.signature
+            })
+        });
+    }
+    async function executeDeviceRevocation(challenge) {
+        if (!challenge || !challenge.challengeId || !challenge.nonce) throw new Error("چالش لغو دستگاه معتبر نیست.");
+        const identity = await window.TahouriDeviceIdentity.getOrCreate();
+        const approverDeviceType = detectDeviceType();
+        if (challenge.approverInstallationId !== identity.installationId ||
+            challenge.approverDeviceType !== approverDeviceType) {
+            throw new Error("این چالش برای دستگاه تأییدکنندهٔ فعلی صادر نشده است.");
+        }
+        const proof = {
+            purpose: "tahouri-device-revocation-v1",
+            challengeId: challenge.challengeId, nonce: challenge.nonce,
+            licenseId: challenge.licenseId,
+            targetDeviceType: challenge.targetDeviceType,
+            targetInstallationId: challenge.targetInstallationId,
+            targetKeyFingerprint: challenge.targetKeyFingerprint,
+            approverDeviceType,
+            approverInstallationId: identity.installationId,
+            approverKeyFingerprint: challenge.approverKeyFingerprint,
+            expiresAt: challenge.expiresAt
+        };
+        const signed = await signedPayload(proof);
+        return request("/licenses/device-revocation/execute", {
+            method: "POST",
+            body: JSON.stringify({ challengeId: challenge.challengeId, nonce: challenge.nonce, approverSignature: signed.signature })
+        });
+    }
+
     async function health() { return request("/health", { method: "GET" }); }
     async function status(licenseId) {
         const value = String(licenseId || "").trim();
         if (!value) throw new Error("شناسه مجوز وارد نشده است.");
         return request("/licenses/status?licenseId=" + encodeURIComponent(value), { method: "GET" });
     }
-    window.TahouriLicenseClient = { activate, health, status, requestPairing, requestPairingChallenge, decidePairing, pairingStatus, cancelPairing, listPendingPairings };
+    window.TahouriLicenseClient = { activate, health, status, requestPairing, requestPairingChallenge, decidePairing, pairingStatus, cancelPairing, listPendingPairings, requestDeviceRevocationChallenge, executeDeviceRevocation };
     console.log("Tahouri License Client v1.6 Ready");
 })();
