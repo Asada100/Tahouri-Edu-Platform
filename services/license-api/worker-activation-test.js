@@ -579,9 +579,9 @@ async function main() {
 
     const invalidDeviceProof = await request(worker, env, "/api/licenses/activate", "POST", {
         code, gradeId: "grade6", studentId: "student-1", installationId: "install-1",
-        deviceType: "phone", deviceSignature: "AAAA"
+        deviceType: "phone", deviceSignature: Buffer.alloc(256, 7).toString("base64")
     }, "https://asada100.github.io", "203.0.113.55");
-    assert.equal(invalidDeviceProof.status, 400, "A malformed device signature must be rejected.");
+    assert.equal(invalidDeviceProof.status, 401, "A correctly sized but forged device signature must be rejected cryptographically.");
     assert.equal(db.prepare("SELECT status FROM activation_codes WHERE code_hash = ?").get(codeHash).status, "active",
         "A rejected device proof must not consume the activation code.");
 
