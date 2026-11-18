@@ -165,5 +165,5 @@
         return request("/licenses/status?licenseId=" + encodeURIComponent(value), { method: "GET" });
     }
     window.TahouriLicenseClient = { activate, health, status, requestPairing, requestPairingChallenge, decidePairing, pairingStatus, listPendingPairings };
-    console.log("Tahouri License Client v1.2 Ready");
+    console.log("Tahouri License Client v1.5 Ready");
 })();
