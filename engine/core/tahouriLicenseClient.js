@@ -57,12 +57,92 @@
         };
         return request("/licenses/activate", { method: "POST", body: JSON.stringify(data) });
     }
+
+    async function sha256Hex(value) {
+        const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(String(value)));
+        return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, "0")).join("");
+    }
+    async function signedPayload(payload) {
+        const identity = await window.TahouriDeviceIdentity.getOrCreate();
+        const signed = await window.TahouriDeviceIdentity.sign(JSON.stringify(payload));
+        if (signed.installationId !== identity.installationId) throw new Error("هویت امضاکننده با دستگاه مطابقت ندارد.");
+        return { identity, signature: signed.signature };
+    }
+    async function requestPairing(payload) {
+        const supplied = payload || {};
+        const code = String(supplied.code || "").trim().toUpperCase();
+        const studentId = String(supplied.studentId || "").trim();
+        const gradeId = String(supplied.gradeId || "").trim();
+        if (!code || !studentId || !gradeId) throw new Error("کد مجوز، شناسه دانش‌آموز و پایه الزامی است.");
+        const identity = await window.TahouriDeviceIdentity.getOrCreate();
+        const deviceType = detectDeviceType();
+        const codeHash = await sha256Hex(code);
+        const proof = {
+            purpose: "tahouri-device-pairing-request-v1",
+            installationId: identity.installationId,
+            deviceType, studentId, gradeId, codeHash
+        };
+        const signed = await signedPayload(proof);
+        return request("/licenses/pairing/request", { method: "POST", body: JSON.stringify({
+            code, studentId, gradeId, installationId: identity.installationId,
+            deviceType, devicePublicKeyPem: identity.publicKey, deviceSignature: signed.signature
+        }) });
+    }
+    async function requestPairingChallenge(pairingId) {
+        const identity = await window.TahouriDeviceIdentity.getOrCreate();
+        const approverDeviceType = detectDeviceType();
+        const proof = {
+            purpose: "tahouri-device-pairing-challenge-request-v1",
+            pairingId: String(pairingId || "").trim(),
+            licenseId: String(arguments[1] || "").trim(),
+            approverDeviceType, approverInstallationId: identity.installationId,
+            approverKeyFingerprint: await sha256Hex(await (async function () {
+                const pem = identity.publicKey.replace(/-----BEGIN PUBLIC KEY-----|-----END PUBLIC KEY-----|\\s/g, "");
+                return Uint8Array.from(atob(pem), ch => ch.charCodeAt(0));
+            })())
+        };
+        const signed = await signedPayload(proof);
+        return request("/licenses/pairing/challenge", { method: "POST", body: JSON.stringify({
+            pairingId: proof.pairingId, approverDeviceType,
+            approverInstallationId: identity.installationId, approverSignature: signed.signature
+        }) });
+    }
+    async function decidePairing(challenge, decision) {
+        if (!challenge || !["approved", "rejected"].includes(decision)) throw new Error("اطلاعات تصمیم جفت‌سازی معتبر نیست.");
+        const identity = await window.TahouriDeviceIdentity.getOrCreate();
+        const approverDeviceType = detectDeviceType();
+        const proof = {
+            purpose: "tahouri-device-pairing-decision-v1",
+            pairingId: challenge.pairingId, licenseId: challenge.licenseId,
+            challengeId: challenge.challengeId, nonce: challenge.nonce, decision,
+            requesterDeviceType: challenge.requesterDeviceType,
+            requesterInstallationId: challenge.requesterInstallationId,
+            requesterKeyFingerprint: challenge.requesterKeyFingerprint,
+            approverDeviceType, approverInstallationId: identity.installationId,
+            approverKeyFingerprint: challenge.approverKeyFingerprint,
+            challengeExpiresAt: challenge.expiresAt
+        };
+        const signed = await signedPayload(proof);
+        return request("/licenses/pairing/" + (decision === "approved" ? "approve" : "reject"), {
+            method: "POST", body: JSON.stringify({
+                pairingId: challenge.pairingId, challengeId: challenge.challengeId,
+                nonce: challenge.nonce, approverDeviceType,
+                approverInstallationId: identity.installationId, approverSignature: signed.signature
+            })
+        });
+    }
+    async function pairingStatus(pairingId, token) {
+        return request("/licenses/pairing/status", {
+            method: "POST", body: JSON.stringify({ pairingId: String(pairingId || ""), token: String(token || "") })
+        });
+    }
+
     async function health() { return request("/health", { method: "GET" }); }
     async function status(licenseId) {
         const value = String(licenseId || "").trim();
         if (!value) throw new Error("شناسه مجوز وارد نشده است.");
         return request("/licenses/status?licenseId=" + encodeURIComponent(value), { method: "GET" });
     }
-    window.TahouriLicenseClient = { activate, health, status };
+    window.TahouriLicenseClient = { activate, health, status, requestPairing, requestPairingChallenge, decidePairing, pairingStatus };
     console.log("Tahouri License Client v1.2 Ready");
 })();
