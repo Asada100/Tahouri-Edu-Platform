@@ -127,6 +127,37 @@ try {
 
   const academicYear = "1405";
   const installOne = "browser-e2e-installation-one";
+  // Reuse one browser-generated RSA identity and sign every activation request.
+  await page.evaluate(async () => {
+    const temporaryPair = await crypto.subtle.generateKey(
+      { name: "RSASSA-PKCS1-v1_5", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
+      true, ["sign", "verify"]
+    );
+    const publicDer = new Uint8Array(await crypto.subtle.exportKey("spki", temporaryPair.publicKey));
+    const privateDer = await crypto.subtle.exportKey("pkcs8", temporaryPair.privateKey);
+    const privateKey = await crypto.subtle.importKey(
+      "pkcs8", privateDer, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"]
+    );
+    const publicBase64 = btoa(Array.from(publicDer, byte => String.fromCharCode(byte)).join(""));
+    const publicLines = publicBase64.match(/.{1,64}/g).join("\\n");
+    const publicKeyPem = "-----BEGIN PUBLIC KEY-----\\n" + publicLines + "\\n-----END PUBLIC KEY-----";
+    window.__makeActivationPayload = async ({ code, gradeId, studentId, installationId }) => {
+      const normalizedCode = String(code).trim().toUpperCase();
+      const codeDigest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(normalizedCode));
+      const codeHash = Array.from(new Uint8Array(codeDigest), byte => byte.toString(16).padStart(2, "0")).join("");
+      const deviceType = "computer";
+      const proof = JSON.stringify({
+        purpose: "tahouri-device-activation-v1",
+        installationId, deviceType, studentId, gradeId, codeHash
+      });
+      const signature = await crypto.subtle.sign(
+        "RSASSA-PKCS1-v1_5", privateKey, new TextEncoder().encode(proof)
+      );
+      const signatureBase64 = btoa(Array.from(new Uint8Array(signature), byte => String.fromCharCode(byte)).join(""));
+      return { code: normalizedCode, gradeId, studentId, installationId, deviceType,
+        devicePublicKeyPem: publicKeyPem, deviceSignature: signatureBase64 };
+    };
+  });
   // All three synthetic children intentionally share this one device installation.
 
   // First profile: the selector must preserve identity and auto-fill its grade.
@@ -143,10 +174,7 @@ try {
   const mismatchOne = await page.evaluate(async ({ code }) => {
     const response = await fetch("/api/licenses/activate", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        code, gradeId: "grade6", studentId: "synthetic-student-02",
-        installationId: "browser-e2e-wrong-student"
-      })
+      body: JSON.stringify(await window.__makeActivationPayload({ code, gradeId: "grade6", studentId: "synthetic-student-02", installationId: "browser-e2e-wrong-student" }))
     });
     return { status: response.status, body: await response.json() };
   }, { code: codeOne });
@@ -155,10 +183,7 @@ try {
   const gradeMismatch = await page.evaluate(async ({ code }) => {
     const response = await fetch("/api/licenses/activate", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        code, gradeId: "grade5", studentId: "synthetic-student-01",
-        installationId: "browser-e2e-wrong-grade"
-      })
+      body: JSON.stringify(await window.__makeActivationPayload({ code, gradeId: "grade5", studentId: "synthetic-student-01", installationId: "browser-e2e-wrong-grade" }))
     });
     return { status: response.status, body: await response.json() };
   }, { code: codeOne });
@@ -167,9 +192,7 @@ try {
   const activationOne = await page.evaluate(async ({ code, installationId }) => {
     const response = await fetch("/api/licenses/activate", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        code, gradeId: "grade6", studentId: "synthetic-student-01", installationId
-      })
+      body: JSON.stringify(await window.__makeActivationPayload({ code, gradeId: "grade6", studentId: "synthetic-student-01", installationId }))
     });
     return { status: response.status, body: await response.json() };
   }, { code: codeOne, installationId: installOne });
@@ -181,10 +204,7 @@ try {
   const duplicateActivation = await page.evaluate(async ({ code }) => {
     const response = await fetch("/api/licenses/activate", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        code, gradeId: "grade6", studentId: "synthetic-student-01",
-        installationId: "browser-e2e-second-attempt"
-      })
+      body: JSON.stringify(await window.__makeActivationPayload({ code, gradeId: "grade6", studentId: "synthetic-student-01", installationId: "browser-e2e-second-attempt" }))
     });
     return response.status;
   }, { code: codeOne });
@@ -210,10 +230,7 @@ try {
   const mismatchTwo = await page.evaluate(async ({ code }) => {
     const response = await fetch("/api/licenses/activate", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        code, gradeId: "grade6", studentId: "synthetic-student-01",
-        installationId: "browser-e2e-cross-profile"
-      })
+      body: JSON.stringify(await window.__makeActivationPayload({ code, gradeId: "grade6", studentId: "synthetic-student-01", installationId: "browser-e2e-cross-profile" }))
     });
     return response.status;
   }, { code: codeTwo });
@@ -222,9 +239,7 @@ try {
   const activationTwo = await page.evaluate(async ({ code, installationId }) => {
     const response = await fetch("/api/licenses/activate", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        code, gradeId: "grade6", studentId: "synthetic-student-02", installationId
-      })
+      body: JSON.stringify(await window.__makeActivationPayload({ code, gradeId: "grade6", studentId: "synthetic-student-02", installationId }))
     });
     return { status: response.status, body: await response.json() };
   }, { code: codeTwo, installationId: installOne });
@@ -258,9 +273,7 @@ try {
   const activationThree = await page.evaluate(async ({ code, installationId }) => {
     const response = await fetch("/api/licenses/activate", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        code, gradeId: "grade5", studentId: "synthetic-student-03", installationId
-      })
+      body: JSON.stringify(await window.__makeActivationPayload({ code, gradeId: "grade5", studentId: "synthetic-student-03", installationId }))
     });
     return { status: response.status, body: await response.json() };
   }, { code: codeThree, installationId: installOne });
