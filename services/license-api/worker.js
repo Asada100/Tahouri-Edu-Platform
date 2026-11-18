@@ -268,6 +268,56 @@ function gradeLevel(gradeId) {
   const match = String(gradeId || "").match(/^(?:grade)?(\d+)$/i);
   return match ? Number(match[1]) : null;
 }
+
+async function verifyDeviceActivationProof(body, fields) {
+  const pem = bounded(body.devicePublicKeyPem, 4096, "devicePublicKeyPem");
+  const signatureText = bounded(body.deviceSignature, 2048, "deviceSignature");
+  if (!/^-----BEGIN PUBLIC KEY-----\\s+[A-Za-z0-9+/=\\s]+-----END PUBLIC KEY-----$/.test(pem)) {
+    throw Object.assign(new Error("کلید عمومی هویت دستگاه معتبر نیست."), { status: 400 });
+  }
+  const encoded = pem.replace(/-----BEGIN PUBLIC KEY-----|-----END PUBLIC KEY-----|\\s/g, "");
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(encoded)) {
+    throw Object.assign(new Error("کدگذاری کلید عمومی دستگاه معتبر نیست."), { status: 400 });
+  }
+  let der, signature;
+  try {
+    der = Uint8Array.from(atob(encoded), ch => ch.charCodeAt(0));
+    if (!/^[A-Za-z0-9+/]+={0,2}$/.test(signatureText)) throw new Error("invalid base64");
+    signature = Uint8Array.from(atob(signatureText), ch => ch.charCodeAt(0));
+  } catch {
+    throw Object.assign(new Error("کلید یا امضای دستگاه قابل‌خواندن نیست."), { status: 400 });
+  }
+  if (der.byteLength < 256 || der.byteLength > 1024 || signature.byteLength < 256 || signature.byteLength > 1024) {
+    throw Object.assign(new Error("اندازه کلید یا امضای دستگاه مجاز نیست."), { status: 400 });
+  }
+  let key;
+  try {
+    key = await crypto.subtle.importKey("spki", der,
+      { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["verify"]);
+  } catch {
+    throw Object.assign(new Error("ساختار کلید عمومی دستگاه معتبر نیست."), { status: 400 });
+  }
+  const modulusLength = Number(key.algorithm?.modulusLength || 0);
+  if (modulusLength < 2048 || modulusLength > 4096) {
+    throw Object.assign(new Error("طول کلید دستگاه باید بین ۲۰۴۸ و ۴۰۹۶ بیت باشد."), { status: 400 });
+  }
+  const proof = JSON.stringify({
+    purpose: "tahouri-device-activation-v1",
+    installationId: fields.installationId,
+    deviceType: fields.deviceType,
+    studentId: fields.studentId,
+    gradeId: fields.gradeId,
+    codeHash: fields.codeHash
+  });
+  const valid = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, signature,
+    new TextEncoder().encode(proof));
+  if (!valid) throw Object.assign(new Error("اثبات رمزنگاری‌شده هویت دستگاه معتبر نیست."), { status: 401 });
+  return {
+    publicKeyPem: pem,
+    fingerprint: await sha256(der)
+  };
+}
+
 async function activateLicense(request, env, headers) {
   // Activation is a browser-facing cross-origin POST: require an explicitly trusted Origin.
   // Reject simple content types so cross-site HTML forms cannot submit activation payloads.
@@ -298,6 +348,12 @@ async function activateLicense(request, env, headers) {
   await audit(env, "activation.attempt", actor, { metadata: { gradeId } });
 
   const codeHash = await sha256(code);
+  let deviceIdentity;
+  try {
+    deviceIdentity = await verifyDeviceActivationProof(body, { installationId, deviceType, studentId, gradeId, codeHash });
+  } catch (proofError) {
+    return error(proofError.message || "اثبات هویت دستگاه معتبر نیست.", proofError.status || 400, headers);
+  }
   const codeRecord = await env.DB.prepare("SELECT code_hash AS codeHash, student_id AS studentId, grade_id AS gradeId, academic_year AS academicYear, renewal_mode AS renewalMode, status, used_at AS usedAt FROM activation_codes WHERE code_hash = ?").bind(codeHash).first();
   if (!codeRecord) return error("کد فعال‌سازی معتبر نیست.", 400, headers);
   if (!codeRecord.studentId || codeRecord.studentId !== studentId) return error("این کد برای پروفایل انتخاب‌شده صادر نشده است.", 409, headers);
@@ -332,14 +388,15 @@ async function activateLicense(request, env, headers) {
   const claims = {
     licenseId, productId: PRODUCT_ID, academicYear: String(period.academicYear),
     gradeScope: gradeId, studentId, validFrom: period.validFrom,
-    validUntil: period.validUntil, installationBinding: installationId, entitlementVersion: 1
+    validUntil: period.validUntil, installationBinding: installationId,
+    deviceType, deviceKeyFingerprint: deviceIdentity.fingerprint, entitlementVersion: 1
   };
   const entitlement = await signEntitlement(claims, env);
   const now = nowIso();
   const results = await env.DB.batch([
     env.DB.prepare("UPDATE activation_codes SET status = 'used', used_at = ?, license_id = ? WHERE code_hash = ? AND status = 'active' AND used_at IS NULL AND EXISTS (SELECT 1 FROM student_accounts WHERE student_id = ? AND status = 'active')").bind(now, licenseId, codeHash, studentId),
     env.DB.prepare("INSERT INTO licenses (license_id, code_hash, product_id, student_id, grade_id, academic_year, valid_from, valid_until, installation_binding, status, entitlement_json, created_at) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM activation_codes WHERE code_hash = ? AND status = 'used' AND license_id = ?)").bind(licenseId, codeHash, PRODUCT_ID, studentId, gradeId, period.academicYear, period.validFrom, period.validUntil, installationId, futureRenewal ? "future" : "active", JSON.stringify(entitlement), now, codeHash, licenseId),
-    env.DB.prepare("INSERT INTO license_device_slots (license_id, device_type, installation_id, bound_at) SELECT ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM licenses WHERE license_id = ?)").bind(licenseId, deviceType, installationId, now, licenseId),
+    env.DB.prepare("INSERT INTO license_device_slots (license_id, device_type, installation_id, bound_at, public_key_pem, key_fingerprint) SELECT ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM licenses WHERE license_id = ?)").bind(licenseId, deviceType, installationId, now, deviceIdentity.publicKeyPem, deviceIdentity.fingerprint, licenseId),
     env.DB.prepare("INSERT INTO audit_log (event_type, actor, license_id, code_hash, created_at, metadata_json) SELECT ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM licenses WHERE license_id = ?)").bind(futureRenewal ? "license.renewal_reserved" : "license.activated", "client", licenseId, codeHash, now, JSON.stringify({ gradeId, studentId, academicYear: period.academicYear, validFrom: period.validFrom }), licenseId),
     env.DB.prepare(`UPDATE student_accounts SET activation_status = 'active', updated_at = ?
       WHERE student_id = ? AND status = 'active'
