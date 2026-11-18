@@ -11,7 +11,7 @@ for (const name of [
   "0004_student_accounts.sql",
   "0005_student_activation_status.sql",
   "0006_one_phone_one_computer.sql",
-  "0007_device_slot_public_keys.sql", "0008_pairing_request_identity.sql", "0009_pairing_signed_decisions.sql", "0010_pairing_entitlement_delivery.sql"
+  "0007_device_slot_public_keys.sql", "0008_pairing_request_identity.sql", "0009_pairing_signed_decisions.sql", "0010_pairing_entitlement_delivery.sql", "0011_device_slot_history.sql", "0012_device_revocation_challenges.sql"
 ]) db.exec(await readFile(new URL("./migrations/" + name, import.meta.url), "utf8"));
 
 class TestD1Statement {
@@ -62,6 +62,24 @@ function readBody(request) {
 }
 const server = createServer(async (incoming, outgoing) => {
   try {
+    if (incoming.url === "/__test/seed-recovery" && incoming.method === "POST") {
+      const payload = JSON.parse((await readBody(incoming)).toString("utf8"));
+      const license = db.prepare("SELECT license_id FROM licenses WHERE license_id = ? AND status = 'active'").get(payload.licenseId);
+      if (!license) { outgoing.writeHead(404); outgoing.end(JSON.stringify({ ok: false })); return; }
+      const now = new Date().toISOString();
+      db.prepare("INSERT INTO license_device_slots (license_id,device_type,installation_id,bound_at,public_key_pem,key_fingerprint) VALUES (?,'phone',?,?,NULL,?)")
+        .run(payload.licenseId, "synthetic-phone-installation", now, "synthetic-phone-fingerprint");
+      db.prepare("INSERT INTO device_pairing_requests (pairing_id,license_id,requester_device_type,requester_installation_id,token_hash,created_at,expires_at) VALUES (?,?,'phone',?,?,?,?)")
+        .run("synthetic-recovery-pairing", payload.licenseId, "synthetic-pending-phone", "synthetic-recovery-token-hash", now, new Date(Date.now()+600000).toISOString());
+      outgoing.writeHead(200, {"content-type":"application/json"}); outgoing.end(JSON.stringify({ok:true})); return;
+    }
+    if (incoming.url.startsWith("/__test/recovery-state?")) {
+      const licenseId = new URL(incoming.url,"http://127.0.0.1").searchParams.get("licenseId");
+      const slots = db.prepare("SELECT device_type AS deviceType,installation_id AS installationId,revoked_at AS revokedAt FROM license_device_slots WHERE license_id=? ORDER BY device_type").all(licenseId);
+      const pairing = db.prepare("SELECT cancelled_at AS cancelledAt FROM device_pairing_requests WHERE pairing_id='synthetic-recovery-pairing'").get() || null;
+      const audit = db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type='device.admin_recovered' AND license_id=?").get(licenseId);
+      outgoing.writeHead(200, {"content-type":"application/json"}); outgoing.end(JSON.stringify({slots,pairing,auditCount:Number(audit?.count||0)})); return;
+    }
     if (incoming.url === "/__test/health") {
       outgoing.writeHead(200, { "content-type": "application/json" });
       outgoing.end(JSON.stringify({ ok: true, database: "sqlite-memory", environment: "synthetic-only" }));
