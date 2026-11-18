@@ -139,8 +139,8 @@ try {
       "pkcs8", privateDer, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"]
     );
     const publicBase64 = btoa(Array.from(publicDer, byte => String.fromCharCode(byte)).join(""));
-    const publicLines = publicBase64.match(/.{1,64}/g).join("\\n");
-    const publicKeyPem = "-----BEGIN PUBLIC KEY-----\\n" + publicLines + "\\n-----END PUBLIC KEY-----";
+    const publicLines = publicBase64.match(/.{1,64}/g).join("\n");
+    const publicKeyPem = "-----BEGIN PUBLIC KEY-----\n" + publicLines + "\n-----END PUBLIC KEY-----";
     window.__makeActivationPayload = async ({ code, gradeId, studentId, installationId }) => {
       const normalizedCode = String(code).trim().toUpperCase();
       const codeDigest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(normalizedCode));
