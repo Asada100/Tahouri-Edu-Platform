@@ -664,12 +664,12 @@ async function main() {
     const challengeRequestProof = {
         purpose: "tahouri-device-pairing-challenge-request-v1",
         pairingId: pairingBody.pairingId, licenseId: stored.license_id,
-        approverDeviceType: "phone", approverInstallationId: "install-phone-1",
+        approverDeviceType: "phone", approverInstallationId: "install-1",
         approverKeyFingerprint: approverFingerprint
     };
     const challengeResponse = await request(worker, env, "/api/licenses/pairing/challenge", "POST", {
         pairingId: pairingBody.pairingId, approverDeviceType: "phone",
-        approverInstallationId: "install-phone-1",
+        approverInstallationId: "install-1",
         approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(challengeRequestProof)),
             activationDevicePair.privateKey).toString("base64")
     });
@@ -684,20 +684,20 @@ async function main() {
         decision: "approved", requesterDeviceType: "computer",
         requesterInstallationId: "install-computer-1",
         requesterKeyFingerprint: storedPairing.requester_key_fingerprint,
-        approverDeviceType: "phone", approverInstallationId: "install-phone-1",
+        approverDeviceType: "phone", approverInstallationId: "install-1",
         approverKeyFingerprint: approverFingerprint,
         challengeExpiresAt: challengeBody.expiresAt
     };
     const invalidDecision = await request(worker, env, "/api/licenses/pairing/approve", "POST", {
         pairingId: pairingBody.pairingId, challengeId: challengeBody.challengeId,
         nonce: challengeBody.nonce, approverDeviceType: "phone",
-        approverInstallationId: "install-phone-1", approverSignature: "A".repeat(344)
+        approverInstallationId: "install-1", approverSignature: "A".repeat(344)
     });
     assert.equal(invalidDecision.status, 401, "A forged approval signature must be rejected.");
     const alteredNonce = await request(worker, env, "/api/licenses/pairing/approve", "POST", {
         pairingId: pairingBody.pairingId, challengeId: challengeBody.challengeId,
         nonce: challengeBody.nonce.slice(0, -1) + (challengeBody.nonce.endsWith("0") ? "1" : "0"),
-        approverDeviceType: "phone", approverInstallationId: "install-phone-1",
+        approverDeviceType: "phone", approverInstallationId: "install-1",
         approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(decisionProof)),
             activationDevicePair.privateKey).toString("base64")
     });
@@ -705,7 +705,7 @@ async function main() {
     const approval = await request(worker, env, "/api/licenses/pairing/approve", "POST", {
         pairingId: pairingBody.pairingId, challengeId: challengeBody.challengeId,
         nonce: challengeBody.nonce, approverDeviceType: "phone",
-        approverInstallationId: "install-phone-1",
+        approverInstallationId: "install-1",
         approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(decisionProof)),
             activationDevicePair.privateKey).toString("base64")
     });
@@ -720,7 +720,7 @@ async function main() {
     const consumedReplay = await request(worker, env, "/api/licenses/pairing/approve", "POST", {
         pairingId: pairingBody.pairingId, challengeId: challengeBody.challengeId,
         nonce: challengeBody.nonce, approverDeviceType: "phone",
-        approverInstallationId: "install-phone-1",
+        approverInstallationId: "install-1",
         approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(decisionProof)),
             activationDevicePair.privateKey).toString("base64")
     });
