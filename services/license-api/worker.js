@@ -302,12 +302,13 @@ async function verifyDeviceActivationProof(body, fields) {
     throw Object.assign(new Error("طول کلید دستگاه باید بین ۲۰۴۸ و ۴۰۹۶ بیت باشد."), { status: 400 });
   }
   const proof = JSON.stringify({
-    purpose: "tahouri-device-activation-v1",
+    purpose: fields.purpose || "tahouri-device-activation-v1",
     installationId: fields.installationId,
     deviceType: fields.deviceType,
     studentId: fields.studentId,
     gradeId: fields.gradeId,
-    codeHash: fields.codeHash
+    codeHash: fields.codeHash,
+    licenseId: fields.licenseId
   });
   const valid = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, signature,
     new TextEncoder().encode(proof));
@@ -411,6 +412,85 @@ async function activateLicense(request, env, headers) {
   }
   return json({ valid: true, renewalStored: futureRenewal, entitlement }, 200, headers);
 }
+async function createDevicePairingRequest(request, env, headers) {
+  const origin = request.headers.get("Origin");
+  if (!origin || !allowedOrigin(request, env)) return error("مبدأ درخواست مجاز نیست.", 403, headers);
+  const contentType = String(request.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase();
+  if (contentType !== "application/json") return error("نوع محتوای درخواست باید application/json باشد.", 415, headers);
+  const body = await bodyJson(request);
+  const code = bounded(body.code, 256, "code").toUpperCase();
+  const studentId = validIdentifier(body.studentId, "studentId");
+  const gradeId = validIdentifier(body.gradeId, "gradeId");
+  const installationId = validIdentifier(body.installationId, "installationId");
+  const deviceType = String(body.deviceType || "").trim().toLowerCase();
+  if (!["phone", "computer"].includes(deviceType)) return error("نوع دستگاه معتبر نیست.", 400, headers);
+
+  const ipHash = await sha256(request.headers.get("CF-Connecting-IP") || "unknown");
+  const actor = "pairing:" + ipHash;
+  const since = new Date(Date.now() - 60000).toISOString();
+  const attempts = await env.DB.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'device.pairing.requested' AND actor = ? AND created_at >= ?").bind(actor, since).first();
+  if (Number(attempts?.count || 0) >= 5) return error("تعداد درخواست‌های اتصال دستگاه بیش از حد مجاز است.", 429, headers);
+
+  const codeHash = await sha256(code);
+  const codeRecord = await env.DB.prepare(`SELECT ac.student_id AS studentId, ac.grade_id AS gradeId,
+      ac.status AS codeStatus, ac.license_id AS licenseId, l.status AS licenseStatus,
+      l.valid_from AS validFrom, l.valid_until AS validUntil
+    FROM activation_codes ac JOIN licenses l ON l.license_id = ac.license_id
+    WHERE ac.code_hash = ?`).bind(codeHash).first();
+  if (!codeRecord || codeRecord.codeStatus !== "used" || !codeRecord.licenseId ||
+      codeRecord.studentId !== studentId || codeRecord.gradeId !== gradeId) {
+    return error("اطلاعات مجوز برای درخواست اتصال دستگاه معتبر نیست.", 409, headers);
+  }
+  const now = Date.now(), validFrom = Date.parse(codeRecord.validFrom), validUntil = Date.parse(codeRecord.validUntil);
+  if (!["active", "future"].includes(codeRecord.licenseStatus) ||
+      !Number.isFinite(validFrom) || !Number.isFinite(validUntil) || validUntil <= now) {
+    return error("مجوز برای اتصال دستگاه معتبر یا قابل استفاده نیست.", 409, headers);
+  }
+  const student = await env.DB.prepare("SELECT status FROM student_accounts WHERE student_id = ?").bind(studentId).first();
+  if (!student || student.status !== "active") return error("حساب پروفایل فعال نیست.", 409, headers);
+  const targetSlot = await env.DB.prepare("SELECT installation_id AS installationId FROM license_device_slots WHERE license_id = ? AND device_type = ? AND revoked_at IS NULL").bind(codeRecord.licenseId, deviceType).first();
+  if (targetSlot) return error("جایگاه این نوع دستگاه قبلاً پر شده است؛ جایگزینی باید جداگانه و با تأیید صریح انجام شود.", 409, headers);
+  const existingSlot = await env.DB.prepare("SELECT device_type AS deviceType FROM license_device_slots WHERE license_id = ? AND revoked_at IS NULL LIMIT 1").bind(codeRecord.licenseId).first();
+  if (!existingSlot || existingSlot.deviceType === deviceType) return error("برای این مجوز دستگاه تأییدکنندهٔ واجد شرایط پیدا نشد.", 409, headers);
+  const duplicateInstallation = await env.DB.prepare("SELECT 1 AS found FROM license_device_slots WHERE license_id = ? AND installation_id = ? AND revoked_at IS NULL").bind(codeRecord.licenseId, installationId).first();
+  if (duplicateInstallation) return error("این نصب قبلاً به مجوز متصل است.", 409, headers);
+
+  let deviceIdentity;
+  try {
+    deviceIdentity = await verifyDeviceActivationProof(body, {
+      purpose: "tahouri-device-pairing-request-v1", installationId, deviceType,
+      studentId, gradeId, codeHash, licenseId: codeRecord.licenseId
+    });
+  } catch (proofError) {
+    return error(proofError.message || "اثبات هویت دستگاه معتبر نیست.", proofError.status || 400, headers);
+  }
+  const pairingId = "pair_" + crypto.randomUUID();
+  const token = randomHex(32);
+  const createdAt = nowIso();
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+  const tokenHash = await sha256(token);
+  const result = await env.DB.prepare(`INSERT INTO device_pairing_requests
+    (pairing_id, license_id, requester_device_type, requester_installation_id, token_hash,
+     created_at, expires_at, requester_student_id, requester_grade_id,
+     requester_public_key_pem, requester_key_fingerprint)
+    SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+    WHERE EXISTS (
+      SELECT 1 FROM licenses WHERE license_id = ? AND status IN ('active','future') AND valid_until > ?
+    )
+    AND NOT EXISTS (
+      SELECT 1 FROM license_device_slots WHERE license_id = ? AND device_type = ? AND revoked_at IS NULL
+    )`).bind(pairingId, codeRecord.licenseId, deviceType, installationId, tokenHash,
+      createdAt, expiresAt, studentId, gradeId, deviceIdentity.publicKeyPem,
+      deviceIdentity.fingerprint, codeRecord.licenseId, createdAt,
+      codeRecord.licenseId, deviceType).run();
+  if (Number(result?.meta?.changes || 0) !== 1) return error("وضعیت جایگاه دستگاه تغییر کرده است؛ درخواست دوباره بررسی شود.", 409, headers);
+  await audit(env, "device.pairing.requested", "pairing:" + ipHash, {
+    licenseId: codeRecord.licenseId, codeHash,
+    metadata: { pairingId, deviceType, requesterFingerprint: deviceIdentity.fingerprint }
+  });
+  return json({ ok: true, pairingId, token, expiresAt, status: "pending_approval" }, 201, headers);
+}
+
 async function licenseStatus(request, env, url, headers) {
   const licenseId = String(url.searchParams.get("licenseId") || "").trim();
   if (!licenseId) return json({ ok: false, valid: false, message: "licenseId الزامی است." }, 400, headers);
@@ -839,6 +919,8 @@ export default {
           message: "ثبت عمومی پروفایل غیرفعال است؛ ورود پروفایل باید از پنل مدیریت انجام شود." }, 410, headers);
       if (url.pathname === "/api/licenses/activate" && request.method === "POST")
         return await activateLicense(request, env, headers);
+      if (url.pathname === "/api/licenses/pairing/request" && request.method === "POST")
+        return await createDevicePairingRequest(request, env, headers);
       if (url.pathname === "/api/licenses/status" && request.method === "GET")
         return await licenseStatus(request, env, url, headers);
       if (url.pathname.startsWith("/api/admin/") || url.pathname === "/api/metrics" || url.pathname === "/api/metrics/alerts")
