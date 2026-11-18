@@ -35,7 +35,7 @@ assert(
     indexHtml.includes("tahouriServiceConfig.js?v=1.3") &&
     indexHtml.includes("tahouriEntitlementVerifier.js?v=1.5") &&
     indexHtml.includes("tahouriDeviceIdentity.js?v=1.0") &&
-    indexHtml.includes("tahouriLicenseClient.js?v=1.4") &&
+    indexHtml.includes("tahouriLicenseClient.js?v=1.5") &&
     indexHtml.indexOf("tahouriDeviceIdentity.js") < indexHtml.indexOf("tahouriLicenseClient.js") &&
     indexHtml.includes("profileScreen.js?v=5.1") &&
     indexHtml.includes("licenseManager.js?v=2.2") &&
@@ -48,7 +48,7 @@ assert(
     !licenseClient.includes("registerExistingProfiles") &&
     !licenseClient.includes("registerProfile") &&
     !licenseClient.includes("/students/register") &&
-    licenseClient.includes("window.TahouriLicenseClient = { activate, health, status, requestPairing, requestPairingChallenge, decidePairing, pairingStatus };") &&
+    licenseClient.includes("window.TahouriLicenseClient = { activate, health, status, requestPairing, requestPairingChallenge, decidePairing, pairingStatus, listPendingPairings };") &&
     licenseClient.includes("devicePublicKeyPem: identity.publicKey") &&
     licenseClient.includes("deviceSignature: signed.signature") &&
     manager.includes("async function getOrCreateRemoteInstallationId()") &&
