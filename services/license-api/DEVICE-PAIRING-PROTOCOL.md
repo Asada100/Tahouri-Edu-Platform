@@ -38,3 +38,25 @@ Each installation creates a signing key pair locally. The private key must be no
 - Migration and regression tests preserve existing license and student data.
 
 This document remains a security design gate for the remaining client integration and lifecycle work. The Worker-side signed request, authenticated pending-request listing, challenge, decision, slot binding, entitlement delivery, and requester status APIs plus basic browser controls are implemented on this PR branch. Full end-to-end browser testing of the two-device UI and remaining lifecycle/security coverage are still required. Nothing in this PR is deployed to production.
+
+
+## Device replacement lifecycle (next implementation gate)
+
+Replacement must be a separate, explicit, signed revocation action performed by the currently bound complementary device (for example, the bound computer authorizes revoking the phone slot). The replacement device itself must never be able to free its own occupied slot by presenting an activation code or by requesting revocation.
+
+### Planned sequence
+1. The bound complementary installation requests a revocation challenge for the exact target class and target slot fingerprint. The Worker verifies its active slot, license/profile status, and proof-of-possession signature.
+2. The Worker issues a short-lived one-use challenge, storing only its nonce hash and binding the challenge to license ID, approver installation/fingerprint, target device class, target installation/fingerprint, and expiry.
+3. The approver confirms revocation locally and signs the exact canonical payload. The Worker rechecks both slots, the target fingerprint, license and profile status, challenge expiry and unused state, then atomically revokes only that target slot, consumes the challenge, invalidates outstanding pairing requests for that target class, and writes audit records.
+4. The complementary device slot remains active. The target slot is vacant, allowing the new installation to submit a normal pairing request and be approved through the existing pairing protocol. Revocation does not transfer entitlement or approve a replacement.
+5. If the complementary device is unavailable, no self-service bypass is provided in this protocol; recovery must be an separately authenticated administrative process.
+
+### Required replacement tests
+- Wrong/forged signatures, mismatched target fingerprint, class, license, approver, challenge, expiry, and replay must fail without mutation.
+- Revocation of the phone must preserve the computer slot, and vice versa.
+- Concurrent revocation attempts must allow at most one success.
+- Pending requests for a revoked target must not subsequently approve; challenge and request tokens must not revive the revoked slot.
+- Audit evidence must contain action, target/approver class and fingerprints, license ID, timestamp and outcome, but no secrets.
+- After revocation, the class slot can be rebound through ordinary pairing; historical slot rows remain preserved.
+
+This section is a specification only. No replacement/revocation endpoint is implemented until its tests and transactional behavior are added.
