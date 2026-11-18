@@ -34,7 +34,9 @@ assert(
 assert(
     indexHtml.includes("tahouriServiceConfig.js?v=1.3") &&
     indexHtml.includes("tahouriEntitlementVerifier.js?v=1.5") &&
-    indexHtml.includes("tahouriLicenseClient.js?v=1.2") &&
+    indexHtml.includes("tahouriDeviceIdentity.js?v=1.0") &&
+    indexHtml.includes("tahouriLicenseClient.js?v=1.3") &&
+    indexHtml.indexOf("tahouriDeviceIdentity.js") < indexHtml.indexOf("tahouriLicenseClient.js") &&
     indexHtml.includes("profileScreen.js?v=5.1") &&
     indexHtml.includes("licenseManager.js?v=2.2") &&
     indexHtml.includes("activationGate.js?v=8.5") &&
@@ -46,7 +48,9 @@ assert(
     !licenseClient.includes("registerExistingProfiles") &&
     !licenseClient.includes("registerProfile") &&
     !licenseClient.includes("/students/register") &&
-    licenseClient.includes("window.TahouriLicenseClient = { activate, health, status };"),
+    licenseClient.includes("window.TahouriLicenseClient = { activate, health, status };") &&
+    licenseClient.includes("devicePublicKeyPem: identity.publicKey") &&
+    licenseClient.includes("deviceSignature: signed.signature"),
     "The browser client must not auto-register profiles through a public enrollment endpoint."
 );
 
