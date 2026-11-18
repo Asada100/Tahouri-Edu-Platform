@@ -992,6 +992,13 @@ async function adminRoute(request, env, url, headers) {
     const origin = request.headers.get("Origin");
     if (!origin || !allowedOrigin(request, env)) return error("مبدأ درخواست مجاز نیست.", 403, headers);
     const body = await bodyJson(request);
+    const recoveryWindow = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+    const recentRecoveryFailures = await env.DB.prepare(
+      "SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'admin.device_recovery.denied' AND actor = 'admin' AND created_at >= ?"
+    ).bind(recoveryWindow).first();
+    if (Number(recentRecoveryFailures?.count || 0) >= 5) {
+      return error("تلاش‌های بازیابی موقتاً محدود شده است. ۱۵ دقیقه بعد دوباره اقدام کنید.", 429, headers);
+    }
     const suppliedPassword = await sha256(String(body.adminPassword || ""));
     const configuredPassword = await sha256(String(env.ADMIN_PASSWORD || ""));
     if (!env.ADMIN_PASSWORD || !constantTimeEqual(suppliedPassword, configuredPassword)) {
