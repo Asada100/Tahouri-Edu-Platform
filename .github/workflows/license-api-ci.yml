@@ -89,7 +89,7 @@ jobs:
             fi
             sleep 1
           done
-          node ../../.github/scripts/device-identity-browser-test.js
+          NODE_PATH="$PWD/node_modules" node ../../.github/scripts/device-identity-browser-test.js
       - name: Client license safety test
         run: node client-license-safety-test.js
 
