@@ -219,7 +219,9 @@
             }
 
 
-            .tahouri-device-slot { padding:12px; margin:8px 0; border:1px solid #d8dee8; border-radius:10px; background:#fff; line-height:1.8; text-align:right; }\n            .tahouri-device-slot button { margin-top:8px; }\n            .tahouri-license-button:hover {
+            .tahouri-device-slot { padding:12px; margin:8px 0; border:1px solid #d8dee8; border-radius:10px; background:#fff; line-height:1.8; text-align:right; }
+            .tahouri-device-slot button { margin-top:8px; }
+            .tahouri-license-button:hover {
 
                 opacity:.92;
 
@@ -1184,7 +1186,11 @@
                                     >
                                         📥 مشاهده درخواست‌های در انتظار
                                     </button>
-                                    <div id="tahouriPendingPairings" class="tahouri-license-note" style="display:none;"></div>\n                                    <div id="tahouriDeviceSlots" class="tahouri-license-route" style="display:none;">\n                                        <strong>💻 مدیریت دستگاه‌های متصل</strong>\n                                        <div id="tahouriDeviceSlotsList"></div>\n                                    </div>
+                                    <div id="tahouriPendingPairings" class="tahouri-license-note" style="display:none;"></div>
+                                    <div id="tahouriDeviceSlots" class="tahouri-license-route" style="display:none;">
+                                        <strong>💻 مدیریت دستگاه‌های متصل</strong>
+                                        <div id="tahouriDeviceSlotsList"></div>
+                                    </div>
 
                                 `
 
@@ -1453,7 +1459,8 @@
             decidePairingFromPrimary("rejected");
         });
         const pairingRefreshButton = document.getElementById("tahouriPairingRefreshButton");
-        if (pairingRefreshButton) pairingRefreshButton.addEventListener("click", loadPendingPairings);\n        loadBoundDeviceSlots();
+        if (pairingRefreshButton) pairingRefreshButton.addEventListener("click", loadPendingPairings);
+        loadBoundDeviceSlots();
 
         const pairingRequestButton = document.getElementById("tahouriPairingRequestButton");
         if (pairingRequestButton) pairingRequestButton.addEventListener("click", beginPairingRequest);
