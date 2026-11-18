@@ -1290,8 +1290,10 @@ export default {
       if (url.pathname === "/api/licenses/activate" && request.method === "POST")
         return await activateLicense(request, env, headers);
       if (url.pathname === "/api/licenses/device-revocation/challenge" && request.method === "POST")
-        return await createDeviceRevocationChallenge(request, env, headers);\n      if (url.pathname === "/api/licenses/device-revocation/execute" && request.method === "POST")
-        return await executeDeviceRevocation(request, env, headers);\n      if (url.pathname === "/api/licenses/pairing/request" && request.method === "POST")
+        return await createDeviceRevocationChallenge(request, env, headers);
+      if (url.pathname === "/api/licenses/device-revocation/execute" && request.method === "POST")
+        return await executeDeviceRevocation(request, env, headers);
+      if (url.pathname === "/api/licenses/pairing/request" && request.method === "POST")
         return await createDevicePairingRequest(request, env, headers);
       if (url.pathname === "/api/licenses/pairing/pending" && request.method === "POST")
         return await listPendingDevicePairings(request, env, headers);
