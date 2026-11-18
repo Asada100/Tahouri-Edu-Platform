@@ -53,7 +53,12 @@ async function sha256(value) {
     return Buffer.from(digest).toString("hex");
 }
 let activationDevicePair = null;
-async function request(worker, env, pathName, method, body, origin = "https://asada100.github.io", ip = "203.0.113.10", contentType = "application/json") {
+let requestSequence = 0;
+async function request(worker, env, pathName, method, body, origin = "https://asada100.github.io", ip = null, contentType = "application/json") {
+    if (!ip) {
+        requestSequence += 1;
+        ip = "203.0.113." + (100 + (requestSequence % 100));
+    }
     if (pathName === "/api/licenses/activate" && body && activationDevicePair) {
         body = { ...body };
         const deviceType = body.deviceType || "computer";
