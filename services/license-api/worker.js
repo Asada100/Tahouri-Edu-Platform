@@ -427,8 +427,9 @@ async function createDevicePairingRequest(request, env, headers) {
   const ipHash = await sha256(request.headers.get("CF-Connecting-IP") || "unknown");
   const actor = "pairing:" + ipHash;
   const since = new Date(Date.now() - 60000).toISOString();
-  const attempts = await env.DB.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'device.pairing.requested' AND actor = ? AND created_at >= ?").bind(actor, since).first();
+  const attempts = await env.DB.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'device.pairing.attempt' AND actor = ? AND created_at >= ?").bind(actor, since).first();
   if (Number(attempts?.count || 0) >= 5) return error("تعداد درخواست‌های اتصال دستگاه بیش از حد مجاز است.", 429, headers);
+  await audit(env, "device.pairing.attempt", actor, { metadata: { deviceType } });
 
   const codeHash = await sha256(code);
   const codeRecord = await env.DB.prepare(`SELECT ac.student_id AS studentId, ac.grade_id AS gradeId,
