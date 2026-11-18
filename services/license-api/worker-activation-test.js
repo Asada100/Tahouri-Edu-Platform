@@ -725,9 +725,9 @@ async function main() {
             activationDevicePair.privateKey).toString("base64")
     });
     assert.equal(consumedReplay.status, 409, "A consumed challenge must not be replayable.");
-    const pairingStatus = await request(worker, env,
-        "/api/licenses/pairing/status?pairingId=" + encodeURIComponent(pairingBody.pairingId) +
-        "&token=" + encodeURIComponent(pairingBody.token), "GET", undefined);
+    const pairingStatus = await request(worker, env, "/api/licenses/pairing/status", "POST", {
+        pairingId: pairingBody.pairingId, token: pairingBody.token
+    });
     assert.equal(pairingStatus.status, 200);
     assert.equal((await pairingStatus.json()).status, "approved",
         "The requester bearer token must read the final decision.");
