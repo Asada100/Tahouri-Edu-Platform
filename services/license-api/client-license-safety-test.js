@@ -50,7 +50,10 @@ assert(
     !licenseClient.includes("/students/register") &&
     licenseClient.includes("window.TahouriLicenseClient = { activate, health, status };") &&
     licenseClient.includes("devicePublicKeyPem: identity.publicKey") &&
-    licenseClient.includes("deviceSignature: signed.signature"),
+    licenseClient.includes("deviceSignature: signed.signature") &&
+    manager.includes("async function getOrCreateRemoteInstallationId()") &&
+    manager.includes("await getOrCreateRemoteInstallationId()") &&
+    manager.includes("claims.installationBinding !== installationId"),
     "The browser client must not auto-register profiles through a public enrollment endpoint."
 );
 
