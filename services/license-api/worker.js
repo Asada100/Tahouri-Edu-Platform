@@ -536,7 +536,8 @@ async function executeDeviceRevocation(request,env,headers){
   if(results.some((x,i)=>i!==2&&Number(x?.meta?.changes||0)!==1))return error("لغو دستگاه به‌صورت کامل تأیید نشد.",409,headers);
   return json({ok:true,status:"revoked",deviceType:row.target_device_type},200,headers);
 }
-\nasync function verifyStoredDeviceSignature(publicKeyPem, signatureText, payload) {
+
+async function verifyStoredDeviceSignature(publicKeyPem, signatureText, payload) {
   const pem = bounded(publicKeyPem, 4096, "device public key");
   const encodedKey = pem.replace(/-----BEGIN PUBLIC KEY-----|-----END PUBLIC KEY-----|\s/g, "");
   if (!/^-----BEGIN PUBLIC KEY-----\s+[A-Za-z0-9+/=\s]+-----END PUBLIC KEY-----$/.test(pem) ||
@@ -1288,7 +1289,9 @@ export default {
           message: "ثبت عمومی پروفایل غیرفعال است؛ ورود پروفایل باید از پنل مدیریت انجام شود." }, 410, headers);
       if (url.pathname === "/api/licenses/activate" && request.method === "POST")
         return await activateLicense(request, env, headers);
-      if (url.pathname === "/api/licenses/device-revocation/challenge" && request.method === "POST")\n        return await createDeviceRevocationChallenge(request, env, headers);\n      if (url.pathname === "/api/licenses/device-revocation/execute" && request.method === "POST")\n        return await executeDeviceRevocation(request, env, headers);\n      if (url.pathname === "/api/licenses/pairing/request" && request.method === "POST")
+      if (url.pathname === "/api/licenses/device-revocation/challenge" && request.method === "POST")
+        return await createDeviceRevocationChallenge(request, env, headers);\n      if (url.pathname === "/api/licenses/device-revocation/execute" && request.method === "POST")
+        return await executeDeviceRevocation(request, env, headers);\n      if (url.pathname === "/api/licenses/pairing/request" && request.method === "POST")
         return await createDevicePairingRequest(request, env, headers);
       if (url.pathname === "/api/licenses/pairing/pending" && request.method === "POST")
         return await listPendingDevicePairings(request, env, headers);
