@@ -716,9 +716,13 @@ async function decideDevicePairing(request, env, headers, decision) {
   return json({ ok: true, status: "approved", entitlement }, 200, headers);
 }
 
-async function getDevicePairingStatus(request, env, headers, url) {
-  const pairingId = bounded(url.searchParams.get("pairingId"), 160, "pairingId");
-  const token = bounded(url.searchParams.get("token"), 128, "token");
+async function getDevicePairingStatus(request, env, headers) {
+  if (!request.headers.get("Origin") || !allowedOrigin(request, env)) return error("مبدأ درخواست مجاز نیست.", 403, headers);
+  if (String(request.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase() !== "application/json")
+    return error("نوع محتوای درخواست باید application/json باشد.", 415, headers);
+  const body = await bodyJson(request);
+  const pairingId = bounded(body.pairingId, 160, "pairingId");
+  const token = bounded(body.token, 128, "token");
   const tokenHash = await sha256(token);
   const row = await env.DB.prepare(`SELECT decision, expires_at AS expiresAt, consumed_at AS consumedAt,
       cancelled_at AS cancelledAt, approved_at AS approvedAt
@@ -1167,8 +1171,8 @@ export default {
         return await decideDevicePairing(request, env, headers, "approved");
       if (url.pathname === "/api/licenses/pairing/reject" && request.method === "POST")
         return await decideDevicePairing(request, env, headers, "rejected");
-      if (url.pathname === "/api/licenses/pairing/status" && request.method === "GET")
-        return await getDevicePairingStatus(request, env, headers, url);
+      if (url.pathname === "/api/licenses/pairing/status" && request.method === "POST")
+        return await getDevicePairingStatus(request, env, headers);
       if (url.pathname === "/api/licenses/status" && request.method === "GET")
         return await licenseStatus(request, env, url, headers);
       if (url.pathname.startsWith("/api/admin/") || url.pathname === "/api/metrics" || url.pathname === "/api/metrics/alerts")
