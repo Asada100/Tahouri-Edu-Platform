@@ -62,7 +62,7 @@ jobs:
       - name: Install isolated browser test runner
         run: |
           npm install --no-save --package-lock=false --ignore-scripts playwright@1.65.1
-          npx playwright install --with-deps chromium
+          npx playwright install chromium
 
       - name: Admin browser end-to-end import and activation test
         run: |
