@@ -8,7 +8,7 @@ const crypto = require("node:crypto");
 const { DatabaseSync } = require("node:sqlite");
 
 const db = new DatabaseSync(":memory:");
-for (const file of ["migrations/0001_initial_schema.sql", "migrations/0002_admin_login_attempts.sql", "migrations/0003_activation_integrity_indexes.sql", "migrations/0004_student_accounts.sql", "migrations/0005_student_activation_status.sql", "migrations/0006_one_phone_one_computer.sql"]) {
+for (const file of ["migrations/0001_initial_schema.sql", "migrations/0002_admin_login_attempts.sql", "migrations/0003_activation_integrity_indexes.sql", "migrations/0004_student_accounts.sql", "migrations/0005_student_activation_status.sql", "migrations/0006_one_phone_one_computer.sql", "migrations/0007_device_slot_public_keys.sql"]) {
     db.exec(fs.readFileSync(path.join(__dirname, file), "utf8"));
 }
 
@@ -52,7 +52,24 @@ async function sha256(value) {
     const digest = await crypto.webcrypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
     return Buffer.from(digest).toString("hex");
 }
+let activationDevicePair = null;
 async function request(worker, env, pathName, method, body, origin = "https://asada100.github.io", ip = "203.0.113.10", contentType = "application/json") {
+    if (pathName === "/api/licenses/activate" && body && activationDevicePair) {
+        body = { ...body };
+        const deviceType = body.deviceType || "computer";
+        const codeHash = await sha256(String(body.code || "").trim().toUpperCase());
+        const proof = JSON.stringify({
+            purpose: "tahouri-device-activation-v1",
+            installationId: body.installationId,
+            deviceType,
+            studentId: body.studentId,
+            gradeId: body.gradeId,
+            codeHash
+        });
+        body.deviceType = deviceType;
+        body.devicePublicKeyPem = body.devicePublicKeyPem || activationDevicePair.publicKey.export({ type: "spki", format: "pem" });
+        body.deviceSignature = body.deviceSignature || crypto.sign("RSA-SHA256", Buffer.from(proof), activationDevicePair.privateKey).toString("base64");
+    }
     const headers = { "content-type": contentType, "cf-connecting-ip": ip };
     if (origin) headers.origin = origin;
     return worker.fetch(new Request("https://api.example.test" + pathName, {
@@ -64,12 +81,16 @@ async function request(worker, env, pathName, method, body, origin = "https://as
 
 async function main() {
     const migrations = db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get();
-    assert.equal(Number(migrations.version), 6, "D1 migrations must create the version-6 device-slot schema.");
+    assert.equal(Number(migrations.version), 7, "D1 migrations must create the version-7 device identity schema.");
     assert(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'license_device_slots'").get(), "Migration 6 must create device slots.");
     assert(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'device_pairing_requests'").get(), "Migration 6 must create pairing requests.");
-    assert.equal(db.prepare("PRAGMA table_info(license_device_slots)").all().some(row => row.name === "device_type"), true, "Device slots must distinguish phone and computer.");
+    const deviceSlotColumns = db.prepare("PRAGMA table_info(license_device_slots)").all().map(row => row.name);
+    assert.equal(deviceSlotColumns.includes("device_type"), true, "Device slots must distinguish phone and computer.");
+    assert.equal(deviceSlotColumns.includes("public_key_pem"), true, "Device slots must persist the verified public key.");
+    assert.equal(deviceSlotColumns.includes("key_fingerprint"), true, "Device slots must persist the public-key fingerprint.");
 
     const pair = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
+    activationDevicePair = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
     const privatePem = pair.privateKey.export({ type: "pkcs8", format: "pem" });
     const publicPem = pair.publicKey.export({ type: "spki", format: "pem" });
     const source = fs.readFileSync(path.join(__dirname, "worker.js"), "utf8");
@@ -551,6 +572,14 @@ async function main() {
     assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM licenses WHERE code_hash = ?").get().count), 0,
         "A losing activation race must not create a license.");
 
+    const invalidDeviceProof = await request(worker, env, "/api/licenses/activate", "POST", {
+        code, gradeId: "grade6", studentId: "student-1", installationId: "install-1",
+        deviceType: "phone", deviceSignature: "AAAA"
+    });
+    assert.equal(invalidDeviceProof.status, 400, "A malformed device signature must be rejected.");
+    assert.equal(db.prepare("SELECT status FROM activation_codes WHERE code_hash = ?").get(codeHash).status, "active",
+        "A rejected device proof must not consume the activation code.");
+
     const activated = await request(worker, env, "/api/licenses/activate", "POST", {
         code, gradeId: "grade6", studentId: "student-1", installationId: "install-1", deviceType: "phone"
     });
@@ -574,6 +603,11 @@ async function main() {
     assert.equal(phoneSlot?.installation_id, "install-1");
     assert.equal(phoneSlot?.revoked_at, null,
         "The successful initial activation must atomically bind its phone slot.");
+    const storedDeviceIdentity = db.prepare("SELECT public_key_pem, key_fingerprint FROM license_device_slots WHERE license_id = ? AND device_type = 'phone'").get(stored.license_id);
+    assert.equal(storedDeviceIdentity.public_key_pem, activationDevicePair.publicKey.export({ type: "spki", format: "pem" }));
+    assert.match(storedDeviceIdentity.key_fingerprint, /^[a-f0-9]{64}$/);
+    assert.equal(activationBody.entitlement.claims.deviceType, "phone");
+    assert.equal(activationBody.entitlement.claims.deviceKeyFingerprint, storedDeviceIdentity.key_fingerprint);
     assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id = ?").get(stored.license_id).count), 1,
         "Only one slot should be bound after initial phone activation.");
     assert.throws(() => db.prepare("INSERT INTO license_device_slots (license_id, device_type, installation_id, bound_at) VALUES (?, 'phone', 'install-phone-2', ?)").run(stored.license_id, new Date().toISOString()),
