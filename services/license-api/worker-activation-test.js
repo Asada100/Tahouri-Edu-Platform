@@ -152,6 +152,12 @@ async function main() {
         "The authenticated admin UI must expose the profile import action after public registration is disabled.");
     assert.match(adminHtml, /id="studentProfilesFile"/,
         "The admin UI must provide a file input for the exported profile JSON.");
+    assert.match(adminHtml, /id="deviceRecoveryCard"/);
+    assert.match(adminHtml, /id="recoveryLicenseId"/);
+    assert.match(adminHtml, /id="recoveryInstallationId"/);
+    assert.match(adminHtml, /id="recoveryFingerprint"/);
+    assert.match(adminHtml, /id="recoveryAdminPassword"/);
+    assert.match(adminHtml, /data-action="recoverDeviceSlot"/);
     assert.match(adminHtml, /data-action="createBulkCodesFromFile"/,
         "The authenticated admin UI must expose the bulk issuance action.");
     assert.match(adminHtml, /id="bulkProfilesFile"/,
