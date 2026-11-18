@@ -1,6 +1,6 @@
 # Secure device pairing protocol (implementation gate)
 
-Status: activation proof-of-possession is implemented on this PR branch: the browser identity utility is loaded before the license client, activation signs a canonical payload, the Worker verifies the RSA-2048+ signature, and migration 0007 stores the public key and SHA-256 fingerprint with the device slot. Pairing endpoints and approval flow remain design-only and are not enabled in production.
+Status: activation proof-of-possession is implemented on this PR branch: the browser identity utility is loaded before the license client, activation signs a canonical payload, the Worker verifies the RSA-2048+ signature, and migration 0007 stores the public key and SHA-256 fingerprint with the device slot. Pairing endpoints and approval flow remain design-only and are not enabled in production. The License API CI, device identity browser test, PR preview package, Word Puzzle checks, and required PR gate all pass on commit `721d62e814cf0d36b57cc4f4307f060f2d63547b`.
 
 ## Limits
 - Exactly one phone slot and one computer slot per license, independent of OS.
@@ -38,4 +38,4 @@ Each installation creates a signing key pair locally. The private key must be no
 - Signed entitlements reject mismatched installation/class and revoked licenses.
 - Migration and regression tests preserve existing license and student data.
 
-This document remains a security design gate for the unimplemented pairing workflow. Activation proof-of-possession is implemented in this PR branch but has not yet passed the full required CI gate and is not deployed to production.
+This document remains a security design gate for the unimplemented pairing workflow. Activation proof-of-possession is implemented and the full required CI gate passes on this PR branch. It is not deployed to production.
