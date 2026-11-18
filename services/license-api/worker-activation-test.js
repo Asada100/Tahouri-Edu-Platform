@@ -786,6 +786,27 @@ async function main() {
     });
     assert.equal((await cancelledStatus.json()).status, "expired",
         "Requester polling must not report a cancelled request as pending.");
+    const expiredPairingId = "pair_expired_test";
+    const expiredToken = "expired-request-token";
+    const expiredHash = crypto.createHash("sha256").update(expiredToken).digest("hex");
+    db.prepare(`INSERT INTO device_pairing_requests
+        (pairing_id, license_id, requester_device_type, requester_installation_id, token_hash, created_at, expires_at)
+        VALUES (?, ?, 'computer', 'install-expired-test', ?, ?, ?)`)
+        .run(expiredPairingId, stored.license_id, expiredHash,
+            new Date(Date.now() - 700000).toISOString(), new Date(Date.now() - 1000).toISOString());
+    const expiredCancel = await request(worker, env, "/api/licenses/pairing/cancel", "POST", {
+        pairingId: expiredPairingId, token: expiredToken
+    });
+    assert.equal(expiredCancel.status, 409, "Expired pairing requests cannot be cancelled or revived.");
+    const expiredPoll = await request(worker, env, "/api/licenses/pairing/status", "POST", {
+        pairingId: expiredPairingId, token: expiredToken
+    });
+    assert.equal(expiredPoll.status, 200);
+    assert.equal((await expiredPoll.json()).status, "expired",
+        "Expired requests must be reported as expired without cleanup writes.");
+    assert.equal(db.prepare("SELECT cancelled_at FROM device_pairing_requests WHERE pairing_id = ?").get(expiredPairingId).cancelled_at,
+        null, "Polling expired requests must not mutate their row.");
+
 
 
 
