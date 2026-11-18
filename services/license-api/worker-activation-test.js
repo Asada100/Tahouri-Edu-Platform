@@ -920,15 +920,15 @@ async function main() {
 
 
     // Administrator recovery requires a live admin session, trusted Origin and password re-entry.
-    const recoveryTarget = db.prepare("SELECT installation_id, key_fingerprint FROM license_device_slots WHERE license_id = ? AND device_type = 'computer' AND revoked_at IS NULL").get(stored.license_id);
+    const recoveryTarget = db.prepare("SELECT installation_id, key_fingerprint FROM license_device_slots WHERE license_id = ? AND device_type = 'phone' AND revoked_at IS NULL").get(stored.license_id);
     assert(recoveryTarget?.key_fingerprint, "The computer slot must have a fingerprint before admin recovery.");
     const pendingRecoveryPairingId = "pairing-admin-recovery-pending";
     db.prepare(`INSERT INTO device_pairing_requests
       (pairing_id,license_id,requester_device_type,requester_installation_id,token_hash,created_at,expires_at)
-      VALUES (?,?,'computer','install-computer-pending',?,?,?)`)
+      VALUES (?,?,'phone','install-phone-pending',?,?,?)`)
       .run(pendingRecoveryPairingId, stored.license_id, "admin-recovery-token-hash", new Date().toISOString(), new Date(Date.now()+60000).toISOString());
     const recoveryPayload = {
-      licenseId: stored.license_id, deviceType: "computer",
+      licenseId: stored.license_id, deviceType: "phone",
       installationId: recoveryTarget.installation_id, keyFingerprint: recoveryTarget.key_fingerprint,
       reason: "دستگاه مکمل در دسترس نیست و مالکیت بررسی شد"
     };
@@ -937,7 +937,7 @@ async function main() {
       body: JSON.stringify({ ...recoveryPayload, adminPassword: "incorrect-password" })
     }), env);
     assert.equal(deniedRecovery.status, 401, "Admin recovery must require password re-authentication.");
-    assert.equal(db.prepare("SELECT revoked_at FROM license_device_slots WHERE license_id=? AND device_type='computer' AND installation_id=?").get(stored.license_id,recoveryTarget.installation_id).revoked_at, null,
+    assert.equal(db.prepare("SELECT revoked_at FROM license_device_slots WHERE license_id=? AND device_type='phone' AND installation_id=?").get(stored.license_id,recoveryTarget.installation_id).revoked_at, null,
       "A failed step-up check must not revoke a device.");
     const recovered = await worker.fetch(new Request("https://api.example.test/api/admin/device-slots/recover", {
       method: "POST", headers: { "content-type": "application/json", origin: env.ADMIN_ORIGIN, cookie: adminCookie },
@@ -947,8 +947,8 @@ async function main() {
     assert.equal((await recovered.json()).status, "revoked");
     assert(db.prepare("SELECT revoked_at FROM license_device_slots WHERE license_id=? AND device_type='computer' AND installation_id=?").get(stored.license_id,recoveryTarget.installation_id).revoked_at,
       "Admin recovery must revoke the exact selected device.");
-    assert.equal(db.prepare("SELECT revoked_at FROM license_device_slots WHERE license_id=? AND device_type='phone' AND revoked_at IS NULL").get(stored.license_id).revoked_at, null,
-      "Admin recovery must preserve the complementary phone slot.");
+    assert.equal(db.prepare("SELECT revoked_at FROM license_device_slots undefined").get(stored.license_id).revoked_at, null,
+      "Admin recovery must preserve the complementary computer slot.");
     assert(db.prepare("SELECT cancelled_at FROM device_pairing_requests WHERE pairing_id=?").get(pendingRecoveryPairingId).cancelled_at,
       "Admin recovery must cancel pending pairing requests for the revoked device class.");
     assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type='device.admin_recovered' AND license_id=?").get(stored.license_id).count), 1,
