@@ -552,7 +552,7 @@ async function main() {
         "A losing activation race must not create a license.");
 
     const activated = await request(worker, env, "/api/licenses/activate", "POST", {
-        code, gradeId: "grade6", studentId: "student-1", installationId: "install-1"
+        code, gradeId: "grade6", studentId: "student-1", installationId: "install-1", deviceType: "phone"
     });
     assert.equal(activated.status, 200, "Valid one-time activation must succeed.");
     const activationBody = await activated.json();
@@ -569,6 +569,17 @@ async function main() {
     assert.equal(stored.status, "used");
     assert.equal(stored.license_id, activationBody.entitlement.claims.licenseId);
     assert.equal(db.prepare("SELECT activation_status FROM student_accounts WHERE student_id = 'student-1'").get().activation_status, "active", "Successful activation must mark the profile active.");
+    const phoneSlot = db.prepare("SELECT device_type, installation_id, revoked_at FROM license_device_slots WHERE license_id = ? AND device_type = 'phone'").get(stored.license_id);
+    assert.deepEqual(phoneSlot, { device_type: "phone", installation_id: "install-1", revoked_at: null },
+        "The successful initial activation must atomically bind its phone slot.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id = ?").get(stored.license_id).count), 1,
+        "Only one slot should be bound after initial phone activation.");
+    assert.throws(() => db.prepare("INSERT INTO license_device_slots (license_id, device_type, installation_id, bound_at) VALUES (?, 'phone', 'install-phone-2', ?)").run(stored.license_id, new Date().toISOString()),
+        /UNIQUE constraint failed/,
+        "A second phone must not be inserted into the same license slot.");
+    db.prepare("INSERT INTO license_device_slots (license_id, device_type, installation_id, bound_at) VALUES (?, 'computer', 'install-computer-1', ?)").run(stored.license_id, new Date().toISOString());
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id = ?").get(stored.license_id).count), 2,
+        "A license must permit one phone and one computer simultaneously.");
 
     const status = await request(worker, env, "/api/licenses/status?licenseId=" + encodeURIComponent(stored.license_id), "GET");
     assert.equal(status.status, 200);
