@@ -25,7 +25,36 @@
         return /Android|iPhone|iPod|Mobile|Windows Phone/i.test(ua) ? "phone" : "computer";
     }
     async function activate(payload) {
-        const data = { ...(payload || {}), deviceType: detectDeviceType() };
+        const supplied = payload || {};
+        const deviceType = detectDeviceType();
+        const identity = await window.TahouriDeviceIdentity.getOrCreate();
+        if (supplied.installationId && supplied.installationId !== identity.installationId) {
+            throw new Error("شناسه نصب با هویت رمزنگاری‌شده این دستگاه مطابقت ندارد.");
+        }
+        const code = String(supplied.code || "").trim().toUpperCase();
+        if (!code) throw new Error("کد فعال‌سازی وارد نشده است.");
+        const codeDigest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(code));
+        const codeHash = Array.from(new Uint8Array(codeDigest), b => b.toString(16).padStart(2, "0")).join("");
+        const proofPayload = JSON.stringify({
+            purpose: "tahouri-device-activation-v1",
+            installationId: identity.installationId,
+            deviceType,
+            studentId: String(supplied.studentId || "").trim(),
+            gradeId: String(supplied.gradeId || "").trim(),
+            codeHash
+        });
+        const signed = await window.TahouriDeviceIdentity.sign(proofPayload);
+        if (signed.installationId !== identity.installationId) {
+            throw new Error("هویت امضاکننده با دستگاه فعال‌ساز مطابقت ندارد.");
+        }
+        const data = {
+            ...supplied,
+            code,
+            installationId: identity.installationId,
+            deviceType,
+            devicePublicKeyPem: identity.publicKey,
+            deviceSignature: signed.signature
+        };
         return request("/licenses/activate", { method: "POST", body: JSON.stringify(data) });
     }
     async function health() { return request("/health", { method: "GET" }); }
