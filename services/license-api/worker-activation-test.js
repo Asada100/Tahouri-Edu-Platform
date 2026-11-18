@@ -132,6 +132,7 @@ async function main() {
     assert(source.includes("document.addEventListener"), "Admin actions must use delegated external JavaScript handlers.");
     assert.match(source, /async function createDeviceRevocationChallenge/);
     assert.match(source, /async function executeDeviceRevocation/);
+    assert(source.includes("device-slots") && source.includes("async function listBoundDeviceSlots"), "Worker must expose authenticated device-slot listing.");
     assert(source.includes("device-revocation/challenge"), "Worker must route revocation challenge requests.");
     assert(source.includes("device-revocation/execute"), "Worker must route revocation execution requests.");
     const worker = (await import(moduleUrl)).default;
@@ -1053,7 +1054,7 @@ async function main() {
         "Worker activation endpoint did not enforce its per-IP rate limit.");
 
     db.close();
-    console.log("Cloudflare Worker activation + device revocation schema integration test: PASS");
+    console.log("Cloudflare Worker activation + device slot listing + revocation integration test: PASS");
 }
 main().catch(error => {
     console.error("Cloudflare Worker activation integration test: FAIL", error);
