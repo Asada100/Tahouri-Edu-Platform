@@ -588,9 +588,12 @@ async function createDevicePairingChallenge(request, env, headers) {
     licenseId: row.licenseId,
     metadata: { pairingId, approverDeviceType, approverFingerprint: approver.fingerprint, expiresAt }
   });
-  return json({ ok: true, pairingId, challengeId, nonce, expiresAt,
+  return json({ ok: true, pairingId, licenseId: row.licenseId, challengeId, nonce, expiresAt,
     requesterDeviceType: row.requesterDeviceType,
-    requesterKeyFingerprint: row.requesterFingerprint }, 200, headers);
+    requesterInstallationId: row.requesterInstallationId,
+    requesterKeyFingerprint: row.requesterFingerprint,
+    approverDeviceType, approverInstallationId,
+    approverKeyFingerprint: approver.fingerprint }, 200, headers);
 }
 
 async function decideDevicePairing(request, env, headers, decision) {
