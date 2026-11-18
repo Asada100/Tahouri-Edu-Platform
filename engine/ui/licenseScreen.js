@@ -18,6 +18,7 @@
     let container = null;
     let overlayMode = false;
     let returnToGate = false;
+    let pendingPairing = null;
 
 
     // =========================================================
@@ -1162,6 +1163,14 @@
                                         ▶️ ورود به ${gradeTitle}
                                     </button>
 
+                                    <button
+                                        id="tahouriPairingApproveButton"
+                                        type="button"
+                                        class="tahouri-license-button management"
+                                    >
+                                        📱 تأیید اتصال دستگاه دوم
+                                    </button>
+
                                 `
 
                                 :
@@ -1419,6 +1428,17 @@
 
         }
 
+
+        const pairingApproveButton = document.getElementById("tahouriPairingApproveButton");
+        if (pairingApproveButton) pairingApproveButton.addEventListener("click", function () {
+            decidePairingFromPrimary("approved");
+        });
+
+        const pairingRequestButton = document.getElementById("tahouriPairingRequestButton");
+        if (pairingRequestButton) pairingRequestButton.addEventListener("click", beginPairingRequest);
+
+        const pairingPollButton = document.getElementById("tahouriPairingPollButton");
+        if (pairingPollButton) pairingPollButton.addEventListener("click", pollPairingRequest);
 
         // =====================================================
         // License Management
@@ -1823,6 +1843,19 @@
                                     ✅ فعال‌سازی / تمدید مجوز
                                 </button>
 
+                                <button
+                                    id="tahouriPairingRequestButton"
+                                    type="button"
+                                    class="tahouri-license-button secondary"
+                                >
+                                    📲 درخواست اتصال این دستگاه به مجوز موجود
+                                </button>
+
+                                <div id="tahouriPairingResult" class="tahouri-license-note" style="display:none;"></div>
+                                <button id="tahouriPairingPollButton" type="button" class="tahouri-license-button" style="display:none;">
+                                    🔄 بررسی نتیجه تأیید دستگاه اول
+                                </button>
+
                             `
 
                             :
@@ -2014,6 +2047,116 @@
 
     }
 
+
+    // =========================================================
+    // Device Pairing UI
+    // =========================================================
+    function pairingMessage(message, success) {
+        const node = document.getElementById("tahouriPairingResult");
+        if (!node) return;
+        node.textContent = message;
+        node.style.display = "block";
+        node.style.background = success ? "#e9f7ef" : "#fff5e8";
+        node.style.color = success ? "#187744" : "#9a5a00";
+    }
+
+    async function beginPairingRequest() {
+        const profile = getActiveProfile();
+        const codeNode = document.getElementById("tahouriActivationCode");
+        const gradeNode = document.getElementById("tahouriLicenseGradeSelect");
+        const code = codeNode ? codeNode.value.trim() : "";
+        const gradeId = gradeNode ? gradeNode.value : "";
+        if (!profile || !profile.studentId || !gradeId || !code) {
+            showManagementError("کد مجوز، پایه و پروفایل فعال را بررسی کنید.");
+            return;
+        }
+        if (!window.TahouriLicenseClient || typeof TahouriLicenseClient.requestPairing !== "function") {
+            showManagementError("قابلیت اتصال دستگاه در این نسخه در دسترس نیست.");
+            return;
+        }
+        const button = document.getElementById("tahouriPairingRequestButton");
+        if (button) button.disabled = true;
+        try {
+            const result = await TahouriLicenseClient.requestPairing({
+                code, studentId: profile.studentId, gradeId
+            });
+            pendingPairing = { pairingId: result.pairingId, token: result.token };
+            pairingMessage("درخواست ثبت شد. شناسه درخواست: " + result.pairingId +
+                " — این شناسه را به دستگاه اول بدهید. پس از تأیید، نتیجه را بررسی کنید.", true);
+            const poll = document.getElementById("tahouriPairingPollButton");
+            if (poll) poll.style.display = "block";
+        } catch (error) {
+            pairingMessage(error.message || "ثبت درخواست اتصال انجام نشد.", false);
+        } finally {
+            if (button) button.disabled = false;
+        }
+    }
+
+    async function pollPairingRequest() {
+        if (!pendingPairing || !window.TahouriLicenseClient) return;
+        const button = document.getElementById("tahouriPairingPollButton");
+        if (button) button.disabled = true;
+        try {
+            const result = await TahouriLicenseClient.pairingStatus(pendingPairing.pairingId, pendingPairing.token);
+            if (result.status === "approved" && result.entitlement) {
+                const verified = await window.TahouriEntitlementVerifier.verifyEnvelope(result.entitlement, { allowFuture: true });
+                const identity = await window.TahouriDeviceIdentity.getOrCreate();
+                if (!verified.valid || verified.claims.installationBinding !== identity.installationId ||
+                    verified.claims.deviceType !== ( /Android|iPhone|iPod|Mobile|Windows Phone/i.test(navigator.userAgent || "") ? "phone" : "computer")) {
+                    throw new Error("مجوز دریافت‌شده با هویت این دستگاه مطابقت ندارد.");
+                }
+                if (!window.TahouriEntitlementStore.write(result.entitlement)) {
+                    throw new Error("ذخیره امن مجوز دستگاه دوم انجام نشد.");
+                }
+                pendingPairing = null;
+                pairingMessage("اتصال تأیید شد و مجوز این دستگاه ذخیره شد. اکنون می‌توانید وارد شوید.", true);
+                if (window.LicenseManager && typeof LicenseManager.initializeRemoteEntitlement === "function") {
+                    await LicenseManager.initializeRemoteEntitlement();
+                }
+                return;
+            }
+            if (result.status === "rejected" || result.status === "expired") {
+                pendingPairing = null;
+                pairingMessage(result.status === "rejected" ? "درخواست اتصال توسط دستگاه اول رد شد." : "مهلت درخواست اتصال به پایان رسیده است.", false);
+                return;
+            }
+            pairingMessage("درخواست هنوز در انتظار تأیید دستگاه اول است.", false);
+        } catch (error) {
+            pairingMessage(error.message || "بررسی وضعیت درخواست ناموفق بود.", false);
+        } finally {
+            if (button) button.disabled = false;
+        }
+    }
+
+    async function decidePairingFromPrimary(decision) {
+        const id = window.prompt("شناسه درخواست جفت‌سازی را وارد کنید:");
+        if (!id) return;
+        const profile = getActiveProfile();
+        const envelope = window.LicenseManager && typeof LicenseManager.getRemoteEntitlement === "function"
+            ? LicenseManager.getRemoteEntitlement() : null;
+        const claims = envelope && envelope.claims;
+        if (!claims || !claims.licenseId) {
+            showManagementError("مجوز امضاشدهٔ این دستگاه پیدا نشد؛ ابتدا وضعیت مجوز را تازه‌سازی کنید.");
+            return;
+        }
+        if (!window.TahouriLicenseClient) {
+            showManagementError("سرویس اتصال دستگاه در دسترس نیست.");
+            return;
+        }
+        try {
+            const challenge = await TahouriLicenseClient.requestPairingChallenge(id, claims.licenseId);
+            const message = decision === "approved"
+                ? "درخواست دستگاه دوم تأیید شود؟"
+                : "درخواست دستگاه دوم رد شود؟";
+            if (!window.confirm(message)) return;
+            await TahouriLicenseClient.decidePairing(challenge, decision);
+            showManagementSuccess(decision === "approved"
+                ? "اتصال دستگاه دوم تأیید شد. دستگاه دوم اکنون می‌تواند نتیجه را دریافت کند."
+                : "درخواست اتصال دستگاه دوم رد شد.");
+        } catch (error) {
+            showManagementError(error.message || "ثبت تصمیم جفت‌سازی ناموفق بود.");
+        }
+    }
 
     // =========================================================
     // Activate License
