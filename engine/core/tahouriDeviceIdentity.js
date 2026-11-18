@@ -65,16 +65,23 @@
             if (identity && identity.privateKey && identity.publicKey && identity.installationId) {
                 return { installationId: identity.installationId, publicKey: identity.publicKey };
             }
-            const pair = await crypto.subtle.generateKey(
+            // Temporary extractable keys allow public-key export; re-import private key as non-extractable.
+            const temporaryPair = await crypto.subtle.generateKey(
                 { name: "RSASSA-PKCS1-v1_5", modulusLength: 2048, publicExponent: new Uint8Array([1,0,1]), hash: "SHA-256" },
-                false,
+                true,
                 ["sign", "verify"]
             );
-            const publicDer = await crypto.subtle.exportKey("spki", pair.publicKey);
+            const publicDer = await crypto.subtle.exportKey("spki", temporaryPair.publicKey);
+            const privateDer = await crypto.subtle.exportKey("pkcs8", temporaryPair.privateKey);
+            const privateKey = await crypto.subtle.importKey(
+                "pkcs8", privateDer,
+                { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+                false, ["sign"]
+            );
             const installationId = createInstallationId();
             const identityValue = {
                 installationId,
-                privateKey: pair.privateKey,
+                privateKey,
                 publicKey: "-----BEGIN PUBLIC KEY-----\n" + base64(publicDer).match(/.{1,64}/g).join("\n") + "\n-----END PUBLIC KEY-----",
                 createdAt: new Date().toISOString()
             };
