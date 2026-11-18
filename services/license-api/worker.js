@@ -758,6 +758,35 @@ async function decideDevicePairing(request, env, headers, decision) {
   return json({ ok: true, status: "approved", entitlement }, 200, headers);
 }
 
+async function cancelDevicePairingRequest(request, env, headers) {
+  if (!request.headers.get("Origin") || !allowedOrigin(request, env)) return error("مبدأ درخواست مجاز نیست.", 403, headers);
+  if (String(request.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase() !== "application/json")
+    return error("نوع محتوای درخواست باید application/json باشد.", 415, headers);
+  const body = await bodyJson(request);
+  const pairingId = bounded(body.pairingId, 160, "pairingId");
+  const token = bounded(body.token, 128, "token");
+  const tokenHash = await sha256(token);
+  const nowText = nowIso();
+  const results = await env.DB.batch([
+    env.DB.prepare(`UPDATE device_pairing_requests
+      SET cancelled_at = ?, challenge_consumed_at = COALESCE(challenge_consumed_at, ?)
+      WHERE pairing_id = ? AND token_hash = ? AND decision IS NULL
+        AND consumed_at IS NULL AND cancelled_at IS NULL AND expires_at > ?`)
+      .bind(nowText, nowText, pairingId, tokenHash, nowText),
+    env.DB.prepare(`INSERT INTO audit_log
+      (event_type, actor, license_id, code_hash, created_at, metadata_json)
+      SELECT 'device.pairing.cancelled', 'pairing:requester', license_id, NULL, ?, ?
+      FROM device_pairing_requests
+      WHERE pairing_id = ? AND token_hash = ? AND cancelled_at = ? AND decision IS NULL`)
+      .bind(nowText, JSON.stringify({ pairingId }), pairingId, tokenHash, nowText)
+  ]);
+  if (Number(results?.[0]?.meta?.changes || 0) !== 1 ||
+      Number(results?.[1]?.meta?.changes || 0) !== 1) {
+    return error("درخواست قابل لغو نیست؛ ممکن است منقضی، تأیید، رد یا قبلاً لغو شده باشد.", 409, headers);
+  }
+  return json({ ok: true, status: "cancelled" }, 200, headers);
+}
+
 async function getDevicePairingStatus(request, env, headers) {
   if (!request.headers.get("Origin") || !allowedOrigin(request, env)) return error("مبدأ درخواست مجاز نیست.", 403, headers);
   if (String(request.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase() !== "application/json")
@@ -1221,6 +1250,8 @@ export default {
         return await decideDevicePairing(request, env, headers, "approved");
       if (url.pathname === "/api/licenses/pairing/reject" && request.method === "POST")
         return await decideDevicePairing(request, env, headers, "rejected");
+      if (url.pathname === "/api/licenses/pairing/cancel" && request.method === "POST")
+        return await cancelDevicePairingRequest(request, env, headers);
       if (url.pathname === "/api/licenses/pairing/status" && request.method === "POST")
         return await getDevicePairingStatus(request, env, headers);
       if (url.pathname === "/api/licenses/status" && request.method === "GET")
