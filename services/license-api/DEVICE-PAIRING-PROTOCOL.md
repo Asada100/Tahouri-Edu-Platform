@@ -37,4 +37,4 @@ Each installation creates a signing key pair locally. The private key must be no
 - Signed entitlements reject mismatched installation/class and revoked licenses.
 - Migration and regression tests preserve existing license and student data.
 
-This document remains a security design gate for the unimplemented pairing workflow. Activation proof-of-possession is implemented and the full required CI gate passes on this PR branch. It is not deployed to production.
+This document remains a security design gate for the remaining client integration and lifecycle work. The Worker-side signed request, challenge, decision, slot binding, and requester status APIs are implemented and License API CI plus the device identity browser test pass on this PR branch. The required PR gate is still running. Nothing in this PR is deployed to production.
