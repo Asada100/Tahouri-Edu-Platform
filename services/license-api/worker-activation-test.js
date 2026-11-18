@@ -570,7 +570,9 @@ async function main() {
     assert.equal(stored.license_id, activationBody.entitlement.claims.licenseId);
     assert.equal(db.prepare("SELECT activation_status FROM student_accounts WHERE student_id = 'student-1'").get().activation_status, "active", "Successful activation must mark the profile active.");
     const phoneSlot = db.prepare("SELECT device_type, installation_id, revoked_at FROM license_device_slots WHERE license_id = ? AND device_type = 'phone'").get(stored.license_id);
-    assert.deepEqual(phoneSlot, { device_type: "phone", installation_id: "install-1", revoked_at: null },
+    assert.equal(phoneSlot?.device_type, "phone");
+    assert.equal(phoneSlot?.installation_id, "install-1");
+    assert.equal(phoneSlot?.revoked_at, null,
         "The successful initial activation must atomically bind its phone slot.");
     assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id = ?").get(stored.license_id).count), 1,
         "Only one slot should be bound after initial phone activation.");
