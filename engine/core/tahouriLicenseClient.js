@@ -88,19 +88,23 @@
             deviceType, devicePublicKeyPem: identity.publicKey, deviceSignature: signed.signature
         }) });
     }
-    async function requestPairingChallenge(pairingId) {
+    async function publicKeyFingerprint(pem) {
+        const encoded = String(pem || "").replace(/-----BEGIN PUBLIC KEY-----|-----END PUBLIC KEY-----|\\s/g, "");
+        const der = Uint8Array.from(atob(encoded), ch => ch.charCodeAt(0));
+        const digest = await crypto.subtle.digest("SHA-256", der);
+        return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, "0")).join("");
+    }
+    async function requestPairingChallenge(pairingId, licenseId) {
         const identity = await window.TahouriDeviceIdentity.getOrCreate();
         const approverDeviceType = detectDeviceType();
         const proof = {
             purpose: "tahouri-device-pairing-challenge-request-v1",
             pairingId: String(pairingId || "").trim(),
-            licenseId: String(arguments[1] || "").trim(),
+            licenseId: String(licenseId || "").trim(),
             approverDeviceType, approverInstallationId: identity.installationId,
-            approverKeyFingerprint: await sha256Hex(await (async function () {
-                const pem = identity.publicKey.replace(/-----BEGIN PUBLIC KEY-----|-----END PUBLIC KEY-----|\\s/g, "");
-                return Uint8Array.from(atob(pem), ch => ch.charCodeAt(0));
-            })())
+            approverKeyFingerprint: await publicKeyFingerprint(identity.publicKey)
         };
+        if (!proof.pairingId || !proof.licenseId) throw new Error("شناسه درخواست و مجوز الزامی است.");
         const signed = await signedPayload(proof);
         return request("/licenses/pairing/challenge", { method: "POST", body: JSON.stringify({
             pairingId: proof.pairingId, approverDeviceType,
