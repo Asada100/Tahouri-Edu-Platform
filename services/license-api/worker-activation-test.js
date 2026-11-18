@@ -65,6 +65,9 @@ async function request(worker, env, pathName, method, body, origin = "https://as
 async function main() {
     const migrations = db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get();
     assert.equal(Number(migrations.version), 6, "D1 migrations must create the version-6 device-slot schema.");
+    assert(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'license_device_slots'").get(), "Migration 6 must create device slots.");
+    assert(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'device_pairing_requests'").get(), "Migration 6 must create pairing requests.");
+    assert.equal(db.prepare("PRAGMA table_info(license_device_slots)").all().some(row => row.name === "device_type"), true, "Device slots must distinguish phone and computer.");
 
     const pair = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
     const privatePem = pair.privateKey.export({ type: "pkcs8", format: "pem" });
