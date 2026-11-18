@@ -20,7 +20,14 @@
             return body;
         } finally { clearTimeout(timeout); }
     }
-    function detectDeviceType() {\n        const ua = String(navigator.userAgent || "");\n        return /Android|iPhone|iPod|Mobile|Windows Phone/i.test(ua) ? "phone" : "computer";\n    }\n    async function activate(payload) {\n        const data = { ...(payload || {}), deviceType: detectDeviceType() };\n        return request("/licenses/activate", { method: "POST", body: JSON.stringify(data) });\n    }
+    function detectDeviceType() {
+        const ua = String(navigator.userAgent || "");
+        return /Android|iPhone|iPod|Mobile|Windows Phone/i.test(ua) ? "phone" : "computer";
+    }
+    async function activate(payload) {
+        const data = { ...(payload || {}), deviceType: detectDeviceType() };
+        return request("/licenses/activate", { method: "POST", body: JSON.stringify(data) });
+    }
     async function health() { return request("/health", { method: "GET" }); }
     async function status(licenseId) {
         const value = String(licenseId || "").trim();
