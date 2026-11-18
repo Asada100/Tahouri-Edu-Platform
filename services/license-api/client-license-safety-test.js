@@ -48,7 +48,7 @@ assert(
     !licenseClient.includes("registerExistingProfiles") &&
     !licenseClient.includes("registerProfile") &&
     !licenseClient.includes("/students/register") &&
-    licenseClient.includes("window.TahouriLicenseClient = { activate, health, status, requestPairing, requestPairingChallenge, decidePairing, pairingStatus, cancelPairing, listPendingPairings };") &&
+    licenseClient.includes("window.TahouriLicenseClient = { activate, health, status, requestPairing, requestPairingChallenge, decidePairing, pairingStatus, cancelPairing, listPendingPairings, requestDeviceRevocationChallenge, executeDeviceRevocation };") &&
     licenseClient.includes("async function cancelPairing(pairingId, token)") &&
     licenseClient.includes("devicePublicKeyPem: identity.publicKey") &&
     licenseClient.includes("deviceSignature: signed.signature") &&
