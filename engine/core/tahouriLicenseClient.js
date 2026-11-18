@@ -158,12 +158,18 @@
         });
     }
 
+    async function cancelPairing(pairingId, token) {
+        return request("/licenses/pairing/cancel", {
+            method: "POST", body: JSON.stringify({ pairingId: String(pairingId || ""), token: String(token || "") })
+        });
+    }
+
     async function health() { return request("/health", { method: "GET" }); }
     async function status(licenseId) {
         const value = String(licenseId || "").trim();
         if (!value) throw new Error("شناسه مجوز وارد نشده است.");
         return request("/licenses/status?licenseId=" + encodeURIComponent(value), { method: "GET" });
     }
-    window.TahouriLicenseClient = { activate, health, status, requestPairing, requestPairingChallenge, decidePairing, pairingStatus, listPendingPairings };
-    console.log("Tahouri License Client v1.5 Ready");
+    window.TahouriLicenseClient = { activate, health, status, requestPairing, requestPairingChallenge, decidePairing, pairingStatus, cancelPairing, listPendingPairings };
+    console.log("Tahouri License Client v1.6 Ready");
 })();
