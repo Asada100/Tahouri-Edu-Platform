@@ -987,6 +987,56 @@ async function adminRoute(request, env, url, headers) {
     }
   }
 
+
+  if (path === "/api/admin/device-slots/recover" && request.method === "POST") {
+    const origin = request.headers.get("Origin");
+    if (!origin || !allowedOrigin(request, env)) return error("مبدأ درخواست مجاز نیست.", 403, headers);
+    const body = await bodyJson(request);
+    const suppliedPassword = await sha256(String(body.adminPassword || ""));
+    const configuredPassword = await sha256(String(env.ADMIN_PASSWORD || ""));
+    if (!env.ADMIN_PASSWORD || !constantTimeEqual(suppliedPassword, configuredPassword)) {
+      await audit(env, "admin.device_recovery.denied", "admin", {
+        metadata: { reason: "step_up_authentication_failed" }
+      });
+      return error("برای بازیابی دستگاه، تأیید دوبارهٔ رمز مدیریت الزامی است.", 401, headers);
+    }
+    const licenseId = validIdentifier(body.licenseId, "licenseId");
+    const deviceType = String(body.deviceType || "").trim().toLowerCase();
+    const installationId = validIdentifier(body.installationId, "installationId");
+    const fingerprint = bounded(body.keyFingerprint, 128, "keyFingerprint");
+    const reason = String(body.reason || "").trim();
+    if (!["phone", "computer"].includes(deviceType)) return error("نوع دستگاه نامعتبر است.", 400, headers);
+    if (reason.length < 10 || reason.length > 300) return error("علت بازیابی باید بین ۱۰ تا ۳۰۰ نویسه باشد.", 400, headers);
+    const now = nowIso();
+    const statements = [
+      env.DB.prepare(`UPDATE license_device_slots SET revoked_at = ?
+        WHERE license_id = ? AND device_type = ? AND installation_id = ?
+          AND key_fingerprint = ? AND revoked_at IS NULL
+          AND EXISTS (SELECT 1 FROM licenses WHERE license_id = ? AND status = 'active' AND valid_until > ?)`)
+        .bind(now, licenseId, deviceType, installationId, fingerprint, licenseId, now),
+      env.DB.prepare(`UPDATE device_pairing_requests SET cancelled_at = ?
+        WHERE license_id = ? AND requester_device_type = ? AND cancelled_at IS NULL
+          AND consumed_at IS NULL AND approved_at IS NULL AND expires_at > ?
+          AND EXISTS (SELECT 1 FROM license_device_slots WHERE license_id = ?
+            AND device_type = ? AND installation_id = ? AND key_fingerprint = ? AND revoked_at = ?)`)
+        .bind(now, licenseId, deviceType, now, licenseId, deviceType, installationId, fingerprint, now),
+      env.DB.prepare(`INSERT INTO audit_log(event_type,actor,license_id,code_hash,created_at,metadata_json)
+        SELECT 'device.admin_recovered','admin',?,NULL,?,?
+        WHERE EXISTS (SELECT 1 FROM license_device_slots WHERE license_id = ?
+          AND device_type = ? AND installation_id = ? AND key_fingerprint = ? AND revoked_at = ?)`)
+        .bind(licenseId, now, JSON.stringify({ deviceType, installationId, keyFingerprint: fingerprint, reason }),
+          licenseId, deviceType, installationId, fingerprint, now)
+    ];
+    const results = await env.DB.batch(statements);
+    if (Number(results?.[0]?.meta?.changes || 0) !== 1) {
+      return error("مجوز فعال یا دستگاه دقیقاً منطبق پیدا نشد؛ هیچ اتصالی تغییر نکرد.", 404, headers);
+    }
+    if (Number(results?.[2]?.meta?.changes || 0) !== 1) {
+      return error("ثبت گزارش امنیتی بازیابی کامل نشد.", 500, headers);
+    }
+    return json({ ok: true, status: "revoked", cancelledPairings: Number(results?.[1]?.meta?.changes || 0) }, 200, headers);
+  }
+
   if (path === "/api/admin/sessions/revoke-all" && request.method === "POST") {
     const revokedAt = nowIso();
     const results = await env.DB.batch([
