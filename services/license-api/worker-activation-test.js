@@ -132,8 +132,8 @@ async function main() {
     assert(source.includes("document.addEventListener"), "Admin actions must use delegated external JavaScript handlers.");
     assert.match(source, /async function createDeviceRevocationChallenge/);
     assert.match(source, /async function executeDeviceRevocation/);
-    assert.match(source, /device-revocation\\/challenge/);
-    assert.match(source, /device-revocation\\/execute/);
+    assert(source.includes("device-revocation/challenge"), "Worker must route revocation challenge requests.");
+    assert(source.includes("device-revocation/execute"), "Worker must route revocation execution requests.");
     const worker = (await import(moduleUrl)).default;
     const env = {
         DB: D1, LICENSE_PRIVATE_KEY_PEM: privatePem, LICENSE_PUBLIC_KEY_PEM: publicPem,
