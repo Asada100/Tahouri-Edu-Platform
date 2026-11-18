@@ -1170,6 +1170,13 @@
                                     >
                                         📱 تأیید اتصال دستگاه دوم
                                     </button>
+                                    <button
+                                        id="tahouriPairingRejectButton"
+                                        type="button"
+                                        class="tahouri-license-button secondary"
+                                    >
+                                        رد درخواست اتصال دستگاه دوم
+                                    </button>
 
                                 `
 
@@ -1432,6 +1439,10 @@
         const pairingApproveButton = document.getElementById("tahouriPairingApproveButton");
         if (pairingApproveButton) pairingApproveButton.addEventListener("click", function () {
             decidePairingFromPrimary("approved");
+        });
+        const pairingRejectButton = document.getElementById("tahouriPairingRejectButton");
+        if (pairingRejectButton) pairingRejectButton.addEventListener("click", function () {
+            decidePairingFromPrimary("rejected");
         });
 
         const pairingRequestButton = document.getElementById("tahouriPairingRequestButton");
@@ -2134,11 +2145,22 @@
         const id = window.prompt("شناسه درخواست جفت‌سازی را وارد کنید:");
         if (!id) return;
         const profile = getActiveProfile();
-        const envelope = window.LicenseManager && typeof LicenseManager.getRemoteEntitlement === "function"
-            ? LicenseManager.getRemoteEntitlement() : null;
-        const claims = envelope && envelope.claims;
+        const identity = await window.TahouriDeviceIdentity.getOrCreate();
+        const envelopes = window.TahouriEntitlementStore && typeof TahouriEntitlementStore.readAll === "function"
+            ? TahouriEntitlementStore.readAll() : [];
+        let claims = null;
+        for (const envelope of envelopes) {
+            const checked = await window.TahouriEntitlementVerifier.verifyEnvelope(envelope, { allowFuture: true });
+            if (checked.valid && checked.claims &&
+                checked.claims.installationBinding === identity.installationId &&
+                checked.claims.studentId === String(profile && profile.studentId || "") &&
+                checked.claims.gradeScope === String(profile && profile.grade || "")) {
+                claims = checked.claims;
+                break;
+            }
+        }
         if (!claims || !claims.licenseId) {
-            showManagementError("مجوز امضاشدهٔ این دستگاه پیدا نشد؛ ابتدا وضعیت مجوز را تازه‌سازی کنید.");
+            window.alert("مجوز امضاشدهٔ همین پروفایل و دستگاه پیدا نشد.");
             return;
         }
         if (!window.TahouriLicenseClient) {
