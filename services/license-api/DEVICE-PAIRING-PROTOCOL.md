@@ -1,6 +1,6 @@
 # Secure device pairing protocol (implementation gate)
 
-Status: design only; not yet implemented or enabled in production.
+Status: design protocol; pairing not yet implemented or enabled in production. A standalone client identity utility has been added as groundwork (`engine/core/tahouriDeviceIdentity.js`), but it is not integrated into activation or pairing yet.
 
 ## Limits
 - Exactly one phone slot and one computer slot per license, independent of OS.
