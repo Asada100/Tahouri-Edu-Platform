@@ -68,6 +68,7 @@ const window = {
 
 const context = {
     window,
+    navigator: { userAgent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/120 Safari/537.36" },
     localStorage,
     fetch: async (url, options) => {
         capturedRequest = { url, options };
