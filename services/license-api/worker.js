@@ -737,10 +737,14 @@ async function decideDevicePairing(request, env, headers, decision) {
         AND cancelled_at IS NULL AND challenge_id = ? AND challenge_nonce_hash = ?
         AND challenge_consumed_at IS NULL AND challenge_expires_at > ? AND expires_at > ?
         AND EXISTS (SELECT 1 FROM license_device_slots WHERE license_id = ?
-          AND device_type = ? AND installation_id = ? AND key_fingerprint = ? AND revoked_at IS NULL)`)
+          AND device_type = ? AND installation_id = ? AND key_fingerprint = ? AND revoked_at IS NULL)
+        AND EXISTS (SELECT 1 FROM license_device_slots WHERE license_id = ?
+          AND device_type = ? AND installation_id = ? AND key_fingerprint = ?
+          AND bound_at = ? AND revoked_at IS NULL)`)
       .bind(nowText, nowText, nowText, nowText, approverDeviceType, approverInstallationId,
         JSON.stringify(entitlement), pairingId, challengeId, await sha256(nonce), nowText, nowText,
-        row.licenseId, row.requesterDeviceType, row.requesterInstallationId, row.requesterFingerprint),
+        row.licenseId, row.requesterDeviceType, row.requesterInstallationId, row.requesterFingerprint,
+        row.licenseId, row.requesterDeviceType, row.requesterInstallationId, row.requesterFingerprint, nowText),
     env.DB.prepare(`INSERT INTO audit_log (event_type, actor, license_id, code_hash, created_at, metadata_json)
       SELECT 'device.pairing.approved', ?, ?, NULL, ?, ?
       WHERE EXISTS (SELECT 1 FROM device_pairing_requests WHERE pairing_id = ?
