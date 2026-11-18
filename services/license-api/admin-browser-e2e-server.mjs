@@ -9,7 +9,8 @@ for (const name of [
   "0002_admin_login_attempts.sql",
   "0003_activation_integrity_indexes.sql",
   "0004_student_accounts.sql",
-  "0005_student_activation_status.sql"
+  "0005_student_activation_status.sql",
+  "0006_one_phone_one_computer.sql"
 ]) db.exec(await readFile(new URL("./migrations/" + name, import.meta.url), "utf8"));
 
 class TestD1Statement {
