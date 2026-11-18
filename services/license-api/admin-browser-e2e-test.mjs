@@ -304,6 +304,34 @@ try {
   assert.equal(licenseTwo.licenseId, activationTwo.body.entitlement.claims.licenseId);
   assert.equal(licenseThree.licenseId, activationThree.body.entitlement.claims.licenseId);
 
+  // Exercise emergency recovery in the browser using synthetic-only harness data.
+  const seeded = await page.request.post(baseUrl + "/__test/seed-recovery", { data: { licenseId: licenseOne.licenseId } });
+  assert.equal(seeded.status(), 200);
+  await page.locator("#recoveryLicenseId").fill(licenseOne.licenseId);
+  await page.locator("#recoveryDeviceType").selectOption("phone");
+  await page.locator("#recoveryInstallationId").fill("synthetic-phone-installation");
+  await page.locator("#recoveryFingerprint").fill("synthetic-phone-fingerprint");
+  await page.locator("#recoveryReason").fill("Synthetic browser recovery verification");
+  await page.locator("#recoveryAdminPassword").fill(adminPassword);
+  const recoveryResponsePromise = page.waitForResponse(response =>
+    response.url().endsWith("/api/admin/device-slots/recover") && response.request().method() === "POST"
+  );
+  await page.locator('[data-action="recoverDeviceSlot"]').click();
+  const recoveryResponse = await recoveryResponsePromise;
+  assert.equal(recoveryResponse.status(), 200, "The admin recovery form must call the protected endpoint.");
+  assert.equal((await recoveryResponse.json()).status, "revoked");
+  assert.equal(await page.locator("#recoveryAdminPassword").inputValue(), "",
+    "The admin password field must be cleared after recovery.");
+  const stateResponse = await page.request.get(baseUrl + "/__test/recovery-state?licenseId=" + encodeURIComponent(licenseOne.licenseId));
+  assert.equal(stateResponse.status(), 200);
+  const recoveryState = await stateResponse.json();
+  assert.ok(recoveryState.slots.find(slot => slot.deviceType === "phone")?.revokedAt,
+    "The exact phone slot must be revoked.");
+  assert.equal(recoveryState.slots.find(slot => slot.deviceType === "computer")?.revokedAt, null,
+    "The complementary computer slot must remain active.");
+  assert.ok(recoveryState.pairing?.cancelledAt, "Pending pairing requests must be cancelled.");
+  assert.equal(recoveryState.auditCount, 1, "Recovery must be audited exactly once.");
+
   // Logout must revoke the authenticated browser session.
   await page.locator('[data-action="logout"]').click();
   await page.locator("#loginCard:not([hidden])").waitFor();
