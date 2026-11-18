@@ -537,6 +537,42 @@ async function pairingRequestRow(env, pairingId) {
     WHERE p.pairing_id = ?`).bind(pairingId).first();
 }
 
+
+async function listPendingDevicePairings(request, env, headers) {
+  if (!request.headers.get("Origin") || !allowedOrigin(request, env)) return error("مبدأ درخواست مجاز نیست.", 403, headers);
+  if (String(request.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase() !== "application/json")
+    return error("نوع محتوای درخواست باید application/json باشد.", 415, headers);
+  const body = await bodyJson(request);
+  const licenseId = bounded(body.licenseId, 128, "licenseId");
+  const approverInstallationId = validIdentifier(body.approverInstallationId, "approverInstallationId");
+  const approverDeviceType = String(body.approverDeviceType || "").trim().toLowerCase();
+  if (!["phone", "computer"].includes(approverDeviceType)) return error("نوع دستگاه تأییدکننده معتبر نیست.", 400, headers);
+  const approver = await env.DB.prepare(`SELECT public_key_pem AS publicKeyPem, key_fingerprint AS fingerprint
+    FROM license_device_slots WHERE license_id = ? AND device_type = ?
+      AND installation_id = ? AND revoked_at IS NULL`)
+    .bind(licenseId, approverDeviceType, approverInstallationId).first();
+  if (!approver?.publicKeyPem || !approver.fingerprint) return error("دستگاه تأییدکننده به این مجوز متصل نیست.", 403, headers);
+  const proof = {
+    purpose: "tahouri-device-pairing-list-v1",
+    licenseId, approverDeviceType, approverInstallationId,
+    approverKeyFingerprint: approver.fingerprint
+  };
+  try { await verifyStoredDeviceSignature(approver.publicKeyPem, body.approverSignature, proof); }
+  catch (e) { return error(e.message, e.status || 401, headers); }
+  const now = nowIso();
+  const result = await env.DB.prepare(`SELECT pairing_id AS pairingId,
+      requester_device_type AS requesterDeviceType,
+      requester_key_fingerprint AS requesterKeyFingerprint,
+      created_at AS createdAt, expires_at AS expiresAt
+    FROM device_pairing_requests
+    WHERE license_id = ? AND decision IS NULL AND consumed_at IS NULL
+      AND cancelled_at IS NULL AND expires_at > ?
+      AND requester_device_type <> ?
+    ORDER BY created_at ASC LIMIT 10`)
+    .bind(licenseId, now, approverDeviceType).all();
+  return json({ ok: true, requests: result.results || [] }, 200, headers);
+}
+
 async function createDevicePairingChallenge(request, env, headers) {
   if (!request.headers.get("Origin") || !allowedOrigin(request, env)) return error("مبدأ درخواست مجاز نیست.", 403, headers);
   if (String(request.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase() !== "application/json")
@@ -1177,6 +1213,8 @@ export default {
         return await activateLicense(request, env, headers);
       if (url.pathname === "/api/licenses/pairing/request" && request.method === "POST")
         return await createDevicePairingRequest(request, env, headers);
+      if (url.pathname === "/api/licenses/pairing/pending" && request.method === "POST")
+        return await listPendingDevicePairings(request, env, headers);
       if (url.pathname === "/api/licenses/pairing/challenge" && request.method === "POST")
         return await createDevicePairingChallenge(request, env, headers);
       if (url.pathname === "/api/licenses/pairing/approve" && request.method === "POST")
