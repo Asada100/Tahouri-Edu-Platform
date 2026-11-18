@@ -8,7 +8,7 @@ const crypto = require("node:crypto");
 const { DatabaseSync } = require("node:sqlite");
 
 const db = new DatabaseSync(":memory:");
-for (const file of ["migrations/0001_initial_schema.sql", "migrations/0002_admin_login_attempts.sql", "migrations/0003_activation_integrity_indexes.sql", "migrations/0004_student_accounts.sql", "migrations/0005_student_activation_status.sql", "migrations/0006_one_phone_one_computer.sql", "migrations/0007_device_slot_public_keys.sql", "migrations/0008_pairing_request_identity.sql", "migrations/0009_pairing_signed_decisions.sql", "migrations/0010_pairing_entitlement_delivery.sql", "migrations/0011_device_slot_history.sql"]) {
+for (const file of ["migrations/0001_initial_schema.sql", "migrations/0002_admin_login_attempts.sql", "migrations/0003_activation_integrity_indexes.sql", "migrations/0004_student_accounts.sql", "migrations/0005_student_activation_status.sql", "migrations/0006_one_phone_one_computer.sql", "migrations/0007_device_slot_public_keys.sql", "migrations/0008_pairing_request_identity.sql", "migrations/0009_pairing_signed_decisions.sql", "migrations/0010_pairing_entitlement_delivery.sql", "migrations/0011_device_slot_history.sql", "migrations/0012_device_revocation_challenges.sql"]) {
     db.exec(fs.readFileSync(path.join(__dirname, file), "utf8"));
 }
 
@@ -103,7 +103,12 @@ async function request(worker, env, pathName, method, body, origin = "https://as
 
 async function main() {
     const migrations = db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get();
-    assert.equal(Number(migrations.version), 11, "D1 migrations must create the version-11 device slot history schema.");
+    assert.equal(Number(migrations.version), 12, "D1 migrations must create the version-12 device revocation challenge schema.");
+    const revocationColumns = db.prepare("PRAGMA table_info(device_revocation_challenges)").all().map(row => row.name);
+    for (const column of ["challenge_id", "license_id", "target_device_type", "target_installation_id", "target_fingerprint", "approver_device_type", "approver_installation_id", "approver_fingerprint", "nonce_hash", "expires_at", "consumed_at"]) {
+        assert(revocationColumns.includes(column), "Device revocation challenge schema is missing " + column + ".");
+    }
+    assert(db.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'idx_device_revocation_challenges_license'").get(), "Revocation challenge expiry index is missing.");
     assert(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'license_device_slots'").get(), "Migration 6 must create device slots.");
     assert(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'device_pairing_requests'").get(), "Migration 6 must create pairing requests.");
     const pairingColumns = db.prepare("PRAGMA table_info(device_pairing_requests)").all().map(row => row.name);
@@ -125,6 +130,10 @@ async function main() {
     assert.equal((source.match(/onkeydown=/gi) || []).length, 0, "Cloudflare admin HTML must not contain inline keyboard handlers.");
     assert(source.includes("content-security-policy"), "Cloudflare admin route must set a strict CSP.");
     assert(source.includes("document.addEventListener"), "Admin actions must use delegated external JavaScript handlers.");
+    assert.match(source, /async function createDeviceRevocationChallenge/);
+    assert.match(source, /async function executeDeviceRevocation/);
+    assert.match(source, /device-revocation\\/challenge/);
+    assert.match(source, /device-revocation\\/execute/);
     const worker = (await import(moduleUrl)).default;
     const env = {
         DB: D1, LICENSE_PRIVATE_KEY_PEM: privatePem, LICENSE_PUBLIC_KEY_PEM: publicPem,
@@ -969,7 +978,7 @@ async function main() {
         "Worker activation endpoint did not enforce its per-IP rate limit.");
 
     db.close();
-    console.log("Cloudflare Worker activation integration test: PASS");
+    console.log("Cloudflare Worker activation + device revocation schema integration test: PASS");
 }
 main().catch(error => {
     console.error("Cloudflare Worker activation integration test: FAIL", error);
