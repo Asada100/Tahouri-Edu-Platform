@@ -693,7 +693,8 @@ async function main() {
         nonce: challengeBody.nonce, approverDeviceType: "phone",
         approverInstallationId: "install-1", approverSignature: "A".repeat(344)
     });
-    assert.equal(invalidDecision.status, 401, "A forged approval signature must be rejected.");
+    const invalidDecisionBody = await invalidDecision.json();
+    assert.equal(invalidDecision.status, 401, "A forged approval signature must be rejected: " + JSON.stringify(invalidDecisionBody));
     const alteredNonce = await request(worker, env, "/api/licenses/pairing/approve", "POST", {
         pairingId: pairingBody.pairingId, challengeId: challengeBody.challengeId,
         nonce: challengeBody.nonce.slice(0, -1) + (challengeBody.nonce.endsWith("0") ? "1" : "0"),
