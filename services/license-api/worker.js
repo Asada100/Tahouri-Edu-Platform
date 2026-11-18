@@ -494,8 +494,8 @@ async function createDevicePairingRequest(request, env, headers) {
 
 async function verifyStoredDeviceSignature(publicKeyPem, signatureText, payload) {
   const pem = bounded(publicKeyPem, 4096, "device public key");
-  const encodedKey = pem.replace(/-----BEGIN PUBLIC KEY-----|-----END PUBLIC KEY-----|\\s/g, "");
-  if (!/^-----BEGIN PUBLIC KEY-----\\s+[A-Za-z0-9+/=\\s]+-----END PUBLIC KEY-----$/.test(pem) ||
+  const encodedKey = pem.replace(/-----BEGIN PUBLIC KEY-----|-----END PUBLIC KEY-----|\s/g, "");
+  if (!/^-----BEGIN PUBLIC KEY-----\s+[A-Za-z0-9+/=\s]+-----END PUBLIC KEY-----$/.test(pem) ||
       !/^[A-Za-z0-9+/]+={0,2}$/.test(encodedKey)) {
     throw Object.assign(new Error("کلید عمومی دستگاه معتبر نیست."), { status: 400 });
   }
