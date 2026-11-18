@@ -755,6 +755,38 @@ async function main() {
         "The requester bearer token must read the final decision.");
     assert.deepEqual(deliveredStatus.entitlement, approvalBody.entitlement,
         "Requester polling must return the exact server-signed entitlement approved for its installation.");
+    const cancellationPairingId = "pair_cancel_test";
+    const cancellationToken = "requester-cancel-token";
+    const cancellationTokenHash = crypto.createHash("sha256").update(cancellationToken).digest("hex");
+    db.prepare(`INSERT INTO device_pairing_requests
+        (pairing_id, license_id, requester_device_type, requester_installation_id, token_hash, created_at, expires_at)
+        VALUES (?, ?, 'computer', 'install-cancel-test', ?, ?, ?)`)
+        .run(cancellationPairingId, stored.license_id, cancellationTokenHash,
+            new Date().toISOString(), new Date(Date.now() + 600000).toISOString());
+    const cancellation = await request(worker, env, "/api/licenses/pairing/cancel", "POST", {
+        pairingId: cancellationPairingId, token: cancellationToken
+    });
+    assert.equal(cancellation.status, 200, "The requester bearer token must cancel its pending pairing.");
+    assert.equal((await cancellation.json()).status, "cancelled");
+    assert(db.prepare("SELECT cancelled_at FROM device_pairing_requests WHERE pairing_id = ?").get(cancellationPairingId).cancelled_at,
+        "Cancellation must persist atomically.");
+    const cancellationAudit = db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'device.pairing.cancelled' AND license_id = ?").get(stored.license_id);
+    assert.equal(Number(cancellationAudit.count), 1, "A successful cancellation must be audited.");
+
+    const wrongCancellation = await request(worker, env, "/api/licenses/pairing/cancel", "POST", {
+        pairingId: cancellationPairingId, token: "wrong-token"
+    });
+    assert.equal(wrongCancellation.status, 409, "A different bearer token must not cancel a request.");
+    const duplicateCancellation = await request(worker, env, "/api/licenses/pairing/cancel", "POST", {
+        pairingId: cancellationPairingId, token: cancellationToken
+    });
+    assert.equal(duplicateCancellation.status, 409, "A cancelled request must not be cancelled twice.");
+    const cancelledStatus = await request(worker, env, "/api/licenses/pairing/status", "POST", {
+        pairingId: cancellationPairingId, token: cancellationToken
+    });
+    assert.equal((await cancelledStatus.json()).status, "expired",
+        "Requester polling must not report a cancelled request as pending.");
+
 
 
     const occupiedPairingSlot = await request(worker, env, "/api/licenses/pairing/request", "POST", {
