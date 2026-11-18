@@ -493,6 +493,24 @@ async function createDevicePairingRequest(request, env, headers) {
 
 
 
+
+async function listBoundDeviceSlots(request, env, headers) {
+  if (!request.headers.get("Origin") || !allowedOrigin(request, env)) return error("مبدأ درخواست مجاز نیست.",403,headers);
+  if (String(request.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase() !== "application/json") return error("نوع محتوا باید application/json باشد.",415,headers);
+  const body=await bodyJson(request);
+  const licenseId=bounded(body.licenseId,128,"licenseId");
+  const deviceType=String(body.deviceType||"").trim().toLowerCase();
+  const installationId=validIdentifier(body.installationId,"installationId");
+  const fingerprint=bounded(body.keyFingerprint,128,"keyFingerprint");
+  if(!["phone","computer"].includes(deviceType)) return error("نوع دستگاه نامعتبر است.",400,headers);
+  const device=await env.DB.prepare("SELECT public_key_pem AS publicKeyPem,key_fingerprint AS fingerprint FROM license_device_slots WHERE license_id=? AND device_type=? AND installation_id=? AND revoked_at IS NULL").bind(licenseId,deviceType,installationId).first();
+  if(!device || device.fingerprint!==fingerprint) return error("این دستگاه در مجوز فعال نیست.",403,headers);
+  const proof={purpose:"tahouri-device-slots-list-v1",licenseId,deviceType,installationId,keyFingerprint:fingerprint};
+  try { await verifyStoredDeviceSignature(device.publicKeyPem,body.deviceSignature,proof); }
+  catch(e){return error(e.message,e.status||401,headers);}
+  const result=await env.DB.prepare("SELECT device_type AS deviceType,installation_id AS installationId,key_fingerprint AS keyFingerprint,bound_at AS boundAt FROM license_device_slots WHERE license_id=? AND revoked_at IS NULL ORDER BY device_type").bind(licenseId).all();
+  return json({ok:true,devices:result.results||[]},200,headers);
+}
 async function createDeviceRevocationChallenge(request, env, headers) {
   if (!request.headers.get("Origin") || !allowedOrigin(request, env)) return error("مبدأ درخواست مجاز نیست.", 403, headers);
   if (String(request.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase() !== "application/json") return error("نوع محتوا باید application/json باشد.", 415, headers);
@@ -1289,6 +1307,8 @@ export default {
           message: "ثبت عمومی پروفایل غیرفعال است؛ ورود پروفایل باید از پنل مدیریت انجام شود." }, 410, headers);
       if (url.pathname === "/api/licenses/activate" && request.method === "POST")
         return await activateLicense(request, env, headers);
+      if (url.pathname === "/api/licenses/device-slots" && request.method === "POST")
+        return await listBoundDeviceSlots(request, env, headers);
       if (url.pathname === "/api/licenses/device-revocation/challenge" && request.method === "POST")
         return await createDeviceRevocationChallenge(request, env, headers);
       if (url.pathname === "/api/licenses/device-revocation/execute" && request.method === "POST")
