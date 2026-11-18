@@ -307,8 +307,7 @@ async function verifyDeviceActivationProof(body, fields) {
     deviceType: fields.deviceType,
     studentId: fields.studentId,
     gradeId: fields.gradeId,
-    codeHash: fields.codeHash,
-    licenseId: fields.licenseId
+    codeHash: fields.codeHash
   });
   const valid = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, signature,
     new TextEncoder().encode(proof));
