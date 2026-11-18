@@ -680,7 +680,7 @@ async function main() {
         licenseId: stored.license_id, approverDeviceType: "phone",
         approverInstallationId: "install-1", approverSignature: "A".repeat(344)
     });
-    assert.equal(forgedPendingList.status, 400, "A malformed signature must not reveal pending requests.");
+    assert.equal(forgedPendingList.status, 401, "A forged signature must not reveal pending requests.");
     const challengeRequestProof = {
         purpose: "tahouri-device-pairing-challenge-request-v1",
         pairingId: pairingBody.pairingId, licenseId: stored.license_id,
