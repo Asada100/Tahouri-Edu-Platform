@@ -528,6 +528,8 @@ async function pairingRequestRow(env, pairingId) {
       p.challenge_nonce_hash AS challengeNonceHash,
       p.challenge_expires_at AS challengeExpiresAt,
       p.challenge_consumed_at AS challengeConsumedAt,
+      p.approver_device_type AS approverDeviceType,
+      p.approver_installation_id AS approverInstallationId,
       l.product_id AS productId, l.academic_year AS academicYear,
       l.valid_from AS validFrom, l.valid_until AS validUntil, l.status AS licenseStatus,
       l.grade_id AS licenseGradeId, l.student_id AS licenseStudentId
