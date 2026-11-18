@@ -919,6 +919,9 @@ async function main() {
     
 
 
+    // Rebind a test complementary computer after the earlier signed-revocation scenario.
+    db.prepare("INSERT INTO license_device_slots (license_id,device_type,installation_id,bound_at,public_key_pem,key_fingerprint) VALUES (?,'computer','install-computer-admin-recovery',?,'recovery-public-key','recovery-computer-fingerprint')")
+      .run(stored.license_id, new Date().toISOString());
     // Administrator recovery requires a live admin session, trusted Origin and password re-entry.
     const recoveryTarget = db.prepare("SELECT installation_id, key_fingerprint FROM license_device_slots WHERE license_id = ? AND device_type = 'phone' AND revoked_at IS NULL").get(stored.license_id);
     assert(recoveryTarget?.key_fingerprint, "The phone slot must have a fingerprint before admin recovery.");
