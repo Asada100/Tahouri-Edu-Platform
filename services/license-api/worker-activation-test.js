@@ -610,7 +610,10 @@ async function main() {
         "The successful initial activation must atomically bind its phone slot.");
     const storedDeviceIdentity = db.prepare("SELECT public_key_pem, key_fingerprint FROM license_device_slots WHERE license_id = ? AND device_type = 'phone'").get(stored.license_id);
     assert.equal(storedDeviceIdentity.public_key_pem, activationDevicePair.publicKey.export({ type: "spki", format: "pem" }).trim());
-    assert.match(storedDeviceIdentity.key_fingerprint, /^[a-f0-9]{64}$/);
+    const expectedDeviceFingerprint = crypto.createHash("sha256")
+        .update(activationDevicePair.publicKey.export({ type: "spki", format: "der" })).digest("hex");
+    assert.equal(storedDeviceIdentity.key_fingerprint, expectedDeviceFingerprint,
+        "The stored device fingerprint must be SHA-256 of the DER SPKI bytes.");
     assert.equal(activationBody.entitlement.claims.deviceType, "phone");
     assert.equal(activationBody.entitlement.claims.deviceKeyFingerprint, storedDeviceIdentity.key_fingerprint);
     assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id = ?").get(stored.license_id).count), 1,
