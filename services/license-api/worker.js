@@ -491,6 +491,246 @@ async function createDevicePairingRequest(request, env, headers) {
   return json({ ok: true, pairingId, token, expiresAt, status: "pending_approval" }, 201, headers);
 }
 
+
+async function verifyStoredDeviceSignature(publicKeyPem, signatureText, payload) {
+  const pem = bounded(publicKeyPem, 4096, "device public key");
+  const encodedKey = pem.replace(/-----BEGIN PUBLIC KEY-----|-----END PUBLIC KEY-----|\\s/g, "");
+  if (!/^-----BEGIN PUBLIC KEY-----\\s+[A-Za-z0-9+/=\\s]+-----END PUBLIC KEY-----$/.test(pem) ||
+      !/^[A-Za-z0-9+/]+={0,2}$/.test(encodedKey)) {
+    throw Object.assign(new Error("کلید عمومی دستگاه معتبر نیست."), { status: 400 });
+  }
+  let key, signature;
+  try {
+    const der = Uint8Array.from(atob(encodedKey), ch => ch.charCodeAt(0));
+    signature = Uint8Array.from(atob(bounded(signatureText, 2048, "signature")), ch => ch.charCodeAt(0));
+    key = await crypto.subtle.importKey("spki", der,
+      { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["verify"]);
+    if (Number(key.algorithm?.modulusLength || 0) < 2048 ||
+        Number(key.algorithm?.modulusLength || 0) > 4096) throw new Error("invalid key size");
+  } catch {
+    throw Object.assign(new Error("کلید یا امضای دستگاه معتبر نیست."), { status: 400 });
+  }
+  const valid = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, signature,
+    new TextEncoder().encode(JSON.stringify(payload)));
+  if (!valid) throw Object.assign(new Error("امضای دستگاه تأییدکننده معتبر نیست."), { status: 401 });
+  return true;
+}
+
+async function pairingRequestRow(env, pairingId) {
+  return env.DB.prepare(`SELECT p.pairing_id AS pairingId, p.license_id AS licenseId,
+      p.requester_device_type AS requesterDeviceType,
+      p.requester_installation_id AS requesterInstallationId,
+      p.requester_student_id AS studentId, p.requester_grade_id AS gradeId,
+      p.requester_public_key_pem AS requesterPublicKeyPem,
+      p.requester_key_fingerprint AS requesterFingerprint,
+      p.expires_at AS expiresAt, p.consumed_at AS consumedAt,
+      p.cancelled_at AS cancelledAt, p.decision, p.challenge_id AS challengeId,
+      p.challenge_nonce_hash AS challengeNonceHash,
+      p.challenge_expires_at AS challengeExpiresAt,
+      p.challenge_consumed_at AS challengeConsumedAt,
+      l.product_id AS productId, l.academic_year AS academicYear,
+      l.valid_from AS validFrom, l.valid_until AS validUntil, l.status AS licenseStatus,
+      l.grade_id AS licenseGradeId, l.student_id AS licenseStudentId
+    FROM device_pairing_requests p JOIN licenses l ON l.license_id = p.license_id
+    WHERE p.pairing_id = ?`).bind(pairingId).first();
+}
+
+async function createDevicePairingChallenge(request, env, headers) {
+  if (!request.headers.get("Origin") || !allowedOrigin(request, env)) return error("مبدأ درخواست مجاز نیست.", 403, headers);
+  if (String(request.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase() !== "application/json")
+    return error("نوع محتوای درخواست باید application/json باشد.", 415, headers);
+  const body = await bodyJson(request);
+  const pairingId = bounded(body.pairingId, 160, "pairingId");
+  const approverInstallationId = validIdentifier(body.approverInstallationId, "approverInstallationId");
+  const approverDeviceType = String(body.approverDeviceType || "").trim().toLowerCase();
+  if (!["phone", "computer"].includes(approverDeviceType)) return error("نوع دستگاه تأییدکننده معتبر نیست.", 400, headers);
+  const row = await pairingRequestRow(env, pairingId);
+  const now = Date.now();
+  if (!row || row.consumedAt || row.cancelledAt || row.decision ||
+      !Number.isFinite(Date.parse(row.expiresAt)) || Date.parse(row.expiresAt) <= now ||
+      row.licenseStatus === "revoked" || Date.parse(row.validUntil) <= now ||
+      row.requesterDeviceType === approverDeviceType) {
+    return error("درخواست جفت‌سازی فعال یا قابل تأیید نیست.", 409, headers);
+  }
+  const approver = await env.DB.prepare(`SELECT public_key_pem AS publicKeyPem, key_fingerprint AS fingerprint
+    FROM license_device_slots WHERE license_id = ? AND device_type = ?
+      AND installation_id = ? AND revoked_at IS NULL`)
+    .bind(row.licenseId, approverDeviceType, approverInstallationId).first();
+  if (!approver?.publicKeyPem || !approver.fingerprint) return error("دستگاه تأییدکننده به این مجوز متصل نیست.", 403, headers);
+  const proof = {
+    purpose: "tahouri-device-pairing-challenge-request-v1",
+    pairingId, licenseId: row.licenseId, approverDeviceType,
+    approverInstallationId, approverKeyFingerprint: approver.fingerprint
+  };
+  try { await verifyStoredDeviceSignature(approver.publicKeyPem, body.approverSignature, proof); }
+  catch (e) { return error(e.message, e.status || 401, headers); }
+
+  const challengeId = "ch_" + randomHex(24);
+  const nonce = randomHex(32);
+  const expiresAt = new Date(Math.min(now + 2 * 60 * 1000, Date.parse(row.expiresAt))).toISOString();
+  const nonceHash = await sha256(nonce);
+  const update = await env.DB.prepare(`UPDATE device_pairing_requests
+    SET challenge_id = ?, challenge_nonce_hash = ?, challenge_expires_at = ?,
+        challenge_consumed_at = NULL, approver_device_type = ?, approver_installation_id = ?
+    WHERE pairing_id = ? AND consumed_at IS NULL AND cancelled_at IS NULL
+      AND decision IS NULL AND expires_at > ?
+      AND NOT EXISTS (SELECT 1 FROM license_device_slots
+        WHERE license_id = ? AND device_type = ? AND revoked_at IS NULL)
+      AND EXISTS (SELECT 1 FROM license_device_slots
+        WHERE license_id = ? AND device_type = ? AND installation_id = ? AND revoked_at IS NULL)`)
+    .bind(challengeId, nonceHash, expiresAt, approverDeviceType, approverInstallationId,
+      pairingId, nowIso(), row.licenseId, row.requesterDeviceType,
+      row.licenseId, approverDeviceType, approverInstallationId).run();
+  if (Number(update?.meta?.changes || 0) !== 1) return error("وضعیت درخواست یا جایگاه دستگاه تغییر کرده است.", 409, headers);
+  await audit(env, "device.pairing.challenge_issued", "device:" + approverInstallationId, {
+    licenseId: row.licenseId,
+    metadata: { pairingId, approverDeviceType, approverFingerprint: approver.fingerprint, expiresAt }
+  });
+  return json({ ok: true, pairingId, challengeId, nonce, expiresAt,
+    requesterDeviceType: row.requesterDeviceType,
+    requesterKeyFingerprint: row.requesterFingerprint }, 200, headers);
+}
+
+async function decideDevicePairing(request, env, headers, decision) {
+  if (!request.headers.get("Origin") || !allowedOrigin(request, env)) return error("مبدأ درخواست مجاز نیست.", 403, headers);
+  if (String(request.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase() !== "application/json")
+    return error("نوع محتوای درخواست باید application/json باشد.", 415, headers);
+  const body = await bodyJson(request);
+  const pairingId = bounded(body.pairingId, 160, "pairingId");
+  const challengeId = bounded(body.challengeId, 160, "challengeId");
+  const nonce = bounded(body.nonce, 128, "nonce");
+  const approverInstallationId = validIdentifier(body.approverInstallationId, "approverInstallationId");
+  const approverDeviceType = String(body.approverDeviceType || "").trim().toLowerCase();
+  if (!["phone", "computer"].includes(approverDeviceType)) return error("نوع دستگاه تأییدکننده معتبر نیست.", 400, headers);
+  const row = await pairingRequestRow(env, pairingId);
+  const now = Date.now();
+  if (!row || row.consumedAt || row.cancelledAt || row.decision ||
+      row.challengeId !== challengeId || row.challengeConsumedAt ||
+      row.approverInstallationId !== approverInstallationId ||
+      row.approverDeviceType !== approverDeviceType ||
+      !row.challengeExpiresAt || Date.parse(row.challengeExpiresAt) <= now ||
+      Date.parse(row.expiresAt) <= now || !constantTimeEqual(await sha256(nonce), row.challengeNonceHash) ||
+      row.requesterDeviceType === approverDeviceType ||
+      !["active", "future"].includes(row.licenseStatus) || Date.parse(row.validUntil) <= now) {
+    return error("چالش منقضی، مصرف‌شده یا نامعتبر است.", 409, headers);
+  }
+  const student = await env.DB.prepare("SELECT status FROM student_accounts WHERE student_id = ?")
+    .bind(row.studentId).first();
+  if (!student || student.status !== "active" || row.licenseStudentId !== row.studentId ||
+      row.licenseGradeId !== row.gradeId) return error("مجوز یا پروفایل درخواست‌کننده دیگر معتبر نیست.", 409, headers);
+  const approver = await env.DB.prepare(`SELECT public_key_pem AS publicKeyPem, key_fingerprint AS fingerprint
+    FROM license_device_slots WHERE license_id = ? AND device_type = ?
+      AND installation_id = ? AND revoked_at IS NULL`)
+    .bind(row.licenseId, approverDeviceType, approverInstallationId).first();
+  if (!approver?.publicKeyPem || !approver.fingerprint) return error("دستگاه تأییدکننده دیگر به این مجوز متصل نیست.", 403, headers);
+  const proof = {
+    purpose: "tahouri-device-pairing-decision-v1",
+    pairingId, licenseId: row.licenseId, challengeId, nonce, decision,
+    requesterDeviceType: row.requesterDeviceType,
+    requesterInstallationId: row.requesterInstallationId,
+    requesterKeyFingerprint: row.requesterFingerprint,
+    approverDeviceType, approverInstallationId,
+    approverKeyFingerprint: approver.fingerprint,
+    challengeExpiresAt: row.challengeExpiresAt
+  };
+  try { await verifyStoredDeviceSignature(approver.publicKeyPem, body.approverSignature, proof); }
+  catch (e) { return error(e.message, e.status || 401, headers); }
+
+  const nowText = nowIso();
+  if (decision === "rejected") {
+    const result = await env.DB.prepare(`UPDATE device_pairing_requests
+      SET decision = 'rejected', decided_at = ?, consumed_at = ?, challenge_consumed_at = ?,
+          approver_device_type = ?, approver_installation_id = ?
+      WHERE pairing_id = ? AND challenge_id = ? AND challenge_nonce_hash = ?
+        AND challenge_consumed_at IS NULL AND decision IS NULL
+        AND consumed_at IS NULL AND cancelled_at IS NULL
+        AND challenge_expires_at > ? AND expires_at > ?
+        AND EXISTS (SELECT 1 FROM license_device_slots
+          WHERE license_id = ? AND device_type = ? AND installation_id = ? AND revoked_at IS NULL)`)
+      .bind(nowText, nowText, nowText, approverDeviceType, approverInstallationId,
+        pairingId, challengeId, await sha256(nonce), nowText, nowText,
+        row.licenseId, approverDeviceType, approverInstallationId).run();
+    if (Number(result?.meta?.changes || 0) !== 1) return error("درخواست پیش از ثبت رد تغییر کرده یا منقضی شده است.", 409, headers);
+    await audit(env, "device.pairing.rejected", "device:" + approverInstallationId, {
+      licenseId: row.licenseId,
+      metadata: { pairingId, requesterFingerprint: row.requesterFingerprint, approverFingerprint: approver.fingerprint }
+    });
+    return json({ ok: true, status: "rejected" }, 200, headers);
+  }
+
+  const claims = {
+    licenseId: row.licenseId, productId: row.productId,
+    academicYear: String(row.academicYear), gradeScope: row.gradeId,
+    studentId: row.studentId, validFrom: row.validFrom, validUntil: row.validUntil,
+    installationBinding: row.requesterInstallationId,
+    deviceType: row.requesterDeviceType,
+    deviceKeyFingerprint: row.requesterFingerprint, entitlementVersion: 1
+  };
+  const entitlement = await signEntitlement(claims, env);
+  const results = await env.DB.batch([
+    env.DB.prepare(`INSERT INTO license_device_slots
+      (license_id, device_type, installation_id, bound_at, public_key_pem, key_fingerprint)
+      SELECT ?, ?, ?, ?, ?, ?
+      WHERE EXISTS (SELECT 1 FROM device_pairing_requests
+        WHERE pairing_id = ? AND decision IS NULL AND consumed_at IS NULL
+          AND cancelled_at IS NULL AND challenge_id = ?
+          AND challenge_nonce_hash = ? AND challenge_consumed_at IS NULL
+          AND challenge_expires_at > ? AND expires_at > ?)
+        AND EXISTS (SELECT 1 FROM licenses WHERE license_id = ?
+          AND status IN ('active','future') AND valid_until > ?)
+        AND EXISTS (SELECT 1 FROM student_accounts WHERE student_id = ? AND status = 'active')
+        AND EXISTS (SELECT 1 FROM license_device_slots WHERE license_id = ?
+          AND device_type = ? AND installation_id = ? AND revoked_at IS NULL)
+        AND NOT EXISTS (SELECT 1 FROM license_device_slots WHERE license_id = ?
+          AND device_type = ? AND revoked_at IS NULL)`)
+      .bind(row.licenseId, row.requesterDeviceType, row.requesterInstallationId,
+        nowText, row.requesterPublicKeyPem, row.requesterFingerprint,
+        pairingId, challengeId, await sha256(nonce), nowText, nowText,
+        row.licenseId, nowText, row.studentId, row.licenseId,
+        approverDeviceType, approverInstallationId, row.licenseId, row.requesterDeviceType),
+    env.DB.prepare(`UPDATE device_pairing_requests
+      SET decision = 'approved', approved_at = ?, decided_at = ?, consumed_at = ?,
+          challenge_consumed_at = ?, approver_device_type = ?, approver_installation_id = ?
+      WHERE pairing_id = ? AND decision IS NULL AND consumed_at IS NULL
+        AND cancelled_at IS NULL AND challenge_id = ? AND challenge_nonce_hash = ?
+        AND challenge_consumed_at IS NULL AND challenge_expires_at > ? AND expires_at > ?
+        AND EXISTS (SELECT 1 FROM license_device_slots WHERE license_id = ?
+          AND device_type = ? AND installation_id = ? AND key_fingerprint = ? AND revoked_at IS NULL)`)
+      .bind(nowText, nowText, nowText, nowText, approverDeviceType, approverInstallationId,
+        pairingId, challengeId, await sha256(nonce), nowText, nowText,
+        row.licenseId, row.requesterDeviceType, row.requesterInstallationId, row.requesterFingerprint),
+    env.DB.prepare(`INSERT INTO audit_log (event_type, actor, license_id, code_hash, created_at, metadata_json)
+      SELECT 'device.pairing.approved', ?, ?, NULL, ?, ?
+      WHERE EXISTS (SELECT 1 FROM device_pairing_requests WHERE pairing_id = ?
+        AND decision = 'approved' AND consumed_at = ?)`)
+      .bind("device:" + approverInstallationId, row.licenseId, nowText,
+        JSON.stringify({ pairingId, requesterFingerprint: row.requesterFingerprint,
+          approverFingerprint: approver.fingerprint, requesterDeviceType: row.requesterDeviceType }),
+        pairingId, nowText)
+  ]);
+  if (Number(results?.[0]?.meta?.changes || 0) !== 1 ||
+      Number(results?.[1]?.meta?.changes || 0) !== 1 ||
+      Number(results?.[2]?.meta?.changes || 0) !== 1) {
+    return error("تأیید انجام نشد؛ جایگاه یا وضعیت درخواست تغییر کرده است.", 409, headers);
+  }
+  return json({ ok: true, status: "approved", entitlement }, 200, headers);
+}
+
+async function getDevicePairingStatus(request, env, headers, url) {
+  const pairingId = bounded(url.searchParams.get("pairingId"), 160, "pairingId");
+  const token = bounded(url.searchParams.get("token"), 128, "token");
+  const tokenHash = await sha256(token);
+  const row = await env.DB.prepare(`SELECT decision, expires_at AS expiresAt, consumed_at AS consumedAt,
+      cancelled_at AS cancelledAt, approved_at AS approvedAt
+    FROM device_pairing_requests WHERE pairing_id = ? AND token_hash = ?`)
+    .bind(pairingId, tokenHash).first();
+  if (!row) return error("درخواست جفت‌سازی پیدا نشد.", 404, headers);
+  if (!row.decision && (row.cancelledAt || Date.parse(row.expiresAt) <= Date.now()))
+    return json({ ok: true, status: "expired" }, 200, headers);
+  return json({ ok: true, status: row.decision || "pending_approval",
+    approvedAt: row.approvedAt || null }, 200, headers);
+}
+
 async function licenseStatus(request, env, url, headers) {
   const licenseId = String(url.searchParams.get("licenseId") || "").trim();
   if (!licenseId) return json({ ok: false, valid: false, message: "licenseId الزامی است." }, 400, headers);
@@ -921,6 +1161,14 @@ export default {
         return await activateLicense(request, env, headers);
       if (url.pathname === "/api/licenses/pairing/request" && request.method === "POST")
         return await createDevicePairingRequest(request, env, headers);
+      if (url.pathname === "/api/licenses/pairing/challenge" && request.method === "POST")
+        return await createDevicePairingChallenge(request, env, headers);
+      if (url.pathname === "/api/licenses/pairing/approve" && request.method === "POST")
+        return await decideDevicePairing(request, env, headers, "approved");
+      if (url.pathname === "/api/licenses/pairing/reject" && request.method === "POST")
+        return await decideDevicePairing(request, env, headers, "rejected");
+      if (url.pathname === "/api/licenses/pairing/status" && request.method === "GET")
+        return await getDevicePairingStatus(request, env, headers, url);
       if (url.pathname === "/api/licenses/status" && request.method === "GET")
         return await licenseStatus(request, env, url, headers);
       if (url.pathname.startsWith("/api/admin/") || url.pathname === "/api/metrics" || url.pathname === "/api/metrics/alerts")
