@@ -20,6 +20,9 @@ const window = {
     ProfileManager: { get: () => profile },
     TahouriServiceConfig: { mode: "test" },
     crypto: { randomUUID: () => "install-test-profile-status" },
+    TahouriDeviceIdentity: {
+        getOrCreate: async () => ({ installationId: "install-test-profile-status" })
+    },
     localStorage: storage
 };
 const context = {
