@@ -716,11 +716,6 @@ async function main() {
     assert.equal(approvalBody.entitlement.claims.installationBinding, "install-computer-1");
     assert.equal(approvalBody.entitlement.claims.deviceType, "computer");
     assert.equal(approvalBody.entitlement.claims.deviceKeyFingerprint, storedPairing.requester_key_fingerprint);
-    const deliveredStatus = await pairingStatus.json();
-    assert.equal(deliveredStatus.status, "approved");
-    assert.deepEqual(deliveredStatus.entitlement, approvalBody.entitlement,
-        "Requester polling must return the exact server-signed entitlement approved for its installation.");
-
     assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id = ? AND device_type = 'computer' AND installation_id = 'install-computer-1'").get(stored.license_id).count), 1,
         "Approval must bind the exact requester installation to the vacant computer slot.");
     const consumedReplay = await request(worker, env, "/api/licenses/pairing/approve", "POST", {
@@ -735,8 +730,11 @@ async function main() {
         pairingId: pairingBody.pairingId, token: pairingBody.token
     });
     assert.equal(pairingStatus.status, 200);
-    assert.equal((await pairingStatus.json()).status, "approved",
+    const deliveredStatus = await pairingStatus.json();
+    assert.equal(deliveredStatus.status, "approved",
         "The requester bearer token must read the final decision.");
+    assert.deepEqual(deliveredStatus.entitlement, approvalBody.entitlement,
+        "Requester polling must return the exact server-signed entitlement approved for its installation.");
 
 
     const occupiedPairingSlot = await request(worker, env, "/api/licenses/pairing/request", "POST", {
