@@ -1,6 +1,6 @@
 # Secure device pairing protocol (implementation gate)
 
-Status: design protocol; pairing not yet implemented or enabled in production. A standalone client identity utility has been added as groundwork (`engine/core/tahouriDeviceIdentity.js`), but it is not integrated into activation or pairing yet.
+Status: activation proof-of-possession is implemented on this PR branch: the browser identity utility is loaded before the license client, activation signs a canonical payload, the Worker verifies the RSA-2048+ signature, and migration 0007 stores the public key and SHA-256 fingerprint with the device slot. Pairing endpoints and approval flow remain design-only and are not enabled in production.
 
 ## Limits
 - Exactly one phone slot and one computer slot per license, independent of OS.
@@ -9,7 +9,7 @@ Status: design protocol; pairing not yet implemented or enabled in production. A
 - Revoking/replacing a slot only releases that device class; preserve the other slot and all student/license data.
 
 ## Required installation identity
-Each installation creates a signing key pair locally. The private key must be non-exportable where supported and protected by platform secure storage; browser environments must document weaker protection. Register the public key alongside the slot. The server must challenge the installation and verify a signature before accepting it as an approver. An installation ID alone is not proof.
+Each installation creates a signing key pair locally. The private key must be non-exportable where supported and protected by platform secure storage; browser environments must document weaker protection. Register the public key alongside the slot. Initial activation now verifies a signature over purpose, installation ID, device class, student ID, grade ID, and normalized activation-code hash before binding the slot. The server stores the SPKI public key and its DER SHA-256 fingerprint. Pairing approval must additionally challenge the installation and verify a signature before accepting it as an approver. An installation ID alone is not proof.
 
 ## Pairing flow
 1. Requesting installation submits authenticated license context, class (phone/computer), installation ID, and public key. The server checks license/student/account status, validity, class slot, and rate limits. If that class slot is occupied, do not overwrite it; create an expiring pairing request and return a pairing identifier plus random challenge/token. Store only a hash of bearer tokens.
@@ -38,4 +38,4 @@ Each installation creates a signing key pair locally. The private key must be no
 - Signed entitlements reject mismatched installation/class and revoked licenses.
 - Migration and regression tests preserve existing license and student data.
 
-This document is a security design gate, not evidence that pairing endpoints, cryptographic installation keys, or enforcement are implemented.
+This document remains a security design gate for the unimplemented pairing workflow. Activation proof-of-possession is implemented in this PR branch but has not yet passed the full required CI gate and is not deployed to production.
