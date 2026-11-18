@@ -22,6 +22,7 @@ const gate = read("engine/core/activationGate.js");
 const appController = read("engine/core/appController.js");
 const licenseClient = read("engine/core/tahouriLicenseClient.js");
 const profileScreen = read("engine/ui/profileScreen.js");
+const licenseScreen = read("engine/ui/licenseScreen.js");
 
 assert(
     serviceConfig.includes('mode: "production"') &&
@@ -45,11 +46,22 @@ assert(
 );
 
 assert(
+    licenseScreen.includes('id="tahouriDeviceSlots"') &&
+    licenseScreen.includes('id="tahouriDeviceSlotsList"') &&
+    licenseScreen.includes("async function loadBoundDeviceSlots()") &&
+    licenseScreen.includes("async function replaceBoundDevice(device,claims,button)") &&
+    licenseScreen.includes("requestDeviceRevocationChallenge") &&
+    licenseScreen.includes("executeDeviceRevocation"),
+    "License UI must expose the authenticated device list and signed replacement flow."
+);
+
+assert(
     !licenseClient.includes("registerExistingProfiles") &&
     !licenseClient.includes("registerProfile") &&
     !licenseClient.includes("/students/register") &&
     licenseClient.includes("window.TahouriLicenseClient = { activate, health, status, requestPairing, requestPairingChallenge, decidePairing, pairingStatus, cancelPairing, listPendingPairings, listBoundDeviceSlots, requestDeviceRevocationChallenge, executeDeviceRevocation };") &&
-    licenseClient.includes("async function listBoundDeviceSlots(licenseId)") &&\n    licenseClient.includes("async function cancelPairing(pairingId, token)") &&
+    licenseClient.includes("async function listBoundDeviceSlots(licenseId)") &&
+    licenseClient.includes("async function cancelPairing(pairingId, token)") &&
     licenseClient.includes("devicePublicKeyPem: identity.publicKey") &&
     licenseClient.includes("deviceSignature: signed.signature") &&
     manager.includes("async function getOrCreateRemoteInstallationId()") &&
