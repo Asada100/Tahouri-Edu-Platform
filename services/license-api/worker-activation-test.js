@@ -814,6 +814,8 @@ async function main() {
         code, gradeId: "grade6", studentId: "student-1", installationId: "install-computer-2", deviceType: "phone"
     });
     assert.equal(occupiedPairingSlot.status, 409, "A request must not replace an already occupied device-class slot.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM device_pairing_requests WHERE license_id = ? AND requester_device_type = 'phone' AND requester_installation_id = 'install-computer-2'").get(stored.license_id).count), 0, "Rejected replacement requests must not persist a pairing record.");
+    assert.equal(db.prepare("SELECT installation_id FROM license_device_slots WHERE license_id = ? AND device_type = 'phone' AND revoked_at IS NULL").get(stored.license_id).installation_id, "install-1", "An unauthorized replacement attempt must leave the existing phone binding unchanged.");
 
     assert.throws(() => db.prepare("INSERT INTO license_device_slots (license_id, device_type, installation_id, bound_at) VALUES (?, 'phone', 'install-phone-2', ?)").run(stored.license_id, new Date().toISOString()),
         /UNIQUE constraint failed/,
