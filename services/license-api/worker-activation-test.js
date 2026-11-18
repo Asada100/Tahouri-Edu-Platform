@@ -8,7 +8,7 @@ const crypto = require("node:crypto");
 const { DatabaseSync } = require("node:sqlite");
 
 const db = new DatabaseSync(":memory:");
-for (const file of ["migrations/0001_initial_schema.sql", "migrations/0002_admin_login_attempts.sql", "migrations/0003_activation_integrity_indexes.sql", "migrations/0004_student_accounts.sql", "migrations/0005_student_activation_status.sql", "migrations/0006_one_phone_one_computer.sql", "migrations/0007_device_slot_public_keys.sql", "migrations/0008_pairing_request_identity.sql"]) {
+for (const file of ["migrations/0001_initial_schema.sql", "migrations/0002_admin_login_attempts.sql", "migrations/0003_activation_integrity_indexes.sql", "migrations/0004_student_accounts.sql", "migrations/0005_student_activation_status.sql", "migrations/0006_one_phone_one_computer.sql", "migrations/0007_device_slot_public_keys.sql", "migrations/0008_pairing_request_identity.sql", "migrations/0009_pairing_signed_decisions.sql"]) {
     db.exec(fs.readFileSync(path.join(__dirname, file), "utf8"));
 }
 
@@ -103,11 +103,11 @@ async function request(worker, env, pathName, method, body, origin = "https://as
 
 async function main() {
     const migrations = db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get();
-    assert.equal(Number(migrations.version), 8, "D1 migrations must create the version-8 pairing requester identity schema.");
+    assert.equal(Number(migrations.version), 9, "D1 migrations must create the version-9 signed pairing challenge schema.");
     assert(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'license_device_slots'").get(), "Migration 6 must create device slots.");
     assert(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'device_pairing_requests'").get(), "Migration 6 must create pairing requests.");
     const pairingColumns = db.prepare("PRAGMA table_info(device_pairing_requests)").all().map(row => row.name);
-    for (const column of ["requester_student_id", "requester_grade_id", "requester_public_key_pem", "requester_key_fingerprint"]) {
+    for (const column of ["requester_student_id", "requester_grade_id", "requester_public_key_pem", "requester_key_fingerprint", "challenge_id", "challenge_nonce_hash", "challenge_expires_at", "challenge_consumed_at", "decision", "decided_at", "approver_device_type", "approver_installation_id"]) {
         assert(pairingColumns.includes(column), "Pairing requests must persist verified requester field " + column + ".");
     }
     const deviceSlotColumns = db.prepare("PRAGMA table_info(license_device_slots)").all().map(row => row.name);
@@ -659,6 +659,80 @@ async function main() {
     assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id = ? AND device_type = 'computer'").get(stored.license_id).count), 0,
         "A pairing request must not bind the second device before approval.");
 
+    const approverFingerprint = crypto.createHash("sha256")
+        .update(activationDevicePair.publicKey.export({ type: "spki", format: "der" })).digest("hex");
+    const challengeRequestProof = {
+        purpose: "tahouri-device-pairing-challenge-request-v1",
+        pairingId: pairingBody.pairingId, licenseId: stored.license_id,
+        approverDeviceType: "phone", approverInstallationId: "install-phone-1",
+        approverKeyFingerprint: approverFingerprint
+    };
+    const challengeResponse = await request(worker, env, "/api/licenses/pairing/challenge", "POST", {
+        pairingId: pairingBody.pairingId, approverDeviceType: "phone",
+        approverInstallationId: "install-phone-1",
+        approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(challengeRequestProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(challengeResponse.status, 200, "Only the bound phone may request an approval challenge.");
+    const challengeBody = await challengeResponse.json();
+    assert.equal(challengeBody.ok, true);
+    assert.equal(challengeBody.pairingId, pairingBody.pairingId);
+    const decisionProof = {
+        purpose: "tahouri-device-pairing-decision-v1",
+        pairingId: pairingBody.pairingId, licenseId: stored.license_id,
+        challengeId: challengeBody.challengeId, nonce: challengeBody.nonce,
+        decision: "approved", requesterDeviceType: "computer",
+        requesterInstallationId: "install-computer-1",
+        requesterKeyFingerprint: storedPairing.requester_key_fingerprint,
+        approverDeviceType: "phone", approverInstallationId: "install-phone-1",
+        approverKeyFingerprint: approverFingerprint,
+        challengeExpiresAt: challengeBody.expiresAt
+    };
+    const invalidDecision = await request(worker, env, "/api/licenses/pairing/approve", "POST", {
+        pairingId: pairingBody.pairingId, challengeId: challengeBody.challengeId,
+        nonce: challengeBody.nonce, approverDeviceType: "phone",
+        approverInstallationId: "install-phone-1", approverSignature: "A".repeat(344)
+    });
+    assert.equal(invalidDecision.status, 401, "A forged approval signature must be rejected.");
+    const alteredNonce = await request(worker, env, "/api/licenses/pairing/approve", "POST", {
+        pairingId: pairingBody.pairingId, challengeId: challengeBody.challengeId,
+        nonce: challengeBody.nonce.slice(0, -1) + (challengeBody.nonce.endsWith("0") ? "1" : "0"),
+        approverDeviceType: "phone", approverInstallationId: "install-phone-1",
+        approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(decisionProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(alteredNonce.status, 409, "A modified challenge nonce must be rejected.");
+    const approval = await request(worker, env, "/api/licenses/pairing/approve", "POST", {
+        pairingId: pairingBody.pairingId, challengeId: challengeBody.challengeId,
+        nonce: challengeBody.nonce, approverDeviceType: "phone",
+        approverInstallationId: "install-phone-1",
+        approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(decisionProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(approval.status, 200, "A valid signature from the already-bound phone must approve the pairing.");
+    const approvalBody = await approval.json();
+    assert.equal(approvalBody.status, "approved");
+    assert.equal(approvalBody.entitlement.claims.installationBinding, "install-computer-1");
+    assert.equal(approvalBody.entitlement.claims.deviceType, "computer");
+    assert.equal(approvalBody.entitlement.claims.deviceKeyFingerprint, storedPairing.requester_key_fingerprint);
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id = ? AND device_type = 'computer' AND installation_id = 'install-computer-1'").get(stored.license_id).count), 1,
+        "Approval must bind the exact requester installation to the vacant computer slot.");
+    const consumedReplay = await request(worker, env, "/api/licenses/pairing/approve", "POST", {
+        pairingId: pairingBody.pairingId, challengeId: challengeBody.challengeId,
+        nonce: challengeBody.nonce, approverDeviceType: "phone",
+        approverInstallationId: "install-phone-1",
+        approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(decisionProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(consumedReplay.status, 409, "A consumed challenge must not be replayable.");
+    const pairingStatus = await request(worker, env,
+        "/api/licenses/pairing/status?pairingId=" + encodeURIComponent(pairingBody.pairingId) +
+        "&token=" + encodeURIComponent(pairingBody.token), "GET", undefined);
+    assert.equal(pairingStatus.status, 200);
+    assert.equal((await pairingStatus.json()).status, "approved",
+        "The requester bearer token must read the final decision.");
+
+
     const occupiedPairingSlot = await request(worker, env, "/api/licenses/pairing/request", "POST", {
         code, gradeId: "grade6", studentId: "student-1", installationId: "install-computer-2", deviceType: "phone"
     });
@@ -667,7 +741,8 @@ async function main() {
     assert.throws(() => db.prepare("INSERT INTO license_device_slots (license_id, device_type, installation_id, bound_at) VALUES (?, 'phone', 'install-phone-2', ?)").run(stored.license_id, new Date().toISOString()),
         /UNIQUE constraint failed/,
         "A second phone must not be inserted into the same license slot.");
-    db.prepare("INSERT INTO license_device_slots (license_id, device_type, installation_id, bound_at) VALUES (?, 'computer', 'install-computer-1', ?)").run(stored.license_id, new Date().toISOString());
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id = ? AND device_type = 'computer'").get(stored.license_id).count), 1,
+        "The approved pairing flow must have created the second device slot.");
     assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id = ?").get(stored.license_id).count), 2,
         "A license must permit one phone and one computer simultaneously.");
 
