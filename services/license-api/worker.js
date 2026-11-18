@@ -492,7 +492,51 @@ async function createDevicePairingRequest(request, env, headers) {
 }
 
 
-async function verifyStoredDeviceSignature(publicKeyPem, signatureText, payload) {
+
+async function createDeviceRevocationChallenge(request, env, headers) {
+  if (!request.headers.get("Origin") || !allowedOrigin(request, env)) return error("مبدأ درخواست مجاز نیست.", 403, headers);
+  if (String(request.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase() !== "application/json") return error("نوع محتوا باید application/json باشد.", 415, headers);
+  const body = await bodyJson(request);
+  const licenseId = bounded(body.licenseId, 128, "licenseId");
+  const targetType = String(body.targetDeviceType || "").trim().toLowerCase();
+  const targetInstallationId = validIdentifier(body.targetInstallationId, "targetInstallationId");
+  const approverType = String(body.approverDeviceType || "").trim().toLowerCase();
+  const approverInstallationId = validIdentifier(body.approverInstallationId, "approverInstallationId");
+  if (!["phone","computer"].includes(targetType) || !["phone","computer"].includes(approverType) || targetType === approverType) return error("نوع دستگاه‌ها نامعتبر است.",400,headers);
+  const [target, approver, license] = await Promise.all([
+    env.DB.prepare("SELECT key_fingerprint AS fingerprint FROM license_device_slots WHERE license_id=? AND device_type=? AND installation_id=? AND revoked_at IS NULL").bind(licenseId,targetType,targetInstallationId).first(),
+    env.DB.prepare("SELECT public_key_pem AS publicKeyPem,key_fingerprint AS fingerprint FROM license_device_slots WHERE license_id=? AND device_type=? AND installation_id=? AND revoked_at IS NULL").bind(licenseId,approverType,approverInstallationId).first(),
+    env.DB.prepare("SELECT status,valid_until AS validUntil FROM licenses WHERE license_id=?").bind(licenseId).first()
+  ]);
+  if (!target?.fingerprint || !approver?.publicKeyPem || !approver?.fingerprint || !license || !["active","future"].includes(license.status) || Date.parse(license.validUntil)<=Date.now()) return error("هر دو دستگاه باید متصل و مجوز معتبر باشد.",409,headers);
+  const proof={purpose:"tahouri-device-revocation-challenge-v1",licenseId,targetDeviceType:targetType,targetInstallationId,targetKeyFingerprint:target.fingerprint,approverDeviceType:approverType,approverInstallationId,approverKeyFingerprint:approver.fingerprint};
+  try { await verifyStoredDeviceSignature(approver.publicKeyPem,body.approverSignature,proof); } catch(e){return error(e.message,e.status||401,headers);}
+  const challengeId="rev_"+crypto.randomUUID(), nonce=randomHex(32), created=nowIso(), expires=new Date(Date.now()+2*60*1000).toISOString(), nonceHash=await sha256(nonce);
+  const result=await env.DB.prepare("INSERT INTO device_revocation_challenges (challenge_id,license_id,target_device_type,target_installation_id,target_fingerprint,approver_device_type,approver_installation_id,approver_fingerprint,nonce_hash,expires_at,created_at) SELECT ?,?,?,?,?,?,?,?,?,?,? WHERE EXISTS (SELECT 1 FROM license_device_slots WHERE license_id=? AND device_type=? AND installation_id=? AND key_fingerprint=? AND revoked_at IS NULL) AND EXISTS (SELECT 1 FROM license_device_slots WHERE license_id=? AND device_type=? AND installation_id=? AND key_fingerprint=? AND revoked_at IS NULL)").bind(challengeId,licenseId,targetType,targetInstallationId,target.fingerprint,approverType,approverInstallationId,approver.fingerprint,nonceHash,expires,created,licenseId,targetType,targetInstallationId,target.fingerprint,licenseId,approverType,approverInstallationId,approver.fingerprint).run();
+  if(Number(result?.meta?.changes||0)!==1)return error("صدور چالش ممکن نشد؛ وضعیت دستگاه‌ها تغییر کرده است.",409,headers);
+  await audit(env,"device.revocation.challenge_issued","device:"+approverInstallationId,{licenseId,metadata:{challengeId,targetDeviceType:targetType,targetFingerprint:target.fingerprint,approverFingerprint:approver.fingerprint,expiresAt:expires}});
+  return json({ok:true,challengeId,nonce,expiresAt:expires,licenseId,targetDeviceType:targetType,targetInstallationId,targetKeyFingerprint:target.fingerprint,approverDeviceType:approverType,approverInstallationId,approverKeyFingerprint:approver.fingerprint},200,headers);
+}
+async function executeDeviceRevocation(request,env,headers){
+  if(!request.headers.get("Origin")||!allowedOrigin(request,env))return error("مبدأ درخواست مجاز نیست.",403,headers);
+  if(String(request.headers.get("Content-Type")||"").split(";")[0].trim().toLowerCase()!=="application/json")return error("نوع محتوا باید application/json باشد.",415,headers);
+  const body=await bodyJson(request), challengeId=bounded(body.challengeId,160,"challengeId"), nonce=bounded(body.nonce,128,"nonce"), signature=bounded(body.approverSignature,2048,"signature"), now=nowIso();
+  const row=await env.DB.prepare("SELECT * FROM device_revocation_challenges WHERE challenge_id=?").bind(challengeId).first();
+  if(!row||row.consumed_at||Date.parse(row.expires_at)<=Date.now()||!constantTimeEqual(await sha256(nonce),row.nonce_hash))return error("چالش لغو نامعتبر یا منقضی است.",409,headers);
+  const approver=await env.DB.prepare("SELECT public_key_pem AS publicKeyPem,key_fingerprint AS fingerprint FROM license_device_slots WHERE license_id=? AND device_type=? AND installation_id=? AND key_fingerprint=? AND revoked_at IS NULL").bind(row.license_id,row.approver_device_type,row.approver_installation_id,row.approver_fingerprint).first();
+  if(!approver)return error("دستگاه تأییدکننده دیگر متصل نیست.",403,headers);
+  const proof={purpose:"tahouri-device-revocation-v1",challengeId,nonce,licenseId:row.license_id,targetDeviceType:row.target_device_type,targetInstallationId:row.target_installation_id,targetKeyFingerprint:row.target_fingerprint,approverDeviceType:row.approver_device_type,approverInstallationId:row.approver_installation_id,approverKeyFingerprint:row.approver_fingerprint,expiresAt:row.expires_at};
+  try{await verifyStoredDeviceSignature(approver.publicKeyPem,signature,proof);}catch(e){return error(e.message,e.status||401,headers);}
+  const results=await env.DB.batch([
+    env.DB.prepare("UPDATE license_device_slots SET revoked_at=? WHERE license_id=? AND device_type=? AND installation_id=? AND key_fingerprint=? AND revoked_at IS NULL AND EXISTS (SELECT 1 FROM device_revocation_challenges WHERE challenge_id=? AND consumed_at IS NULL AND expires_at>? AND nonce_hash=? AND approver_fingerprint=?)").bind(now,row.license_id,row.target_device_type,row.target_installation_id,row.target_fingerprint,challengeId,now,row.nonce_hash,row.approver_fingerprint),
+    env.DB.prepare("UPDATE device_revocation_challenges SET consumed_at=? WHERE challenge_id=? AND consumed_at IS NULL AND expires_at>? AND EXISTS (SELECT 1 FROM license_device_slots WHERE license_id=? AND device_type=? AND installation_id=? AND key_fingerprint=? AND revoked_at=?)").bind(now,challengeId,now,row.license_id,row.target_device_type,row.target_installation_id,row.target_fingerprint,now),
+    env.DB.prepare("UPDATE device_pairing_requests SET cancelled_at=?,challenge_consumed_at=COALESCE(challenge_consumed_at,?) WHERE license_id=? AND requester_device_type=? AND decision IS NULL AND consumed_at IS NULL AND cancelled_at IS NULL").bind(now,now,row.license_id,row.target_device_type),
+    env.DB.prepare("INSERT INTO audit_log(event_type,actor,license_id,code_hash,created_at,metadata_json) SELECT 'device.revoked',?,?,NULL,?,? WHERE EXISTS (SELECT 1 FROM license_device_slots WHERE license_id=? AND device_type=? AND installation_id=? AND key_fingerprint=? AND revoked_at=?)").bind("device:"+row.approver_installation_id,row.license_id,now,JSON.stringify({targetDeviceType:row.target_device_type,targetInstallationId:row.target_installation_id,targetFingerprint:row.target_fingerprint,challengeId}),row.license_id,row.target_device_type,row.target_installation_id,row.target_fingerprint,now)
+  ]);
+  if(results.some((x,i)=>i!==2&&Number(x?.meta?.changes||0)!==1))return error("لغو دستگاه به‌صورت کامل تأیید نشد.",409,headers);
+  return json({ok:true,status:"revoked",deviceType:row.target_device_type},200,headers);
+}
+\nasync function verifyStoredDeviceSignature(publicKeyPem, signatureText, payload) {
   const pem = bounded(publicKeyPem, 4096, "device public key");
   const encodedKey = pem.replace(/-----BEGIN PUBLIC KEY-----|-----END PUBLIC KEY-----|\s/g, "");
   if (!/^-----BEGIN PUBLIC KEY-----\s+[A-Za-z0-9+/=\s]+-----END PUBLIC KEY-----$/.test(pem) ||
@@ -1244,7 +1288,7 @@ export default {
           message: "ثبت عمومی پروفایل غیرفعال است؛ ورود پروفایل باید از پنل مدیریت انجام شود." }, 410, headers);
       if (url.pathname === "/api/licenses/activate" && request.method === "POST")
         return await activateLicense(request, env, headers);
-      if (url.pathname === "/api/licenses/pairing/request" && request.method === "POST")
+      if (url.pathname === "/api/licenses/device-revocation/challenge" && request.method === "POST")\n        return await createDeviceRevocationChallenge(request, env, headers);\n      if (url.pathname === "/api/licenses/device-revocation/execute" && request.method === "POST")\n        return await executeDeviceRevocation(request, env, headers);\n      if (url.pathname === "/api/licenses/pairing/request" && request.method === "POST")
         return await createDevicePairingRequest(request, env, headers);
       if (url.pathname === "/api/licenses/pairing/pending" && request.method === "POST")
         return await listPendingDevicePairings(request, env, headers);
