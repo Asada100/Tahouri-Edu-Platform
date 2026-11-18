@@ -823,6 +823,14 @@ async function main() {
     assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id = ?").get(stored.license_id).count), 2,
         "A license must permit one phone and one computer simultaneously.");
 
+    // Migration 11 must permit a revoked device's history and a replacement slot, while retaining the active-slot guard.
+    db.prepare("UPDATE license_device_slots SET revoked_at = ? WHERE license_id = ? AND device_type = 'phone' AND installation_id = 'install-1'").run(new Date().toISOString(), stored.license_id);
+    db.prepare("INSERT INTO license_device_slots (license_id, device_type, installation_id, bound_at, public_key_pem, key_fingerprint) VALUES (?, 'phone', 'install-phone-replacement', ?, ?, ?)").run(stored.license_id, new Date().toISOString(), 'replacement-public-key', 'replacement-fingerprint');
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id = ? AND device_type = 'phone'").get(stored.license_id).count), 2, "Revoked device history must remain alongside a replacement slot.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id = ? AND device_type = 'phone' AND revoked_at IS NULL").get(stored.license_id).count), 1, "Only one phone slot may remain active.");
+    assert.throws(() => db.prepare("INSERT INTO license_device_slots (license_id, device_type, installation_id, bound_at) VALUES (?, 'phone', 'install-phone-overflow', ?)").run(stored.license_id, new Date().toISOString()), /UNIQUE constraint failed/, "Database must prevent two active phones.");
+    
+
     const status = await request(worker, env, "/api/licenses/status?licenseId=" + encodeURIComponent(stored.license_id), "GET");
     assert.equal(status.status, 200);
     assert.deepEqual(await status.json(), { ok: true, valid: true },
