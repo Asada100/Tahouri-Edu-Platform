@@ -1636,7 +1636,7 @@
     function isRemoteProductionMode() {
         return Boolean(
             window.TahouriServiceConfig &&
-            window.TahouriServiceConfig.mode === "production"
+            ["production", "pr141-isolated-test"].includes(window.TahouriServiceConfig.mode)
         );
     }
 
