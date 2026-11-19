@@ -350,7 +350,10 @@ async function activateLicense(request, env, headers) {
   const codeHash = await sha256(code);
   let deviceIdentity;
   try {
-    deviceIdentity = await verifyDeviceActivationProof(body, { installationId, deviceType, studentId, gradeId, codeHash });
+    deviceIdentity = await verifyDeviceActivationProof(body, {
+      purpose: "tahouri-device-pairing-request-v1",
+      installationId, deviceType, studentId, gradeId, codeHash
+    });
   } catch (proofError) {
     return error(proofError.message || "اثبات هویت دستگاه معتبر نیست.", proofError.status || 400, headers);
   }
