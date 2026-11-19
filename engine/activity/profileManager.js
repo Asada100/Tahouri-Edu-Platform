@@ -650,6 +650,74 @@ hasProfiles: function () {
 
 
 // =====================================
+ // IMPORT EXISTING PROFILES
+ // Preserves studentId; imports identity only.
+ // =====================================
+
+importProfiles: function (items) {
+    if (!Array.isArray(items) || items.length < 1 || items.length > 100) {
+        throw new Error("فایل باید بین ۱ تا ۱۰۰ پروفایل داشته باشد.");
+    }
+
+    const normalized = new Map();
+    for (const item of items) {
+        const studentId = String(item && item.studentId || "").trim();
+        const name = String(item && (item.fullName || item.name) || "").trim();
+        const grade = String(item && (item.gradeId || item.grade) || "").trim();
+
+        if (!studentId || studentId.length > 128 || !/^[A-Za-z0-9_-]+$/.test(studentId)) {
+            throw new Error("شناسهٔ یکی از پروفایل‌ها معتبر نیست.");
+        }
+        if (!name || name.length > 160) {
+            throw new Error("نام یکی از پروفایل‌ها معتبر نیست.");
+        }
+        if (!/^grade[1-6]$/.test(grade)) {
+            throw new Error("پایهٔ یکی از پروفایل‌ها معتبر نیست.");
+        }
+
+        const candidate = { studentId: studentId, name: name, grade: grade };
+        const prior = normalized.get(studentId);
+        if (prior && (prior.name !== name || prior.grade !== grade)) {
+            throw new Error("یک شناسه در فایل با اطلاعات متفاوت تکرار شده است.");
+        }
+        normalized.set(studentId, candidate);
+    }
+
+    const additions = [];
+    let alreadyPresent = 0;
+    for (const candidate of normalized.values()) {
+        const existing = this.profiles.find(function (profile) {
+            return String(profile.studentId) === candidate.studentId;
+        });
+        if (existing) {
+            if (String(existing.name || "").trim() !== candidate.name || String(existing.grade || "") !== candidate.grade) {
+                throw new Error("این شناسه روی دستگاه با نام یا پایهٔ متفاوتی وجود دارد: " + candidate.studentId);
+            }
+            alreadyPresent++;
+            continue;
+        }
+        additions.push(this.buildProfile({
+            studentId: candidate.studentId,
+            name: candidate.name,
+            grade: candidate.grade
+        }));
+    }
+
+    if (additions.length) {
+        this.profiles.push(...additions);
+        if (!this.activeProfileId) this.activeProfileId = additions[0].studentId;
+        this.save();
+    }
+
+    return {
+        imported: additions.length,
+        alreadyPresent: alreadyPresent,
+        total: normalized.size
+    };
+},
+
+
+// =====================================
 // CREATE PROFILE
 // =====================================
 
