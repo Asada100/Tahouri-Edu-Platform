@@ -1624,6 +1624,17 @@
         }
 
 
+        // Resolve values locally: renderList() scope is not available here.
+        const activeProfile = getActiveProfile();
+        const currentGrade = activeProfile && activeProfile.grade
+            ? activeProfile.grade
+            : "";
+        const currentGradeNumber = Number(String(currentGrade || "").replace(/^grade/i, ""));
+        const nextGradeId = Number.isInteger(currentGradeNumber) && currentGradeNumber > 0
+            ? "grade" + (currentGradeNumber + 1)
+            : "";
+        const activated = isGradeActivated(currentGrade);
+
         const grades =
             getGradeList();
 
