@@ -328,6 +328,38 @@ async function main() {
     assert.equal(expiredStatus.status, "expired",
         "An expired entitlement must be reported as expired.");
 
+    // A previously activated installation may have a signed entitlement
+    // bound to the legacy LocalStorage installation ID. Preserve that exact
+    // entitlement locally during the transition, without treating the legacy
+    // ID as proof for pairing or device replacement.
+    const legacyInstallationId = "legacy-installation-for-migration-test";
+    storage.setItem("Tahouri_Installation_Id_v1", legacyInstallationId);
+    const legacyClaims = makeClaims(profile.studentId, "grade6", "lic_legacy_offline");
+    legacyClaims.academicYear = currentYear;
+    legacyClaims.installationBinding = legacyInstallationId;
+    legacyClaims.validFrom = new Date(Date.now() - 60000).toISOString();
+    legacyClaims.validUntil = new Date(Date.now() + 86400000).toISOString();
+    window.TahouriEntitlementStore.readAll = () => [envelope(legacyClaims)];
+
+    assert.equal(await manager.initializeRemoteEntitlement(), true,
+        "A valid signed legacy-bound entitlement must remain selectable during offline migration.");
+    assert.equal(manager.isGradeActivated("grade6", profile.studentId), true,
+        "A valid legacy-bound entitlement must preserve access during the transition.");
+    const legacyStatus = await manager.getProfileEntitlementStatus(profile.studentId, "grade6");
+    assert.equal(legacyStatus.active, true,
+        "Profile status must recognize the matching legacy installation binding.");
+
+    const unrelatedLegacyClaims = {
+        ...legacyClaims,
+        installationBinding: "different-legacy-installation"
+    };
+    window.TahouriEntitlementStore.readAll = () => [envelope(unrelatedLegacyClaims)];
+    assert.equal(await manager.initializeRemoteEntitlement(), false,
+        "A legacy entitlement bound to a different installation must remain rejected.");
+    const unrelatedLegacyStatus = await manager.getProfileEntitlementStatus(profile.studentId, "grade6");
+    assert.equal(unrelatedLegacyStatus.active, false,
+        "A different legacy installation must not inherit the entitlement.");
+
     console.log("License Manager mode and entitlement test: PASS");
 }
 
