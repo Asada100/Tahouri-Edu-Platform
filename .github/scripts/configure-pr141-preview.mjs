@@ -21,7 +21,7 @@ const replacements = [
     [/mode: "production"/g, 'mode: "pr141-isolated-test"'],
     [/apiBaseUrl: "https:\/\/tahouri-license-api\.asadtahouri1986\.workers\.dev\/api"/g,
         'apiBaseUrl: "' + apiBaseUrl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + '"'],
-    [/publicKeyPem: "\\-\\-\\-\\-\\-BEGIN PUBLIC KEY\\-\\-\\-\\-\\-[\\s\\S]*?\\-\\-\\-\\-\\-END PUBLIC KEY\\-\\-\\-\\-\\-"/g,
+    [/publicKeyPem: "[^"]*"/g,
         'publicKeyPem: ""']
 ];
 
