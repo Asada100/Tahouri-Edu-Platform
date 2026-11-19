@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 "use strict";
 
-const fs = require("node:fs");
-const path = require("node:path");
+import fs from "node:fs";
+import path from "node:path";
 
 const configPath = process.argv[2];
 const apiBaseUrl = process.env.PR141_PREVIEW_API_BASE_URL || "";
