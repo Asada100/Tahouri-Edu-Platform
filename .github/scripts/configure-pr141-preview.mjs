@@ -20,7 +20,7 @@ let source = fs.readFileSync(absolutePath, "utf8");
 const replacements = [
     [/mode: "production"/g, 'mode: "pr141-isolated-test"'],
     [/apiBaseUrl: "https:\/\/tahouri-license-api\.asadtahouri1986\.workers\.dev\/api"/g,
-        'apiBaseUrl: "' + apiBaseUrl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + '"'],
+        'apiBaseUrl: "' + apiBaseUrl + '"'],
     [/publicKeyPem: "[^"]*"/g,
         'publicKeyPem: ""']
 ];
