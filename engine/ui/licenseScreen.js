@@ -2395,12 +2395,12 @@
         try {
 
             if (
-                hasActiveProfileLicense &&
-                typeof LicenseManager.activateRemote ===
-                    "function"
+                window.TahouriServiceConfig &&
+                ["production", "pr141-isolated-test"].includes(window.TahouriServiceConfig.mode)
             ) {
 
-                if (!activeProfile || !activeProfile.studentId) {
+                if (!activeProfile || !activeProfile.studentId ||
+                    typeof LicenseManager.activateRemote !== "function") {
                     showManagementError(
                         "پروفایل فعال برای تمدید مجوز پیدا نشد."
                     );
