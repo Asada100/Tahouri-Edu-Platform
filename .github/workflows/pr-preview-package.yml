@@ -27,6 +27,22 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
+      - name: Verify isolated PR141 preview configuration
+        env:
+          PR141_PREVIEW_API_BASE_URL: https://tahouri-pr141-device-e2e-20261119.asadtahouri1986.workers.dev/api
+        run: |
+          TEST_DIR="$RUNNER_TEMP/pr141-config-test"
+          mkdir -p "$TEST_DIR"
+          cp engine/core/tahouriServiceConfig.js "$TEST_DIR/config.js"
+          node .github/scripts/configure-pr141-preview.mjs "$TEST_DIR/config.js"
+          grep -F 'mode: "pr141-isolated-test"' "$TEST_DIR/config.js"
+          grep -F 'apiBaseUrl: "https://tahouri-pr141-device-e2e-20261119.asadtahouri1986.workers.dev/api"' "$TEST_DIR/config.js"
+          grep -F 'publicKeyPem: ""' "$TEST_DIR/config.js"
+          if grep -F 'tahouri-license-api.asadtahouri1986.workers.dev' "$TEST_DIR/config.js"; then
+            echo "Production Worker URL remained in preview config" >&2
+            exit 1
+          fi
+
       - name: Package isolated PR141 static preview
         env:
           PR141_PREVIEW_API_BASE_URL: https://tahouri-pr141-device-e2e-20261119.asadtahouri1986.workers.dev/api
