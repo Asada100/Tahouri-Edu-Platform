@@ -1671,6 +1671,18 @@
 
         }
 
+        // Resolve the active profile state locally. These values were
+        // previously declared only inside renderList(), so entering this
+        // form threw ReferenceError and left the previous screen visible.
+        const activeProfile = getActiveProfile();
+        const currentGrade = activeProfile && activeProfile.grade
+            ? activeProfile.grade
+            : "";
+        const currentGradeNumber = Number(String(currentGrade || "").replace(/^grade/i, ""));
+        const nextGradeId = Number.isInteger(currentGradeNumber) && currentGradeNumber > 0
+            ? "grade" + (currentGradeNumber + 1)
+            : "";
+        const activated = isGradeActivated(currentGrade);
 
         const grades =
             getGradeList();
@@ -1918,6 +1930,15 @@
 
         `;
 
+
+        // Pairing is rendered inside this form, so its handler must
+        // be bound here (the list-screen binder runs before this button exists).
+        const pairingRequestButton =
+            document.getElementById("tahouriPairingRequestButton");
+
+        if (pairingRequestButton) {
+            pairingRequestButton.addEventListener("click", beginPairingRequest);
+        }
 
         // =====================================================
         // Activation
