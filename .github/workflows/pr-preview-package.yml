@@ -27,17 +27,23 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
-      - name: Package static site for local preview
+      - name: Package isolated PR141 static preview
+        env:
+          PR141_PREVIEW_API_BASE_URL: https://tahouri-pr141-device-e2e-20261119.asadtahouri1986.workers.dev/api
         run: |
-          zip -r "$RUNNER_TEMP/tahouri-preview.zip" . \
+          STAGE="$RUNNER_TEMP/tahouri-pr141-preview"
+          mkdir -p "$STAGE"
+          cp -a . "$STAGE/"
+          node .github/scripts/configure-pr141-preview.mjs "$STAGE/engine/core/tahouriServiceConfig.js"
+          (cd "$STAGE" && zip -r "$RUNNER_TEMP/tahouri-preview.zip" . \
             -x ".git/*" \
             -x "node_modules/*" \
-            -x ".github/*"
+            -x ".github/*")
 
       - name: Upload preview package
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: tahouri-even-odd-sum-preview
+          name: tahouri-pr141-isolated-preview
           path: ${{ runner.temp }}/tahouri-preview.zip
           if-no-files-found: error
           retention-days: 7
