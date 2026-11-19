@@ -9,6 +9,7 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches:
+      - implementation/one-phone-one-pc
       - integration/security-release-gates-117-118-119-20261115
       - fix/integrated-production-public-key-pin-20261116
       - test/integrated-security-public-key-browser-e2e-20261116
