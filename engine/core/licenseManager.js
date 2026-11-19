@@ -1733,6 +1733,16 @@
         try { let id=localStorage.getItem(key); if(!id){ id=(window.crypto&&typeof window.crypto.randomUUID==="function")?window.crypto.randomUUID():"install_"+Date.now()+"_"+Math.random().toString(36).slice(2); localStorage.setItem(key,id);} return id; }
         catch(error){ return "ephemeral_"+Date.now(); }
     }
+    // Read-only compatibility lookup for an entitlement already signed
+    // against this installation's pre-cryptographic LocalStorage ID.
+    // This ID preserves local continuity only; it is never device proof.
+    function getLegacyInstallationId() {
+        try {
+            return String(localStorage.getItem("Tahouri_Installation_Id_v1") || "").trim();
+        } catch (error) {
+            return "";
+        }
+    }
     async function getOrCreateRemoteInstallationId() {
         if (window.TahouriDeviceIdentity && typeof window.TahouriDeviceIdentity.getOrCreate === "function") {
             const identity = await window.TahouriDeviceIdentity.getOrCreate();
@@ -1783,7 +1793,9 @@
 
                 const claims = result.claims;
                 const binding = claims.installationBinding;
-                if (binding && binding !== installationId) continue;
+                const legacyInstallationId = getLegacyInstallationId();
+                if (binding && binding !== installationId &&
+                    binding !== legacyInstallationId) continue;
                 if (normalizeStudentId(claims.studentId) !== activeStudentId) continue;
                 if (!claims.gradeScope || claims.gradeScope !== activeGradeId) continue;
 
@@ -1884,7 +1896,13 @@
                 }
 
                 const claims = verification.claims;
-                if (claims.installationBinding !== installationId) {
+                const legacyInstallationId = getLegacyInstallationId();
+                const matchesCurrentInstallation = claims.installationBinding === installationId;
+                const matchesLegacyInstallation = Boolean(
+                    legacyInstallationId &&
+                    claims.installationBinding === legacyInstallationId
+                );
+                if (!matchesCurrentInstallation && !matchesLegacyInstallation) {
                     lastStatus = "invalid";
                     lastReason = "این مجوز به دستگاه دیگری متصل است.";
                     continue;
