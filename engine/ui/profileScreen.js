@@ -32,11 +32,20 @@ const ProfileScreen = {
     <button id="createFirstProfileBtn" type="button">
         ➕ ایجاد پروفایل
     </button>
+    <hr>
+    <h2>انتقال پروفایل از دستگاه دیگر</h2>
+    <p>فایل خروجی پروفایل را انتخاب کنید؛ شناسهٔ دانش‌آموز حفظ می‌شود. نمره‌ها و تنظیمات منتقل نمی‌شوند.</p>
+    <input id="profileImportFile" type="file" accept=".json,application/json">
+    <button id="profileImportBtn" type="button">واردکردن فایل پروفایل</button>
+    <p id="profileImportMessage" aria-live="polite"></p>
 </div>
             `;
 
             document.getElementById("createFirstProfileBtn").onclick = function () {
                 ProfileScreen.showCreate();
+            };
+            document.getElementById("profileImportBtn").onclick = function () {
+                ProfileScreen.importProfilesFromFile();
             };
             return;
         }
@@ -238,6 +247,13 @@ const ProfileScreen = {
     <p>با انتخاب هر پروفایل، وارد صفحه همان دانش‌آموز می‌شوید. وضعیت مجوز و دکمه فعال‌سازی هم در همان صفحه مشخص است.</p>
     <button id="exportProfilesForAdminBtn" type="button">دانلود فهرست پروفایل‌ها برای پنل مدیریت</button>
     <p id="exportProfilesMessage" aria-live="polite"></p>
+    <section class="profile-import-panel">
+        <h2>انتقال پروفایل از دستگاه دیگر</h2>
+        <p>فایل خروجی پروفایل را انتخاب کنید؛ شناسهٔ دانش‌آموز حفظ می‌شود. نمره‌ها و تنظیمات منتقل نمی‌شوند.</p>
+        <input id="profileImportFile" type="file" accept=".json,application/json">
+        <button id="profileImportBtn" type="button">واردکردن فایل پروفایل</button>
+        <p id="profileImportMessage" aria-live="polite"></p>
+    </section>
     <hr>
     <div class="profiles-list">
         ${profiles.map(function (profile) {
@@ -264,6 +280,12 @@ const ProfileScreen = {
         if (exportButton) {
             exportButton.onclick = function () {
                 ProfileScreen.exportProfilesForAdmin();
+            };
+        }
+        const importButton = document.getElementById("profileImportBtn");
+        if (importButton) {
+            importButton.onclick = function () {
+                ProfileScreen.importProfilesFromFile();
             };
         }
 
@@ -477,6 +499,31 @@ const ProfileScreen = {
             ActivationGate.open();
         }
         return false;
+    },
+
+    // Import existing profiles from another device.
+    // The exported identity fields are preserved; progress/settings are not transferred.
+    importProfilesFromFile: async function () {
+        const input = document.getElementById("profileImportFile");
+        const message = document.getElementById("profileImportMessage");
+        try {
+            const file = input && input.files && input.files[0];
+            if (!file) throw new Error("ابتدا فایل خروجی پروفایل‌ها را انتخاب کنید.");
+            const payload = JSON.parse(await file.text());
+            if (payload.format !== "tahouri-student-profiles" || payload.version !== 1 || !Array.isArray(payload.profiles)) {
+                throw new Error("ساختار فایل پروفایل‌های طهوری معتبر نیست.");
+            }
+            const result = ProfileManager.importProfiles(payload.profiles);
+            input.value = "";
+            ProfileScreen.showProfiles();
+            const status = document.getElementById("profileImportMessage");
+            if (status) {
+                status.textContent = "ورود انجام شد؛ پروفایل جدید: " + result.imported +
+                    "، از قبل موجود: " + result.alreadyPresent + "، مجموع: " + result.total + ".";
+            }
+        } catch (error) {
+            if (message) message.textContent = error.message || "واردکردن پروفایل انجام نشد.";
+        }
     },
 
     // Export Existing Profiles for License Admin
