@@ -70,6 +70,20 @@ async function main() {
         verifyEnvelope: async item => ({ valid: true, claims: item.claims })
     };
 
+    window.TahouriEntitlementStore.write = item => Boolean(item && item.claims);
+    function makeDeviceLeaseStatus(licenseId) {
+        const selected = window.TahouriEntitlementStore.readAll()
+            .find(item => item.claims.licenseId === licenseId);
+        if (!selected) return { valid: false };
+        const leaseClaims = {
+            ...selected.claims,
+            deviceSlotId: "a".repeat(64),
+            revocationEpoch: Date.now() - 1000,
+            offlineLeaseExpiresAt: new Date(Date.now() + 7 * 86400000).toISOString()
+        };
+        return { valid: true, entitlement: envelope(leaseClaims) };
+    }
+
     assert.equal(await manager.initializeRemoteEntitlement(), true,
         "A verifier-approved entitlement matching the active profile must initialize.");
     assert.equal(manager.isGradeActivated("grade6", profile.studentId), true,
@@ -83,7 +97,7 @@ async function main() {
     window.TahouriLicenseClient = {
         status: async licenseId => {
             refreshedLicenseId = licenseId;
-            return { valid: true };
+            return makeDeviceLeaseStatus(licenseId);
         }
     };
     const refreshResult = await manager.refreshRemoteLicenseStatus();
@@ -108,7 +122,7 @@ async function main() {
     assert.equal(manager.isGradeActivated("grade6", profile.studentId), false,
         "A revoked or missing server license must not remain authorized.");
 
-    window.TahouriLicenseClient.status = async () => ({ valid: true });
+    window.TahouriLicenseClient.status = async licenseId => makeDeviceLeaseStatus(licenseId);
     assert.equal(await manager.initializeRemoteEntitlement(), true,
         "A still-valid signed local entitlement can be selected again before subsequent profile-switch tests.");
 
@@ -139,7 +153,7 @@ async function main() {
         "A delayed status response for a previous profile must be ignored.");
     assert.equal(manager.isGradeActivated("grade6", studentB.studentId), true,
         "A stale invalid status response must not clear the newly selected profile entitlement.");
-    window.TahouriLicenseClient.status = async () => ({ valid: true });
+    window.TahouriLicenseClient.status = async licenseId => makeDeviceLeaseStatus(licenseId);
 
     profile.studentId = studentB.studentId;
     profile.grade = "grade6";
