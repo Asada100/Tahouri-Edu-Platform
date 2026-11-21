@@ -127,11 +127,11 @@ async function main() {
 
     // A legacy signed envelope without a bounded device lease must not
     // authorize offline when its proof-bound online upgrade is unavailable.
-    const legacyClaims = { ...claims };
-    delete legacyClaims.deviceSlotId;
-    delete legacyClaims.revocationEpoch;
-    delete legacyClaims.offlineLeaseExpiresAt;
-    window.TahouriEntitlementStore.readAll = () => [envelope(legacyClaims)];
+    const legacyWithoutLeaseClaims = { ...claims };
+    delete legacyWithoutLeaseClaims.deviceSlotId;
+    delete legacyWithoutLeaseClaims.revocationEpoch;
+    delete legacyWithoutLeaseClaims.offlineLeaseExpiresAt;
+    window.TahouriEntitlementStore.readAll = () => [envelope(legacyWithoutLeaseClaims)];
     const legacyOffline = await manager.initializeRemoteEntitlement();
     assert.equal(legacyOffline, false,
         "A legacy entitlement without an offline lease must fail closed during a network outage.");
@@ -376,12 +376,12 @@ async function main() {
     // ID as proof for pairing or device replacement.
     const legacyInstallationId = "legacy-installation-for-migration-test";
     storage.setItem("Tahouri_Installation_Id_v1", legacyInstallationId);
-    const legacyClaims = makeClaims(profile.studentId, "grade6", "lic_legacy_offline");
-    legacyClaims.academicYear = currentYear;
-    legacyClaims.installationBinding = legacyInstallationId;
-    legacyClaims.validFrom = new Date(Date.now() - 60000).toISOString();
-    legacyClaims.validUntil = new Date(Date.now() + 86400000).toISOString();
-    window.TahouriEntitlementStore.readAll = () => [envelope(legacyClaims)];
+    const legacyWithoutLeaseClaims = makeClaims(profile.studentId, "grade6", "lic_legacy_offline");
+    legacyWithoutLeaseClaims.academicYear = currentYear;
+    legacyWithoutLeaseClaims.installationBinding = legacyInstallationId;
+    legacyWithoutLeaseClaims.validFrom = new Date(Date.now() - 60000).toISOString();
+    legacyWithoutLeaseClaims.validUntil = new Date(Date.now() + 86400000).toISOString();
+    window.TahouriEntitlementStore.readAll = () => [envelope(legacyWithoutLeaseClaims)];
 
     assert.equal(await manager.initializeRemoteEntitlement(), true,
         "A valid signed legacy-bound entitlement must remain selectable during offline migration.");
@@ -392,7 +392,7 @@ async function main() {
         "Profile status must recognize the matching legacy installation binding.");
 
     const unrelatedLegacyClaims = {
-        ...legacyClaims,
+        ...legacyWithoutLeaseClaims,
         installationBinding: "different-legacy-installation"
     };
     window.TahouriEntitlementStore.readAll = () => [envelope(unrelatedLegacyClaims)];
