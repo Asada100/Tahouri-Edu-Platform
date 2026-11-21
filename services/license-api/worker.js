@@ -942,6 +942,54 @@ async function getDevicePairingStatus(request, env, headers) {
     approvedAt: row.approvedAt || null, entitlement }, 200, headers);
 }
 
+async function deviceBoundLicenseStatus(request, env, headers) {
+  if (!request.headers.get("Origin") || !allowedOrigin(request, env)) {
+    return error("مبدأ درخواست مجاز نیست.", 403, headers);
+  }
+  if (String(request.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase() !== "application/json") {
+    return error("نوع محتوا باید application/json باشد.", 415, headers);
+  }
+  const body = await bodyJson(request);
+  const licenseId = bounded(body.licenseId, 128, "licenseId");
+  const deviceType = String(body.deviceType || "").trim().toLowerCase();
+  const installationId = validIdentifier(body.installationId, "installationId");
+  const keyFingerprint = bounded(body.keyFingerprint, 128, "keyFingerprint");
+  if (!["phone", "computer"].includes(deviceType) || !/^[a-f0-9]{64}$/.test(keyFingerprint)) {
+    return error("هویت دستگاه معتبر نیست.", 400, headers);
+  }
+
+  const device = await env.DB.prepare(`SELECT public_key_pem AS publicKeyPem
+    FROM license_device_slots
+    WHERE license_id = ? AND device_type = ? AND installation_id = ?
+      AND key_fingerprint = ? AND revoked_at IS NULL`)
+    .bind(licenseId, deviceType, installationId, keyFingerprint).first();
+  if (!device?.publicKeyPem) return json({ ok: true, valid: false }, 200, headers);
+
+  const proof = {
+    purpose: "tahouri-device-bound-license-status-v1",
+    licenseId, deviceType, installationId, keyFingerprint
+  };
+  try {
+    await verifyStoredDeviceSignature(device.publicKeyPem, body.deviceSignature, proof);
+  } catch (proofError) {
+    return error(proofError.message || "اثبات مالکیت دستگاه معتبر نیست.",
+      proofError.status || 401, headers);
+  }
+
+  const license = await env.DB.prepare(`SELECT valid_from AS validFrom,
+      valid_until AS validUntil, status
+    FROM licenses WHERE license_id = ?`)
+    .bind(licenseId).first();
+  const now = Date.now();
+  const from = Date.parse(license?.validFrom);
+  const until = Date.parse(license?.validUntil);
+  const valid = !!license &&
+    ["active", "future"].includes(license.status) &&
+    Number.isFinite(from) && Number.isFinite(until) &&
+    from <= now && until > now;
+  return json({ ok: true, valid }, 200, headers);
+}
+
 async function licenseStatus(request, env, url, headers) {
   const licenseId = String(url.searchParams.get("licenseId") || "").trim();
   if (!licenseId) return json({ ok: false, valid: false, message: "licenseId الزامی است." }, 400, headers);
@@ -1449,6 +1497,8 @@ export default {
         return await recoverApprovedPairingEntitlement(request, env, headers);
       if (url.pathname === "/api/licenses/pairing/status" && request.method === "POST")
         return await getDevicePairingStatus(request, env, headers);
+      if (url.pathname === "/api/licenses/device-status" && request.method === "POST")
+        return await deviceBoundLicenseStatus(request, env, headers);
       if (url.pathname === "/api/licenses/status" && request.method === "GET")
         return await licenseStatus(request, env, url, headers);
       if (url.pathname.startsWith("/api/admin/") || url.pathname === "/api/metrics" || url.pathname === "/api/metrics/alerts")
