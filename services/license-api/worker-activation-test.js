@@ -1013,12 +1013,22 @@ async function main() {
         approverSignature: "A".repeat(344)
     });
     assert.equal(forgedRevocation.status, 401, "A forged signature must not revoke a device.");
-    const revocation = await request(worker, env, "/api/licenses/device-revocation/execute", "POST", {
+    const concurrentRevocationPayload = {
         challengeId: revocationChallenge.challengeId, nonce: revocationChallenge.nonce,
         approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(revocationProof)),
             activationDevicePair.privateKey).toString("base64")
-    });
-    assert.equal(revocation.status, 200, "A valid complementary-device signature must revoke the exact target slot.");
+    };
+    const concurrentRevocations = await Promise.all([
+        request(worker, env, "/api/licenses/device-revocation/execute", "POST", concurrentRevocationPayload),
+        request(worker, env, "/api/licenses/device-revocation/execute", "POST", concurrentRevocationPayload)
+    ]);
+    const successfulRevocations = concurrentRevocations.filter(response => response.status === 200);
+    const rejectedRevocations = concurrentRevocations.filter(response => response.status === 409);
+    assert.equal(successfulRevocations.length, 1,
+        "Two simultaneous revocations of one target slot must produce exactly one success.");
+    assert.equal(rejectedRevocations.length, 1,
+        "The competing revocation must fail after the one-use challenge or target slot is consumed.");
+    const revocation = successfulRevocations[0];
     assert.equal((await revocation.json()).status, "revoked");
     assert(db.prepare("SELECT revoked_at FROM license_device_slots WHERE license_id = ? AND device_type = 'computer' AND installation_id = 'install-computer-1' AND key_fingerprint = ?").get(stored.license_id, targetFingerprint).revoked_at,
         "The exact target computer slot must be marked revoked.");
