@@ -132,6 +132,8 @@ async function main() {
     assert(source.includes("document.addEventListener"), "Admin actions must use delegated external JavaScript handlers.");
     assert.match(source, /async function createDeviceRevocationChallenge/);
     assert.match(source, /async function executeDeviceRevocation/);
+    assert.match(source, /async function recoverApprovedPairingEntitlement/);
+    assert(source.includes("pairing/recover"), "Worker must expose signed approved-entitlement recovery.");
     assert(source.includes("device-slots") && source.includes("async function listBoundDeviceSlots"), "Worker must expose authenticated device-slot listing.");
     assert(source.includes("device-revocation/challenge"), "Worker must route revocation challenge requests.");
     assert(source.includes("device-revocation/execute"), "Worker must route revocation execution requests.");
@@ -752,6 +754,34 @@ async function main() {
     assert.equal(approvalBody.entitlement.claims.installationBinding, "install-computer-1");
     assert.equal(approvalBody.entitlement.claims.deviceType, "computer");
     assert.equal(approvalBody.entitlement.claims.deviceKeyFingerprint, storedPairing.requester_key_fingerprint);
+
+    const recoveryProof = {
+        purpose: "tahouri-device-pairing-recovery-v1",
+        licenseId: stored.license_id, deviceType: "computer",
+        installationId: "install-computer-1",
+        keyFingerprint: storedPairing.requester_key_fingerprint
+    };
+    const forgedRecovery = await request(worker, env, "/api/licenses/pairing/recover", "POST", {
+        deviceType: "computer", installationId: "install-computer-1",
+        keyFingerprint: storedPairing.requester_key_fingerprint, deviceSignature: "A".repeat(344)
+    });
+    assert.equal(forgedRecovery.status, 401,
+        "An untrusted device must not recover an approved entitlement.");
+    const recovered = await request(worker, env, "/api/licenses/pairing/recover", "POST", {
+        deviceType: "computer", installationId: "install-computer-1",
+        keyFingerprint: storedPairing.requester_key_fingerprint,
+        deviceSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(recoveryProof)),
+            pairingDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(recovered.status, 200, "The approved requester must recover its entitlement using proof of private-key possession.");
+    const recoveredBody = await recovered.json();
+    assert.equal(recoveredBody.status, "approved");
+    assert.deepEqual(recoveredBody.entitlement, approvalBody.entitlement,
+        "Recovery must return only the exact entitlement originally approved for this installation.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id = ?").get(stored.license_id).count), 2,
+        "Entitlement recovery must not create, replace, or revoke a device slot.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'device.pairing.entitlement_recovered' AND license_id = ?").get(stored.license_id).count), 1,
+        "Successful entitlement recovery must be audited.");
     assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id = ? AND device_type = 'computer' AND installation_id = 'install-computer-1'").get(stored.license_id).count), 1,
         "Approval must bind the exact requester installation to the vacant computer slot.");
     const consumedReplay = await request(worker, env, "/api/licenses/pairing/approve", "POST", {
