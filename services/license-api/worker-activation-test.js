@@ -1235,8 +1235,12 @@ async function main() {
       "Admin recovery must reject a legacy slot with NULL public key and fingerprint.");
     const unchangedLegacySlot = db.prepare("SELECT revoked_at, public_key_pem, key_fingerprint FROM license_device_slots WHERE license_id=? AND device_type='phone' AND installation_id=?")
       .get(stored.license_id, legacyInstallationId);
-    assert.deepEqual(unchangedLegacySlot, { revoked_at: null, public_key_pem: null, key_fingerprint: null },
-      "A rejected legacy recovery attempt must leave the legacy slot unchanged.");
+    assert.equal(unchangedLegacySlot.revoked_at, null,
+      "A rejected legacy recovery attempt must not revoke the legacy slot.");
+    assert.equal(unchangedLegacySlot.public_key_pem, null,
+      "A rejected legacy recovery attempt must not add a public key.");
+    assert.equal(unchangedLegacySlot.key_fingerprint, null,
+      "A rejected legacy recovery attempt must not add a key fingerprint.");
     assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type='device.admin_recovered' AND license_id=?").get(stored.license_id).count), 1,
       "A rejected legacy recovery attempt must not create a successful-recovery audit event.");
 
