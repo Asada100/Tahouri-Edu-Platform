@@ -397,8 +397,7 @@ async function main() {
             .get(await sha256(issued.code));
         assert.deepEqual({ ...stored }, { gradeId: profile.gradeId, academicYear: String(currentIranianYear()), status: "active" });
     }
-    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'codes.created'").get().count), 4,
-        "Each bulk-created code must have an individual audit event.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'codes.created'").get().count), 4,        "Each bulk-created code must have an individual audit event.");
     const duplicateBulk = await worker.fetch(new Request("https://api.example.test/api/admin/codes/bulk", {
         method: "POST",
         headers: { "content-type": "application/json", "origin": env.ADMIN_ORIGIN, "cookie": adminCookie },
@@ -657,6 +656,15 @@ async function main() {
         "The stored device fingerprint must be SHA-256 of the DER SPKI bytes.");
     assert.equal(activationBody.entitlement.claims.deviceType, "phone");
     assert.equal(activationBody.entitlement.claims.deviceKeyFingerprint, storedDeviceIdentity.key_fingerprint);
+    // Characterization guard: issued entitlements currently have no slot ID,
+    // revocation epoch, or bounded offline lease.
+    assert.equal(activationBody.entitlement.claims.deviceSlotId, undefined,
+        "Characterization: initial activation currently omits the device slot ID.");
+    assert.equal(activationBody.entitlement.claims.revocationEpoch, undefined,
+        "Characterization: initial activation currently omits a revocation epoch.");
+    assert.equal(activationBody.entitlement.claims.offlineLeaseExpiresAt, undefined,
+        "Characterization: initial activation currently has no bounded offline lease.");
+
     assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id = ?").get(stored.license_id).count), 1,
         "Only one slot should be bound after initial phone activation.");
 
@@ -797,8 +805,7 @@ async function main() {
         deviceSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(recoveryProof)),
             pairingDevicePair.privateKey).toString("base64")
     });
-    assert.equal(pairingRecovered.status, 200, "The approved requester must recover its entitlement using proof of private-key possession.");
-    const pairingRecoveredBody = await pairingRecovered.json();
+    assert.equal(pairingRecovered.status, 200, "The approved requester must recover its entitlement using proof of private-key possession.");    const pairingRecoveredBody = await pairingRecovered.json();
     assert.equal(pairingRecoveredBody.status, "approved");
     assert.deepEqual(pairingRecoveredBody.entitlement, approvalBody.entitlement,
         "Recovery must return only the exact entitlement originally approved for this installation.");
@@ -998,6 +1005,12 @@ async function main() {
         "The exact target computer slot must be marked revoked.");
     assert.equal(db.prepare("SELECT revoked_at FROM license_device_slots WHERE license_id = ? AND device_type = 'phone' AND installation_id = 'install-1'").get(stored.license_id).revoked_at,
         null, "Revoking the computer must preserve the complementary phone.");
+    const revokedComputerLegacyStatus = await request(worker, env,
+        "/api/licenses/status?licenseId=" + encodeURIComponent(stored.license_id), "GET");
+    assert.equal(revokedComputerLegacyStatus.status, 200);
+    assert.deepEqual(await revokedComputerLegacyStatus.json(), { ok: true, valid: true },
+        "Characterization: the legacy license-wide status endpoint still reports valid after one device slot is revoked, because it cannot identify the requesting device.");
+
     assert.equal(db.prepare("SELECT consumed_at FROM device_revocation_challenges WHERE challenge_id = ?").get(revocationChallenge.challengeId).consumed_at !== null,
         true, "A successful revocation must consume its one-use challenge.");
     assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'device.revoked' AND license_id = ?").get(stored.license_id).count), 1,
@@ -1197,8 +1210,7 @@ async function main() {
     }, "https://evil.example");
     assert.equal(blockedOrigin.status, 403);
 
-    const rateLimitResponses = [];
-    for (let attempt = 0; attempt < 11; attempt++) {
+    const rateLimitResponses = [];    for (let attempt = 0; attempt < 11; attempt++) {
         rateLimitResponses.push(await request(worker, env, "/api/licenses/activate", "POST", {
             code: "INVALID-WORKER-RATE-" + attempt,
             gradeId: "grade6",
