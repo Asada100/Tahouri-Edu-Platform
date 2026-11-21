@@ -30,4 +30,11 @@ assert.match(
 );
 
 console.log("PASS: pairing result button is bound inside the form");
+assert.match(formSection, /getElementById\(["']tahouriPairingRecoverButton["']\)/,
+    "the device recovery button must be present in the license form");
+assert.match(formSection, /pairingRecoverButton\.addEventListener\(["']click["'],\s*recoverApprovedPairingEntitlement\)/,
+    "the recovery button must invoke the signed recovery flow");
+assert.match(source, /async function recoverApprovedPairingEntitlement\(\)[\s\S]*?recoverApprovedPairingEntitlement\(\)/,
+    "the UI must implement an approved-entitlement recovery action");
 console.log("PASS: existing in-memory pairing request remains pollable after reopening the form");
+console.log("PASS: approved entitlement recovery control is rendered and bound");
