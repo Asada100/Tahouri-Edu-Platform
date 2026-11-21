@@ -806,7 +806,8 @@ async function main() {
         deviceSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(recoveryProof)),
             pairingDevicePair.privateKey).toString("base64")
     });
-    assert.equal(pairingRecovered.status, 200, "The approved requester must recover its entitlement using proof of private-key possession.");    const pairingRecoveredBody = await pairingRecovered.json();
+    assert.equal(pairingRecovered.status, 200, "The approved requester must recover its entitlement using proof of private-key possession.");
+    const pairingRecoveredBody = await pairingRecovered.json();
     assert.equal(pairingRecoveredBody.status, "approved");
     assert.deepEqual(pairingRecoveredBody.entitlement, approvalBody.entitlement,
         "Recovery must return only the exact entitlement originally approved for this installation.");
