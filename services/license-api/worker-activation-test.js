@@ -1012,6 +1012,38 @@ async function main() {
     assert.equal(revokedComputerLegacyStatus.status, 200);
     assert.deepEqual(await revokedComputerLegacyStatus.json(), { ok: true, valid: true },
         "Characterization: the legacy license-wide status endpoint still reports valid after one device slot is revoked, because it cannot identify the requesting device.");
+    const phoneStatusProof = {
+        purpose: "tahouri-device-bound-license-status-v1",
+        licenseId: stored.license_id, deviceType: "phone",
+        installationId: "install-1", keyFingerprint: approverFingerprint
+    };
+    const forgedPhoneStatus = await request(worker, env, "/api/licenses/device-status", "POST", {
+        ...phoneStatusProof, deviceSignature: "A".repeat(344)
+    });
+    assert.equal(forgedPhoneStatus.status, 401,
+        "A forged proof must not read the active device status.");
+    const activePhoneStatus = await request(worker, env, "/api/licenses/device-status", "POST", {
+        ...phoneStatusProof,
+        deviceSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(phoneStatusProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(activePhoneStatus.status, 200);
+    assert.deepEqual(await activePhoneStatus.json(), { ok: true, valid: true },
+        "The complementary active phone must remain valid after computer revocation.");
+
+    const revokedComputerStatus = await request(worker, env, "/api/licenses/device-status", "POST", {
+        licenseId: stored.license_id, deviceType: "computer",
+        installationId: "install-computer-1", keyFingerprint: targetFingerprint,
+        deviceSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify({
+            purpose: "tahouri-device-bound-license-status-v1",
+            licenseId: stored.license_id, deviceType: "computer",
+            installationId: "install-computer-1", keyFingerprint: targetFingerprint
+        })), pairingDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(revokedComputerStatus.status, 200);
+    assert.deepEqual(await revokedComputerStatus.json(), { ok: true, valid: false },
+        "A revoked computer must fail its device-bound status check while the license remains valid on the phone.");
+
 
     assert.equal(db.prepare("SELECT consumed_at FROM device_revocation_challenges WHERE challenge_id = ?").get(revocationChallenge.challengeId).consumed_at !== null,
         true, "A successful revocation must consume its one-use challenge.");
