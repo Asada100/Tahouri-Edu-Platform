@@ -11,6 +11,7 @@ const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 const COOKIE_NAME = "tahouri_admin_session";
 const PRODUCT_ID = "tahouri-edu";
 const MAX_BODY_BYTES = 64 * 1024;
+const OFFLINE_LEASE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 function json(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data), {
@@ -228,6 +229,30 @@ async function verifySigningPair(env) {
   return true;
 }
 
+async function addDeviceLeaseClaims(claims, device) {
+  const validFrom = Date.parse(claims.validFrom);
+  const validUntil = Date.parse(claims.validUntil);
+  if (!Number.isFinite(validFrom) || !Number.isFinite(validUntil) || validFrom >= validUntil) {
+    throw Object.assign(new Error("بازه اعتبار مجوز برای صدور مهلت آفلاین معتبر نیست."), { status: 500 });
+  }
+  const leaseStart = Math.max(Date.now(), validFrom);
+  const leaseUntil = Math.min(validUntil, leaseStart + OFFLINE_LEASE_TTL_MS);
+  if (!Number.isFinite(leaseUntil) || leaseUntil <= Date.now()) {
+    throw Object.assign(new Error("مهلت آفلاین مجوز قابل صدور نیست."), { status: 409 });
+  }
+  const deviceSlotId = await sha256([
+    claims.licenseId, claims.deviceType, claims.installationBinding,
+    claims.deviceKeyFingerprint
+  ].join("\n"));
+  const boundAt = Date.parse(device.boundAt);
+  return {
+    ...claims,
+    deviceSlotId,
+    revocationEpoch: Number.isFinite(boundAt) ? boundAt : Date.now(),
+    offlineLeaseExpiresAt: new Date(leaseUntil).toISOString()
+  };
+}
+
 async function signEntitlement(claims, env) {
   const key = await loadSigningKey(env);
   const sig = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key,
@@ -385,14 +410,14 @@ async function activateLicense(request, env, headers) {
 
   const period = academicPeriodForYear(requestedYear);
   const licenseId = "lic_" + crypto.randomUUID();
-  const claims = {
+  const now = nowIso();
+  const claims = await addDeviceLeaseClaims({
     licenseId, productId: PRODUCT_ID, academicYear: String(period.academicYear),
     gradeScope: gradeId, studentId, validFrom: period.validFrom,
     validUntil: period.validUntil, installationBinding: installationId,
     deviceType, deviceKeyFingerprint: deviceIdentity.fingerprint, entitlementVersion: 1
-  };
+  }, { boundAt: now });
   const entitlement = await signEntitlement(claims, env);
-  const now = nowIso();
   const results = await env.DB.batch([
     env.DB.prepare("UPDATE activation_codes SET status = 'used', used_at = ?, license_id = ? WHERE code_hash = ? AND status = 'active' AND used_at IS NULL AND EXISTS (SELECT 1 FROM student_accounts WHERE student_id = ? AND status = 'active')").bind(now, licenseId, codeHash, studentId),
     env.DB.prepare("INSERT INTO licenses (license_id, code_hash, product_id, student_id, grade_id, academic_year, valid_from, valid_until, installation_binding, status, entitlement_json, created_at) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM activation_codes WHERE code_hash = ? AND status = 'used' AND license_id = ?)").bind(licenseId, codeHash, PRODUCT_ID, studentId, gradeId, period.academicYear, period.validFrom, period.validUntil, installationId, futureRenewal ? "future" : "active", JSON.stringify(entitlement), now, codeHash, licenseId),
@@ -762,14 +787,14 @@ async function decideDevicePairing(request, env, headers, decision) {
     return json({ ok: true, status: "rejected" }, 200, headers);
   }
 
-  const claims = {
+  const claims = await addDeviceLeaseClaims({
     licenseId: row.licenseId, productId: row.productId,
     academicYear: String(row.academicYear), gradeScope: row.gradeId,
     studentId: row.studentId, validFrom: row.validFrom, validUntil: row.validUntil,
     installationBinding: row.requesterInstallationId,
     deviceType: row.requesterDeviceType,
     deviceKeyFingerprint: row.requesterFingerprint, entitlementVersion: 1
-  };
+  }, { boundAt: nowText });
   const entitlement = await signEntitlement(claims, env);
   const results = await env.DB.batch([
     env.DB.prepare(`INSERT INTO license_device_slots
@@ -958,7 +983,8 @@ async function deviceBoundLicenseStatus(request, env, headers) {
     return error("هویت دستگاه معتبر نیست.", 400, headers);
   }
 
-  const device = await env.DB.prepare(`SELECT public_key_pem AS publicKeyPem
+  const device = await env.DB.prepare(`SELECT public_key_pem AS publicKeyPem,
+      bound_at AS boundAt
     FROM license_device_slots
     WHERE license_id = ? AND device_type = ? AND installation_id = ?
       AND key_fingerprint = ? AND revoked_at IS NULL`)
@@ -976,8 +1002,9 @@ async function deviceBoundLicenseStatus(request, env, headers) {
       proofError.status || 401, headers);
   }
 
-  const license = await env.DB.prepare(`SELECT valid_from AS validFrom,
-      valid_until AS validUntil, status
+  const license = await env.DB.prepare(`SELECT product_id AS productId,
+      student_id AS studentId, grade_id AS gradeId, academic_year AS academicYear,
+      valid_from AS validFrom, valid_until AS validUntil, status
     FROM licenses WHERE license_id = ?`)
     .bind(licenseId).first();
   const now = Date.now();
@@ -987,7 +1014,17 @@ async function deviceBoundLicenseStatus(request, env, headers) {
     ["active", "future"].includes(license.status) &&
     Number.isFinite(from) && Number.isFinite(until) &&
     from <= now && until > now;
-  return json({ ok: true, valid }, 200, headers);
+  if (!valid) return json({ ok: true, valid: false }, 200, headers);
+
+  const claims = await addDeviceLeaseClaims({
+    licenseId, productId: license.productId,
+    academicYear: String(license.academicYear), gradeScope: license.gradeId,
+    studentId: license.studentId, validFrom: license.validFrom,
+    validUntil: license.validUntil, installationBinding: installationId,
+    deviceType, deviceKeyFingerprint: keyFingerprint, entitlementVersion: 1
+  }, { boundAt: device.boundAt });
+  const entitlement = await signEntitlement(claims, env);
+  return json({ ok: true, valid: true, entitlement }, 200, headers);
 }
 
 async function licenseStatus(request, env, url, headers) {
