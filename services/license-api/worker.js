@@ -504,10 +504,16 @@ async function createDevicePairingRequest(request, env, headers) {
     )
     AND NOT EXISTS (
       SELECT 1 FROM license_device_slots WHERE license_id = ? AND device_type = ? AND revoked_at IS NULL
+    )
+    AND NOT EXISTS (
+      SELECT 1 FROM device_pairing_requests
+      WHERE license_id = ? AND requester_device_type = ?
+        AND decision IS NULL AND consumed_at IS NULL AND cancelled_at IS NULL
+        AND expires_at > ?
     )`).bind(pairingId, codeRecord.licenseId, deviceType, installationId, tokenHash,
       createdAt, expiresAt, studentId, gradeId, deviceIdentity.publicKeyPem,
       deviceIdentity.fingerprint, codeRecord.licenseId, createdAt,
-      codeRecord.licenseId, deviceType).run();
+      codeRecord.licenseId, deviceType, codeRecord.licenseId, deviceType, createdAt).run();
   if (Number(result?.meta?.changes || 0) !== 1) return error("وضعیت جایگاه دستگاه تغییر کرده است؛ درخواست دوباره بررسی شود.", 409, headers);
   await audit(env, "device.pairing.requested", "pairing:" + ipHash, {
     licenseId: codeRecord.licenseId, codeHash,
