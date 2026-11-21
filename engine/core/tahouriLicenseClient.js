@@ -261,5 +261,5 @@
         return request("/licenses/status?licenseId=" + encodeURIComponent(value), { method: "GET" });
     }
     window.TahouriLicenseClient = { activate, health, status, requestPairing, requestPairingChallenge, decidePairing, pairingStatus, recoverApprovedPairingEntitlement, cancelPairing, listPendingPairings, listBoundDeviceSlots, requestDeviceRevocationChallenge, executeDeviceRevocation };
-    console.log("Tahouri License Client v1.8 Ready");
+    console.log("Tahouri License Client v1.9 Ready");
 })();
