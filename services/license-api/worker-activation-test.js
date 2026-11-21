@@ -752,13 +752,24 @@ async function main() {
             activationDevicePair.privateKey).toString("base64")
     });
     assert.equal(alteredNonce.status, 409, "A modified challenge nonce must be rejected.");
-    const approval = await request(worker, env, "/api/licenses/pairing/approve", "POST", {
+    const concurrentApprovalPayload = {
         pairingId: pairingBody.pairingId, challengeId: challengeBody.challengeId,
         nonce: challengeBody.nonce, approverDeviceType: "phone",
         approverInstallationId: "install-1",
         approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(decisionProof)),
             activationDevicePair.privateKey).toString("base64")
-    });
+    };
+    const concurrentApprovals = await Promise.all([
+        request(worker, env, "/api/licenses/pairing/approve", "POST", concurrentApprovalPayload),
+        request(worker, env, "/api/licenses/pairing/approve", "POST", concurrentApprovalPayload)
+    ]);
+    const successfulApprovals = concurrentApprovals.filter(response => response.status === 200);
+    const rejectedApprovals = concurrentApprovals.filter(response => response.status === 409);
+    assert.equal(successfulApprovals.length, 1,
+        "Two simultaneous approvals for one challenge must produce exactly one successful approval.");
+    assert.equal(rejectedApprovals.length, 1,
+        "The competing approval must observe the consumed challenge and fail with conflict.");
+    const approval = successfulApprovals[0];
     assert.equal(approval.status, 200, "A valid signature from the already-bound phone must approve the pairing.");
     const approvalBody = await approval.json();
     assert.equal(approvalBody.status, "approved");
