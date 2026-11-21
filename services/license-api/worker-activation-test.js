@@ -22,9 +22,11 @@ class D1Statement {
         return { meta: { changes: Number(result.changes || 0) } };
     }
 }
+let beforeNextBatch = null;
 const D1 = {
     prepare(sql) { return new D1Statement(sql); },
     async batch(statements) {
+        if (beforeNextBatch) { const action = beforeNextBatch; beforeNextBatch = null; action(); }
         db.exec("BEGIN");
         try {
             const results = [];
@@ -966,6 +968,20 @@ async function main() {
         approverKeyFingerprint: approverFingerprint,
         expiresAt: revocationChallenge.expiresAt
     };
+    // Simulate the approver being revoked after signature verification but before the atomic D1 batch.
+    beforeNextBatch = () => db.prepare("UPDATE license_device_slots SET revoked_at = ? WHERE license_id = ? AND device_type = 'phone' AND installation_id = 'install-1' AND revoked_at IS NULL")
+        .run(new Date().toISOString(), stored.license_id);
+    const staleApproverRevocation = await request(worker, env, "/api/licenses/device-revocation/execute", "POST", {
+        challengeId: revocationChallenge.challengeId, nonce: revocationChallenge.nonce,
+        approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(revocationProof)), activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(staleApproverRevocation.status, 409, "A complementary device revoked during execution must not authorize revocation with a stale approval.");
+    assert.equal(db.prepare("SELECT revoked_at FROM license_device_slots WHERE license_id = ? AND device_type = 'computer' AND installation_id = 'install-computer-1'").get(stored.license_id).revoked_at, null,
+        "A stale approver must not revoke the target device.");
+    assert.equal(db.prepare("SELECT consumed_at FROM device_revocation_challenges WHERE challenge_id = ?").get(revocationChallenge.challengeId).consumed_at, null,
+        "A failed stale-approver attempt must not consume the challenge.");
+    db.prepare("UPDATE license_device_slots SET revoked_at = NULL WHERE license_id = ? AND device_type = 'phone' AND installation_id = 'install-1'").run(stored.license_id);
+
     const forgedRevocation = await request(worker, env, "/api/licenses/device-revocation/execute", "POST", {
         challengeId: revocationChallenge.challengeId, nonce: revocationChallenge.nonce,
         approverSignature: "A".repeat(344)
