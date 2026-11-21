@@ -1095,11 +1095,22 @@ async function main() {
             activationDevicePair.privateKey).toString("base64")
     });
     assert.equal(revocationReplay.status, 409, "A consumed revocation challenge must not be replayable.");
-    const replacementPairing = await request(worker, env, "/api/licenses/pairing/request", "POST", {
-        code, gradeId: "grade6", studentId: "student-1",
-        installationId: "install-computer-replacement", deviceType: "computer"
-    });
-    assert.equal(replacementPairing.status, 201, "A replacement computer may request pairing only after the old slot is revoked.");
+    const concurrentReplacementPairings = await Promise.all([
+        request(worker, env, "/api/licenses/pairing/request", "POST", {
+            code, gradeId: "grade6", studentId: "student-1",
+            installationId: "install-computer-replacement-a", deviceType: "computer"
+        }),
+        request(worker, env, "/api/licenses/pairing/request", "POST", {
+            code, gradeId: "grade6", studentId: "student-1",
+            installationId: "install-computer-replacement-b", deviceType: "computer"
+        })
+    ]);
+    assert.deepEqual(concurrentReplacementPairings.map(response => response.status).sort(),
+        [201, 409], "Concurrent independent pairing requests must reserve a device-class slot exactly once.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM device_pairing_requests WHERE license_id = ? AND requester_device_type = 'computer' AND decision IS NULL AND consumed_at IS NULL AND cancelled_at IS NULL AND expires_at > ?").get(stored.license_id, new Date().toISOString()).count), 1,
+        "Only one live pending pairing request may reserve the computer slot.");
+    const replacementPairing = concurrentReplacementPairings.find(response => response.status === 201);
+    assert(replacementPairing, "Exactly one replacement pairing request must be accepted.");
 
     const occupiedPairingSlot = await request(worker, env, "/api/licenses/pairing/request", "POST", {
         code, gradeId: "grade6", studentId: "student-1", installationId: "install-computer-2", deviceType: "phone"
