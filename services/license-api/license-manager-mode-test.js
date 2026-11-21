@@ -452,6 +452,24 @@ async function main() {
     assert.equal(await restartedManager.initializeRemoteEntitlement(), false,
         "A restart with a persisted high-water mark and rolled-back wall clock must fail closed.");
 
+    // Once the real wall clock is corrected, a fresh browser session can
+    // recover against the preserved high-water mark and valid signed lease.
+    testWallClock = rollbackBase;
+    const recoveredWindow = {
+        ...window,
+        localStorage: storage,
+        performance: { now: () => 500 }
+    };
+    const recoveredContext = {
+        window: recoveredWindow,
+        Date: ClockDate,
+        localStorage: storage,
+        console: { log() {}, warn() {}, error() {} }
+    };
+    vm.runInNewContext(source, recoveredContext);
+    assert.equal(await recoveredWindow.LicenseManager.initializeRemoteEntitlement(), true,
+        "Correcting the wall clock and starting a fresh session must restore valid offline access.");
+
     // Characterize the unavoidable browser-storage limitation: deleting the
     // local high-water mark removes the only cross-restart signal available
     // to this browser-only implementation.
