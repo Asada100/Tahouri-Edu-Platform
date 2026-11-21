@@ -179,7 +179,7 @@ async function main() {
     const startupSource = managerSource.slice(startupStart, startupEnd);
     assert(startupStart >= 0 && startupEnd > startupStart);
     assert(
-        startupSource.includes("verifier.verifyEnvelope(envelope)") &&
+        startupSource.includes("window.TahouriEntitlementVerifier.verifyEnvelope(envelope)") &&
         startupSource.includes("verifiedRemoteEntitlement = claims") &&
         !startupSource.includes("TahouriLicenseClient.status"),
         "Characterization: offline startup currently selects a locally signed entitlement without a server device-slot status check."
