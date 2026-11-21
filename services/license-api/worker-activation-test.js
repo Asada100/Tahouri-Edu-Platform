@@ -397,7 +397,8 @@ async function main() {
             .get(await sha256(issued.code));
         assert.deepEqual({ ...stored }, { gradeId: profile.gradeId, academicYear: String(currentIranianYear()), status: "active" });
     }
-    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'codes.created'").get().count), 4,        "Each bulk-created code must have an individual audit event.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'codes.created'").get().count), 4,
+        "Each bulk-created code must have an individual audit event.");
     const duplicateBulk = await worker.fetch(new Request("https://api.example.test/api/admin/codes/bulk", {
         method: "POST",
         headers: { "content-type": "application/json", "origin": env.ADMIN_ORIGIN, "cookie": adminCookie },
@@ -1210,7 +1211,8 @@ async function main() {
     }, "https://evil.example");
     assert.equal(blockedOrigin.status, 403);
 
-    const rateLimitResponses = [];    for (let attempt = 0; attempt < 11; attempt++) {
+    const rateLimitResponses = [];
+    for (let attempt = 0; attempt < 11; attempt++) {
         rateLimitResponses.push(await request(worker, env, "/api/licenses/activate", "POST", {
             code: "INVALID-WORKER-RATE-" + attempt,
             gradeId: "grade6",
