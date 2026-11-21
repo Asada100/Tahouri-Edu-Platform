@@ -909,6 +909,27 @@ async function main() {
 
     // A bound phone must explicitly authorize revocation of the exact occupied computer slot.
     const targetFingerprint = storedPairing.requester_key_fingerprint;
+    // Keep a synthetic pending computer pairing with a live approval challenge.
+    // Revoking the computer slot must cancel it and consume its challenge atomically.
+    const pendingRevocationPairingId = "pair_pending_revocation_test";
+    const pendingRevocationNonce = crypto.randomBytes(32).toString("hex");
+    const pendingRevocationChallengeId = "ch_pending_revocation_test";
+    const pendingRevocationNow = new Date().toISOString();
+    const pendingRevocationExpires = new Date(Date.now() + 60000).toISOString();
+    db.prepare("INSERT INTO device_pairing_requests
+        (pairing_id, license_id, requester_device_type, requester_installation_id,
+         token_hash, created_at, expires_at, requester_student_id, requester_grade_id,
+         requester_public_key_pem, requester_key_fingerprint, challenge_id,
+         challenge_nonce_hash, challenge_expires_at, approver_device_type,
+         approver_installation_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        .run(pendingRevocationPairingId, stored.license_id, "computer",
+            "install-computer-pending-revocation",
+            crypto.createHash("sha256").update("pending-revocation-token").digest("hex"),
+            pendingRevocationNow, pendingRevocationExpires, "student-1", "grade6",
+            pairingDevicePair.publicKey.export({ type: "spki", format: "pem" }).trim(),
+            targetFingerprint, pendingRevocationChallengeId,
+            await sha256(pendingRevocationNonce), pendingRevocationExpires, "phone", "install-1");
     const revocationChallengeProof = {
         purpose: "tahouri-device-revocation-challenge-v1",
         licenseId: stored.license_id,
@@ -1030,6 +1051,35 @@ async function main() {
         "The competing revocation must fail after the one-use challenge or target slot is consumed.");
     const revocation = successfulRevocations[0];
     assert.equal((await revocation.json()).status, "revoked");
+    const cancelledByRevocation = db.prepare("SELECT cancelled_at, challenge_consumed_at FROM device_pairing_requests WHERE pairing_id = ?")
+        .get(pendingRevocationPairingId);
+    assert(cancelledByRevocation?.cancelled_at,
+        "Signed device revocation must cancel every still-pending pairing request for the revoked device class.");
+    assert(cancelledByRevocation?.challenge_consumed_at,
+        "Signed device revocation must consume the approval challenge of each cancelled pending pairing.");
+    const staleApprovalProof = {
+        purpose: "tahouri-device-pairing-decision-v1",
+        pairingId: pendingRevocationPairingId, licenseId: stored.license_id,
+        challengeId: pendingRevocationChallengeId, nonce: pendingRevocationNonce,
+        decision: "approved", requesterDeviceType: "computer",
+        requesterInstallationId: "install-computer-pending-revocation",
+        requesterKeyFingerprint: targetFingerprint,
+        approverDeviceType: "phone", approverInstallationId: "install-1",
+        approverKeyFingerprint: approverFingerprint,
+        challengeExpiresAt: pendingRevocationExpires
+    };
+    const staleApprovalAfterRevocation = await request(worker, env, "/api/licenses/pairing/approve", "POST", {
+        pairingId: pendingRevocationPairingId, challengeId: pendingRevocationChallengeId,
+        nonce: pendingRevocationNonce, approverDeviceType: "phone",
+        approverInstallationId: "install-1",
+        approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(staleApprovalProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(staleApprovalAfterRevocation.status, 409,
+        "A validly signed approval must not revive a pairing request cancelled by device revocation.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id = ? AND device_type = 'computer' AND installation_id = 'install-computer-pending-revocation' AND revoked_at IS NULL")
+        .get(stored.license_id).count), 0,
+        "A stale approval after revocation must not bind the cancelled requester.");
     assert(db.prepare("SELECT revoked_at FROM license_device_slots WHERE license_id = ? AND device_type = 'computer' AND installation_id = 'install-computer-1' AND key_fingerprint = ?").get(stored.license_id, targetFingerprint).revoked_at,
         "The exact target computer slot must be marked revoked.");
     assert.equal(db.prepare("SELECT revoked_at FROM license_device_slots WHERE license_id = ? AND device_type = 'phone' AND installation_id = 'install-1'").get(stored.license_id).revoked_at,
