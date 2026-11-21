@@ -103,6 +103,33 @@ async function main() {
             "A correctly signed entitlement with " + scenario.label + " must be rejected.");
     }
 
+    const leasedClaims = {
+        ...claims,
+        deviceSlotId: "a".repeat(64),
+        revocationEpoch: Date.now() - 1000,
+        offlineLeaseExpiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString()
+    };
+    assert.equal(
+        (await pinnedVerifier.verifyEnvelope(signedEnvelope(leasedClaims))).valid,
+        true,
+        "A correctly signed device entitlement with a valid bounded offline lease must verify."
+    );
+    const expiredLeaseClaims = {
+        ...leasedClaims,
+        offlineLeaseExpiresAt: new Date(Date.now() - 1000).toISOString()
+    };
+    assert.equal(
+        (await pinnedVerifier.verifyEnvelope(signedEnvelope(expiredLeaseClaims))).valid,
+        false,
+        "An entitlement with an expired offline lease must be rejected."
+    );
+    const malformedSlotClaims = { ...leasedClaims, deviceSlotId: "not-a-slot-id" };
+    assert.equal(
+        (await pinnedVerifier.verifyEnvelope(signedEnvelope(malformedSlotClaims))).valid,
+        false,
+        "A leased entitlement without a valid slot identity must be rejected."
+    );
+
     let insecureFetchCount = 0;
     const insecureVerifier = createVerifierContext({
         mode: "production",
