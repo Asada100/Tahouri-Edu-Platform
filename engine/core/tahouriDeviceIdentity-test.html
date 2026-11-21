@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>آزمون هویت دستگاه طهوری</title>
+<style>body{font-family:system-ui,sans-serif;max-width:800px;margin:2rem auto;padding:1rem}button{padding:.7rem 1rem}li{margin:.6rem 0}.pass{color:green}.fail{color:#b00}</style></head><body>
+<h1>آزمون مستقل هویت دستگاه</h1><p>این صفحه صرفاً ابزار آزمون شاخهٔ توسعه است و به سرویس فعال‌سازی متصل نیست.</p><button id="run">اجرای آزمون</button><ol id="results"></ol>
+<script src="tahouriDeviceIdentity.js"></script><script>
+const out=document.getElementById('results');function report(label,ok,detail=''){const li=document.createElement('li');li.className=ok?'pass':'fail';li.textContent=(ok?'PASS: ':'FAIL: ')+label+(detail?' — '+detail:'');out.appendChild(li);}
+document.getElementById('run').onclick=async()=>{out.replaceChildren();try{
+const a=await TahouriDeviceIdentity.getOrCreate();report('تولید شناسه و کلید عمومی',!!a.installationId&&a.publicKey.includes('BEGIN PUBLIC KEY'));
+const b=await TahouriDeviceIdentity.getOrCreate();report('پایداری شناسه',a.installationId===b.installationId&&a.publicKey===b.publicKey);
+const message='Tahouri device identity test '+a.installationId;const sig=await TahouriDeviceIdentity.sign(message);report('امضای پیام',sig.installationId===a.installationId&&!!sig.signature);
+const pem=a.publicKey.replace(/-----BEGIN PUBLIC KEY-----|-----END PUBLIC KEY-----|\s/g,'');const raw=Uint8Array.from(atob(pem),c=>c.charCodeAt(0));const pub=await crypto.subtle.importKey('spki',raw,{name:'RSASSA-PKCS1-v1_5',hash:'SHA-256'},false,['verify']);const signature=Uint8Array.from(atob(sig.signature),c=>c.charCodeAt(0));const verified=await crypto.subtle.verify('RSASSA-PKCS1-v1_5',pub,signature,new TextEncoder().encode(message));report('اعتبارسنجی امضا با کلید عمومی',verified);
+const db=await new Promise((resolve,reject)=>{const r=indexedDB.open('TahouriDeviceIdentity');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)});const key=await new Promise((resolve,reject)=>{const tx=db.transaction('identity','readonly');const r=tx.objectStore('identity').get('installation');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)});report('ذخیره کلید خصوصی در IndexedDB',!!key&&!!key.privateKey);report('غیرقابل استخراج بودن کلید خصوصی',key&&key.privateKey.extractable===false,key?'extractable='+key.privateKey.extractable:'');db.close();
+const bad=await crypto.subtle.verify('RSASSA-PKCS1-v1_5',pub,signature,new TextEncoder().encode(message+' altered'));report('رد پیام دستکاری‌شده',!bad);
+}catch(e){report('آزمون اجرا',false,e.message||String(e));}};</script></body></html>

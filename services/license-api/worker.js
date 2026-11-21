@@ -268,6 +268,56 @@ function gradeLevel(gradeId) {
   const match = String(gradeId || "").match(/^(?:grade)?(\d+)$/i);
   return match ? Number(match[1]) : null;
 }
+
+async function verifyDeviceActivationProof(body, fields) {
+  const pem = bounded(body.devicePublicKeyPem, 4096, "devicePublicKeyPem");
+  const signatureText = bounded(body.deviceSignature, 2048, "deviceSignature");
+  if (!/^-----BEGIN PUBLIC KEY-----\s+[A-Za-z0-9+/=\s]+-----END PUBLIC KEY-----$/.test(pem)) {
+    throw Object.assign(new Error("کلید عمومی هویت دستگاه معتبر نیست."), { status: 400 });
+  }
+  const encoded = pem.replace(/-----BEGIN PUBLIC KEY-----|-----END PUBLIC KEY-----|\s/g, "");
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(encoded)) {
+    throw Object.assign(new Error("کدگذاری کلید عمومی دستگاه معتبر نیست."), { status: 400 });
+  }
+  let der, signature;
+  try {
+    der = Uint8Array.from(atob(encoded), ch => ch.charCodeAt(0));
+    if (!/^[A-Za-z0-9+/]+={0,2}$/.test(signatureText)) throw new Error("invalid base64");
+    signature = Uint8Array.from(atob(signatureText), ch => ch.charCodeAt(0));
+  } catch {
+    throw Object.assign(new Error("کلید یا امضای دستگاه قابل‌خواندن نیست."), { status: 400 });
+  }
+  if (der.byteLength < 256 || der.byteLength > 1024 || signature.byteLength < 256 || signature.byteLength > 1024) {
+    throw Object.assign(new Error("اندازه کلید یا امضای دستگاه مجاز نیست."), { status: 400 });
+  }
+  let key;
+  try {
+    key = await crypto.subtle.importKey("spki", der,
+      { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["verify"]);
+  } catch {
+    throw Object.assign(new Error("ساختار کلید عمومی دستگاه معتبر نیست."), { status: 400 });
+  }
+  const modulusLength = Number(key.algorithm?.modulusLength || 0);
+  if (modulusLength < 2048 || modulusLength > 4096) {
+    throw Object.assign(new Error("طول کلید دستگاه باید بین ۲۰۴۸ و ۴۰۹۶ بیت باشد."), { status: 400 });
+  }
+  const proof = JSON.stringify({
+    purpose: fields.purpose || "tahouri-device-activation-v1",
+    installationId: fields.installationId,
+    deviceType: fields.deviceType,
+    studentId: fields.studentId,
+    gradeId: fields.gradeId,
+    codeHash: fields.codeHash
+  });
+  const valid = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, signature,
+    new TextEncoder().encode(proof));
+  if (!valid) throw Object.assign(new Error("اثبات رمزنگاری‌شده هویت دستگاه معتبر نیست."), { status: 401 });
+  const fingerprintDigest = await crypto.subtle.digest("SHA-256", der);
+  const fingerprint = [...new Uint8Array(fingerprintDigest)]
+    .map(byte => byte.toString(16).padStart(2, "0")).join("");
+  return { publicKeyPem: pem, fingerprint };
+}
+
 async function activateLicense(request, env, headers) {
   // Activation is a browser-facing cross-origin POST: require an explicitly trusted Origin.
   // Reject simple content types so cross-site HTML forms cannot submit activation payloads.
@@ -283,6 +333,8 @@ async function activateLicense(request, env, headers) {
   const gradeId = validIdentifier(body.gradeId, "gradeId");
   const studentId = validIdentifier(body.studentId, "studentId");
   const installationId = validIdentifier(body.installationId, "installationId");
+  const deviceType = String(body.deviceType || (/Android|iPhone|iPod|Mobile|Windows Phone/i.test(request.headers.get("User-Agent") || "") ? "phone" : "computer")).trim().toLowerCase();
+  if (!["phone", "computer"].includes(deviceType)) return error("نوع دستگاه معتبر نیست.", 400, headers);
   const renewalMode = String(body.renewalMode || "promotion").trim().toLowerCase();
   if (!["promotion", "repeat"].includes(renewalMode)) return error("نوع رزرو سال بعد معتبر نیست.", 400, headers);
 
@@ -296,6 +348,12 @@ async function activateLicense(request, env, headers) {
   await audit(env, "activation.attempt", actor, { metadata: { gradeId } });
 
   const codeHash = await sha256(code);
+  let deviceIdentity;
+  try {
+    deviceIdentity = await verifyDeviceActivationProof(body, { installationId, deviceType, studentId, gradeId, codeHash });
+  } catch (proofError) {
+    return error(proofError.message || "اثبات هویت دستگاه معتبر نیست.", proofError.status || 400, headers);
+  }
   const codeRecord = await env.DB.prepare("SELECT code_hash AS codeHash, student_id AS studentId, grade_id AS gradeId, academic_year AS academicYear, renewal_mode AS renewalMode, status, used_at AS usedAt FROM activation_codes WHERE code_hash = ?").bind(codeHash).first();
   if (!codeRecord) return error("کد فعال‌سازی معتبر نیست.", 400, headers);
   if (!codeRecord.studentId || codeRecord.studentId !== studentId) return error("این کد برای پروفایل انتخاب‌شده صادر نشده است.", 409, headers);
@@ -330,13 +388,15 @@ async function activateLicense(request, env, headers) {
   const claims = {
     licenseId, productId: PRODUCT_ID, academicYear: String(period.academicYear),
     gradeScope: gradeId, studentId, validFrom: period.validFrom,
-    validUntil: period.validUntil, installationBinding: installationId, entitlementVersion: 1
+    validUntil: period.validUntil, installationBinding: installationId,
+    deviceType, deviceKeyFingerprint: deviceIdentity.fingerprint, entitlementVersion: 1
   };
   const entitlement = await signEntitlement(claims, env);
   const now = nowIso();
   const results = await env.DB.batch([
     env.DB.prepare("UPDATE activation_codes SET status = 'used', used_at = ?, license_id = ? WHERE code_hash = ? AND status = 'active' AND used_at IS NULL AND EXISTS (SELECT 1 FROM student_accounts WHERE student_id = ? AND status = 'active')").bind(now, licenseId, codeHash, studentId),
     env.DB.prepare("INSERT INTO licenses (license_id, code_hash, product_id, student_id, grade_id, academic_year, valid_from, valid_until, installation_binding, status, entitlement_json, created_at) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM activation_codes WHERE code_hash = ? AND status = 'used' AND license_id = ?)").bind(licenseId, codeHash, PRODUCT_ID, studentId, gradeId, period.academicYear, period.validFrom, period.validUntil, installationId, futureRenewal ? "future" : "active", JSON.stringify(entitlement), now, codeHash, licenseId),
+    env.DB.prepare("INSERT INTO license_device_slots (license_id, device_type, installation_id, bound_at, public_key_pem, key_fingerprint) SELECT ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM licenses WHERE license_id = ?)").bind(licenseId, deviceType, installationId, now, deviceIdentity.publicKeyPem, deviceIdentity.fingerprint, licenseId),
     env.DB.prepare("INSERT INTO audit_log (event_type, actor, license_id, code_hash, created_at, metadata_json) SELECT ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM licenses WHERE license_id = ?)").bind(futureRenewal ? "license.renewal_reserved" : "license.activated", "client", licenseId, codeHash, now, JSON.stringify({ gradeId, studentId, academicYear: period.academicYear, validFrom: period.validFrom }), licenseId),
     env.DB.prepare(`UPDATE student_accounts SET activation_status = 'active', updated_at = ?
       WHERE student_id = ? AND status = 'active'
@@ -345,11 +405,480 @@ async function activateLicense(request, env, headers) {
   if (Number(results?.[0]?.meta?.changes || 0) !== 1 ||
       Number(results?.[1]?.meta?.changes || 0) !== 1 ||
       Number(results?.[2]?.meta?.changes || 0) !== 1 ||
-      Number(results?.[3]?.meta?.changes || 0) !== 1) {
+      Number(results?.[3]?.meta?.changes || 0) !== 1 ||
+      Number(results?.[4]?.meta?.changes || 0) !== 1) {
     return error("این کد قبلاً استفاده شده یا غیرفعال است.", 409, headers);
   }
   return json({ valid: true, renewalStored: futureRenewal, entitlement }, 200, headers);
 }
+async function createDevicePairingRequest(request, env, headers) {
+  const origin = request.headers.get("Origin");
+  if (!origin || !allowedOrigin(request, env)) return error("مبدأ درخواست مجاز نیست.", 403, headers);
+  const contentType = String(request.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase();
+  if (contentType !== "application/json") return error("نوع محتوای درخواست باید application/json باشد.", 415, headers);
+  const body = await bodyJson(request);
+  const code = bounded(body.code, 256, "code").toUpperCase();
+  const studentId = validIdentifier(body.studentId, "studentId");
+  const gradeId = validIdentifier(body.gradeId, "gradeId");
+  const installationId = validIdentifier(body.installationId, "installationId");
+  const deviceType = String(body.deviceType || "").trim().toLowerCase();
+  if (!["phone", "computer"].includes(deviceType)) return error("نوع دستگاه معتبر نیست.", 400, headers);
+
+  const ipHash = await sha256(request.headers.get("CF-Connecting-IP") || "unknown");
+  const actor = "pairing:" + ipHash;
+  const since = new Date(Date.now() - 60000).toISOString();
+  const attempts = await env.DB.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'device.pairing.attempt' AND actor = ? AND created_at >= ?").bind(actor, since).first();
+  if (Number(attempts?.count || 0) >= 5) return error("تعداد درخواست‌های اتصال دستگاه بیش از حد مجاز است.", 429, headers);
+  await audit(env, "device.pairing.attempt", actor, { metadata: { deviceType } });
+
+  const codeHash = await sha256(code);
+  const codeRecord = await env.DB.prepare(`SELECT ac.student_id AS studentId, ac.grade_id AS gradeId,
+      ac.status AS codeStatus, ac.license_id AS licenseId, l.status AS licenseStatus,
+      l.valid_from AS validFrom, l.valid_until AS validUntil
+    FROM activation_codes ac JOIN licenses l ON l.license_id = ac.license_id
+    WHERE ac.code_hash = ?`).bind(codeHash).first();
+  if (!codeRecord || codeRecord.codeStatus !== "used" || !codeRecord.licenseId ||
+      codeRecord.studentId !== studentId || codeRecord.gradeId !== gradeId) {
+    return error("اطلاعات مجوز برای درخواست اتصال دستگاه معتبر نیست.", 409, headers);
+  }
+  const now = Date.now(), validFrom = Date.parse(codeRecord.validFrom), validUntil = Date.parse(codeRecord.validUntil);
+  if (!["active", "future"].includes(codeRecord.licenseStatus) ||
+      !Number.isFinite(validFrom) || !Number.isFinite(validUntil) || validUntil <= now) {
+    return error("مجوز برای اتصال دستگاه معتبر یا قابل استفاده نیست.", 409, headers);
+  }
+  const student = await env.DB.prepare("SELECT status FROM student_accounts WHERE student_id = ?").bind(studentId).first();
+  if (!student || student.status !== "active") return error("حساب پروفایل فعال نیست.", 409, headers);
+  const targetSlot = await env.DB.prepare("SELECT installation_id AS installationId FROM license_device_slots WHERE license_id = ? AND device_type = ? AND revoked_at IS NULL").bind(codeRecord.licenseId, deviceType).first();
+  if (targetSlot) return error("جایگاه این نوع دستگاه قبلاً پر شده است؛ جایگزینی باید جداگانه و با تأیید صریح انجام شود.", 409, headers);
+  const existingSlot = await env.DB.prepare("SELECT device_type AS deviceType FROM license_device_slots WHERE license_id = ? AND revoked_at IS NULL LIMIT 1").bind(codeRecord.licenseId).first();
+  if (!existingSlot || existingSlot.deviceType === deviceType) return error("برای این مجوز دستگاه تأییدکنندهٔ واجد شرایط پیدا نشد.", 409, headers);
+  const duplicateInstallation = await env.DB.prepare("SELECT 1 AS found FROM license_device_slots WHERE license_id = ? AND installation_id = ? AND revoked_at IS NULL").bind(codeRecord.licenseId, installationId).first();
+  if (duplicateInstallation) return error("این نصب قبلاً به مجوز متصل است.", 409, headers);
+
+  let deviceIdentity;
+  try {
+    deviceIdentity = await verifyDeviceActivationProof(body, {
+      purpose: "tahouri-device-pairing-request-v1", installationId, deviceType,
+      studentId, gradeId, codeHash, licenseId: codeRecord.licenseId
+    });
+  } catch (proofError) {
+    return error(proofError.message || "اثبات هویت دستگاه معتبر نیست.", proofError.status || 400, headers);
+  }
+  const pairingId = "pair_" + crypto.randomUUID();
+  const token = randomHex(32);
+  const createdAt = nowIso();
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+  const tokenHash = await sha256(token);
+  const result = await env.DB.prepare(`INSERT INTO device_pairing_requests
+    (pairing_id, license_id, requester_device_type, requester_installation_id, token_hash,
+     created_at, expires_at, requester_student_id, requester_grade_id,
+     requester_public_key_pem, requester_key_fingerprint)
+    SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+    WHERE EXISTS (
+      SELECT 1 FROM licenses WHERE license_id = ? AND status IN ('active','future') AND valid_until > ?
+    )
+    AND NOT EXISTS (
+      SELECT 1 FROM license_device_slots WHERE license_id = ? AND device_type = ? AND revoked_at IS NULL
+    )`).bind(pairingId, codeRecord.licenseId, deviceType, installationId, tokenHash,
+      createdAt, expiresAt, studentId, gradeId, deviceIdentity.publicKeyPem,
+      deviceIdentity.fingerprint, codeRecord.licenseId, createdAt,
+      codeRecord.licenseId, deviceType).run();
+  if (Number(result?.meta?.changes || 0) !== 1) return error("وضعیت جایگاه دستگاه تغییر کرده است؛ درخواست دوباره بررسی شود.", 409, headers);
+  await audit(env, "device.pairing.requested", "pairing:" + ipHash, {
+    licenseId: codeRecord.licenseId, codeHash,
+    metadata: { pairingId, deviceType, requesterFingerprint: deviceIdentity.fingerprint }
+  });
+  return json({ ok: true, pairingId, token, expiresAt, status: "pending_approval" }, 201, headers);
+}
+
+
+
+
+async function listBoundDeviceSlots(request, env, headers) {
+  if (!request.headers.get("Origin") || !allowedOrigin(request, env)) return error("مبدأ درخواست مجاز نیست.",403,headers);
+  if (String(request.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase() !== "application/json") return error("نوع محتوا باید application/json باشد.",415,headers);
+  const body=await bodyJson(request);
+  const licenseId=bounded(body.licenseId,128,"licenseId");
+  const deviceType=String(body.deviceType||"").trim().toLowerCase();
+  const installationId=validIdentifier(body.installationId,"installationId");
+  const fingerprint=bounded(body.keyFingerprint,128,"keyFingerprint");
+  if(!["phone","computer"].includes(deviceType)) return error("نوع دستگاه نامعتبر است.",400,headers);
+  const device=await env.DB.prepare("SELECT public_key_pem AS publicKeyPem,key_fingerprint AS fingerprint FROM license_device_slots WHERE license_id=? AND device_type=? AND installation_id=? AND revoked_at IS NULL").bind(licenseId,deviceType,installationId).first();
+  if(!device || device.fingerprint!==fingerprint) return error("این دستگاه در مجوز فعال نیست.",403,headers);
+  const proof={purpose:"tahouri-device-slots-list-v1",licenseId,deviceType,installationId,keyFingerprint:fingerprint};
+  try { await verifyStoredDeviceSignature(device.publicKeyPem,body.deviceSignature,proof); }
+  catch(e){return error(e.message,e.status||401,headers);}
+  const result=await env.DB.prepare("SELECT device_type AS deviceType,installation_id AS installationId,key_fingerprint AS keyFingerprint,bound_at AS boundAt FROM license_device_slots WHERE license_id=? AND revoked_at IS NULL ORDER BY device_type").bind(licenseId).all();
+  return json({ok:true,devices:result.results||[]},200,headers);
+}
+async function createDeviceRevocationChallenge(request, env, headers) {
+  if (!request.headers.get("Origin") || !allowedOrigin(request, env)) return error("مبدأ درخواست مجاز نیست.", 403, headers);
+  if (String(request.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase() !== "application/json") return error("نوع محتوا باید application/json باشد.", 415, headers);
+  const body = await bodyJson(request);
+  const licenseId = bounded(body.licenseId, 128, "licenseId");
+  const targetType = String(body.targetDeviceType || "").trim().toLowerCase();
+  const targetInstallationId = validIdentifier(body.targetInstallationId, "targetInstallationId");
+  const approverType = String(body.approverDeviceType || "").trim().toLowerCase();
+  const approverInstallationId = validIdentifier(body.approverInstallationId, "approverInstallationId");
+  if (!["phone","computer"].includes(targetType) || !["phone","computer"].includes(approverType) || targetType === approverType) return error("نوع دستگاه‌ها نامعتبر است.",400,headers);
+  const [target, approver, license] = await Promise.all([
+    env.DB.prepare("SELECT key_fingerprint AS fingerprint FROM license_device_slots WHERE license_id=? AND device_type=? AND installation_id=? AND revoked_at IS NULL").bind(licenseId,targetType,targetInstallationId).first(),
+    env.DB.prepare("SELECT public_key_pem AS publicKeyPem,key_fingerprint AS fingerprint FROM license_device_slots WHERE license_id=? AND device_type=? AND installation_id=? AND revoked_at IS NULL").bind(licenseId,approverType,approverInstallationId).first(),
+    env.DB.prepare("SELECT status,valid_until AS validUntil FROM licenses WHERE license_id=?").bind(licenseId).first()
+  ]);
+  if (!target?.fingerprint || !approver?.publicKeyPem || !approver?.fingerprint || !license || !["active","future"].includes(license.status) || Date.parse(license.validUntil)<=Date.now()) return error("هر دو دستگاه باید متصل و مجوز معتبر باشد.",409,headers);
+  const proof={purpose:"tahouri-device-revocation-challenge-v1",licenseId,targetDeviceType:targetType,targetInstallationId,targetKeyFingerprint:target.fingerprint,approverDeviceType:approverType,approverInstallationId,approverKeyFingerprint:approver.fingerprint};
+  try { await verifyStoredDeviceSignature(approver.publicKeyPem,body.approverSignature,proof); } catch(e){return error(e.message,e.status||401,headers);}
+  const challengeId="rev_"+crypto.randomUUID(), nonce=randomHex(32), created=nowIso(), expires=new Date(Date.now()+2*60*1000).toISOString(), nonceHash=await sha256(nonce);
+  const result=await env.DB.prepare("INSERT INTO device_revocation_challenges (challenge_id,license_id,target_device_type,target_installation_id,target_fingerprint,approver_device_type,approver_installation_id,approver_fingerprint,nonce_hash,expires_at,created_at) SELECT ?,?,?,?,?,?,?,?,?,?,? WHERE EXISTS (SELECT 1 FROM license_device_slots WHERE license_id=? AND device_type=? AND installation_id=? AND key_fingerprint=? AND revoked_at IS NULL) AND EXISTS (SELECT 1 FROM license_device_slots WHERE license_id=? AND device_type=? AND installation_id=? AND key_fingerprint=? AND revoked_at IS NULL)").bind(challengeId,licenseId,targetType,targetInstallationId,target.fingerprint,approverType,approverInstallationId,approver.fingerprint,nonceHash,expires,created,licenseId,targetType,targetInstallationId,target.fingerprint,licenseId,approverType,approverInstallationId,approver.fingerprint).run();
+  if(Number(result?.meta?.changes||0)!==1)return error("صدور چالش ممکن نشد؛ وضعیت دستگاه‌ها تغییر کرده است.",409,headers);
+  await audit(env,"device.revocation.challenge_issued","device:"+approverInstallationId,{licenseId,metadata:{challengeId,targetDeviceType:targetType,targetFingerprint:target.fingerprint,approverFingerprint:approver.fingerprint,expiresAt:expires}});
+  return json({ok:true,challengeId,nonce,expiresAt:expires,licenseId,targetDeviceType:targetType,targetInstallationId,targetKeyFingerprint:target.fingerprint,approverDeviceType:approverType,approverInstallationId,approverKeyFingerprint:approver.fingerprint},200,headers);
+}
+async function executeDeviceRevocation(request,env,headers){
+  if(!request.headers.get("Origin")||!allowedOrigin(request,env))return error("مبدأ درخواست مجاز نیست.",403,headers);
+  if(String(request.headers.get("Content-Type")||"").split(";")[0].trim().toLowerCase()!=="application/json")return error("نوع محتوا باید application/json باشد.",415,headers);
+  const body=await bodyJson(request), challengeId=bounded(body.challengeId,160,"challengeId"), nonce=bounded(body.nonce,128,"nonce"), signature=bounded(body.approverSignature,2048,"signature"), now=nowIso();
+  const row=await env.DB.prepare("SELECT * FROM device_revocation_challenges WHERE challenge_id=?").bind(challengeId).first();
+  if(!row||row.consumed_at||Date.parse(row.expires_at)<=Date.now()||!constantTimeEqual(await sha256(nonce),row.nonce_hash))return error("چالش لغو نامعتبر یا منقضی است.",409,headers);
+  const approver=await env.DB.prepare("SELECT public_key_pem AS publicKeyPem,key_fingerprint AS fingerprint FROM license_device_slots WHERE license_id=? AND device_type=? AND installation_id=? AND key_fingerprint=? AND revoked_at IS NULL").bind(row.license_id,row.approver_device_type,row.approver_installation_id,row.approver_fingerprint).first();
+  if(!approver)return error("دستگاه تأییدکننده دیگر متصل نیست.",403,headers);
+  const proof={purpose:"tahouri-device-revocation-v1",challengeId,nonce,licenseId:row.license_id,targetDeviceType:row.target_device_type,targetInstallationId:row.target_installation_id,targetKeyFingerprint:row.target_fingerprint,approverDeviceType:row.approver_device_type,approverInstallationId:row.approver_installation_id,approverKeyFingerprint:row.approver_fingerprint,expiresAt:row.expires_at};
+  try{await verifyStoredDeviceSignature(approver.publicKeyPem,signature,proof);}catch(e){return error(e.message,e.status||401,headers);}
+  const results=await env.DB.batch([
+    env.DB.prepare("UPDATE license_device_slots SET revoked_at=? WHERE license_id=? AND device_type=? AND installation_id=? AND key_fingerprint=? AND revoked_at IS NULL AND EXISTS (SELECT 1 FROM device_revocation_challenges WHERE challenge_id=? AND consumed_at IS NULL AND expires_at>? AND nonce_hash=? AND approver_fingerprint=?)").bind(now,row.license_id,row.target_device_type,row.target_installation_id,row.target_fingerprint,challengeId,now,row.nonce_hash,row.approver_fingerprint),
+    env.DB.prepare("UPDATE device_revocation_challenges SET consumed_at=? WHERE challenge_id=? AND consumed_at IS NULL AND expires_at>? AND EXISTS (SELECT 1 FROM license_device_slots WHERE license_id=? AND device_type=? AND installation_id=? AND key_fingerprint=? AND revoked_at=?)").bind(now,challengeId,now,row.license_id,row.target_device_type,row.target_installation_id,row.target_fingerprint,now),
+    env.DB.prepare("UPDATE device_pairing_requests SET cancelled_at=?,challenge_consumed_at=COALESCE(challenge_consumed_at,?) WHERE license_id=? AND requester_device_type=? AND decision IS NULL AND consumed_at IS NULL AND cancelled_at IS NULL").bind(now,now,row.license_id,row.target_device_type),
+    env.DB.prepare("INSERT INTO audit_log(event_type,actor,license_id,code_hash,created_at,metadata_json) SELECT 'device.revoked',?,?,NULL,?,? WHERE EXISTS (SELECT 1 FROM license_device_slots WHERE license_id=? AND device_type=? AND installation_id=? AND key_fingerprint=? AND revoked_at=?)").bind("device:"+row.approver_installation_id,row.license_id,now,JSON.stringify({targetDeviceType:row.target_device_type,targetInstallationId:row.target_installation_id,targetFingerprint:row.target_fingerprint,challengeId}),row.license_id,row.target_device_type,row.target_installation_id,row.target_fingerprint,now)
+  ]);
+  if(results.some((x,i)=>i!==2&&Number(x?.meta?.changes||0)!==1))return error("لغو دستگاه به‌صورت کامل تأیید نشد.",409,headers);
+  return json({ok:true,status:"revoked",deviceType:row.target_device_type},200,headers);
+}
+
+async function verifyStoredDeviceSignature(publicKeyPem, signatureText, payload) {
+  const pem = bounded(publicKeyPem, 4096, "device public key");
+  const encodedKey = pem.replace(/-----BEGIN PUBLIC KEY-----|-----END PUBLIC KEY-----|\s/g, "");
+  if (!/^-----BEGIN PUBLIC KEY-----\s+[A-Za-z0-9+/=\s]+-----END PUBLIC KEY-----$/.test(pem) ||
+      !/^[A-Za-z0-9+/]+={0,2}$/.test(encodedKey)) {
+    throw Object.assign(new Error("کلید عمومی دستگاه معتبر نیست."), { status: 400 });
+  }
+  let key, signature;
+  try {
+    const der = Uint8Array.from(atob(encodedKey), ch => ch.charCodeAt(0));
+    signature = Uint8Array.from(atob(bounded(signatureText, 2048, "signature")), ch => ch.charCodeAt(0));
+    key = await crypto.subtle.importKey("spki", der,
+      { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["verify"]);
+    if (Number(key.algorithm?.modulusLength || 0) < 2048 ||
+        Number(key.algorithm?.modulusLength || 0) > 4096) throw new Error("invalid key size");
+  } catch {
+    throw Object.assign(new Error("کلید یا امضای دستگاه معتبر نیست."), { status: 400 });
+  }
+  const valid = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, signature,
+    new TextEncoder().encode(JSON.stringify(payload)));
+  if (!valid) throw Object.assign(new Error("امضای دستگاه تأییدکننده معتبر نیست."), { status: 401 });
+  return true;
+}
+
+async function pairingRequestRow(env, pairingId) {
+  return env.DB.prepare(`SELECT p.pairing_id AS pairingId, p.license_id AS licenseId,
+      p.requester_device_type AS requesterDeviceType,
+      p.requester_installation_id AS requesterInstallationId,
+      p.requester_student_id AS studentId, p.requester_grade_id AS gradeId,
+      p.requester_public_key_pem AS requesterPublicKeyPem,
+      p.requester_key_fingerprint AS requesterFingerprint,
+      p.expires_at AS expiresAt, p.consumed_at AS consumedAt,
+      p.cancelled_at AS cancelledAt, p.decision, p.challenge_id AS challengeId,
+      p.challenge_nonce_hash AS challengeNonceHash,
+      p.challenge_expires_at AS challengeExpiresAt,
+      p.challenge_consumed_at AS challengeConsumedAt,
+      p.approver_device_type AS approverDeviceType,
+      p.approver_installation_id AS approverInstallationId,
+      l.product_id AS productId, l.academic_year AS academicYear,
+      l.valid_from AS validFrom, l.valid_until AS validUntil, l.status AS licenseStatus,
+      l.grade_id AS licenseGradeId, l.student_id AS licenseStudentId
+    FROM device_pairing_requests p JOIN licenses l ON l.license_id = p.license_id
+    WHERE p.pairing_id = ?`).bind(pairingId).first();
+}
+
+
+async function listPendingDevicePairings(request, env, headers) {
+  if (!request.headers.get("Origin") || !allowedOrigin(request, env)) return error("مبدأ درخواست مجاز نیست.", 403, headers);
+  if (String(request.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase() !== "application/json")
+    return error("نوع محتوای درخواست باید application/json باشد.", 415, headers);
+  const body = await bodyJson(request);
+  const licenseId = bounded(body.licenseId, 128, "licenseId");
+  const approverInstallationId = validIdentifier(body.approverInstallationId, "approverInstallationId");
+  const approverDeviceType = String(body.approverDeviceType || "").trim().toLowerCase();
+  if (!["phone", "computer"].includes(approverDeviceType)) return error("نوع دستگاه تأییدکننده معتبر نیست.", 400, headers);
+  const approver = await env.DB.prepare(`SELECT public_key_pem AS publicKeyPem, key_fingerprint AS fingerprint
+    FROM license_device_slots WHERE license_id = ? AND device_type = ?
+      AND installation_id = ? AND revoked_at IS NULL`)
+    .bind(licenseId, approverDeviceType, approverInstallationId).first();
+  if (!approver?.publicKeyPem || !approver.fingerprint) return error("دستگاه تأییدکننده به این مجوز متصل نیست.", 403, headers);
+  const proof = {
+    purpose: "tahouri-device-pairing-list-v1",
+    licenseId, approverDeviceType, approverInstallationId,
+    approverKeyFingerprint: approver.fingerprint
+  };
+  try { await verifyStoredDeviceSignature(approver.publicKeyPem, body.approverSignature, proof); }
+  catch (e) { return error(e.message, e.status || 401, headers); }
+  const now = nowIso();
+  const result = await env.DB.prepare(`SELECT pairing_id AS pairingId,
+      requester_device_type AS requesterDeviceType,
+      requester_key_fingerprint AS requesterKeyFingerprint,
+      created_at AS createdAt, expires_at AS expiresAt
+    FROM device_pairing_requests
+    WHERE license_id = ? AND decision IS NULL AND consumed_at IS NULL
+      AND cancelled_at IS NULL AND expires_at > ?
+      AND requester_device_type <> ?
+    ORDER BY created_at ASC LIMIT 10`)
+    .bind(licenseId, now, approverDeviceType).all();
+  return json({ ok: true, requests: result.results || [] }, 200, headers);
+}
+
+async function createDevicePairingChallenge(request, env, headers) {
+  if (!request.headers.get("Origin") || !allowedOrigin(request, env)) return error("مبدأ درخواست مجاز نیست.", 403, headers);
+  if (String(request.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase() !== "application/json")
+    return error("نوع محتوای درخواست باید application/json باشد.", 415, headers);
+  const body = await bodyJson(request);
+  const pairingId = bounded(body.pairingId, 160, "pairingId");
+  const approverInstallationId = validIdentifier(body.approverInstallationId, "approverInstallationId");
+  const approverDeviceType = String(body.approverDeviceType || "").trim().toLowerCase();
+  if (!["phone", "computer"].includes(approverDeviceType)) return error("نوع دستگاه تأییدکننده معتبر نیست.", 400, headers);
+  const row = await pairingRequestRow(env, pairingId);
+  const now = Date.now();
+  if (!row || row.consumedAt || row.cancelledAt || row.decision ||
+      !Number.isFinite(Date.parse(row.expiresAt)) || Date.parse(row.expiresAt) <= now ||
+      row.licenseStatus === "revoked" || Date.parse(row.validUntil) <= now ||
+      row.requesterDeviceType === approverDeviceType) {
+    return error("درخواست جفت‌سازی فعال یا قابل تأیید نیست.", 409, headers);
+  }
+  const approver = await env.DB.prepare(`SELECT public_key_pem AS publicKeyPem, key_fingerprint AS fingerprint
+    FROM license_device_slots WHERE license_id = ? AND device_type = ?
+      AND installation_id = ? AND revoked_at IS NULL`)
+    .bind(row.licenseId, approverDeviceType, approverInstallationId).first();
+  if (!approver?.publicKeyPem || !approver.fingerprint) return error("دستگاه تأییدکننده به این مجوز متصل نیست.", 403, headers);
+  const proof = {
+    purpose: "tahouri-device-pairing-challenge-request-v1",
+    pairingId, licenseId: row.licenseId, approverDeviceType,
+    approverInstallationId, approverKeyFingerprint: approver.fingerprint
+  };
+  try { await verifyStoredDeviceSignature(approver.publicKeyPem, body.approverSignature, proof); }
+  catch (e) { return error(e.message, e.status || 401, headers); }
+
+  const challengeId = "ch_" + randomHex(24);
+  const nonce = randomHex(32);
+  const expiresAt = new Date(Math.min(now + 2 * 60 * 1000, Date.parse(row.expiresAt))).toISOString();
+  const nonceHash = await sha256(nonce);
+  const update = await env.DB.prepare(`UPDATE device_pairing_requests
+    SET challenge_id = ?, challenge_nonce_hash = ?, challenge_expires_at = ?,
+        challenge_consumed_at = NULL, approver_device_type = ?, approver_installation_id = ?
+    WHERE pairing_id = ? AND consumed_at IS NULL AND cancelled_at IS NULL
+      AND decision IS NULL AND expires_at > ?
+      AND NOT EXISTS (SELECT 1 FROM license_device_slots
+        WHERE license_id = ? AND device_type = ? AND revoked_at IS NULL)
+      AND EXISTS (SELECT 1 FROM license_device_slots
+        WHERE license_id = ? AND device_type = ? AND installation_id = ? AND revoked_at IS NULL)`)
+    .bind(challengeId, nonceHash, expiresAt, approverDeviceType, approverInstallationId,
+      pairingId, nowIso(), row.licenseId, row.requesterDeviceType,
+      row.licenseId, approverDeviceType, approverInstallationId).run();
+  if (Number(update?.meta?.changes || 0) !== 1) return error("وضعیت درخواست یا جایگاه دستگاه تغییر کرده است.", 409, headers);
+  await audit(env, "device.pairing.challenge_issued", "device:" + approverInstallationId, {
+    licenseId: row.licenseId,
+    metadata: { pairingId, approverDeviceType, approverFingerprint: approver.fingerprint, expiresAt }
+  });
+  return json({ ok: true, pairingId, licenseId: row.licenseId, challengeId, nonce, expiresAt,
+    requesterDeviceType: row.requesterDeviceType,
+    requesterInstallationId: row.requesterInstallationId,
+    requesterKeyFingerprint: row.requesterFingerprint,
+    approverDeviceType, approverInstallationId,
+    approverKeyFingerprint: approver.fingerprint }, 200, headers);
+}
+
+async function decideDevicePairing(request, env, headers, decision) {
+  if (!request.headers.get("Origin") || !allowedOrigin(request, env)) return error("مبدأ درخواست مجاز نیست.", 403, headers);
+  if (String(request.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase() !== "application/json")
+    return error("نوع محتوای درخواست باید application/json باشد.", 415, headers);
+  const body = await bodyJson(request);
+  const pairingId = bounded(body.pairingId, 160, "pairingId");
+  const challengeId = bounded(body.challengeId, 160, "challengeId");
+  const nonce = bounded(body.nonce, 128, "nonce");
+  const approverInstallationId = validIdentifier(body.approverInstallationId, "approverInstallationId");
+  const approverDeviceType = String(body.approverDeviceType || "").trim().toLowerCase();
+  if (!["phone", "computer"].includes(approverDeviceType)) return error("نوع دستگاه تأییدکننده معتبر نیست.", 400, headers);
+  const row = await pairingRequestRow(env, pairingId);
+  const now = Date.now();
+  if (!row || row.consumedAt || row.cancelledAt || row.decision ||
+      row.challengeId !== challengeId || row.challengeConsumedAt ||
+      row.approverInstallationId !== approverInstallationId ||
+      row.approverDeviceType !== approverDeviceType ||
+      !row.challengeExpiresAt || Date.parse(row.challengeExpiresAt) <= now ||
+      Date.parse(row.expiresAt) <= now || !constantTimeEqual(await sha256(nonce), row.challengeNonceHash) ||
+      row.requesterDeviceType === approverDeviceType ||
+      !["active", "future"].includes(row.licenseStatus) || Date.parse(row.validUntil) <= now) {
+    return error("چالش منقضی، مصرف‌شده یا نامعتبر است.", 409, headers);
+  }
+  const student = await env.DB.prepare("SELECT status FROM student_accounts WHERE student_id = ?")
+    .bind(row.studentId).first();
+  if (!student || student.status !== "active" || row.licenseStudentId !== row.studentId ||
+      row.licenseGradeId !== row.gradeId) return error("مجوز یا پروفایل درخواست‌کننده دیگر معتبر نیست.", 409, headers);
+  const approver = await env.DB.prepare(`SELECT public_key_pem AS publicKeyPem, key_fingerprint AS fingerprint
+    FROM license_device_slots WHERE license_id = ? AND device_type = ?
+      AND installation_id = ? AND revoked_at IS NULL`)
+    .bind(row.licenseId, approverDeviceType, approverInstallationId).first();
+  if (!approver?.publicKeyPem || !approver.fingerprint) return error("دستگاه تأییدکننده دیگر به این مجوز متصل نیست.", 403, headers);
+  const proof = {
+    purpose: "tahouri-device-pairing-decision-v1",
+    pairingId, licenseId: row.licenseId, challengeId, nonce, decision,
+    requesterDeviceType: row.requesterDeviceType,
+    requesterInstallationId: row.requesterInstallationId,
+    requesterKeyFingerprint: row.requesterFingerprint,
+    approverDeviceType, approverInstallationId,
+    approverKeyFingerprint: approver.fingerprint,
+    challengeExpiresAt: row.challengeExpiresAt
+  };
+  try { await verifyStoredDeviceSignature(approver.publicKeyPem, body.approverSignature, proof); }
+  catch (e) { return error(e.message, e.status || 401, headers); }
+
+  const nowText = nowIso();
+  if (decision === "rejected") {
+    const result = await env.DB.prepare(`UPDATE device_pairing_requests
+      SET decision = 'rejected', decided_at = ?, consumed_at = ?, challenge_consumed_at = ?,
+          approver_device_type = ?, approver_installation_id = ?
+      WHERE pairing_id = ? AND challenge_id = ? AND challenge_nonce_hash = ?
+        AND challenge_consumed_at IS NULL AND decision IS NULL
+        AND consumed_at IS NULL AND cancelled_at IS NULL
+        AND challenge_expires_at > ? AND expires_at > ?
+        AND EXISTS (SELECT 1 FROM license_device_slots
+          WHERE license_id = ? AND device_type = ? AND installation_id = ? AND revoked_at IS NULL)`)
+      .bind(nowText, nowText, nowText, approverDeviceType, approverInstallationId,
+        pairingId, challengeId, await sha256(nonce), nowText, nowText,
+        row.licenseId, approverDeviceType, approverInstallationId).run();
+    if (Number(result?.meta?.changes || 0) !== 1) return error("درخواست پیش از ثبت رد تغییر کرده یا منقضی شده است.", 409, headers);
+    await audit(env, "device.pairing.rejected", "device:" + approverInstallationId, {
+      licenseId: row.licenseId,
+      metadata: { pairingId, requesterFingerprint: row.requesterFingerprint, approverFingerprint: approver.fingerprint }
+    });
+    return json({ ok: true, status: "rejected" }, 200, headers);
+  }
+
+  const claims = {
+    licenseId: row.licenseId, productId: row.productId,
+    academicYear: String(row.academicYear), gradeScope: row.gradeId,
+    studentId: row.studentId, validFrom: row.validFrom, validUntil: row.validUntil,
+    installationBinding: row.requesterInstallationId,
+    deviceType: row.requesterDeviceType,
+    deviceKeyFingerprint: row.requesterFingerprint, entitlementVersion: 1
+  };
+  const entitlement = await signEntitlement(claims, env);
+  const results = await env.DB.batch([
+    env.DB.prepare(`INSERT INTO license_device_slots
+      (license_id, device_type, installation_id, bound_at, public_key_pem, key_fingerprint)
+      SELECT ?, ?, ?, ?, ?, ?
+      WHERE EXISTS (SELECT 1 FROM device_pairing_requests
+        WHERE pairing_id = ? AND decision IS NULL AND consumed_at IS NULL
+          AND cancelled_at IS NULL AND challenge_id = ?
+          AND challenge_nonce_hash = ? AND challenge_consumed_at IS NULL
+          AND challenge_expires_at > ? AND expires_at > ?)
+        AND EXISTS (SELECT 1 FROM licenses WHERE license_id = ?
+          AND status IN ('active','future') AND valid_until > ?)
+        AND EXISTS (SELECT 1 FROM student_accounts WHERE student_id = ? AND status = 'active')
+        AND EXISTS (SELECT 1 FROM license_device_slots WHERE license_id = ?
+          AND device_type = ? AND installation_id = ? AND revoked_at IS NULL)
+        AND NOT EXISTS (SELECT 1 FROM license_device_slots WHERE license_id = ?
+          AND device_type = ? AND revoked_at IS NULL)`)
+      .bind(row.licenseId, row.requesterDeviceType, row.requesterInstallationId,
+        nowText, row.requesterPublicKeyPem, row.requesterFingerprint,
+        pairingId, challengeId, await sha256(nonce), nowText, nowText,
+        row.licenseId, nowText, row.studentId, row.licenseId,
+        approverDeviceType, approverInstallationId, row.licenseId, row.requesterDeviceType),
+    env.DB.prepare(`UPDATE device_pairing_requests
+      SET decision = 'approved', approved_at = ?, decided_at = ?, consumed_at = ?,
+          challenge_consumed_at = ?, approver_device_type = ?, approver_installation_id = ?,
+          approved_entitlement_json = ?
+      WHERE pairing_id = ? AND decision IS NULL AND consumed_at IS NULL
+        AND cancelled_at IS NULL AND challenge_id = ? AND challenge_nonce_hash = ?
+        AND challenge_consumed_at IS NULL AND challenge_expires_at > ? AND expires_at > ?
+        AND EXISTS (SELECT 1 FROM license_device_slots WHERE license_id = ?
+          AND device_type = ? AND installation_id = ? AND key_fingerprint = ? AND revoked_at IS NULL)
+        AND EXISTS (SELECT 1 FROM license_device_slots WHERE license_id = ?
+          AND device_type = ? AND installation_id = ? AND key_fingerprint = ?
+          AND bound_at = ? AND revoked_at IS NULL)`)
+      .bind(nowText, nowText, nowText, nowText, approverDeviceType, approverInstallationId,
+        JSON.stringify(entitlement), pairingId, challengeId, await sha256(nonce), nowText, nowText,
+        row.licenseId, row.requesterDeviceType, row.requesterInstallationId, row.requesterFingerprint,
+        row.licenseId, row.requesterDeviceType, row.requesterInstallationId, row.requesterFingerprint, nowText),
+    env.DB.prepare(`INSERT INTO audit_log (event_type, actor, license_id, code_hash, created_at, metadata_json)
+      SELECT 'device.pairing.approved', ?, ?, NULL, ?, ?
+      WHERE EXISTS (SELECT 1 FROM device_pairing_requests WHERE pairing_id = ?
+        AND decision = 'approved' AND consumed_at = ?)`)
+      .bind("device:" + approverInstallationId, row.licenseId, nowText,
+        JSON.stringify({ pairingId, requesterFingerprint: row.requesterFingerprint,
+          approverFingerprint: approver.fingerprint, requesterDeviceType: row.requesterDeviceType }),
+        pairingId, nowText)
+  ]);
+  if (Number(results?.[0]?.meta?.changes || 0) !== 1 ||
+      Number(results?.[1]?.meta?.changes || 0) !== 1 ||
+      Number(results?.[2]?.meta?.changes || 0) !== 1) {
+    return error("تأیید انجام نشد؛ جایگاه یا وضعیت درخواست تغییر کرده است.", 409, headers);
+  }
+  return json({ ok: true, status: "approved", entitlement }, 200, headers);
+}
+
+async function cancelDevicePairingRequest(request, env, headers) {
+  if (!request.headers.get("Origin") || !allowedOrigin(request, env)) return error("مبدأ درخواست مجاز نیست.", 403, headers);
+  if (String(request.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase() !== "application/json")
+    return error("نوع محتوای درخواست باید application/json باشد.", 415, headers);
+  const body = await bodyJson(request);
+  const pairingId = bounded(body.pairingId, 160, "pairingId");
+  const token = bounded(body.token, 128, "token");
+  const tokenHash = await sha256(token);
+  const nowText = nowIso();
+  const results = await env.DB.batch([
+    env.DB.prepare(`UPDATE device_pairing_requests
+      SET cancelled_at = ?, challenge_consumed_at = COALESCE(challenge_consumed_at, ?)
+      WHERE pairing_id = ? AND token_hash = ? AND decision IS NULL
+        AND consumed_at IS NULL AND cancelled_at IS NULL AND expires_at > ?`)
+      .bind(nowText, nowText, pairingId, tokenHash, nowText),
+    env.DB.prepare(`INSERT INTO audit_log
+      (event_type, actor, license_id, code_hash, created_at, metadata_json)
+      SELECT 'device.pairing.cancelled', 'pairing:requester', license_id, NULL, ?, ?
+      FROM device_pairing_requests
+      WHERE pairing_id = ? AND token_hash = ? AND cancelled_at = ? AND decision IS NULL`)
+      .bind(nowText, JSON.stringify({ pairingId }), pairingId, tokenHash, nowText)
+  ]);
+  if (Number(results?.[0]?.meta?.changes || 0) !== 1 ||
+      Number(results?.[1]?.meta?.changes || 0) !== 1) {
+    return error("درخواست قابل لغو نیست؛ ممکن است منقضی، تأیید، رد یا قبلاً لغو شده باشد.", 409, headers);
+  }
+  return json({ ok: true, status: "cancelled" }, 200, headers);
+}
+
+async function getDevicePairingStatus(request, env, headers) {
+  if (!request.headers.get("Origin") || !allowedOrigin(request, env)) return error("مبدأ درخواست مجاز نیست.", 403, headers);
+  if (String(request.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase() !== "application/json")
+    return error("نوع محتوای درخواست باید application/json باشد.", 415, headers);
+  const body = await bodyJson(request);
+  const pairingId = bounded(body.pairingId, 160, "pairingId");
+  const token = bounded(body.token, 128, "token");
+  const tokenHash = await sha256(token);
+  const row = await env.DB.prepare(`SELECT decision, expires_at AS expiresAt, consumed_at AS consumedAt,
+      cancelled_at AS cancelledAt, approved_at AS approvedAt
+      , approved_entitlement_json AS approvedEntitlementJson
+    FROM device_pairing_requests WHERE pairing_id = ? AND token_hash = ?`)
+    .bind(pairingId, tokenHash).first();
+  if (!row) return error("درخواست جفت‌سازی پیدا نشد.", 404, headers);
+  if (!row.decision && (row.cancelledAt || Date.parse(row.expiresAt) <= Date.now()))
+    return json({ ok: true, status: "expired" }, 200, headers);
+  let entitlement = null;
+  if (row.decision === "approved" && row.approvedEntitlementJson) {
+    try { entitlement = JSON.parse(row.approvedEntitlementJson); }
+    catch { return error("دریافت مجوز تأییدشده ممکن نیست.", 500, headers); }
+  }
+  return json({ ok: true, status: row.decision || "pending_approval",
+    approvedAt: row.approvedAt || null, entitlement }, 200, headers);
+}
+
 async function licenseStatus(request, env, url, headers) {
   const licenseId = String(url.searchParams.get("licenseId") || "").trim();
   if (!licenseId) return json({ ok: false, valid: false, message: "licenseId الزامی است." }, 400, headers);
@@ -456,6 +985,63 @@ async function adminRoute(request, env, url, headers) {
     if (contentType !== "application/json") {
       return error("نوع محتوای درخواست باید application/json باشد.", 415, headers);
     }
+  }
+
+
+  if (path === "/api/admin/device-slots/recover" && request.method === "POST") {
+    const origin = request.headers.get("Origin");
+    if (!origin || !allowedOrigin(request, env)) return error("مبدأ درخواست مجاز نیست.", 403, headers);
+    const body = await bodyJson(request);
+    const recoveryWindow = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+    const recentRecoveryFailures = await env.DB.prepare(
+      "SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'admin.device_recovery.denied' AND actor = 'admin' AND created_at >= ?"
+    ).bind(recoveryWindow).first();
+    if (Number(recentRecoveryFailures?.count || 0) >= 5) {
+      return error("تلاش‌های بازیابی موقتاً محدود شده است. ۱۵ دقیقه بعد دوباره اقدام کنید.", 429, headers);
+    }
+    const suppliedPassword = await sha256(String(body.adminPassword || ""));
+    const configuredPassword = await sha256(String(env.ADMIN_PASSWORD || ""));
+    if (!env.ADMIN_PASSWORD || !constantTimeEqual(suppliedPassword, configuredPassword)) {
+      await audit(env, "admin.device_recovery.denied", "admin", {
+        metadata: { reason: "step_up_authentication_failed" }
+      });
+      return error("برای بازیابی دستگاه، تأیید دوبارهٔ رمز مدیریت الزامی است.", 401, headers);
+    }
+    const licenseId = validIdentifier(body.licenseId, "licenseId");
+    const deviceType = String(body.deviceType || "").trim().toLowerCase();
+    const installationId = validIdentifier(body.installationId, "installationId");
+    const fingerprint = bounded(body.keyFingerprint, 128, "keyFingerprint");
+    const reason = String(body.reason || "").trim();
+    if (!["phone", "computer"].includes(deviceType)) return error("نوع دستگاه نامعتبر است.", 400, headers);
+    if (reason.length < 10 || reason.length > 300) return error("علت بازیابی باید بین ۱۰ تا ۳۰۰ نویسه باشد.", 400, headers);
+    const now = nowIso();
+    const statements = [
+      env.DB.prepare(`UPDATE license_device_slots SET revoked_at = ?
+        WHERE license_id = ? AND device_type = ? AND installation_id = ?
+          AND key_fingerprint = ? AND revoked_at IS NULL
+          AND EXISTS (SELECT 1 FROM licenses WHERE license_id = ? AND status = 'active' AND valid_until > ?)`)
+        .bind(now, licenseId, deviceType, installationId, fingerprint, licenseId, now),
+      env.DB.prepare(`UPDATE device_pairing_requests SET cancelled_at = ?
+        WHERE license_id = ? AND requester_device_type = ? AND cancelled_at IS NULL
+          AND consumed_at IS NULL AND approved_at IS NULL AND expires_at > ?
+          AND EXISTS (SELECT 1 FROM license_device_slots WHERE license_id = ?
+            AND device_type = ? AND installation_id = ? AND key_fingerprint = ? AND revoked_at = ?)`)
+        .bind(now, licenseId, deviceType, now, licenseId, deviceType, installationId, fingerprint, now),
+      env.DB.prepare(`INSERT INTO audit_log(event_type,actor,license_id,code_hash,created_at,metadata_json)
+        SELECT 'device.admin_recovered','admin',?,NULL,?,?
+        WHERE EXISTS (SELECT 1 FROM license_device_slots WHERE license_id = ?
+          AND device_type = ? AND installation_id = ? AND key_fingerprint = ? AND revoked_at = ?)`)
+        .bind(licenseId, now, JSON.stringify({ deviceType, installationId, keyFingerprint: fingerprint, reason }),
+          licenseId, deviceType, installationId, fingerprint, now)
+    ];
+    const results = await env.DB.batch(statements);
+    if (Number(results?.[0]?.meta?.changes || 0) !== 1) {
+      return error("مجوز فعال یا دستگاه دقیقاً منطبق پیدا نشد؛ هیچ اتصالی تغییر نکرد.", 404, headers);
+    }
+    if (Number(results?.[2]?.meta?.changes || 0) !== 1) {
+      return error("ثبت گزارش امنیتی بازیابی کامل نشد.", 500, headers);
+    }
+    return json({ ok: true, status: "revoked", cancelledPairings: Number(results?.[1]?.meta?.changes || 0) }, 200, headers);
   }
 
   if (path === "/api/admin/sessions/revoke-all" && request.method === "POST") {
@@ -749,9 +1335,9 @@ async function health(env, headers, requestId) {
 }
 
 
-const ADMIN_HTML = "<!doctype html>\n<html lang=\"fa\" dir=\"rtl\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n<title>پنل مدیریت طهوری</title>\n<link rel=\"stylesheet\" href=\"/admin.css?v=20261030-1\">\n</head>\n<body>\n<main>\n<header class=\"topbar\">\n  <div><h1>پنل مدیریت طهوری</h1><p>مدیریت فعال‌سازی، مجوزها و عملیات سرویس</p></div>\n  <div class=\"status\"><span id=\"healthDot\"></span><span id=\"health\">در حال اتصال...</span></div>\n</header>\n\n<section class=\"card\" id=\"loginCard\">\n  <h2>ورود مدیر</h2>\n  <p class=\"muted\">دسترسی این صفحه فقط برای مدیر سرویس است.</p>\n  <div class=\"form-row\"><input id=\"adminKey\" type=\"password\" autocomplete=\"current-password\" placeholder=\"رمز مدیریت\"><button data-action=\"login\">ورود</button></div>\n  <div id=\"loginError\" class=\"error\" hidden></div>\n</section>\n\n<section id=\"panel\" hidden>\n  <div class=\"toolbar\">\n    <button data-action=\"loadAll\">↻ به‌روزرسانی همه</button>\n    <button class=\"secondary\" data-action=\"logout\">خروج</button>\n    <button class=\"danger\" data-action=\"revokeAllSessions\">خروج از همه دستگاه‌ها</button>\n  </div>\n\n  <section class=\"stats\" id=\"stats\"></section>\n  <section class=\"card\" id=\"alertsCard\" hidden><h2>هشدارهای عملیاتی</h2><div id=\"alerts\"></div></section>\n\n  <section class=\"card\">\n    <h2>اتصال پروفایل‌های موجود بازی</h2>\n    <p class=\"muted\">فقط فایل خروجی پروفایل‌های طهوری را وارد کنید؛ شناسه‌ها حفظ می‌شوند و نمره‌ها و تنظیمات منتقل نمی‌شوند.</p>\n    <label>فایل فهرست پروفایل‌ها (JSON)<input id=\"studentProfilesFile\" type=\"file\" accept=\".json,application/json\"></label>\n    <button class=\"secondary\" data-action=\"importStudentsFile\">وارد کردن فهرست پروفایل‌ها</button>\n    <div id=\"students\"></div>\n  </section>\n\n  <section class=\"card\">\n    <h2>صدور گروهی کد فعال‌سازی</h2>\n    <p class=\"muted\">همان فایل JSON خروجی پروفایل‌ها را انتخاب کنید. برای هر پروفایل فعال و هنوز فعال‌نشده، دقیقاً یک کد برای پایه فعلی و سال تحصیلی جاری ساخته می‌شود. اگر حتی یک پروفایل قبلاً کد فعال یا مصرف‌شده داشته باشد، هیچ کدی صادر نمی‌شود.</p>\n    <label>فایل فهرست پروفایل‌ها (JSON)<input id=\"bulkProfilesFile\" type=\"file\" accept=\".json,application/json\"></label>\n    <button id=\"bulkIssueButton\" data-action=\"createBulkCodesFromFile\">صدور یک کد برای هر پروفایل فایل</button>\n    <div id=\"bulkNewCodes\" class=\"code-box\" hidden></div>\n  </section>\n\n  <section class=\"grid\">\n    <div class=\"card\">\n      <h2>ساخت کد فعال‌سازی</h2>\n      <div class=\"form-grid\">\n        <label>حساب دانش‌آموز<select id=\"studentId\"><option value=\"\">ابتدا فهرست را وارد کنید</option></select></label>\n        <label>پایه<input id=\"grade\" value=\"grade6\"></label>\n        <label>سال تحصیلی<input id=\"year\" value=\"1405\"></label>\n        <label>تعداد<input id=\"count\" type=\"number\" min=\"1\" max=\"100\" value=\"5\"></label>\n        <label>نوع کد<select id=\"renewalMode\"><option value=\"promotion\" selected>پایه سال بعد</option><option value=\"repeat\">تکرار پایه (مردودی)</option></select></label>\n      </div>\n      <button data-action=\"createCodes\">ساخت کدهای جدید</button>\n      <div id=\"newCodes\" class=\"code-box\" hidden></div>\n    </div>\n\n    <div class=\"card\">\n      <h2>لغو کد فعال‌سازی</h2>\n      <p class=\"muted\">کد کامل را وارد کنید. کدهای استفاده‌شده قابل لغو نیستند.</p>\n      <div class=\"form-row\"><input id=\"revokeCode\" placeholder=\"THR-GRADE6-1405-...\"><button class=\"danger\" data-action=\"revokeCode\">لغو کد</button></div>\n    </div>\n  </section>\n\n  <section class=\"card\">\n    <div class=\"section-head\"><h2>جست‌وجو</h2><button class=\"secondary\" data-action=\"searchAll\">جست‌وجو</button></div>\n    <div class=\"form-row\"><input id=\"searchQ\" placeholder=\"شناسه مجوز، پروفایل یا پایه\" data-enter-action=\"searchAll\"></div>\n    <div id=\"searchResults\"></div>\n  </section>\n\n  <section class=\"card\"><div class=\"section-head\"><h2>کدهای فعال‌سازی</h2><button class=\"secondary\" data-action=\"loadCodes\">به‌روزرسانی</button></div><div id=\"codes\"></div></section>\n\n  <section class=\"card\">\n    <div class=\"section-head\"><h2>مجوزها</h2><button class=\"secondary\" data-action=\"loadLicenses\">به‌روزرسانی</button></div>\n    <div id=\"licenses\"></div>\n    <div class=\"action-box\">\n      <input id=\"licenseIdAction\" placeholder=\"License ID\">\n      <input id=\"extendUntil\" type=\"datetime-local\">\n      <button disabled title=\"تا تکمیل و آزمون امضای امن مجوز غیرفعال است\">تمدید (فعلاً غیرفعال)</button>\n      <button class=\"danger\" data-action=\"revokeLicense\">لغو مجوز</button>\n    </div>\n  </section>\n\n  <section class=\"card\"><div class=\"section-head\"><h2>پرداخت‌ها</h2><button class=\"secondary\" data-action=\"loadPayments\">به‌روزرسانی</button></div><div id=\"payments\"></div></section>\n  <section class=\"card\"><div class=\"section-head\"><h2>گزارش عملیات</h2><button class=\"secondary\" data-action=\"loadAudit\">به‌روزرسانی</button></div><div id=\"audit\"></div></section>\n</section>\n</main>\n<script src=\"/admin.js?v=20261030-1\"></script>\n</body>\n</html>";
+const ADMIN_HTML = "<!doctype html>\n<html lang=\"fa\" dir=\"rtl\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n<title>پنل مدیریت طهوری</title>\n<link rel=\"stylesheet\" href=\"/admin.css?v=20261030-1\">\n</head>\n<body>\n<main>\n<header class=\"topbar\">\n  <div><h1>پنل مدیریت طهوری</h1><p>مدیریت فعال‌سازی، مجوزها و عملیات سرویس</p></div>\n  <div class=\"status\"><span id=\"healthDot\"></span><span id=\"health\">در حال اتصال...</span></div>\n</header>\n\n<section class=\"card\" id=\"loginCard\">\n  <h2>ورود مدیر</h2>\n  <p class=\"muted\">دسترسی این صفحه فقط برای مدیر سرویس است.</p>\n  <div class=\"form-row\"><input id=\"adminKey\" type=\"password\" autocomplete=\"current-password\" placeholder=\"رمز مدیریت\"><button data-action=\"login\">ورود</button></div>\n  <div id=\"loginError\" class=\"error\" hidden></div>\n</section>\n\n<section id=\"panel\" hidden>\n  <div class=\"toolbar\">\n    <button data-action=\"loadAll\">↻ به‌روزرسانی همه</button>\n    <button class=\"secondary\" data-action=\"logout\">خروج</button>\n    <button class=\"danger\" data-action=\"revokeAllSessions\">خروج از همه دستگاه‌ها</button>\n  </div>\n\n  <section class=\"stats\" id=\"stats\"></section>\n  <section class=\"card\" id=\"alertsCard\" hidden><h2>هشدارهای عملیاتی</h2><div id=\"alerts\"></div></section>\n\n  <section class=\"card\">\n    <h2>اتصال پروفایل‌های موجود بازی</h2>\n    <p class=\"muted\">فقط فایل خروجی پروفایل‌های طهوری را وارد کنید؛ شناسه‌ها حفظ می‌شوند و نمره‌ها و تنظیمات منتقل نمی‌شوند.</p>\n    <label>فایل فهرست پروفایل‌ها (JSON)<input id=\"studentProfilesFile\" type=\"file\" accept=\".json,application/json\"></label>\n    <button class=\"secondary\" data-action=\"importStudentsFile\">وارد کردن فهرست پروفایل‌ها</button>\n    <div id=\"students\"></div>\n  </section>\n\n  <section class=\"card\">\n    <h2>صدور گروهی کد فعال‌سازی</h2>\n    <p class=\"muted\">همان فایل JSON خروجی پروفایل‌ها را انتخاب کنید. برای هر پروفایل فعال و هنوز فعال‌نشده، دقیقاً یک کد برای پایه فعلی و سال تحصیلی جاری ساخته می‌شود. اگر حتی یک پروفایل قبلاً کد فعال یا مصرف‌شده داشته باشد، هیچ کدی صادر نمی‌شود.</p>\n    <label>فایل فهرست پروفایل‌ها (JSON)<input id=\"bulkProfilesFile\" type=\"file\" accept=\".json,application/json\"></label>\n    <button id=\"bulkIssueButton\" data-action=\"createBulkCodesFromFile\">صدور یک کد برای هر پروفایل فایل</button>\n    <div id=\"bulkNewCodes\" class=\"code-box\" hidden></div>\n  </section>\n\n  <section class=\"grid\">\n    <div class=\"card\">\n      <h2>ساخت کد فعال‌سازی</h2>\n      <div class=\"form-grid\">\n        <label>حساب دانش‌آموز<select id=\"studentId\"><option value=\"\">ابتدا فهرست را وارد کنید</option></select></label>\n        <label>پایه<input id=\"grade\" value=\"grade6\"></label>\n        <label>سال تحصیلی<input id=\"year\" value=\"1405\"></label>\n        <label>تعداد<input id=\"count\" type=\"number\" min=\"1\" max=\"100\" value=\"5\"></label>\n        <label>نوع کد<select id=\"renewalMode\"><option value=\"promotion\" selected>پایه سال بعد</option><option value=\"repeat\">تکرار پایه (مردودی)</option></select></label>\n      </div>\n      <button data-action=\"createCodes\">ساخت کدهای جدید</button>\n      <div id=\"newCodes\" class=\"code-box\" hidden></div>\n    </div>\n\n    <div class=\"card\">\n      <h2>لغو کد فعال‌سازی</h2>\n      <p class=\"muted\">کد کامل را وارد کنید. کدهای استفاده‌شده قابل لغو نیستند.</p>\n      <div class=\"form-row\"><input id=\"revokeCode\" placeholder=\"THR-GRADE6-1405-...\"><button class=\"danger\" data-action=\"revokeCode\">لغو کد</button></div>\n    </div>\n  </section>\n\n  <section class=\"card\" id=\"deviceRecoveryCard\">\n    <h2>بازیابی اضطراری دستگاه</h2>\n    <p class=\"muted\">فقط وقتی دستگاه مقابل در دسترس نیست. اتصال دقیق دستگاه انتخاب‌شده لغو می‌شود؛ دستگاه دیگر حفظ خواهد شد. شناسه نصب و اثرانگشت باید دقیقاً از گزارش دستگاه وارد شوند.</p>\n    <div class=\"form-grid\">\n      <label>شناسه مجوز<input id=\"recoveryLicenseId\" autocomplete=\"off\" maxlength=\"128\" required></label>\n      <label>نوع دستگاه<select id=\"recoveryDeviceType\"><option value=\"phone\">تلفن همراه</option><option value=\"computer\">رایانه</option></select></label>\n      <label>شناسه نصب دقیق<input id=\"recoveryInstallationId\" autocomplete=\"off\" maxlength=\"128\" required></label>\n      <label>اثر انگشت کلید عمومی<input id=\"recoveryFingerprint\" autocomplete=\"off\" maxlength=\"128\" required></label>\n      <label>علت بازیابی (۱۰ تا ۳۰۰ نویسه)<input id=\"recoveryReason\" maxlength=\"300\" required></label>\n      <label>تأیید دوباره رمز مدیریت<input id=\"recoveryAdminPassword\" type=\"password\" autocomplete=\"current-password\" required></label>\n    </div>\n    <button class=\"danger\" data-action=\"recoverDeviceSlot\">لغو اتصال همین دستگاه و بازیابی</button>\n    <div id=\"deviceRecoveryResult\" class=\"error\" role=\"status\" aria-live=\"polite\"></div>\n  </section>\n\n  <section class=\"card\">\n    <div class=\"section-head\"><h2>جست‌وجو</h2><button class=\"secondary\" data-action=\"searchAll\">جست‌وجو</button></div>\n    <div class=\"form-row\"><input id=\"searchQ\" placeholder=\"شناسه مجوز، پروفایل یا پایه\" data-enter-action=\"searchAll\"></div>\n    <div id=\"searchResults\"></div>\n  </section>\n\n  <section class=\"card\"><div class=\"section-head\"><h2>کدهای فعال‌سازی</h2><button class=\"secondary\" data-action=\"loadCodes\">به‌روزرسانی</button></div><div id=\"codes\"></div></section>\n\n  <section class=\"card\">\n    <div class=\"section-head\"><h2>مجوزها</h2><button class=\"secondary\" data-action=\"loadLicenses\">به‌روزرسانی</button></div>\n    <div id=\"licenses\"></div>\n    <div class=\"action-box\">\n      <input id=\"licenseIdAction\" placeholder=\"License ID\">\n      <input id=\"extendUntil\" type=\"datetime-local\">\n      <button disabled title=\"تا تکمیل و آزمون امضای امن مجوز غیرفعال است\">تمدید (فعلاً غیرفعال)</button>\n      <button class=\"danger\" data-action=\"revokeLicense\">لغو مجوز</button>\n    </div>\n  </section>\n\n  <section class=\"card\"><div class=\"section-head\"><h2>پرداخت‌ها</h2><button class=\"secondary\" data-action=\"loadPayments\">به‌روزرسانی</button></div><div id=\"payments\"></div></section>\n  <section class=\"card\"><div class=\"section-head\"><h2>گزارش عملیات</h2><button class=\"secondary\" data-action=\"loadAudit\">به‌روزرسانی</button></div><div id=\"audit\"></div></section>\n</section>\n</main>\n<script src=\"/admin.js?v=20261118-1\"></script>\n</body>\n</html>";
 const ADMIN_CSS = "*{box-sizing:border-box}body{margin:0;background:#f4f6f8;color:#18212b;font-family:Tahoma,Arial,sans-serif}main{max-width:1280px;margin:auto;padding:20px}.topbar{display:flex;justify-content:space-between;gap:20px;align-items:center;margin-bottom:18px}.topbar h1{margin:0 0 6px}.topbar p,.muted{color:#68737d}.status{display:flex;align-items:center;gap:8px;white-space:nowrap}#healthDot{width:10px;height:10px;border-radius:50%;background:#9aa3aa}#healthDot.ok{background:#2e9b5b}#healthDot.bad{background:#c74b4b}.card{background:#fff;border:1px solid #dfe4e8;border-radius:14px;padding:18px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,.03)}h2{font-size:18px;margin:0 0 14px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.form-row{display:flex;gap:8px;align-items:center}.form-row input{flex:1}.form-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}.form-grid label{display:flex;flex-direction:column;gap:5px;font-size:13px}input,button{font:inherit;padding:10px 12px;border-radius:9px;border:1px solid #ccd3da}input{background:#fff;width:100%}button{cursor:pointer;background:#18212b;color:#fff}button.secondary{background:#eef1f3;color:#18212b}.danger{background:#a83232}.toolbar,.section-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px}.action-box{display:grid;grid-template-columns:2fr 1fr auto auto;gap:8px;margin-top:12px}.table-wrap{overflow:auto;border:1px solid #e4e8eb;border-radius:9px}table{width:100%;border-collapse:collapse;min-width:760px}th,td{text-align:right;padding:9px;border-bottom:1px solid #e5e8eb;white-space:nowrap;font-size:13px}th{background:#f7f8f9}.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px}.stat{background:#fff;border:1px solid #dfe4e8;border-radius:12px;padding:14px}.stat strong,.stat span{display:block}.stat strong{font-size:22px;margin-bottom:5px}.stat span{color:#68737d;font-size:12px}.code-box{white-space:pre-wrap;background:#f6f7f8;padding:12px;border-radius:8px;margin-top:10px;direction:ltr;text-align:left;font-family:monospace}.alert{padding:12px;border-radius:9px;margin:7px 0;background:#fff1d6}.alert.critical{background:#ffe0e0}.alert.warning{background:#fff1d6}.alert span{margin-right:10px}.error{color:#a83232;margin-top:10px}@media(max-width:800px){main{padding:12px}.topbar{align-items:flex-start;flex-direction:column}.grid{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr}.action-box{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}.form-row{flex-direction:column;align-items:stretch}.form-row button{width:100%}}";
-const ADMIN_JS = "const API=window.location.origin;\nlet loggedIn=false;\nasync function api(p,o={}){const r=await fetch(API+p,{...o,credentials:\"include\",headers:{\"Content-Type\":\"application/json\",...(o.headers||{})}});const d=await r.json().catch(()=>({message:\"پاسخ نامعتبر\"}));if(r.status===401&&p.indexOf('/login')<0){showLogin();throw Error(\"نشست مدیر معتبر نیست.\");}if(!r.ok)throw Error(d.message||\"خطا\");return d}\nfunction e(v){return String(v??\"\").replace(/[&<>\"']/g,c=>({\"&\":\"&amp;\",\"<\":\"&lt;\",\">\":\"&gt;\",'\"':\"&quot;\",\"'\":\"&#39;\"}[c]))}\nfunction showLogin(){loggedIn=false;document.getElementById(\"loginCard\").hidden=false;document.getElementById(\"panel\").hidden=true}\nfunction showPanel(){loggedIn=true;document.getElementById(\"loginCard\").hidden=true;document.getElementById(\"panel\").hidden=false}\nasync function login(){const input=document.getElementById(\"adminKey\"),err=document.getElementById(\"loginError\");err.hidden=true;try{await api(\"/api/admin/login\",{method:\"POST\",body:JSON.stringify({password:input.value})});input.value=\"\";showPanel();await loadAll()}catch(x){err.textContent=x.message;err.hidden=false}}\nasync function logout(){try{await api(\"/api/admin/logout\",{method:\"POST\"})}finally{showLogin()}}\nasync function revokeAllSessions(){if(!confirm(\"همه نشست‌های مدیریت در تمام دستگاه‌ها باطل می‌شوند و همه مدیران باید دوباره وارد شوند. ادامه می‌دهید؟\"))return;try{const d=await api(\"/api/admin/sessions/revoke-all\",{method:\"POST\"});alert(\"همه نشست‌ها باطل شدند. تعداد نشست‌های لغوشده: \"+d.revokedSessions);showLogin()}catch(x){alert(x.message)}}\nasync function checkSession(){try{const d=await api(\"/api/admin/session\");if(d.ok){showPanel();await loadAll()}else showLogin()}catch{showLogin()}}\nasync function loadHealth(){try{const d=await fetch(API+\"/api/health\",{cache:\"no-store\"}).then(r=>r.json());document.getElementById(\"health\").textContent=d.ok?\"سرویس سالم\":\"سرویس نیازمند بررسی\";document.getElementById(\"healthDot\").className=d.ok?\"ok\":\"bad\"}catch{document.getElementById(\"health\").textContent=\"عدم اتصال\";document.getElementById(\"healthDot\").className=\"bad\"}}\nasync function loadMetrics(){try{const d=await api(\"/api/metrics\");const m=d.metrics;document.getElementById(\"stats\").innerHTML=[\n[\"فعال‌سازی موفق\",m.activations],[\"تلاش‌های فعال‌سازی\",m.activationAttempts],[\"مجوزهای فعال\",m.activeLicenses],[\"حساب‌های فعال‌شده\",m.activeStudents],[\"لغو مجوز\",m.licenseRevocations]\n].map(x=>\"<div class='stat'><strong>\"+e(x[1])+\"</strong><span>\"+e(x[0])+\"</span></div>\").join(\"\")}catch{}}\nasync function loadAlerts(){try{const d=await api(\"/api/metrics/alerts\"),card=document.getElementById(\"alertsCard\");if(!d.alerts.length){card.hidden=true;return}card.hidden=false;document.getElementById(\"alerts\").innerHTML=d.alerts.map(a=>\"<div class='alert \"+e(a.severity)+\"'><strong>\"+e(a.code)+\"</strong><span>\"+e(a.message)+\"</span></div>\").join(\"\")}catch{}}\nasync function loadStudents(){\n const d=await api(\"/api/admin/students\");\n const active=d.students.filter(x=>x.status===\"active\");\n const select=document.getElementById(\"studentId\");\n const previous=select.value;\n select.innerHTML='<option value=\"\">انتخاب دانش‌آموز ثبت‌شده</option>'+active.map(x=>'<option value=\"'+e(x.studentId)+'\" data-grade=\"'+e(x.gradeId)+'\">'+e(x.fullName)+' — '+e(x.gradeId)+' — '+e(x.studentId)+'</option>').join(\"\");\n if(active.some(x=>x.studentId===previous))select.value=previous;\n select.onchange=()=>{const opt=select.selectedOptions[0];if(opt?.dataset.grade)document.getElementById(\"grade\").value=opt.dataset.grade};\n document.getElementById(\"students\").innerHTML=table([\"نام دانش‌آموز\",\"شناسهٔ حساب\",\"پایه\",\"وضعیت\",\"تاریخ ثبت\"],d.students.map(x=>[x.fullName,x.studentId,x.gradeId,x.status!==\"active\"?\"بایگانی‌شده\":(x.activationStatus===\"active\"?\"فعال\":\"غیرفعال\"),x.createdAt]));\n}\nasync function importStudentsFile(){\n try{\n  const input=document.getElementById(\"studentProfilesFile\");\n  const file=input.files&&input.files[0];\n  if(!file)throw Error(\"ابتدا فایل خروجی پروفایل‌های بازی را انتخاب کنید.\");\n  const data=JSON.parse(await file.text());\n  if(data.format!==\"tahouri-student-profiles\"||data.version!==1||!Array.isArray(data.profiles))throw Error(\"ساختار فایل پروفایل‌های طهوری معتبر نیست.\");\n  const result=await api(\"/api/admin/students/import\",{method:\"POST\",body:JSON.stringify({profiles:data.profiles})});\n  input.value=\"\";\n  await loadStudents();\n  alert(\"ورود فهرست انجام شد. پروفایل جدید: \"+result.imported+\"، قبلاً ثبت‌شده: \"+result.alreadyRegistered+\"، مجموع: \"+result.total);\n }catch(x){alert(x.message)}\n}\nasync function loadCodes(){const d=await api(\"/api/admin/codes\");document.getElementById(\"codes\").innerHTML=table([\"کد\",\"شناسه دانش‌آموز\",\"پایه\",\"سال\",\"نوع رزرو\",\"وضعیت\",\"ساخته‌شده\",\"استفاده‌شده\",\"مجوز\"],d.codes.map(x=>[x.codePreview,x.studentId||\"—\",x.gradeId,x.academicYear,x.renewalMode===\"repeat\"?\"تکرار پایه\":\"پایه سال بعد\",x.status,x.createdAt,x.usedAt||\"—\",x.licenseId||\"—\"]))}\nasync function loadLicenses(){const d=await api(\"/api/admin/licenses\");document.getElementById(\"licenses\").innerHTML=table([\"مجوز\",\"پروفایل\",\"پایه\",\"سال\",\"از\",\"تا\",\"وضعیت\"],d.licenses.map(x=>[x.licenseId,x.studentId,x.gradeId,x.academicYear,x.validFrom,x.validUntil,x.status]))}\nasync function loadPayments(){const d=await api(\"/api/admin/payments\");document.getElementById(\"payments\").innerHTML=table([\"شناسه\",\"درگاه\",\"وضعیت\",\"مبلغ\",\"پایه\",\"سال\",\"مجوز\",\"زمان\"],d.payments.map(x=>[x.paymentId,x.provider,x.status,(x.amount??\"\")+\" \"+(x.currency??\"\"),x.gradeId||\"—\",x.academicYear||\"—\",x.licenseId||\"—\",x.createdAt]))}\nasync function loadAudit(){const d=await api(\"/api/admin/audit\");document.getElementById(\"audit\").innerHTML=table([\"رویداد\",\"عامل\",\"مجوز\",\"زمان\",\"جزئیات\"],d.audit.map(x=>[x.eventType,x.actor,x.licenseId||\"—\",x.createdAt,JSON.stringify(x.metadata||{})]))}\nfunction table(headers,rows){if(!rows.length)return \"<p class='muted'>موردی وجود ندارد.</p>\";return \"<div class='table-wrap'><table><thead><tr>\"+headers.map(h=>\"<th>\"+e(h)+\"</th>\").join(\"\")+\"</tr></thead><tbody>\"+rows.map(r=>\"<tr>\"+r.map(v=>\"<td>\"+e(v)+\"</td>\").join(\"\")+\"</tr>\").join(\"\")+\"</tbody></table></div>\"}\nasync function createBulkCodesFromFile(){\n try{\n  const input=document.getElementById(\"bulkProfilesFile\");\n  const file=input.files&&input.files[0];\n  if(!file)throw Error(\"ابتدا فایل خروجی پروفایل‌های طهوری را انتخاب کنید.\");\n  const data=JSON.parse(await file.text());\n  if(data.format!==\"tahouri-student-profiles\"||data.version!==1||!Array.isArray(data.profiles))throw Error(\"ساختار فایل پروفایل‌های طهوری معتبر نیست.\");\n  if(data.profiles.length<1||data.profiles.length>100)throw Error(\"تعداد پروفایل‌ها باید بین ۱ تا ۱۰۰ باشد.\");\n  const studentIds=data.profiles.map(profile=>String(profile?.studentId||\"\").trim());\n  if(studentIds.some(id=>!id)||new Set(studentIds).size!==studentIds.length)throw Error(\"شناسه‌های فایل خالی یا تکراری هستند.\");\n  if(!confirm(\"برای \"+studentIds.length+\" پروفایل، دقیقاً یک کد با پایه فعلی و برای سال تحصیلی جاری صادر شود؟ کدها فقط همین بار نمایش داده می‌شوند.\"))return;\n  const button=document.getElementById(\"bulkIssueButton\");\n  if(button)button.disabled=true;\n  try{\n   const d=await api(\"/api/admin/codes/bulk\",{method:\"POST\",body:JSON.stringify({studentIds})});\n   const box=document.getElementById(\"bulkNewCodes\");\n   box.textContent=\"سال تحصیلی \"+d.academicYear+\" — تعداد کد: \"+d.count+\"\\\\n\"+d.codes.map(x=>[x.fullName,x.studentId,x.gradeId,x.code].join(\" | \")).join(\"\\\\n\");\n   box.hidden=false;\n   input.value=\"\";\n   await loadCodes();\n   alert(\"صدور گروهی کامل شد. \"+d.count+\" کد ساخته شد؛ کدها را اکنون ذخیره کنید.\");\n  }finally{if(button)button.disabled=false;}\n }catch(x){alert(x.message)}\n}\nasync function createCodes(){try{const count=Number(document.getElementById(\"count\").value);if(!Number.isInteger(count)||count<1||count>100)throw Error(\"تعداد باید بین ۱ تا ۱۰۰ باشد.\");const d=await api(\"/api/admin/codes\",{method:\"POST\",body:JSON.stringify({studentId:document.getElementById(\"studentId\").value,gradeId:document.getElementById(\"grade\").value.trim(),academicYear:document.getElementById(\"year\").value.trim(),renewalMode:document.getElementById(\"renewalMode\").value,count})});const box=document.getElementById(\"newCodes\");box.textContent=d.codes.join(\"\\n\");box.hidden=false;await loadCodes();alert(\"کدها ساخته شدند. کد کامل را همین حالا ذخیره کنید.\")}catch(x){alert(x.message)}}\nasync function revokeCode(){try{const code=document.getElementById(\"revokeCode\").value.trim();if(!code)throw Error(\"کد را وارد کنید.\");if(!confirm(\"این کد لغو شود؟\"))return;await api(\"/api/admin/codes/revoke\",{method:\"POST\",body:JSON.stringify({code})});document.getElementById(\"revokeCode\").value=\"\";await loadCodes();alert(\"کد لغو شد.\")}catch(x){alert(x.message)}}\nasync function revokeLicense(){try{const licenseId=document.getElementById(\"licenseIdAction\").value.trim();if(!licenseId)throw Error(\"License ID را وارد کنید.\");if(!confirm(\"این مجوز لغو شود؟\"))return;await api(\"/api/admin/licenses/revoke\",{method:\"POST\",body:JSON.stringify({licenseId})});await loadLicenses();alert(\"مجوز لغو شد.\")}catch(x){alert(x.message)}}\nasync function extendLicense(){try{const licenseId=document.getElementById(\"licenseIdAction\").value.trim(),v=document.getElementById(\"extendUntil\").value;if(!licenseId||!v)throw Error(\"License ID و تاریخ پایان را وارد کنید.\");await api(\"/api/admin/licenses/extend\",{method:\"POST\",body:JSON.stringify({licenseId,validUntil:new Date(v).toISOString()})});await loadLicenses();alert(\"مجوز تمدید شد.\")}catch(x){alert(x.message)}}\nasync function searchAll(){try{const q=document.getElementById(\"searchQ\").value.trim();if(!q)throw Error(\"عبارت جستجو را وارد کنید.\");const d=await api(\"/api/admin/search?q=\"+encodeURIComponent(q));document.getElementById(\"searchResults\").innerHTML=\"<h3>مجوزها</h3>\"+table([\"مجوز\",\"پروفایل\",\"پایه\",\"سال\",\"وضعیت\"],d.licenses.map(v=>[v.licenseId,v.studentId,v.gradeId,v.academicYear,v.status]))+\"<h3>کدها</h3>\"+table([\"کد\",\"پایه\",\"سال\",\"وضعیت\",\"مجوز\"],d.codes.map(v=>[v.codePreview,v.gradeId,v.academicYear,v.status,v.licenseId||\"—\"]))}catch(x){alert(x.message)}}\nasync function loadAll(){await loadHealth();await Promise.all([loadMetrics(),loadAlerts(),loadStudents(),loadCodes(),loadLicenses(),loadPayments(),loadAudit()])}\ndocument.addEventListener(\"click\", event => {\n  const target = event.target.closest(\"[data-action]\");\n  if (!target) return;\n  const action = target.dataset.action;\n  const actions = { login, loadAll, logout, revokeAllSessions, searchAll, loadStudents, importStudentsFile, createBulkCodesFromFile, loadCodes, createCodes, revokeCode, loadLicenses, revokeLicense, loadPayments, loadAudit };\n  if (Object.prototype.hasOwnProperty.call(actions, action)) actions[action]();\n});\ndocument.addEventListener(\"keydown\", event => {\n  if (event.key === \"Enter\" && event.target.dataset.enterAction === \"searchAll\") searchAll();\n});\n\nloadHealth();checkSession();";
+const ADMIN_JS = "const API=window.location.origin;\nlet loggedIn=false;\nasync function api(p,o={}){const r=await fetch(API+p,{...o,credentials:\"include\",headers:{\"Content-Type\":\"application/json\",...(o.headers||{})}});const d=await r.json().catch(()=>({message:\"پاسخ نامعتبر\"}));if(r.status===401&&p.indexOf('/login')<0){showLogin();throw Error(\"نشست مدیر معتبر نیست.\");}if(!r.ok)throw Error(d.message||\"خطا\");return d}\nfunction e(v){return String(v??\"\").replace(/[&<>\"']/g,c=>({\"&\":\"&amp;\",\"<\":\"&lt;\",\">\":\"&gt;\",'\"':\"&quot;\",\"'\":\"&#39;\"}[c]))}\nfunction showLogin(){loggedIn=false;document.getElementById(\"loginCard\").hidden=false;document.getElementById(\"panel\").hidden=true}\nfunction showPanel(){loggedIn=true;document.getElementById(\"loginCard\").hidden=true;document.getElementById(\"panel\").hidden=false}\nasync function login(){const input=document.getElementById(\"adminKey\"),err=document.getElementById(\"loginError\");err.hidden=true;try{await api(\"/api/admin/login\",{method:\"POST\",body:JSON.stringify({password:input.value})});input.value=\"\";showPanel();await loadAll()}catch(x){err.textContent=x.message;err.hidden=false}}\nasync function logout(){try{await api(\"/api/admin/logout\",{method:\"POST\"})}finally{showLogin()}}\nasync function revokeAllSessions(){if(!confirm(\"همه نشست‌های مدیریت در تمام دستگاه‌ها باطل می‌شوند و همه مدیران باید دوباره وارد شوند. ادامه می‌دهید؟\"))return;try{const d=await api(\"/api/admin/sessions/revoke-all\",{method:\"POST\"});alert(\"همه نشست‌ها باطل شدند. تعداد نشست‌های لغوشده: \"+d.revokedSessions);showLogin()}catch(x){alert(x.message)}}\nasync function checkSession(){try{const d=await api(\"/api/admin/session\");if(d.ok){showPanel();await loadAll()}else showLogin()}catch{showLogin()}}\nasync function loadHealth(){try{const d=await fetch(API+\"/api/health\",{cache:\"no-store\"}).then(r=>r.json());document.getElementById(\"health\").textContent=d.ok?\"سرویس سالم\":\"سرویس نیازمند بررسی\";document.getElementById(\"healthDot\").className=d.ok?\"ok\":\"bad\"}catch{document.getElementById(\"health\").textContent=\"عدم اتصال\";document.getElementById(\"healthDot\").className=\"bad\"}}\nasync function loadMetrics(){try{const d=await api(\"/api/metrics\");const m=d.metrics;document.getElementById(\"stats\").innerHTML=[\n[\"فعال‌سازی موفق\",m.activations],[\"تلاش‌های فعال‌سازی\",m.activationAttempts],[\"مجوزهای فعال\",m.activeLicenses],[\"حساب‌های فعال‌شده\",m.activeStudents],[\"لغو مجوز\",m.licenseRevocations]\n].map(x=>\"<div class='stat'><strong>\"+e(x[1])+\"</strong><span>\"+e(x[0])+\"</span></div>\").join(\"\")}catch{}}\nasync function loadAlerts(){try{const d=await api(\"/api/metrics/alerts\"),card=document.getElementById(\"alertsCard\");if(!d.alerts.length){card.hidden=true;return}card.hidden=false;document.getElementById(\"alerts\").innerHTML=d.alerts.map(a=>\"<div class='alert \"+e(a.severity)+\"'><strong>\"+e(a.code)+\"</strong><span>\"+e(a.message)+\"</span></div>\").join(\"\")}catch{}}\nasync function loadStudents(){\n const d=await api(\"/api/admin/students\");\n const active=d.students.filter(x=>x.status===\"active\");\n const select=document.getElementById(\"studentId\");\n const previous=select.value;\n select.innerHTML='<option value=\"\">انتخاب دانش‌آموز ثبت‌شده</option>'+active.map(x=>'<option value=\"'+e(x.studentId)+'\" data-grade=\"'+e(x.gradeId)+'\">'+e(x.fullName)+' — '+e(x.gradeId)+' — '+e(x.studentId)+'</option>').join(\"\");\n if(active.some(x=>x.studentId===previous))select.value=previous;\n select.onchange=()=>{const opt=select.selectedOptions[0];if(opt?.dataset.grade)document.getElementById(\"grade\").value=opt.dataset.grade};\n document.getElementById(\"students\").innerHTML=table([\"نام دانش‌آموز\",\"شناسهٔ حساب\",\"پایه\",\"وضعیت\",\"تاریخ ثبت\"],d.students.map(x=>[x.fullName,x.studentId,x.gradeId,x.status!==\"active\"?\"بایگانی‌شده\":(x.activationStatus===\"active\"?\"فعال\":\"غیرفعال\"),x.createdAt]));\n}\nasync function importStudentsFile(){\n try{\n  const input=document.getElementById(\"studentProfilesFile\");\n  const file=input.files&&input.files[0];\n  if(!file)throw Error(\"ابتدا فایل خروجی پروفایل‌های بازی را انتخاب کنید.\");\n  const data=JSON.parse(await file.text());\n  if(data.format!==\"tahouri-student-profiles\"||data.version!==1||!Array.isArray(data.profiles))throw Error(\"ساختار فایل پروفایل‌های طهوری معتبر نیست.\");\n  const result=await api(\"/api/admin/students/import\",{method:\"POST\",body:JSON.stringify({profiles:data.profiles})});\n  input.value=\"\";\n  await loadStudents();\n  alert(\"ورود فهرست انجام شد. پروفایل جدید: \"+result.imported+\"، قبلاً ثبت‌شده: \"+result.alreadyRegistered+\"، مجموع: \"+result.total);\n }catch(x){alert(x.message)}\n}\nasync function loadCodes(){const d=await api(\"/api/admin/codes\");document.getElementById(\"codes\").innerHTML=table([\"کد\",\"شناسه دانش‌آموز\",\"پایه\",\"سال\",\"نوع رزرو\",\"وضعیت\",\"ساخته‌شده\",\"استفاده‌شده\",\"مجوز\"],d.codes.map(x=>[x.codePreview,x.studentId||\"—\",x.gradeId,x.academicYear,x.renewalMode===\"repeat\"?\"تکرار پایه\":\"پایه سال بعد\",x.status,x.createdAt,x.usedAt||\"—\",x.licenseId||\"—\"]))}\nasync function loadLicenses(){const d=await api(\"/api/admin/licenses\");document.getElementById(\"licenses\").innerHTML=table([\"مجوز\",\"پروفایل\",\"پایه\",\"سال\",\"از\",\"تا\",\"وضعیت\"],d.licenses.map(x=>[x.licenseId,x.studentId,x.gradeId,x.academicYear,x.validFrom,x.validUntil,x.status]))}\nasync function loadPayments(){const d=await api(\"/api/admin/payments\");document.getElementById(\"payments\").innerHTML=table([\"شناسه\",\"درگاه\",\"وضعیت\",\"مبلغ\",\"پایه\",\"سال\",\"مجوز\",\"زمان\"],d.payments.map(x=>[x.paymentId,x.provider,x.status,(x.amount??\"\")+\" \"+(x.currency??\"\"),x.gradeId||\"—\",x.academicYear||\"—\",x.licenseId||\"—\",x.createdAt]))}\nasync function loadAudit(){const d=await api(\"/api/admin/audit\");document.getElementById(\"audit\").innerHTML=table([\"رویداد\",\"عامل\",\"مجوز\",\"زمان\",\"جزئیات\"],d.audit.map(x=>[x.eventType,x.actor,x.licenseId||\"—\",x.createdAt,JSON.stringify(x.metadata||{})]))}\nfunction table(headers,rows){if(!rows.length)return \"<p class='muted'>موردی وجود ندارد.</p>\";return \"<div class='table-wrap'><table><thead><tr>\"+headers.map(h=>\"<th>\"+e(h)+\"</th>\").join(\"\")+\"</tr></thead><tbody>\"+rows.map(r=>\"<tr>\"+r.map(v=>\"<td>\"+e(v)+\"</td>\").join(\"\")+\"</tr>\").join(\"\")+\"</tbody></table></div>\"}\nasync function createBulkCodesFromFile(){\n try{\n  const input=document.getElementById(\"bulkProfilesFile\");\n  const file=input.files&&input.files[0];\n  if(!file)throw Error(\"ابتدا فایل خروجی پروفایل‌های طهوری را انتخاب کنید.\");\n  const data=JSON.parse(await file.text());\n  if(data.format!==\"tahouri-student-profiles\"||data.version!==1||!Array.isArray(data.profiles))throw Error(\"ساختار فایل پروفایل‌های طهوری معتبر نیست.\");\n  if(data.profiles.length<1||data.profiles.length>100)throw Error(\"تعداد پروفایل‌ها باید بین ۱ تا ۱۰۰ باشد.\");\n  const studentIds=data.profiles.map(profile=>String(profile?.studentId||\"\").trim());\n  if(studentIds.some(id=>!id)||new Set(studentIds).size!==studentIds.length)throw Error(\"شناسه‌های فایل خالی یا تکراری هستند.\");\n  if(!confirm(\"برای \"+studentIds.length+\" پروفایل، دقیقاً یک کد با پایه فعلی و برای سال تحصیلی جاری صادر شود؟ کدها فقط همین بار نمایش داده می‌شوند.\"))return;\n  const button=document.getElementById(\"bulkIssueButton\");\n  if(button)button.disabled=true;\n  try{\n   const d=await api(\"/api/admin/codes/bulk\",{method:\"POST\",body:JSON.stringify({studentIds})});\n   const box=document.getElementById(\"bulkNewCodes\");\n   box.textContent=\"سال تحصیلی \"+d.academicYear+\" — تعداد کد: \"+d.count+\"\\\\n\"+d.codes.map(x=>[x.fullName,x.studentId,x.gradeId,x.code].join(\" | \")).join(\"\\\\n\");\n   box.hidden=false;\n   input.value=\"\";\n   await loadCodes();\n   alert(\"صدور گروهی کامل شد. \"+d.count+\" کد ساخته شد؛ کدها را اکنون ذخیره کنید.\");\n  }finally{if(button)button.disabled=false;}\n }catch(x){alert(x.message)}\n}\nasync function createCodes(){try{const count=Number(document.getElementById(\"count\").value);if(!Number.isInteger(count)||count<1||count>100)throw Error(\"تعداد باید بین ۱ تا ۱۰۰ باشد.\");const d=await api(\"/api/admin/codes\",{method:\"POST\",body:JSON.stringify({studentId:document.getElementById(\"studentId\").value,gradeId:document.getElementById(\"grade\").value.trim(),academicYear:document.getElementById(\"year\").value.trim(),renewalMode:document.getElementById(\"renewalMode\").value,count})});const box=document.getElementById(\"newCodes\");box.textContent=d.codes.join(\"\\n\");box.hidden=false;await loadCodes();alert(\"کدها ساخته شدند. کد کامل را همین حالا ذخیره کنید.\")}catch(x){alert(x.message)}}\nasync function revokeCode(){try{const code=document.getElementById(\"revokeCode\").value.trim();if(!code)throw Error(\"کد را وارد کنید.\");if(!confirm(\"این کد لغو شود؟\"))return;await api(\"/api/admin/codes/revoke\",{method:\"POST\",body:JSON.stringify({code})});document.getElementById(\"revokeCode\").value=\"\";await loadCodes();alert(\"کد لغو شد.\")}catch(x){alert(x.message)}}\nasync function revokeLicense(){try{const licenseId=document.getElementById(\"licenseIdAction\").value.trim();if(!licenseId)throw Error(\"License ID را وارد کنید.\");if(!confirm(\"این مجوز لغو شود؟\"))return;await api(\"/api/admin/licenses/revoke\",{method:\"POST\",body:JSON.stringify({licenseId})});await loadLicenses();alert(\"مجوز لغو شد.\")}catch(x){alert(x.message)}}\nasync function extendLicense(){try{const licenseId=document.getElementById(\"licenseIdAction\").value.trim(),v=document.getElementById(\"extendUntil\").value;if(!licenseId||!v)throw Error(\"License ID و تاریخ پایان را وارد کنید.\");await api(\"/api/admin/licenses/extend\",{method:\"POST\",body:JSON.stringify({licenseId,validUntil:new Date(v).toISOString()})});await loadLicenses();alert(\"مجوز تمدید شد.\")}catch(x){alert(x.message)}}\nasync function searchAll(){try{const q=document.getElementById(\"searchQ\").value.trim();if(!q)throw Error(\"عبارت جستجو را وارد کنید.\");const d=await api(\"/api/admin/search?q=\"+encodeURIComponent(q));document.getElementById(\"searchResults\").innerHTML=\"<h3>مجوزها</h3>\"+table([\"مجوز\",\"پروفایل\",\"پایه\",\"سال\",\"وضعیت\"],d.licenses.map(v=>[v.licenseId,v.studentId,v.gradeId,v.academicYear,v.status]))+\"<h3>کدها</h3>\"+table([\"کد\",\"پایه\",\"سال\",\"وضعیت\",\"مجوز\"],d.codes.map(v=>[v.codePreview,v.gradeId,v.academicYear,v.status,v.licenseId||\"—\"]))}catch(x){alert(x.message)}}\nasync function recoverDeviceSlot(){\n const ids=[\"recoveryLicenseId\",\"recoveryInstallationId\",\"recoveryFingerprint\",\"recoveryReason\",\"recoveryAdminPassword\"];\n const values=Object.fromEntries(ids.map(id=>[id,document.getElementById(id).value.trim()]));\n const type=document.getElementById(\"recoveryDeviceType\").value;\n const result=document.getElementById(\"deviceRecoveryResult\");\n result.textContent=\"\";\n try{\n  if(ids.some(id=>!values[id]))throw Error(\"همه فیلدهای بازیابی الزامی هستند.\");\n  if(values.recoveryReason.length<10||values.recoveryReason.length>300)throw Error(\"علت بازیابی باید بین ۱۰ تا ۳۰۰ نویسه باشد.\");\n  if(!confirm(\"توجه: اتصال دستگاه «\"+type+\"» با شناسه نصب «\"+values.recoveryInstallationId+\"» لغو می‌شود. دستگاه مقابل حفظ خواهد شد. فقط در صورت تطبیق دقیق شناسه و اثرانگشت ادامه دهید.\"))return;\n  const d=await api(\"/api/admin/device-slots/recover\",{method:\"POST\",body:JSON.stringify({licenseId:values.recoveryLicenseId,deviceType:type,installationId:values.recoveryInstallationId,keyFingerprint:values.recoveryFingerprint,reason:values.recoveryReason,adminPassword:values.recoveryAdminPassword})});\n  result.textContent=\"اتصال دستگاه دقیقاً مشخص‌شده لغو شد. درخواست‌های جفت‌سازی لغوشده: \"+d.cancelledPairings+\". دستگاه مقابل دست‌نخورده باقی ماند.\";\n  [\"recoveryLicenseId\",\"recoveryInstallationId\",\"recoveryFingerprint\",\"recoveryReason\"].forEach(id=>document.getElementById(id).value=\"\");\n }catch(x){result.textContent=x.message}\n finally{document.getElementById(\"recoveryAdminPassword\").value=\"\"}\n}\nasync function loadAll(){await loadHealth();await Promise.all([loadMetrics(),loadAlerts(),loadStudents(),loadCodes(),loadLicenses(),loadPayments(),loadAudit()])}\ndocument.addEventListener(\"click\", event => {\n  const target = event.target.closest(\"[data-action]\");\n  if (!target) return;\n  const action = target.dataset.action;\n  const actions = { login, loadAll, logout, revokeAllSessions, searchAll, loadStudents, importStudentsFile, createBulkCodesFromFile, loadCodes, createCodes, revokeCode, loadLicenses, revokeLicense, loadPayments, loadAudit, recoverDeviceSlot };\n  if (Object.prototype.hasOwnProperty.call(actions, action)) actions[action]();\n});\ndocument.addEventListener(\"keydown\", event => {\n  if (event.key === \"Enter\" && event.target.dataset.enterAction === \"searchAll\") searchAll();\n});\n\nloadHealth();checkSession();";
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -778,6 +1364,26 @@ export default {
           message: "ثبت عمومی پروفایل غیرفعال است؛ ورود پروفایل باید از پنل مدیریت انجام شود." }, 410, headers);
       if (url.pathname === "/api/licenses/activate" && request.method === "POST")
         return await activateLicense(request, env, headers);
+      if (url.pathname === "/api/licenses/device-slots" && request.method === "POST")
+        return await listBoundDeviceSlots(request, env, headers);
+      if (url.pathname === "/api/licenses/device-revocation/challenge" && request.method === "POST")
+        return await createDeviceRevocationChallenge(request, env, headers);
+      if (url.pathname === "/api/licenses/device-revocation/execute" && request.method === "POST")
+        return await executeDeviceRevocation(request, env, headers);
+      if (url.pathname === "/api/licenses/pairing/request" && request.method === "POST")
+        return await createDevicePairingRequest(request, env, headers);
+      if (url.pathname === "/api/licenses/pairing/pending" && request.method === "POST")
+        return await listPendingDevicePairings(request, env, headers);
+      if (url.pathname === "/api/licenses/pairing/challenge" && request.method === "POST")
+        return await createDevicePairingChallenge(request, env, headers);
+      if (url.pathname === "/api/licenses/pairing/approve" && request.method === "POST")
+        return await decideDevicePairing(request, env, headers, "approved");
+      if (url.pathname === "/api/licenses/pairing/reject" && request.method === "POST")
+        return await decideDevicePairing(request, env, headers, "rejected");
+      if (url.pathname === "/api/licenses/pairing/cancel" && request.method === "POST")
+        return await cancelDevicePairingRequest(request, env, headers);
+      if (url.pathname === "/api/licenses/pairing/status" && request.method === "POST")
+        return await getDevicePairingStatus(request, env, headers);
       if (url.pathname === "/api/licenses/status" && request.method === "GET")
         return await licenseStatus(request, env, url, headers);
       if (url.pathname.startsWith("/api/admin/") || url.pathname === "/api/metrics" || url.pathname === "/api/metrics/alerts")

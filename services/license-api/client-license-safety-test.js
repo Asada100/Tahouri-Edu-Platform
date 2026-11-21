@@ -22,6 +22,7 @@ const gate = read("engine/core/activationGate.js");
 const appController = read("engine/core/appController.js");
 const licenseClient = read("engine/core/tahouriLicenseClient.js");
 const profileScreen = read("engine/ui/profileScreen.js");
+const licenseScreen = read("engine/ui/licenseScreen.js");
 
 assert(
     serviceConfig.includes('mode: "production"') &&
@@ -34,7 +35,9 @@ assert(
 assert(
     indexHtml.includes("tahouriServiceConfig.js?v=1.3") &&
     indexHtml.includes("tahouriEntitlementVerifier.js?v=1.5") &&
-    indexHtml.includes("tahouriLicenseClient.js?v=1.2") &&
+    indexHtml.includes("tahouriDeviceIdentity.js?v=1.0") &&
+    indexHtml.includes("tahouriLicenseClient.js?v=1.8") &&
+    indexHtml.indexOf("tahouriDeviceIdentity.js") < indexHtml.indexOf("tahouriLicenseClient.js") &&
     indexHtml.includes("profileScreen.js?v=5.1") &&
     indexHtml.includes("licenseManager.js?v=2.2") &&
     indexHtml.includes("activationGate.js?v=8.5") &&
@@ -43,10 +46,27 @@ assert(
 );
 
 assert(
+    licenseScreen.includes('id="tahouriDeviceSlots"') &&
+    licenseScreen.includes('id="tahouriDeviceSlotsList"') &&
+    licenseScreen.includes("async function loadBoundDeviceSlots()") &&
+    licenseScreen.includes("async function replaceBoundDevice(device,claims,button)") &&
+    licenseScreen.includes("requestDeviceRevocationChallenge") &&
+    licenseScreen.includes("executeDeviceRevocation"),
+    "License UI must expose the authenticated device list and signed replacement flow."
+);
+
+assert(
     !licenseClient.includes("registerExistingProfiles") &&
     !licenseClient.includes("registerProfile") &&
     !licenseClient.includes("/students/register") &&
-    licenseClient.includes("window.TahouriLicenseClient = { activate, health, status };"),
+    licenseClient.includes("window.TahouriLicenseClient = { activate, health, status, requestPairing, requestPairingChallenge, decidePairing, pairingStatus, cancelPairing, listPendingPairings, listBoundDeviceSlots, requestDeviceRevocationChallenge, executeDeviceRevocation };") &&
+    licenseClient.includes("async function listBoundDeviceSlots(licenseId)") &&
+    licenseClient.includes("async function cancelPairing(pairingId, token)") &&
+    licenseClient.includes("devicePublicKeyPem: identity.publicKey") &&
+    licenseClient.includes("deviceSignature: signed.signature") &&
+    manager.includes("async function getOrCreateRemoteInstallationId()") &&
+    manager.includes("await getOrCreateRemoteInstallationId()") &&
+    manager.includes("claims.installationBinding !== installationId"),
     "The browser client must not auto-register profiles through a public enrollment endpoint."
 );
 

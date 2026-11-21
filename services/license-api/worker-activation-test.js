@@ -8,7 +8,7 @@ const crypto = require("node:crypto");
 const { DatabaseSync } = require("node:sqlite");
 
 const db = new DatabaseSync(":memory:");
-for (const file of ["migrations/0001_initial_schema.sql", "migrations/0002_admin_login_attempts.sql", "migrations/0003_activation_integrity_indexes.sql", "migrations/0004_student_accounts.sql", "migrations/0005_student_activation_status.sql"]) {
+for (const file of ["migrations/0001_initial_schema.sql", "migrations/0002_admin_login_attempts.sql", "migrations/0003_activation_integrity_indexes.sql", "migrations/0004_student_accounts.sql", "migrations/0005_student_activation_status.sql", "migrations/0006_one_phone_one_computer.sql", "migrations/0007_device_slot_public_keys.sql", "migrations/0008_pairing_request_identity.sql", "migrations/0009_pairing_signed_decisions.sql", "migrations/0010_pairing_entitlement_delivery.sql", "migrations/0011_device_slot_history.sql", "migrations/0012_device_revocation_challenges.sql"]) {
     db.exec(fs.readFileSync(path.join(__dirname, file), "utf8"));
 }
 
@@ -52,7 +52,46 @@ async function sha256(value) {
     const digest = await crypto.webcrypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
     return Buffer.from(digest).toString("hex");
 }
-async function request(worker, env, pathName, method, body, origin = "https://asada100.github.io", ip = "203.0.113.10", contentType = "application/json") {
+let activationDevicePair = null;
+let pairingDevicePair = null;
+let requestSequence = 0;
+async function request(worker, env, pathName, method, body, origin = "https://asada100.github.io", ip = null, contentType = "application/json") {
+    if (!ip) {
+        requestSequence += 1;
+        ip = "203.0.113." + (100 + (requestSequence % 100));
+    }
+    if (pathName === "/api/licenses/pairing/request" && body && pairingDevicePair) {
+        body = { ...body };
+        const deviceType = body.deviceType || "computer";
+        const codeHash = await sha256(String(body.code || "").trim().toUpperCase());
+        const proof = JSON.stringify({
+            purpose: "tahouri-device-pairing-request-v1",
+            installationId: body.installationId,
+            deviceType,
+            studentId: body.studentId,
+            gradeId: body.gradeId,
+            codeHash
+        });
+        body.deviceType = deviceType;
+        body.devicePublicKeyPem = pairingDevicePair.publicKey.export({ type: "spki", format: "pem" });
+        body.deviceSignature = crypto.sign("RSA-SHA256", Buffer.from(proof), pairingDevicePair.privateKey).toString("base64");
+    }
+    if (pathName === "/api/licenses/activate" && body && activationDevicePair) {
+        body = { ...body };
+        const deviceType = body.deviceType || "computer";
+        const codeHash = await sha256(String(body.code || "").trim().toUpperCase());
+        const proof = JSON.stringify({
+            purpose: "tahouri-device-activation-v1",
+            installationId: body.installationId,
+            deviceType,
+            studentId: body.studentId,
+            gradeId: body.gradeId,
+            codeHash
+        });
+        body.deviceType = deviceType;
+        body.devicePublicKeyPem = body.devicePublicKeyPem || activationDevicePair.publicKey.export({ type: "spki", format: "pem" });
+        body.deviceSignature = body.deviceSignature || crypto.sign("RSA-SHA256", Buffer.from(proof), activationDevicePair.privateKey).toString("base64");
+    }
     const headers = { "content-type": contentType, "cf-connecting-ip": ip };
     if (origin) headers.origin = origin;
     return worker.fetch(new Request("https://api.example.test" + pathName, {
@@ -64,9 +103,25 @@ async function request(worker, env, pathName, method, body, origin = "https://as
 
 async function main() {
     const migrations = db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get();
-    assert.equal(Number(migrations.version), 5, "D1 migrations must create the version-5 student activation-status schema.");
+    assert.equal(Number(migrations.version), 12, "D1 migrations must create the version-12 device revocation challenge schema.");
+    const revocationColumns = db.prepare("PRAGMA table_info(device_revocation_challenges)").all().map(row => row.name);
+    for (const column of ["challenge_id", "license_id", "target_device_type", "target_installation_id", "target_fingerprint", "approver_device_type", "approver_installation_id", "approver_fingerprint", "nonce_hash", "expires_at", "consumed_at"]) {
+        assert(revocationColumns.includes(column), "Device revocation challenge schema is missing " + column + ".");
+    }
+    assert(db.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'idx_device_revocation_challenges_license'").get(), "Revocation challenge expiry index is missing.");
+    assert(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'license_device_slots'").get(), "Migration 6 must create device slots.");
+    assert(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'device_pairing_requests'").get(), "Migration 6 must create pairing requests.");
+    const pairingColumns = db.prepare("PRAGMA table_info(device_pairing_requests)").all().map(row => row.name);
+    for (const column of ["requester_student_id", "requester_grade_id", "requester_public_key_pem", "requester_key_fingerprint", "challenge_id", "challenge_nonce_hash", "challenge_expires_at", "challenge_consumed_at", "decision", "decided_at", "approver_device_type", "approver_installation_id", "approved_entitlement_json"]) {
+        assert(pairingColumns.includes(column), "Pairing requests must persist verified requester field " + column + ".");
+    }
+    const deviceSlotColumns = db.prepare("PRAGMA table_info(license_device_slots)").all().map(row => row.name);
+    assert.equal(deviceSlotColumns.includes("device_type"), true, "Device slots must distinguish phone and computer.");
+    assert.equal(deviceSlotColumns.includes("public_key_pem"), true, "Device slots must persist the verified public key.");
+    assert.equal(deviceSlotColumns.includes("key_fingerprint"), true, "Device slots must persist the public-key fingerprint.");
 
     const pair = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
+    activationDevicePair = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
     const privatePem = pair.privateKey.export({ type: "pkcs8", format: "pem" });
     const publicPem = pair.publicKey.export({ type: "spki", format: "pem" });
     const source = fs.readFileSync(path.join(__dirname, "worker.js"), "utf8");
@@ -75,6 +130,11 @@ async function main() {
     assert.equal((source.match(/onkeydown=/gi) || []).length, 0, "Cloudflare admin HTML must not contain inline keyboard handlers.");
     assert(source.includes("content-security-policy"), "Cloudflare admin route must set a strict CSP.");
     assert(source.includes("document.addEventListener"), "Admin actions must use delegated external JavaScript handlers.");
+    assert.match(source, /async function createDeviceRevocationChallenge/);
+    assert.match(source, /async function executeDeviceRevocation/);
+    assert(source.includes("device-slots") && source.includes("async function listBoundDeviceSlots"), "Worker must expose authenticated device-slot listing.");
+    assert(source.includes("device-revocation/challenge"), "Worker must route revocation challenge requests.");
+    assert(source.includes("device-revocation/execute"), "Worker must route revocation execution requests.");
     const worker = (await import(moduleUrl)).default;
     const env = {
         DB: D1, LICENSE_PRIVATE_KEY_PEM: privatePem, LICENSE_PUBLIC_KEY_PEM: publicPem,
@@ -92,6 +152,12 @@ async function main() {
         "The authenticated admin UI must expose the profile import action after public registration is disabled.");
     assert.match(adminHtml, /id="studentProfilesFile"/,
         "The admin UI must provide a file input for the exported profile JSON.");
+    assert.match(adminHtml, /id="deviceRecoveryCard"/);
+    assert.match(adminHtml, /id="recoveryLicenseId"/);
+    assert.match(adminHtml, /id="recoveryInstallationId"/);
+    assert.match(adminHtml, /id="recoveryFingerprint"/);
+    assert.match(adminHtml, /id="recoveryAdminPassword"/);
+    assert.match(adminHtml, /data-action="recoverDeviceSlot"/);
     assert.match(adminHtml, /data-action="createBulkCodesFromFile"/,
         "The authenticated admin UI must expose the bulk issuance action.");
     assert.match(adminHtml, /id="bulkProfilesFile"/,
@@ -548,8 +614,16 @@ async function main() {
     assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM licenses WHERE code_hash = ?").get().count), 0,
         "A losing activation race must not create a license.");
 
+    const invalidDeviceProof = await request(worker, env, "/api/licenses/activate", "POST", {
+        code, gradeId: "grade6", studentId: "student-1", installationId: "install-1",
+        deviceType: "phone", deviceSignature: Buffer.alloc(256, 7).toString("base64")
+    }, "https://asada100.github.io", "203.0.113.55");
+    assert.equal(invalidDeviceProof.status, 401, "A correctly sized but forged device signature must be rejected cryptographically.");
+    assert.equal(db.prepare("SELECT status FROM activation_codes WHERE code_hash = ?").get(codeHash).status, "active",
+        "A rejected device proof must not consume the activation code.");
+
     const activated = await request(worker, env, "/api/licenses/activate", "POST", {
-        code, gradeId: "grade6", studentId: "student-1", installationId: "install-1"
+        code, gradeId: "grade6", studentId: "student-1", installationId: "install-1", deviceType: "phone"
     });
     assert.equal(activated.status, 200, "Valid one-time activation must succeed.");
     const activationBody = await activated.json();
@@ -566,6 +640,328 @@ async function main() {
     assert.equal(stored.status, "used");
     assert.equal(stored.license_id, activationBody.entitlement.claims.licenseId);
     assert.equal(db.prepare("SELECT activation_status FROM student_accounts WHERE student_id = 'student-1'").get().activation_status, "active", "Successful activation must mark the profile active.");
+    const phoneSlot = db.prepare("SELECT device_type, installation_id, revoked_at FROM license_device_slots WHERE license_id = ? AND device_type = 'phone'").get(stored.license_id);
+    assert.equal(phoneSlot?.device_type, "phone");
+    assert.equal(phoneSlot?.installation_id, "install-1");
+    assert.equal(phoneSlot?.revoked_at, null,
+        "The successful initial activation must atomically bind its phone slot.");
+    const storedDeviceIdentity = db.prepare("SELECT public_key_pem, key_fingerprint FROM license_device_slots WHERE license_id = ? AND device_type = 'phone'").get(stored.license_id);
+    assert.equal(storedDeviceIdentity.public_key_pem, activationDevicePair.publicKey.export({ type: "spki", format: "pem" }).trim());
+    const expectedDeviceFingerprint = crypto.createHash("sha256")
+        .update(activationDevicePair.publicKey.export({ type: "spki", format: "der" })).digest("hex");
+    assert.equal(storedDeviceIdentity.key_fingerprint, expectedDeviceFingerprint,
+        "The stored device fingerprint must be SHA-256 of the DER SPKI bytes.");
+    assert.equal(activationBody.entitlement.claims.deviceType, "phone");
+    assert.equal(activationBody.entitlement.claims.deviceKeyFingerprint, storedDeviceIdentity.key_fingerprint);
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id = ?").get(stored.license_id).count), 1,
+        "Only one slot should be bound after initial phone activation.");
+
+    pairingDevicePair = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
+    const pairingRequest = await request(worker, env, "/api/licenses/pairing/request", "POST", {
+        code, gradeId: "grade6", studentId: "student-1", installationId: "install-computer-1", deviceType: "computer"
+    });
+    assert.equal(pairingRequest.status, 201, "A second device class must create an approval-gated pairing request instead of binding immediately.");
+    const pairingBody = await pairingRequest.json();
+    assert.equal(pairingBody.ok, true);
+    assert.equal(pairingBody.status, "pending_approval");
+    const storedPairing = db.prepare("SELECT license_id, requester_device_type, requester_installation_id, requester_public_key_pem, requester_key_fingerprint, token_hash, expires_at FROM device_pairing_requests WHERE pairing_id = ?").get(pairingBody.pairingId);
+    assert.equal(storedPairing.license_id, stored.license_id);
+    assert.equal(storedPairing.requester_device_type, "computer");
+    assert.equal(storedPairing.requester_installation_id, "install-computer-1");
+    assert.equal(storedPairing.requester_public_key_pem, pairingDevicePair.publicKey.export({ type: "spki", format: "pem" }).trim());
+    assert.equal(storedPairing.requester_key_fingerprint, crypto.createHash("sha256").update(pairingDevicePair.publicKey.export({ type: "spki", format: "der" })).digest("hex"));
+    assert.equal(storedPairing.token_hash, await sha256(pairingBody.token));
+    assert(Date.parse(storedPairing.expires_at) > Date.now(), "Pairing requests must expire in the future.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id = ? AND device_type = 'computer'").get(stored.license_id).count), 0,
+        "A pairing request must not bind the second device before approval.");
+
+    const approverFingerprint = crypto.createHash("sha256")
+        .update(activationDevicePair.publicKey.export({ type: "spki", format: "der" })).digest("hex");
+    const listPendingProof = {
+        purpose: "tahouri-device-pairing-list-v1",
+        licenseId: stored.license_id, approverDeviceType: "phone",
+        approverInstallationId: "install-1", approverKeyFingerprint: approverFingerprint
+    };
+    const pendingList = await request(worker, env, "/api/licenses/pairing/pending", "POST", {
+        licenseId: stored.license_id, approverDeviceType: "phone",
+        approverInstallationId: "install-1",
+        approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(listPendingProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(pendingList.status, 200, "A registered device may list its pending pairing requests with a valid signature.");
+    const pendingListBody = await pendingList.json();
+    assert.equal(pendingListBody.requests.length, 1);
+    assert.equal(pendingListBody.requests[0].pairingId, pairingBody.pairingId);
+    const forgedPendingList = await request(worker, env, "/api/licenses/pairing/pending", "POST", {
+        licenseId: stored.license_id, approverDeviceType: "phone",
+        approverInstallationId: "install-1", approverSignature: "A".repeat(344)
+    });
+    assert.equal(forgedPendingList.status, 401, "A forged signature must not reveal pending requests.");
+    const challengeRequestProof = {
+        purpose: "tahouri-device-pairing-challenge-request-v1",
+        pairingId: pairingBody.pairingId, licenseId: stored.license_id,
+        approverDeviceType: "phone", approverInstallationId: "install-1",
+        approverKeyFingerprint: approverFingerprint
+    };
+    const challengeResponse = await request(worker, env, "/api/licenses/pairing/challenge", "POST", {
+        pairingId: pairingBody.pairingId, approverDeviceType: "phone",
+        approverInstallationId: "install-1",
+        approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(challengeRequestProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(challengeResponse.status, 200, "Only the bound phone may request an approval challenge.");
+    const challengeBody = await challengeResponse.json();
+    assert.equal(challengeBody.ok, true);
+    assert.equal(challengeBody.pairingId, pairingBody.pairingId);
+    const decisionProof = {
+        purpose: "tahouri-device-pairing-decision-v1",
+        pairingId: pairingBody.pairingId, licenseId: stored.license_id,
+        challengeId: challengeBody.challengeId, nonce: challengeBody.nonce,
+        decision: "approved", requesterDeviceType: "computer",
+        requesterInstallationId: "install-computer-1",
+        requesterKeyFingerprint: storedPairing.requester_key_fingerprint,
+        approverDeviceType: "phone", approverInstallationId: "install-1",
+        approverKeyFingerprint: approverFingerprint,
+        challengeExpiresAt: challengeBody.expiresAt
+    };
+    const invalidDecision = await request(worker, env, "/api/licenses/pairing/approve", "POST", {
+        pairingId: pairingBody.pairingId, challengeId: challengeBody.challengeId,
+        nonce: challengeBody.nonce, approverDeviceType: "phone",
+        approverInstallationId: "install-1", approverSignature: "A".repeat(344)
+    });
+    const invalidDecisionBody = await invalidDecision.json();
+    assert.equal(invalidDecision.status, 401, "A forged approval signature must be rejected: " + JSON.stringify(invalidDecisionBody));
+    const alteredNonce = await request(worker, env, "/api/licenses/pairing/approve", "POST", {
+        pairingId: pairingBody.pairingId, challengeId: challengeBody.challengeId,
+        nonce: challengeBody.nonce.slice(0, -1) + (challengeBody.nonce.endsWith("0") ? "1" : "0"),
+        approverDeviceType: "phone", approverInstallationId: "install-1",
+        approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(decisionProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(alteredNonce.status, 409, "A modified challenge nonce must be rejected.");
+    const approval = await request(worker, env, "/api/licenses/pairing/approve", "POST", {
+        pairingId: pairingBody.pairingId, challengeId: challengeBody.challengeId,
+        nonce: challengeBody.nonce, approverDeviceType: "phone",
+        approverInstallationId: "install-1",
+        approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(decisionProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(approval.status, 200, "A valid signature from the already-bound phone must approve the pairing.");
+    const approvalBody = await approval.json();
+    assert.equal(approvalBody.status, "approved");
+    assert.equal(approvalBody.entitlement.claims.installationBinding, "install-computer-1");
+    assert.equal(approvalBody.entitlement.claims.deviceType, "computer");
+    assert.equal(approvalBody.entitlement.claims.deviceKeyFingerprint, storedPairing.requester_key_fingerprint);
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id = ? AND device_type = 'computer' AND installation_id = 'install-computer-1'").get(stored.license_id).count), 1,
+        "Approval must bind the exact requester installation to the vacant computer slot.");
+    const consumedReplay = await request(worker, env, "/api/licenses/pairing/approve", "POST", {
+        pairingId: pairingBody.pairingId, challengeId: challengeBody.challengeId,
+        nonce: challengeBody.nonce, approverDeviceType: "phone",
+        approverInstallationId: "install-1",
+        approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(decisionProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(consumedReplay.status, 409, "A consumed challenge must not be replayable.");
+    const pairingStatus = await request(worker, env, "/api/licenses/pairing/status", "POST", {
+        pairingId: pairingBody.pairingId, token: pairingBody.token
+    });
+    assert.equal(pairingStatus.status, 200);
+    const deliveredStatus = await pairingStatus.json();
+    assert.equal(deliveredStatus.status, "approved",
+        "The requester bearer token must read the final decision.");
+    assert.deepEqual(deliveredStatus.entitlement, approvalBody.entitlement,
+        "Requester polling must return the exact server-signed entitlement approved for its installation.");
+    const cancellationPairingId = "pair_cancel_test";
+    const cancellationToken = "requester-cancel-token";
+    const cancellationTokenHash = crypto.createHash("sha256").update(cancellationToken).digest("hex");
+    db.prepare(`INSERT INTO device_pairing_requests
+        (pairing_id, license_id, requester_device_type, requester_installation_id, token_hash, created_at, expires_at)
+        VALUES (?, ?, 'computer', 'install-cancel-test', ?, ?, ?)`)
+        .run(cancellationPairingId, stored.license_id, cancellationTokenHash,
+            new Date().toISOString(), new Date(Date.now() + 600000).toISOString());
+    const cancellation = await request(worker, env, "/api/licenses/pairing/cancel", "POST", {
+        pairingId: cancellationPairingId, token: cancellationToken
+    });
+    assert.equal(cancellation.status, 200, "The requester bearer token must cancel its pending pairing.");
+    assert.equal((await cancellation.json()).status, "cancelled");
+    assert(db.prepare("SELECT cancelled_at FROM device_pairing_requests WHERE pairing_id = ?").get(cancellationPairingId).cancelled_at,
+        "Cancellation must persist atomically.");
+    const cancellationAudit = db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'device.pairing.cancelled' AND license_id = ?").get(stored.license_id);
+    assert.equal(Number(cancellationAudit.count), 1, "A successful cancellation must be audited.");
+
+    const wrongCancellation = await request(worker, env, "/api/licenses/pairing/cancel", "POST", {
+        pairingId: cancellationPairingId, token: "wrong-token"
+    });
+    assert.equal(wrongCancellation.status, 409, "A different bearer token must not cancel a request.");
+    const duplicateCancellation = await request(worker, env, "/api/licenses/pairing/cancel", "POST", {
+        pairingId: cancellationPairingId, token: cancellationToken
+    });
+    assert.equal(duplicateCancellation.status, 409, "A cancelled request must not be cancelled twice.");
+    const cancelledStatus = await request(worker, env, "/api/licenses/pairing/status", "POST", {
+        pairingId: cancellationPairingId, token: cancellationToken
+    });
+    assert.equal((await cancelledStatus.json()).status, "expired",
+        "Requester polling must not report a cancelled request as pending.");
+    const expiredPairingId = "pair_expired_test";
+    const expiredToken = "expired-request-token";
+    const expiredHash = crypto.createHash("sha256").update(expiredToken).digest("hex");
+    db.prepare(`INSERT INTO device_pairing_requests
+        (pairing_id, license_id, requester_device_type, requester_installation_id, token_hash, created_at, expires_at)
+        VALUES (?, ?, 'computer', 'install-expired-test', ?, ?, ?)`)
+        .run(expiredPairingId, stored.license_id, expiredHash,
+            new Date(Date.now() - 700000).toISOString(), new Date(Date.now() - 1000).toISOString());
+    const expiredCancel = await request(worker, env, "/api/licenses/pairing/cancel", "POST", {
+        pairingId: expiredPairingId, token: expiredToken
+    });
+    assert.equal(expiredCancel.status, 409, "Expired pairing requests cannot be cancelled or revived.");
+    const expiredPoll = await request(worker, env, "/api/licenses/pairing/status", "POST", {
+        pairingId: expiredPairingId, token: expiredToken
+    });
+    assert.equal(expiredPoll.status, 200);
+    assert.equal((await expiredPoll.json()).status, "expired",
+        "Expired requests must be reported as expired without cleanup writes.");
+    assert.equal(db.prepare("SELECT cancelled_at FROM device_pairing_requests WHERE pairing_id = ?").get(expiredPairingId).cancelled_at,
+        null, "Polling expired requests must not mutate their row.");
+
+
+
+
+
+    // A bound phone must explicitly authorize revocation of the exact occupied computer slot.
+    const targetFingerprint = storedPairing.requester_key_fingerprint;
+    const revocationChallengeProof = {
+        purpose: "tahouri-device-revocation-challenge-v1",
+        licenseId: stored.license_id,
+        targetDeviceType: "computer",
+        targetInstallationId: "install-computer-1",
+        targetKeyFingerprint: targetFingerprint,
+        approverDeviceType: "phone",
+        approverInstallationId: "install-1",
+        approverKeyFingerprint: approverFingerprint
+    };
+    const forgedRevocationChallenge = await request(worker, env, "/api/licenses/device-revocation/challenge", "POST", {
+        licenseId: stored.license_id, targetDeviceType: "computer",
+        targetInstallationId: "install-computer-1", approverDeviceType: "phone",
+        approverInstallationId: "install-1", approverSignature: "A".repeat(344)
+    });
+    assert.equal(forgedRevocationChallenge.status, 401, "A forged complementary-device signature must not issue a revocation challenge.");
+    const revocationChallengeResponse = await request(worker, env, "/api/licenses/device-revocation/challenge", "POST", {
+        licenseId: stored.license_id, targetDeviceType: "computer",
+        targetInstallationId: "install-computer-1", approverDeviceType: "phone",
+        approverInstallationId: "install-1",
+        approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(revocationChallengeProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(revocationChallengeResponse.status, 200, "The complementary phone must be able to issue a revocation challenge.");
+    const revocationChallenge = await revocationChallengeResponse.json();
+    assert.equal(revocationChallenge.targetKeyFingerprint, targetFingerprint);
+    assert(Date.parse(revocationChallenge.expiresAt) > Date.now(), "Revocation challenges must expire in the future.");
+    const revocationProof = {
+        purpose: "tahouri-device-revocation-v1",
+        challengeId: revocationChallenge.challengeId,
+        nonce: revocationChallenge.nonce,
+        licenseId: stored.license_id,
+        targetDeviceType: "computer",
+        targetInstallationId: "install-computer-1",
+        targetKeyFingerprint: targetFingerprint,
+        approverDeviceType: "phone",
+        approverInstallationId: "install-1",
+        approverKeyFingerprint: approverFingerprint,
+        expiresAt: revocationChallenge.expiresAt
+    };
+    const forgedRevocation = await request(worker, env, "/api/licenses/device-revocation/execute", "POST", {
+        challengeId: revocationChallenge.challengeId, nonce: revocationChallenge.nonce,
+        approverSignature: "A".repeat(344)
+    });
+    assert.equal(forgedRevocation.status, 401, "A forged signature must not revoke a device.");
+    const revocation = await request(worker, env, "/api/licenses/device-revocation/execute", "POST", {
+        challengeId: revocationChallenge.challengeId, nonce: revocationChallenge.nonce,
+        approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(revocationProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(revocation.status, 200, "A valid complementary-device signature must revoke the exact target slot.");
+    assert.equal((await revocation.json()).status, "revoked");
+    assert(db.prepare("SELECT revoked_at FROM license_device_slots WHERE license_id = ? AND device_type = 'computer' AND installation_id = 'install-computer-1' AND key_fingerprint = ?").get(stored.license_id, targetFingerprint).revoked_at,
+        "The exact target computer slot must be marked revoked.");
+    assert.equal(db.prepare("SELECT revoked_at FROM license_device_slots WHERE license_id = ? AND device_type = 'phone' AND installation_id = 'install-1'").get(stored.license_id).revoked_at,
+        null, "Revoking the computer must preserve the complementary phone.");
+    assert.equal(db.prepare("SELECT consumed_at FROM device_revocation_challenges WHERE challenge_id = ?").get(revocationChallenge.challengeId).consumed_at !== null,
+        true, "A successful revocation must consume its one-use challenge.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'device.revoked' AND license_id = ?").get(stored.license_id).count), 1,
+        "A successful device revocation must be audited.");
+    const revocationReplay = await request(worker, env, "/api/licenses/device-revocation/execute", "POST", {
+        challengeId: revocationChallenge.challengeId, nonce: revocationChallenge.nonce,
+        approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(revocationProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(revocationReplay.status, 409, "A consumed revocation challenge must not be replayable.");
+    const replacementPairing = await request(worker, env, "/api/licenses/pairing/request", "POST", {
+        code, gradeId: "grade6", studentId: "student-1",
+        installationId: "install-computer-replacement", deviceType: "computer"
+    });
+    assert.equal(replacementPairing.status, 201, "A replacement computer may request pairing only after the old slot is revoked.");
+
+    const occupiedPairingSlot = await request(worker, env, "/api/licenses/pairing/request", "POST", {
+        code, gradeId: "grade6", studentId: "student-1", installationId: "install-computer-2", deviceType: "phone"
+    });
+    assert.equal(occupiedPairingSlot.status, 409, "A request must not replace an already occupied device-class slot.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM device_pairing_requests WHERE license_id = ? AND requester_device_type = 'phone' AND requester_installation_id = 'install-computer-2'").get(stored.license_id).count), 0, "Rejected replacement requests must not persist a pairing record.");
+    assert.equal(db.prepare("SELECT installation_id FROM license_device_slots WHERE license_id = ? AND device_type = 'phone' AND revoked_at IS NULL").get(stored.license_id).installation_id, "install-1", "An unauthorized replacement attempt must leave the existing phone binding unchanged.");
+
+    assert.throws(() => db.prepare("INSERT INTO license_device_slots (license_id, device_type, installation_id, bound_at) VALUES (?, 'phone', 'install-phone-2', ?)").run(stored.license_id, new Date().toISOString()),
+        /UNIQUE constraint failed/,
+        "A second phone must not be inserted into the same license slot.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id = ? AND device_type = 'computer'").get(stored.license_id).count), 1,
+        "The approved pairing flow must have created the second device slot.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id = ?").get(stored.license_id).count), 2,
+        "A license must permit one phone and one computer simultaneously.");
+
+    // Migration 11 must permit a revoked device's history and a replacement slot, while retaining the active-slot guard.
+    db.prepare("UPDATE license_device_slots SET revoked_at = ? WHERE license_id = ? AND device_type = 'phone' AND installation_id = 'install-1'").run(new Date().toISOString(), stored.license_id);
+    db.prepare("INSERT INTO license_device_slots (license_id, device_type, installation_id, bound_at, public_key_pem, key_fingerprint) VALUES (?, 'phone', 'install-phone-replacement', ?, ?, ?)").run(stored.license_id, new Date().toISOString(), 'replacement-public-key', 'replacement-fingerprint');
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id = ? AND device_type = 'phone'").get(stored.license_id).count), 2, "Revoked device history must remain alongside a replacement slot.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id = ? AND device_type = 'phone' AND revoked_at IS NULL").get(stored.license_id).count), 1, "Only one phone slot may remain active.");
+    assert.throws(() => db.prepare("INSERT INTO license_device_slots (license_id, device_type, installation_id, bound_at) VALUES (?, 'phone', 'install-phone-overflow', ?)").run(stored.license_id, new Date().toISOString()), /UNIQUE constraint failed/, "Database must prevent two active phones.");
+    
+
+
+    // Rebind a test complementary computer after the earlier signed-revocation scenario.
+    db.prepare("INSERT INTO license_device_slots (license_id,device_type,installation_id,bound_at,public_key_pem,key_fingerprint) VALUES (?,'computer','install-computer-admin-recovery',?,'recovery-public-key','recovery-computer-fingerprint')")
+      .run(stored.license_id, new Date().toISOString());
+    // Administrator recovery requires a live admin session, trusted Origin and password re-entry.
+    const recoveryTarget = db.prepare("SELECT installation_id, key_fingerprint FROM license_device_slots WHERE license_id = ? AND device_type = 'phone' AND revoked_at IS NULL").get(stored.license_id);
+    assert(recoveryTarget?.key_fingerprint, "The phone slot must have a fingerprint before admin recovery.");
+    const pendingRecoveryPairingId = "pairing-admin-recovery-pending";
+    db.prepare(`INSERT INTO device_pairing_requests
+      (pairing_id,license_id,requester_device_type,requester_installation_id,token_hash,created_at,expires_at)
+      VALUES (?,?,'phone','install-phone-pending',?,?,?)`)
+      .run(pendingRecoveryPairingId, stored.license_id, "admin-recovery-token-hash", new Date().toISOString(), new Date(Date.now()+60000).toISOString());
+    const recoveryPayload = {
+      licenseId: stored.license_id, deviceType: "phone",
+      installationId: recoveryTarget.installation_id, keyFingerprint: recoveryTarget.key_fingerprint,
+      reason: "دستگاه مکمل در دسترس نیست و مالکیت بررسی شد"
+    };
+    const deniedRecovery = await worker.fetch(new Request("https://api.example.test/api/admin/device-slots/recover", {
+      method: "POST", headers: { "content-type": "application/json", origin: env.ADMIN_ORIGIN, cookie: adminCookie },
+      body: JSON.stringify({ ...recoveryPayload, adminPassword: "incorrect-password" })
+    }), env);
+    assert.equal(deniedRecovery.status, 401, "Admin recovery must require password re-authentication.");
+    assert.equal(db.prepare("SELECT revoked_at FROM license_device_slots WHERE license_id=? AND device_type='phone' AND installation_id=?").get(stored.license_id,recoveryTarget.installation_id).revoked_at, null,
+      "A failed step-up check must not revoke a device.");
+    const recovered = await worker.fetch(new Request("https://api.example.test/api/admin/device-slots/recover", {
+      method: "POST", headers: { "content-type": "application/json", origin: env.ADMIN_ORIGIN, cookie: adminCookie },
+      body: JSON.stringify({ ...recoveryPayload, adminPassword: env.ADMIN_PASSWORD })
+    }), env);
+    assert.equal(recovered.status, 200, "An authenticated administrator must be able to recover an unavailable complementary device.");
+    assert.equal((await recovered.json()).status, "revoked");
+    assert(db.prepare("SELECT revoked_at FROM license_device_slots WHERE license_id=? AND device_type='phone' AND installation_id=?").get(stored.license_id,recoveryTarget.installation_id).revoked_at,
+      "Admin recovery must revoke the exact selected device.");
+    assert.equal(db.prepare("SELECT revoked_at FROM license_device_slots WHERE license_id=? AND device_type='computer' AND revoked_at IS NULL").get(stored.license_id).revoked_at, null,
+      "Admin recovery must preserve the complementary computer slot.");
+    assert(db.prepare("SELECT cancelled_at FROM device_pairing_requests WHERE pairing_id=?").get(pendingRecoveryPairingId).cancelled_at,
+      "Admin recovery must cancel pending pairing requests for the revoked device class.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type='device.admin_recovered' AND license_id=?").get(stored.license_id).count), 1,
+      "Admin recovery must write an audit event.");
 
     const status = await request(worker, env, "/api/licenses/status?licenseId=" + encodeURIComponent(stored.license_id), "GET");
     assert.equal(status.status, 200);
@@ -703,7 +1099,7 @@ async function main() {
         "Worker activation endpoint did not enforce its per-IP rate limit.");
 
     db.close();
-    console.log("Cloudflare Worker activation integration test: PASS");
+    console.log("Cloudflare Worker activation + device slot listing + revocation integration test: PASS");
 }
 main().catch(error => {
     console.error("Cloudflare Worker activation integration test: FAIL", error);

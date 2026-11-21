@@ -1636,7 +1636,7 @@
     function isRemoteProductionMode() {
         return Boolean(
             window.TahouriServiceConfig &&
-            window.TahouriServiceConfig.mode === "production"
+            ["production", "pr141-isolated-test"].includes(window.TahouriServiceConfig.mode)
         );
     }
 
@@ -1645,8 +1645,8 @@
     // =====================================
     async function activateRemote(code, gradeId, studentId, renewalMode = "promotion") {
         if (!window.TahouriLicenseClient || !window.TahouriEntitlementVerifier || !window.TahouriEntitlementStore) return null;
-        const installationId = getOrCreateInstallationId();
         try {
+            const installationId = await getOrCreateRemoteInstallationId();
             const normalizedStudentId = String(studentId || getActiveStudentId() || "").trim();
             const response = await window.TahouriLicenseClient.activate({code, gradeId, studentId: normalizedStudentId, installationId, renewalMode});
             if (!response || !response.valid || !response.entitlement) return response || {valid:false,message:"فعال‌سازی آنلاین انجام نشد."};
@@ -1733,6 +1733,28 @@
         try { let id=localStorage.getItem(key); if(!id){ id=(window.crypto&&typeof window.crypto.randomUUID==="function")?window.crypto.randomUUID():"install_"+Date.now()+"_"+Math.random().toString(36).slice(2); localStorage.setItem(key,id);} return id; }
         catch(error){ return "ephemeral_"+Date.now(); }
     }
+    // Read-only compatibility lookup for an entitlement already signed
+    // against this installation's pre-cryptographic LocalStorage ID.
+    // This ID preserves local continuity only; it is never device proof.
+    function getLegacyInstallationId() {
+        try {
+            return String(localStorage.getItem("Tahouri_Installation_Id_v1") || "").trim();
+        } catch (error) {
+            return "";
+        }
+    }
+    async function getOrCreateRemoteInstallationId() {
+        if (window.TahouriDeviceIdentity && typeof window.TahouriDeviceIdentity.getOrCreate === "function") {
+            const identity = await window.TahouriDeviceIdentity.getOrCreate();
+            const installationId = String(identity && identity.installationId || "").trim();
+            if (!installationId) throw new Error("شناسه هویت رمزنگاری‌شده دستگاه معتبر نیست.");
+            return installationId;
+        }
+        if (isRemoteProductionMode()) {
+            throw new Error("هویت رمزنگاری‌شده دستگاه در این نسخه بارگذاری نشده است.");
+        }
+        return getOrCreateInstallationId();
+    }
     function getRemoteEntitlement() {
         try {
             if (!window.TahouriEntitlementStore) return null;
@@ -1762,7 +1784,7 @@
             const all = typeof window.TahouriEntitlementStore.readAll === "function"
                 ? window.TahouriEntitlementStore.readAll()
                 : [window.TahouriEntitlementStore.read()].filter(Boolean);
-            const installationId = getOrCreateInstallationId();
+            const installationId = await getOrCreateRemoteInstallationId();
 
             for (const envelope of all) {
                 const result = await window.TahouriEntitlementVerifier.verifyEnvelope(envelope);
@@ -1771,7 +1793,9 @@
 
                 const claims = result.claims;
                 const binding = claims.installationBinding;
-                if (binding && binding !== installationId) continue;
+                const legacyInstallationId = getLegacyInstallationId();
+                if (binding && binding !== installationId &&
+                    binding !== legacyInstallationId) continue;
                 if (normalizeStudentId(claims.studentId) !== activeStudentId) continue;
                 if (!claims.gradeScope || claims.gradeScope !== activeGradeId) continue;
 
@@ -1851,7 +1875,7 @@
             const envelopes = typeof store.readAll === "function"
                 ? store.readAll()
                 : [store.read()].filter(Boolean);
-            const installationId = getOrCreateInstallationId();
+            const installationId = await getOrCreateRemoteInstallationId();
 
             for (const envelope of envelopes) {
                 const storedClaims = envelope && envelope.claims;
@@ -1872,7 +1896,13 @@
                 }
 
                 const claims = verification.claims;
-                if (claims.installationBinding !== installationId) {
+                const legacyInstallationId = getLegacyInstallationId();
+                const matchesCurrentInstallation = claims.installationBinding === installationId;
+                const matchesLegacyInstallation = Boolean(
+                    legacyInstallationId &&
+                    claims.installationBinding === legacyInstallationId
+                );
+                if (!matchesCurrentInstallation && !matchesLegacyInstallation) {
                     lastStatus = "invalid";
                     lastReason = "این مجوز به دستگاه دیگری متصل است.";
                     continue;

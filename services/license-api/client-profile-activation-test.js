@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
+const crypto = require("node:crypto");
 
 const root = path.resolve(__dirname, "../../engine/core");
 const managerSource = fs.readFileSync(path.join(root, "licenseManager.js"), "utf8");
@@ -39,7 +40,9 @@ const entitlement = {
 };
 
 let capturedRequest = null;
+let capturedDeviceProof = null;
 let storedEntitlement = null;
+const devicePublicKeyPem = "-----BEGIN PUBLIC KEY-----\\nTEST-DEVICE-PUBLIC-KEY\\n-----END PUBLIC KEY-----";
 
 const window = {
     ProfileManager: { get: () => profile },
@@ -63,11 +66,22 @@ const window = {
             return true;
         }
     },
-    crypto: { randomUUID: () => "e2e-installation-id" }
+    crypto: { randomUUID: () => "e2e-installation-id" },
+    TahouriDeviceIdentity: {
+        getOrCreate: async () => ({
+            installationId: "e2e-installation-id",
+            publicKey: devicePublicKeyPem
+        }),
+        sign: async message => {
+            capturedDeviceProof = message;
+            return { installationId: "e2e-installation-id", signature: "test-device-signature" };
+        }
+    }
 };
 
 const context = {
     window,
+    navigator: { userAgent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/120 Safari/537.36" },
     localStorage,
     fetch: async (url, options) => {
         capturedRequest = { url, options };
@@ -78,6 +92,8 @@ const context = {
         };
     },
     AbortController,
+    crypto: crypto.webcrypto,
+    TextEncoder,
     setTimeout,
     clearTimeout,
     Date,
@@ -107,6 +123,18 @@ async function main() {
     assert.equal(payload.gradeId, "grade6");
     assert.equal(payload.code, "THR-E2E-TEST-CODE");
     assert.equal(payload.installationId, "e2e-installation-id");
+    assert.equal(payload.deviceType, "computer");
+    assert.equal(payload.devicePublicKeyPem, devicePublicKeyPem);
+    assert.equal(payload.deviceSignature, "test-device-signature");
+    const signedProof = JSON.parse(capturedDeviceProof);
+    assert.deepEqual(signedProof, {
+        purpose: "tahouri-device-activation-v1",
+        installationId: "e2e-installation-id",
+        deviceType: "computer",
+        studentId: profile.studentId,
+        gradeId: "grade6",
+        codeHash: crypto.createHash("sha256").update("THR-E2E-TEST-CODE").digest("hex")
+    }, "The client must sign the exact canonical activation context.");
 
     assert.equal(storedEntitlement, entitlement,
         "Only the verifier-approved entitlement should be stored.");
