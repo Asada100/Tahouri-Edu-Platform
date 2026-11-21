@@ -208,8 +208,10 @@ async function main() {
     assert(
         startupSource.includes("window.TahouriEntitlementVerifier.verifyEnvelope(envelope)") &&
         startupSource.includes("verifiedRemoteEntitlement = claims") &&
-        !startupSource.includes("TahouriLicenseClient.status"),
-        "Characterization: offline startup currently selects a locally signed entitlement without a server device-slot status check."
+        startupSource.includes("TahouriLicenseClient.status") &&
+        startupSource.includes("offlineLeaseExpiresAt") &&
+        startupSource.includes("TahouriEntitlementStore.write"),
+        "Startup must renew an expired device lease online and persist the newly signed lease before selecting it."
     );
 
     const statusStart = licenseClientSource.indexOf("async function status(licenseId)");
