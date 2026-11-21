@@ -151,6 +151,51 @@ async function main() {
         "A changed student binding must invalidate the entitlement signature."
     );
 
+
+    // Characterization guard for the currently confirmed revocation gap.
+    // A legacy signed entitlement without device-slot/revocation metadata is
+    // still accepted by the offline verifier; startup selects it locally.
+    const managerSource = fs.readFileSync(
+        path.resolve(__dirname, "../../engine/core/licenseManager.js"),
+        "utf8"
+    );
+    const licenseClientSource = fs.readFileSync(
+        path.resolve(__dirname, "../../engine/core/tahouriLicenseClient.js"),
+        "utf8"
+    );
+    const legacyDeviceClaims = { ...claims };
+    delete legacyDeviceClaims.deviceSlotId;
+    delete legacyDeviceClaims.deviceKeyFingerprint;
+    delete legacyDeviceClaims.revocationEpoch;
+    const legacyDeviceResult = await pinnedVerifier.verifyEnvelope(signedEnvelope(legacyDeviceClaims));
+    assert.equal(
+        legacyDeviceResult.valid,
+        true,
+        "Characterization: offline signature verification currently accepts an entitlement without device revocation metadata."
+    );
+
+    const startupStart = managerSource.indexOf("async function initializeRemoteEntitlement()");
+    const startupEnd = managerSource.indexOf("async function getProfileEntitlementStatus", startupStart);
+    const startupSource = managerSource.slice(startupStart, startupEnd);
+    assert(startupStart >= 0 && startupEnd > startupStart);
+    assert(
+        startupSource.includes("verifier.verifyEnvelope(envelope)") &&
+        startupSource.includes("verifiedRemoteEntitlement = claims") &&
+        !startupSource.includes("TahouriLicenseClient.status"),
+        "Characterization: offline startup currently selects a locally signed entitlement without a server device-slot status check."
+    );
+
+    const statusStart = licenseClientSource.indexOf("async function status(licenseId)");
+    const statusEnd = licenseClientSource.indexOf("window.TahouriLicenseClient", statusStart);
+    const statusSource = licenseClientSource.slice(statusStart, statusEnd);
+    assert(statusStart >= 0 && statusEnd > statusStart);
+    assert(
+        statusSource.includes('return request("/licenses/status?licenseId=" + encodeURIComponent(value)') &&
+        !statusSource.includes("deviceSignature") &&
+        !statusSource.includes("devicePublicKeyPem"),
+        "Characterization: the current online status request is not bound to device proof-of-possession."
+    );
+
     console.log("Production entitlement public-key verification test: PASS");
 }
 
