@@ -152,6 +152,24 @@
             })
         });
     }
+    async function recoverApprovedPairingEntitlement() {
+        const identity = await window.TahouriDeviceIdentity.getOrCreate();
+        const deviceType = detectDeviceType();
+        const keyFingerprint = await publicKeyFingerprint(identity.publicKey);
+        const proof = {
+            purpose: "tahouri-device-pairing-recovery-v1",
+            deviceType, installationId: identity.installationId, keyFingerprint
+        };
+        const signed = await signedPayload(proof);
+        return request("/licenses/pairing/recover", {
+            method: "POST",
+            body: JSON.stringify({
+                deviceType, installationId: identity.installationId,
+                keyFingerprint, deviceSignature: signed.signature
+            })
+        });
+    }
+
     async function pairingStatus(pairingId, token) {
         return request("/licenses/pairing/status", {
             method: "POST", body: JSON.stringify({ pairingId: String(pairingId || ""), token: String(token || "") })
@@ -242,6 +260,6 @@
         if (!value) throw new Error("شناسه مجوز وارد نشده است.");
         return request("/licenses/status?licenseId=" + encodeURIComponent(value), { method: "GET" });
     }
-    window.TahouriLicenseClient = { activate, health, status, requestPairing, requestPairingChallenge, decidePairing, pairingStatus, cancelPairing, listPendingPairings, listBoundDeviceSlots, requestDeviceRevocationChallenge, executeDeviceRevocation };
+    window.TahouriLicenseClient = { activate, health, status, requestPairing, requestPairingChallenge, decidePairing, pairingStatus, recoverApprovedPairingEntitlement, cancelPairing, listPendingPairings, listBoundDeviceSlots, requestDeviceRevocationChallenge, executeDeviceRevocation };
     console.log("Tahouri License Client v1.8 Ready");
 })();
