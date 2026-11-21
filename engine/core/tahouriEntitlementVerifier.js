@@ -152,6 +152,23 @@
 
             const now = Date.now();
 
+            // New device-bound entitlements carry a server-signed offline lease.
+            // Legacy envelopes remain readable during migration and are upgraded
+            // through the proof-bound online status endpoint.
+            if (claims.offlineLeaseExpiresAt !== undefined) {
+                const offlineLeaseExpiresAt = new Date(claims.offlineLeaseExpiresAt);
+                if (
+                    typeof claims.deviceSlotId !== "string" ||
+                    !/^[a-f0-9]{64}$/.test(claims.deviceSlotId) ||
+                    !Number.isFinite(Number(claims.revocationEpoch)) ||
+                    Number(claims.revocationEpoch) <= 0 ||
+                    Number.isNaN(offlineLeaseExpiresAt.getTime()) ||
+                    now >= offlineLeaseExpiresAt.getTime()
+                ) {
+                    return { valid: false, reason: "مهلت آفلاین یا شناسه جایگاه دستگاه معتبر نیست." };
+                }
+            }
+
             if (now < validFrom.getTime()) {
                 if (!allowFuture) {
                     return { valid: false, reason: "زمان شروع مجوز هنوز نرسیده است." };
