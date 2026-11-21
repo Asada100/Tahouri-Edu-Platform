@@ -430,6 +430,9 @@ async function main() {
     // Simulate closing the browser and reopening it with a reset monotonic
     // clock. If the persisted high-water mark survives, rollback is detected.
     const highWaterKey = "Tahouri_Offline_Clock_High_Water_v1";
+    // Keep the signed entitlement valid at the simulated earlier time so
+    // these assertions isolate rollback detection rather than validFrom.
+    claims.validFrom = new Date(rollbackBase - 30 * 86400000).toISOString();
     assert(Number(storage.getItem(highWaterKey)) > 0,
         "The offline clock high-water mark must be persisted.");
     testWallClock = rollbackBase - 10 * 60 * 1000;
