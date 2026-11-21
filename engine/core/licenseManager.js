@@ -1898,7 +1898,9 @@
                     // A valid, unexpired lease may survive a network outage.
                     // A legacy entitlement without a lease must fail closed.
                     if (!status || !status.valid) {
-                        if (!hasValidOfflineLease || status.reason !== "network_error") {
+                        const temporaryOfflineFailure = status &&
+                            ["network_error", "status_client_unavailable"].includes(status.reason);
+                        if (!hasValidOfflineLease || !temporaryOfflineFailure) {
                             verifiedRemoteEntitlement = null;
                             return false;
                         }
