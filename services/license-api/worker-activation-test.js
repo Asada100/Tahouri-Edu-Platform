@@ -755,6 +755,28 @@ async function main() {
     assert.equal(approvalBody.entitlement.claims.deviceType, "computer");
     assert.equal(approvalBody.entitlement.claims.deviceKeyFingerprint, storedPairing.requester_key_fingerprint);
 
+    // A fully occupied license must reject any third installation without mutating either active slot.
+    const thirdPhoneAttempt = await request(worker, env, "/api/licenses/pairing/request", "POST", {
+        code, gradeId: "grade6", studentId: "student-1",
+        installationId: "install-phone-third-device", deviceType: "phone"
+    });
+    assert.equal(thirdPhoneAttempt.status, 409,
+        "A third device must not claim a second phone slot when one phone and one computer are already active.");
+    const thirdComputerAttempt = await request(worker, env, "/api/licenses/pairing/request", "POST", {
+        code, gradeId: "grade6", studentId: "student-1",
+        installationId: "install-computer-third-device", deviceType: "computer"
+    });
+    assert.equal(thirdComputerAttempt.status, 409,
+        "A third device must not claim a second computer slot when one phone and one computer are already active.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM device_pairing_requests WHERE license_id = ? AND requester_installation_id IN ('install-phone-third-device','install-computer-third-device')").get(stored.license_id).count), 0,
+        "Rejected third-device attempts must not create pairing requests.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id = ? AND revoked_at IS NULL").get(stored.license_id).count), 2,
+        "Rejected third-device attempts must preserve exactly the original two active slots.");
+    assert.equal(db.prepare("SELECT installation_id FROM license_device_slots WHERE license_id = ? AND device_type = 'phone' AND revoked_at IS NULL").get(stored.license_id).installation_id, "install-1",
+        "The original phone slot must remain unchanged after third-device rejection.");
+    assert.equal(db.prepare("SELECT installation_id FROM license_device_slots WHERE license_id = ? AND device_type = 'computer' AND revoked_at IS NULL").get(stored.license_id).installation_id, "install-computer-1",
+        "The original computer slot must remain unchanged after third-device rejection.");
+
     const recoveryProof = {
         purpose: "tahouri-device-pairing-recovery-v1",
         deviceType: "computer",
