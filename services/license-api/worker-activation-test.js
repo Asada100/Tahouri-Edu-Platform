@@ -765,6 +765,12 @@ async function main() {
     assert.equal(approvalBody.entitlement.claims.installationBinding, "install-computer-1");
     assert.equal(approvalBody.entitlement.claims.deviceType, "computer");
     assert.equal(approvalBody.entitlement.claims.deviceKeyFingerprint, storedPairing.requester_key_fingerprint);
+    assert.match(approvalBody.entitlement.claims.deviceSlotId, /^[a-f0-9]{64}$/,
+        "Approved pairing must receive a unique signed device slot identity.");
+    assert(Number(approvalBody.entitlement.claims.revocationEpoch) > 0,
+        "Approved pairing must include its device binding epoch.");
+    assert(Date.parse(approvalBody.entitlement.claims.offlineLeaseExpiresAt) > Date.now(),
+        "Approved pairing must receive a bounded offline lease.");
 
     // A fully occupied license must reject any third installation without mutating either active slot.
     const thirdPhoneAttempt = await request(worker, env, "/api/licenses/pairing/request", "POST", {
