@@ -93,6 +93,9 @@ jobs:
       - name: Client license safety test
         run: node client-license-safety-test.js
 
+      - name: Pairing result UI regression test
+        run: node license-screen-pairing-ui-test.js
+
       - name: Production entitlement public-key verification test
         run: npm run client-verifier-test
 
