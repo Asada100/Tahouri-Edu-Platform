@@ -1881,17 +1881,34 @@
                     return false;
                 }
 
-                verifiedRemoteEntitlement = claims;
-                // Refresh legacy or nearly-expired leases online. If the network is
-                // unavailable, a still-valid signed lease remains usable offline.
+                // Never expose a legacy entitlement without a signed offline lease
+                // as active while an online upgrade is pending.
                 const leaseExpiry = Date.parse(claims.offlineLeaseExpiresAt || "");
-                if (!Number.isFinite(leaseExpiry) || leaseExpiry - Date.now() < 24 * 60 * 60 * 1000) {
+                const hasValidOfflineLease =
+                    Number.isFinite(leaseExpiry) &&
+                    leaseExpiry > Date.now() &&
+                    typeof claims.deviceSlotId === "string" &&
+                    /^[a-f0-9]{64}$/.test(claims.deviceSlotId);
+
+                verifiedRemoteEntitlement = claims;
+                if (!hasValidOfflineLease || leaseExpiry - Date.now() < 24 * 60 * 60 * 1000) {
                     const status = await refreshRemoteLicenseStatus();
                     if (selectionSequence !== entitlementSelectionSequence) return false;
-                    if (status && status.reason !== "network_error" &&
-                        status.reason !== "status_client_unavailable" && !status.valid) return false;
+
+                    // A valid, unexpired lease may survive a network outage.
+                    // A legacy entitlement without a lease must fail closed.
+                    if (!status || !status.valid) {
+                        if (!hasValidOfflineLease || status.reason !== "network_error") {
+                            verifiedRemoteEntitlement = null;
+                            return false;
+                        }
+                    }
                 }
-                return Boolean(verifiedRemoteEntitlement);
+
+                return Boolean(
+                    verifiedRemoteEntitlement &&
+                    hasValidRemoteEntitlement(activeGradeId)
+                );
             }
 
             return false;
@@ -2050,11 +2067,18 @@
 
         const from = new Date(claims.validFrom);
         const until = new Date(claims.validUntil);
+        const leaseUntil = new Date(claims.offlineLeaseExpiresAt || "");
         return (
+            typeof claims.deviceSlotId === "string" &&
+            /^[a-f0-9]{64}$/.test(claims.deviceSlotId) &&
+            Number.isFinite(Number(claims.revocationEpoch)) &&
+            Number(claims.revocationEpoch) > 0 &&
+            !Number.isNaN(leaseUntil.getTime()) &&
             !Number.isNaN(from.getTime()) &&
             !Number.isNaN(until.getTime()) &&
             Date.now() >= from.getTime() &&
-            Date.now() < until.getTime()
+            Date.now() < until.getTime() &&
+            Date.now() < leaseUntil.getTime()
         );
     }
 
