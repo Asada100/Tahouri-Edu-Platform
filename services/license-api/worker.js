@@ -854,6 +854,69 @@ async function cancelDevicePairingRequest(request, env, headers) {
   return json({ ok: true, status: "cancelled" }, 200, headers);
 }
 
+async function recoverApprovedPairingEntitlement(request, env, headers) {
+  if (!request.headers.get("Origin") || !allowedOrigin(request, env)) return error("مبدأ درخواست مجاز نیست.", 403, headers);
+  if (String(request.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase() !== "application/json")
+    return error("نوع محتوای درخواست باید application/json باشد.", 415, headers);
+  const body = await bodyJson(request);
+  const deviceType = String(body.deviceType || "").trim().toLowerCase();
+  if (!["phone", "computer"].includes(deviceType)) return error("نوع دستگاه معتبر نیست.", 400, headers);
+  const installationId = validIdentifier(body.installationId, "installationId");
+  const keyFingerprint = bounded(body.keyFingerprint, 128, "keyFingerprint");
+  if (!/^[a-f0-9]{64}$/.test(keyFingerprint)) return error("اثر انگشت کلید دستگاه معتبر نیست.", 400, headers);
+
+  // Recovery is read-only with respect to device slots: the requester must prove
+  // possession of the exact private key already bound by the approved pairing.
+  const row = await env.DB.prepare(`SELECT p.license_id AS licenseId,
+      p.requester_public_key_pem AS publicKeyPem,
+      p.requester_key_fingerprint AS requesterFingerprint,
+      p.approved_entitlement_json AS approvedEntitlementJson,
+      l.status AS licenseStatus, l.valid_until AS validUntil,
+      l.student_id AS licenseStudentId, l.grade_id AS licenseGradeId,
+      s.status AS studentStatus, d.key_fingerprint AS slotFingerprint
+    FROM device_pairing_requests p
+    JOIN licenses l ON l.license_id = p.license_id
+    JOIN student_accounts s ON s.student_id = p.requester_student_id
+    JOIN license_device_slots d ON d.license_id = p.license_id
+      AND d.device_type = p.requester_device_type
+      AND d.installation_id = p.requester_installation_id
+    WHERE p.decision = 'approved' AND p.consumed_at IS NOT NULL
+      AND p.cancelled_at IS NULL AND p.approved_entitlement_json IS NOT NULL
+      AND p.requester_device_type = ? AND p.requester_installation_id = ?
+      AND p.requester_key_fingerprint = ? AND d.key_fingerprint = ?
+      AND d.revoked_at IS NULL
+    ORDER BY p.approved_at DESC LIMIT 1`)
+    .bind(deviceType, installationId, keyFingerprint, keyFingerprint).first();
+  if (!row || !row.publicKeyPem || row.licenseStatus === "revoked" ||
+      !["active", "future"].includes(row.licenseStatus) ||
+      !Number.isFinite(Date.parse(row.validUntil)) || Date.parse(row.validUntil) <= Date.now() ||
+      row.studentStatus !== "active" || !row.licenseId) {
+    return error("مجوز تأییدشده‌ای برای هویت فعلی این دستگاه قابل بازیابی نیست.", 404, headers);
+  }
+  const proof = {
+    purpose: "tahouri-device-pairing-recovery-v1",
+    licenseId: row.licenseId, deviceType, installationId, keyFingerprint
+  };
+  try { await verifyStoredDeviceSignature(row.publicKeyPem, body.deviceSignature, proof); }
+  catch (e) { return error(e.message, e.status || 401, headers); }
+
+  let entitlement;
+  try { entitlement = JSON.parse(row.approvedEntitlementJson); }
+  catch { return error("مجوز تأییدشده ذخیره‌شده معتبر نیست.", 500, headers); }
+  const claims = entitlement && entitlement.claims;
+  if (!claims || claims.licenseId !== row.licenseId ||
+      claims.installationBinding !== installationId || claims.deviceType !== deviceType ||
+      claims.deviceKeyFingerprint !== keyFingerprint ||
+      claims.studentId !== row.licenseStudentId || claims.gradeScope !== row.licenseGradeId) {
+    return error("مجوز ذخیره‌شده با هویت دستگاه مطابقت ندارد.", 409, headers);
+  }
+  await audit(env, "device.pairing.entitlement_recovered", "device:" + installationId, {
+    licenseId: row.licenseId,
+    metadata: { deviceType, keyFingerprint }
+  });
+  return json({ ok: true, status: "approved", entitlement }, 200, headers);
+}
+
 async function getDevicePairingStatus(request, env, headers) {
   if (!request.headers.get("Origin") || !allowedOrigin(request, env)) return error("مبدأ درخواست مجاز نیست.", 403, headers);
   if (String(request.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase() !== "application/json")
@@ -1382,6 +1445,8 @@ export default {
         return await decideDevicePairing(request, env, headers, "rejected");
       if (url.pathname === "/api/licenses/pairing/cancel" && request.method === "POST")
         return await cancelDevicePairingRequest(request, env, headers);
+      if (url.pathname === "/api/licenses/pairing/recover" && request.method === "POST")
+        return await recoverApprovedPairingEntitlement(request, env, headers);
       if (url.pathname === "/api/licenses/pairing/status" && request.method === "POST")
         return await getDevicePairingStatus(request, env, headers);
       if (url.pathname === "/api/licenses/status" && request.method === "GET")
