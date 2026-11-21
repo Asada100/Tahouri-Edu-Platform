@@ -657,14 +657,14 @@ async function main() {
         "The stored device fingerprint must be SHA-256 of the DER SPKI bytes.");
     assert.equal(activationBody.entitlement.claims.deviceType, "phone");
     assert.equal(activationBody.entitlement.claims.deviceKeyFingerprint, storedDeviceIdentity.key_fingerprint);
-    // Characterization guard: issued entitlements currently have no slot ID,
-    // revocation epoch, or bounded offline lease.
-    assert.equal(activationBody.entitlement.claims.deviceSlotId, undefined,
-        "Characterization: initial activation currently omits the device slot ID.");
-    assert.equal(activationBody.entitlement.claims.revocationEpoch, undefined,
-        "Characterization: initial activation currently omits a revocation epoch.");
-    assert.equal(activationBody.entitlement.claims.offlineLeaseExpiresAt, undefined,
-        "Characterization: initial activation currently has no bounded offline lease.");
+    assert.match(activationBody.entitlement.claims.deviceSlotId, /^[a-f0-9]{64}$/,
+        "Initial activation must bind the entitlement to a stable device slot ID.");
+    assert(Number(activationBody.entitlement.claims.revocationEpoch) > 0,
+        "Initial activation must include a positive device binding epoch.");
+    const initialOfflineLeaseExpiry = Date.parse(activationBody.entitlement.claims.offlineLeaseExpiresAt);
+    assert(Number.isFinite(initialOfflineLeaseExpiry) && initialOfflineLeaseExpiry > Date.now() &&
+        initialOfflineLeaseExpiry <= Date.now() + 7 * 24 * 60 * 60 * 1000 + 5000,
+        "Initial activation must include a bounded signed offline lease of at most seven days.");
 
     assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id = ?").get(stored.license_id).count), 1,
         "Only one slot should be bound after initial phone activation.");
@@ -1028,8 +1028,21 @@ async function main() {
             activationDevicePair.privateKey).toString("base64")
     });
     assert.equal(activePhoneStatus.status, 200);
-    assert.deepEqual(await activePhoneStatus.json(), { ok: true, valid: true },
+    const activePhoneStatusBody = await activePhoneStatus.json();
+    assert.equal(activePhoneStatusBody.ok, true);
+    assert.equal(activePhoneStatusBody.valid, true,
         "The complementary active phone must remain valid after computer revocation.");
+    assert.equal(activePhoneStatusBody.entitlement.claims.deviceSlotId,
+        activationBody.entitlement.claims.deviceSlotId,
+        "Status refresh must preserve the exact active device slot identity.");
+    assert(Date.parse(activePhoneStatusBody.entitlement.claims.offlineLeaseExpiresAt) > Date.now(),
+        "Online device status must refresh the bounded offline lease.");
+    const refreshedLeaseVerifier = crypto.createVerify("RSA-SHA256");
+    refreshedLeaseVerifier.update(JSON.stringify(activePhoneStatusBody.entitlement.claims));
+    refreshedLeaseVerifier.end();
+    assert.equal(refreshedLeaseVerifier.verify(pair.publicKey,
+        Buffer.from(activePhoneStatusBody.entitlement.signature, "base64")), true,
+        "The refreshed offline lease must be signed by the Worker entitlement key.");
 
     const revokedComputerStatus = await request(worker, env, "/api/licenses/device-status", "POST", {
         licenseId: stored.license_id, deviceType: "computer",
