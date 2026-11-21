@@ -916,13 +916,7 @@ async function main() {
     const pendingRevocationChallengeId = "ch_pending_revocation_test";
     const pendingRevocationNow = new Date().toISOString();
     const pendingRevocationExpires = new Date(Date.now() + 60000).toISOString();
-    db.prepare("INSERT INTO device_pairing_requests
-        (pairing_id, license_id, requester_device_type, requester_installation_id,
-         token_hash, created_at, expires_at, requester_student_id, requester_grade_id,
-         requester_public_key_pem, requester_key_fingerprint, challenge_id,
-         challenge_nonce_hash, challenge_expires_at, approver_device_type,
-         approver_installation_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+    db.prepare("INSERT INTO device_pairing_requests (pairing_id, license_id, requester_device_type, requester_installation_id, token_hash, created_at, expires_at, requester_student_id, requester_grade_id, requester_public_key_pem, requester_key_fingerprint, challenge_id, challenge_nonce_hash, challenge_expires_at, approver_device_type, approver_installation_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
         .run(pendingRevocationPairingId, stored.license_id, "computer",
             "install-computer-pending-revocation",
             crypto.createHash("sha256").update("pending-revocation-token").digest("hex"),
