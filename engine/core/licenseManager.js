@@ -32,6 +32,80 @@
     let entitlementSelectionSequence = 0;
     let remoteStatusSequence = 0;
 
+    const OFFLINE_CLOCK_HIGH_WATER_KEY = "Tahouri_Offline_Clock_High_Water_v1";
+    const OFFLINE_CLOCK_ROLLBACK_TOLERANCE_MS = 2 * 60 * 1000;
+    let offlineClockAnchorWall = null;
+    let offlineClockAnchorMonotonic = null;
+    let offlineClockRollbackDetected = false;
+
+    // This is a conservative rollback detector, not a trusted clock.
+    // localStorage can be modified and browser monotonic time does not survive
+    // a restart; a detected rollback therefore requires online revalidation.
+    function getOfflineClockState() {
+        const wallNow = Date.now();
+        const monotonicNow = window.performance &&
+            typeof window.performance.now === "function"
+            ? Number(window.performance.now())
+            : NaN;
+
+        if (!Number.isFinite(wallNow)) {
+            offlineClockRollbackDetected = true;
+            return { safe: false, now: wallNow };
+        }
+
+        let storedHighWater = 0;
+        try {
+            const stored = Number(window.localStorage &&
+                window.localStorage.getItem(OFFLINE_CLOCK_HIGH_WATER_KEY));
+            if (Number.isFinite(stored) && stored > 0) storedHighWater = stored;
+        } catch (error) {
+            // The in-session monotonic check remains available when storage is blocked.
+        }
+
+        if (offlineClockAnchorWall === null) {
+            if (storedHighWater > 0 &&
+                wallNow + OFFLINE_CLOCK_ROLLBACK_TOLERANCE_MS < storedHighWater) {
+                offlineClockRollbackDetected = true;
+            }
+            offlineClockAnchorWall = wallNow;
+            offlineClockAnchorMonotonic = Number.isFinite(monotonicNow)
+                ? monotonicNow
+                : null;
+        }
+
+        if (storedHighWater > 0 &&
+            wallNow + OFFLINE_CLOCK_ROLLBACK_TOLERANCE_MS < storedHighWater) {
+            offlineClockRollbackDetected = true;
+        }
+
+        let monotonicFloor = offlineClockAnchorWall;
+        if (offlineClockAnchorMonotonic !== null && Number.isFinite(monotonicNow)) {
+            const elapsed = monotonicNow - offlineClockAnchorMonotonic;
+            if (elapsed < 0) {
+                offlineClockRollbackDetected = true;
+            } else {
+                monotonicFloor = offlineClockAnchorWall + elapsed;
+                if (wallNow + OFFLINE_CLOCK_ROLLBACK_TOLERANCE_MS < monotonicFloor) {
+                    offlineClockRollbackDetected = true;
+                }
+            }
+        }
+
+        const highWater = Math.max(storedHighWater, wallNow);
+        try {
+            if (window.localStorage && typeof window.localStorage.setItem === "function") {
+                window.localStorage.setItem(OFFLINE_CLOCK_HIGH_WATER_KEY, String(highWater));
+            }
+        } catch (error) {
+            // Storage is a best-effort signal only; it is not tamper-resistant.
+        }
+
+        return {
+            safe: !offlineClockRollbackDetected,
+            now: Math.max(wallNow, monotonicFloor)
+        };
+    }
+
 
     const GRADES = {
 
@@ -2070,7 +2144,9 @@
         const from = new Date(claims.validFrom);
         const until = new Date(claims.validUntil);
         const leaseUntil = new Date(claims.offlineLeaseExpiresAt || "");
+        const clock = getOfflineClockState();
         return (
+            clock.safe &&
             typeof claims.deviceSlotId === "string" &&
             /^[a-f0-9]{64}$/.test(claims.deviceSlotId) &&
             Number.isFinite(Number(claims.revocationEpoch)) &&
@@ -2078,9 +2154,9 @@
             !Number.isNaN(leaseUntil.getTime()) &&
             !Number.isNaN(from.getTime()) &&
             !Number.isNaN(until.getTime()) &&
-            Date.now() >= from.getTime() &&
-            Date.now() < until.getTime() &&
-            Date.now() < leaseUntil.getTime()
+            clock.now >= from.getTime() &&
+            clock.now < until.getTime() &&
+            clock.now < leaseUntil.getTime()
         );
     }
 
