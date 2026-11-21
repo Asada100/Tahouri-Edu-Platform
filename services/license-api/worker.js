@@ -895,7 +895,7 @@ async function recoverApprovedPairingEntitlement(request, env, headers) {
   }
   const proof = {
     purpose: "tahouri-device-pairing-recovery-v1",
-    licenseId: row.licenseId, deviceType, installationId, keyFingerprint
+    deviceType, installationId, keyFingerprint
   };
   try { await verifyStoredDeviceSignature(row.publicKeyPem, body.deviceSignature, proof); }
   catch (e) { return error(e.message, e.status || 401, headers); }
