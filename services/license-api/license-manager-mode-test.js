@@ -15,6 +15,7 @@ const storage = {
     setItem(key, value) { values.set(key, String(value)); },
     removeItem(key) { values.delete(key); }
 };
+let monotonicClock = 1000;
 const profile = { studentId: "license-mode-test-student", grade: "grade6", gradeId: "grade6", name: "آزمون" };
 const window = {
     ProfileManager: { get: () => profile },
@@ -23,7 +24,8 @@ const window = {
     TahouriDeviceIdentity: {
         getOrCreate: async () => ({ installationId: "install-test-profile-status" })
     },
-    localStorage: storage
+    localStorage: storage,
+    performance: { now: () => monotonicClock }
 };
 const context = {
     window,
@@ -401,6 +403,16 @@ async function main() {
     const unrelatedLegacyStatus = await manager.getProfileEntitlementStatus(profile.studentId, "grade6");
     assert.equal(unrelatedLegacyStatus.active, false,
         "A different legacy installation must not inherit the entitlement.");
+
+    // A backward wall-clock jump during the same browser session must
+    // fail closed even when the signed offline lease has not expired.
+    const originalDateNow = Date.now;
+    const rollbackBase = originalDateNow();
+    Date.now = () => rollbackBase - 10 * 60 * 1000;
+    monotonicClock += 60 * 1000;
+    assert.equal(manager.isGradeActivated("grade6", profile.studentId), false,
+        "A wall-clock rollback during a session must not extend an offline lease.");
+    Date.now = originalDateNow;
 
     console.log("License Manager mode and entitlement test: PASS");
 }
