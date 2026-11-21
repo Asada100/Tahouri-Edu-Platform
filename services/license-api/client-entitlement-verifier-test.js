@@ -190,10 +190,11 @@ async function main() {
     const statusSource = licenseClientSource.slice(statusStart, statusEnd);
     assert(statusStart >= 0 && statusEnd > statusStart);
     assert(
-        statusSource.includes('return request("/licenses/status?licenseId=" + encodeURIComponent(value)') &&
-        !statusSource.includes("deviceSignature") &&
-        !statusSource.includes("devicePublicKeyPem"),
-        "Characterization: the current online status request is not bound to device proof-of-possession."
+        statusSource.includes('return request("/licenses/device-status"') &&
+        statusSource.includes("deviceSignature") &&
+        statusSource.includes("keyFingerprint") &&
+        statusSource.includes("tahouri-device-bound-license-status-v1"),
+        "Online status requests must prove possession of the private key bound to the exact device slot."
     );
 
     console.log("Production entitlement public-key verification test: PASS");
