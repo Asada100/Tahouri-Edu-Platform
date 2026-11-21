@@ -258,7 +258,27 @@
     async function status(licenseId) {
         const value = String(licenseId || "").trim();
         if (!value) throw new Error("شناسه مجوز وارد نشده است.");
-        return request("/licenses/status?licenseId=" + encodeURIComponent(value), { method: "GET" });
+        const identity = await window.TahouriDeviceIdentity.getOrCreate();
+        const deviceType = detectDeviceType();
+        const keyFingerprint = await publicKeyFingerprint(identity.publicKey);
+        const proof = {
+            purpose: "tahouri-device-bound-license-status-v1",
+            licenseId: value,
+            deviceType,
+            installationId: identity.installationId,
+            keyFingerprint
+        };
+        const signed = await signedPayload(proof);
+        return request("/licenses/device-status", {
+            method: "POST",
+            body: JSON.stringify({
+                licenseId: value,
+                deviceType,
+                installationId: identity.installationId,
+                keyFingerprint,
+                deviceSignature: signed.signature
+            })
+        });
     }
     window.TahouriLicenseClient = { activate, health, status, requestPairing, requestPairingChallenge, decidePairing, pairingStatus, recoverApprovedPairingEntitlement, cancelPairing, listPendingPairings, listBoundDeviceSlots, requestDeviceRevocationChallenge, executeDeviceRevocation };
     console.log("Tahouri License Client v1.9 Ready");
