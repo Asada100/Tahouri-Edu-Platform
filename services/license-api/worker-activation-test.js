@@ -1218,6 +1218,28 @@ async function main() {
     assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type='device.admin_recovered' AND license_id=?").get(stored.license_id).count), 1,
       "Admin recovery must write an audit event.");
 
+    // A pre-device-identity legacy slot has no public key or fingerprint.
+    // Admin recovery must not treat a caller-supplied fingerprint as a wildcard or legacy-ID proof.
+    const legacyInstallationId = "legacy-installation-without-key";
+    db.prepare("INSERT INTO license_device_slots (license_id,device_type,installation_id,bound_at,public_key_pem,key_fingerprint) VALUES (?,'phone',?,?,NULL,NULL)")
+      .run(stored.license_id, legacyInstallationId, new Date().toISOString());
+    const legacyRecovery = await worker.fetch(new Request("https://api.example.test/api/admin/device-slots/recover", {
+      method: "POST", headers: { "content-type": "application/json", origin: env.ADMIN_ORIGIN, cookie: adminCookie },
+      body: JSON.stringify({
+        licenseId: stored.license_id, deviceType: "phone",
+        installationId: legacyInstallationId, keyFingerprint: "caller-invented-fingerprint",
+        reason: "بررسی عدم بازیابی اتصال قدیمی بدون کلید", adminPassword: env.ADMIN_PASSWORD
+      })
+    }), env);
+    assert.equal(legacyRecovery.status, 404,
+      "Admin recovery must reject a legacy slot with NULL public key and fingerprint.");
+    const unchangedLegacySlot = db.prepare("SELECT revoked_at, public_key_pem, key_fingerprint FROM license_device_slots WHERE license_id=? AND device_type='phone' AND installation_id=?")
+      .get(stored.license_id, legacyInstallationId);
+    assert.deepEqual(unchangedLegacySlot, { revoked_at: null, public_key_pem: null, key_fingerprint: null },
+      "A rejected legacy recovery attempt must leave the legacy slot unchanged.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type='device.admin_recovered' AND license_id=?").get(stored.license_id).count), 1,
+      "A rejected legacy recovery attempt must not create a successful-recovery audit event.");
+
     const status = await request(worker, env, "/api/licenses/status?licenseId=" + encodeURIComponent(stored.license_id), "GET");
     assert.equal(status.status, 200);
     assert.deepEqual(await status.json(), { ok: true, valid: true },
