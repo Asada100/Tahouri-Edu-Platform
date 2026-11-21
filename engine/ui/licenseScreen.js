@@ -1940,6 +1940,24 @@
             pairingRequestButton.addEventListener("click", beginPairingRequest);
         }
 
+        // The polling control is created by renderAddForm, after the
+        // list-screen event binding has already run. Bind it here.
+        const pairingPollButton =
+            document.getElementById("tahouriPairingPollButton");
+
+        if (pairingPollButton) {
+            pairingPollButton.addEventListener("click", pollPairingRequest);
+            // Keep an in-memory request usable when the form is reopened
+            // without reloading the page.
+            if (pendingPairing) {
+                pairingPollButton.style.display = "block";
+                pairingMessage(
+                    "درخواست قبلی ثبت شده است. پس از تأیید دستگاه اول، نتیجه را بررسی کنید.",
+                    true
+                );
+            }
+        }
+
         // =====================================================
         // Activation
         // =====================================================
