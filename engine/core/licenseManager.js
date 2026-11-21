@@ -152,7 +152,6 @@
             return { valid: false, reason: "no_remote_entitlement" };
         }
 
-        const licenseId = claims.licenseId;
         if (!window.TahouriLicenseClient ||
             typeof window.TahouriLicenseClient.status !== "function") {
             return { valid: false, reason: "status_client_unavailable" };
@@ -163,26 +162,62 @@
         const studentId = normalizeStudentId(profile && profile.studentId);
         const gradeId = safeText(profile && (profile.grade || profile.gradeId)).trim();
 
-        try {
-            const result = await window.TahouriLicenseClient.status(licenseId);
+        const isStillCurrent = () => {
             const currentProfile = getActiveProfile();
-            const stillCurrent =
-                statusSequence === remoteStatusSequence &&
+            return statusSequence === remoteStatusSequence &&
                 verifiedRemoteEntitlement === selectedEntitlement &&
                 normalizeStudentId(currentProfile && currentProfile.studentId) === studentId &&
                 safeText(currentProfile && (currentProfile.grade || currentProfile.gradeId)).trim() === gradeId &&
                 normalizeStudentId(claims.studentId) === studentId &&
                 claims.gradeScope === gradeId;
+        };
 
-            if (!stillCurrent) {
-                return { valid: false, reason: "stale_status_check" };
-            }
+        try {
+            const result = await window.TahouriLicenseClient.status(claims.licenseId);
+            if (!isStillCurrent()) return { valid: false, reason: "stale_status_check" };
 
             if (!result || !result.valid) {
                 verifiedRemoteEntitlement = null;
+                return result || { valid: false, reason: "invalid_status_response" };
             }
 
-            return result || { valid: false, reason: "invalid_status_response" };
+            if (!result.entitlement || !window.TahouriEntitlementVerifier ||
+                typeof window.TahouriEntitlementVerifier.verifyEnvelope !== "function") {
+                verifiedRemoteEntitlement = null;
+                return { valid: false, reason: "signed_device_lease_missing" };
+            }
+
+            const verification = await window.TahouriEntitlementVerifier.verifyEnvelope(result.entitlement);
+            if (!isStillCurrent()) return { valid: false, reason: "stale_status_check" };
+            if (!verification || !verification.valid || !verification.claims) {
+                verifiedRemoteEntitlement = null;
+                return { valid: false, reason: "invalid_refreshed_device_lease" };
+            }
+
+            const refreshedClaims = verification.claims;
+            const sameBinding =
+                refreshedClaims.licenseId === claims.licenseId &&
+                normalizeStudentId(refreshedClaims.studentId) === studentId &&
+                refreshedClaims.gradeScope === gradeId &&
+                refreshedClaims.installationBinding === claims.installationBinding &&
+                refreshedClaims.deviceType === claims.deviceType &&
+                refreshedClaims.deviceKeyFingerprint === claims.deviceKeyFingerprint &&
+                typeof refreshedClaims.offlineLeaseExpiresAt === "string" &&
+                typeof refreshedClaims.deviceSlotId === "string";
+
+            if (!sameBinding) {
+                verifiedRemoteEntitlement = null;
+                return { valid: false, reason: "refreshed_device_binding_mismatch" };
+            }
+
+            if (!window.TahouriEntitlementStore ||
+                typeof window.TahouriEntitlementStore.write !== "function" ||
+                !window.TahouriEntitlementStore.write(result.entitlement)) {
+                return { valid: false, reason: "refreshed_device_lease_not_saved" };
+            }
+
+            verifiedRemoteEntitlement = refreshedClaims;
+            return { ...result, claims: refreshedClaims, refreshed: true };
         } catch (error) {
             console.warn("License Manager: Remote status check failed.", error);
             return { valid: false, reason: "network_error", error: error.message };
@@ -1786,14 +1821,54 @@
                 : [window.TahouriEntitlementStore.read()].filter(Boolean);
             const installationId = await getOrCreateRemoteInstallationId();
 
-            for (const envelope of all) {
-                const result = await window.TahouriEntitlementVerifier.verifyEnvelope(envelope);
-                if (selectionSequence !== entitlementSelectionSequence) return false;
-                if (!result || !result.valid || !result.claims) continue;
+            for (const storedEnvelope of all) {
+                let envelope = storedEnvelope;
+                let claims = envelope && envelope.claims;
+                if (!claims ||
+                    normalizeStudentId(claims.studentId) !== activeStudentId ||
+                    claims.gradeScope !== activeGradeId) continue;
 
-                const claims = result.claims;
-                const binding = claims.installationBinding;
                 const legacyInstallationId = getLegacyInstallationId();
+                if (claims.installationBinding && claims.installationBinding !== installationId &&
+                    claims.installationBinding !== legacyInstallationId) continue;
+
+                let result = await window.TahouriEntitlementVerifier.verifyEnvelope(envelope);
+                if (selectionSequence !== entitlementSelectionSequence) return false;
+
+                // An expired signed lease can be renewed only by the same bound device
+                // proving possession of its private key to the Worker.
+                if (!result || !result.valid) {
+                    const leaseExpired = String(result && result.reason || "").includes("مهلت آفلاین");
+                    if (!leaseExpired || !window.TahouriLicenseClient ||
+                        typeof window.TahouriLicenseClient.status !== "function") continue;
+
+                    const refreshed = await window.TahouriLicenseClient.status(claims.licenseId);
+                    if (selectionSequence !== entitlementSelectionSequence) return false;
+                    if (!refreshed || !refreshed.valid || !refreshed.entitlement) continue;
+
+                    const refreshedVerification =
+                        await window.TahouriEntitlementVerifier.verifyEnvelope(refreshed.entitlement);
+                    if (!refreshedVerification || !refreshedVerification.valid ||
+                        !refreshedVerification.claims) continue;
+
+                    const refreshedClaims = refreshedVerification.claims;
+                    if (refreshedClaims.licenseId !== claims.licenseId ||
+                        normalizeStudentId(refreshedClaims.studentId) !== activeStudentId ||
+                        refreshedClaims.gradeScope !== activeGradeId ||
+                        refreshedClaims.installationBinding !== claims.installationBinding ||
+                        refreshedClaims.deviceType !== claims.deviceType ||
+                        refreshedClaims.deviceKeyFingerprint !== claims.deviceKeyFingerprint) continue;
+
+                    if (!window.TahouriEntitlementStore.write(refreshed.entitlement)) continue;
+                    envelope = refreshed.entitlement;
+                    result = refreshedVerification;
+                    claims = refreshedClaims;
+                }
+
+                if (!result || !result.valid || !result.claims) continue;
+                claims = result.claims;
+
+                const binding = claims.installationBinding;
                 if (binding && binding !== installationId &&
                     binding !== legacyInstallationId) continue;
                 if (normalizeStudentId(claims.studentId) !== activeStudentId) continue;
@@ -1807,7 +1882,16 @@
                 }
 
                 verifiedRemoteEntitlement = claims;
-                return true;
+                // Refresh legacy or nearly-expired leases online. If the network is
+                // unavailable, a still-valid signed lease remains usable offline.
+                const leaseExpiry = Date.parse(claims.offlineLeaseExpiresAt || "");
+                if (!Number.isFinite(leaseExpiry) || leaseExpiry - Date.now() < 24 * 60 * 60 * 1000) {
+                    const status = await refreshRemoteLicenseStatus();
+                    if (selectionSequence !== entitlementSelectionSequence) return false;
+                    if (status && status.reason !== "network_error" &&
+                        status.reason !== "status_client_unavailable" && !status.valid) return false;
+                }
+                return Boolean(verifiedRemoteEntitlement);
             }
 
             return false;
