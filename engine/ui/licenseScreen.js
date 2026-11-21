@@ -1895,6 +1895,9 @@
                                 <button id="tahouriPairingPollButton" type="button" class="tahouri-license-button" style="display:none;">
                                     🔄 بررسی نتیجه تأیید دستگاه اول
                                 </button>
+                                <button id="tahouriPairingRecoverButton" type="button" class="tahouri-license-button secondary">
+                                    🔐 بازیابی مجوز تأییدشدهٔ این دستگاه
+                                </button>
 
                             `
 
@@ -1956,6 +1959,12 @@
                     true
                 );
             }
+        }
+
+        const pairingRecoverButton =
+            document.getElementById("tahouriPairingRecoverButton");
+        if (pairingRecoverButton) {
+            pairingRecoverButton.addEventListener("click", recoverApprovedPairingEntitlement);
         }
 
         // =====================================================
@@ -2192,6 +2201,42 @@
             pairingMessage("درخواست هنوز در انتظار تأیید دستگاه اول است.", false);
         } catch (error) {
             pairingMessage(error.message || "بررسی وضعیت درخواست ناموفق بود.", false);
+        } finally {
+            if (button) button.disabled = false;
+        }
+    }
+
+
+    async function recoverApprovedPairingEntitlement() {
+        if (!window.TahouriLicenseClient) return;
+        const button = document.getElementById("tahouriPairingRecoverButton");
+        if (button) button.disabled = true;
+        try {
+            const result = await TahouriLicenseClient.recoverApprovedPairingEntitlement();
+            if (result.status !== "approved" || !result.entitlement) {
+                throw new Error("مجوز تأییدشده‌ای برای این دستگاه پیدا نشد.");
+            }
+            const verified = await window.TahouriEntitlementVerifier.verifyEnvelope(
+                result.entitlement, { allowFuture: true }
+            );
+            const identity = await window.TahouriDeviceIdentity.getOrCreate();
+            const deviceType = /Android|iPhone|iPod|Mobile|Windows Phone/i.test(navigator.userAgent || "")
+                ? "phone" : "computer";
+            if (!verified.valid || verified.claims.installationBinding !== identity.installationId ||
+                verified.claims.deviceType !== deviceType) {
+                throw new Error("مجوز بازیابی‌شده با هویت این دستگاه مطابقت ندارد.");
+            }
+            if (!window.TahouriEntitlementStore.write(result.entitlement)) {
+                throw new Error("ذخیره امن مجوز بازیابی‌شده انجام نشد.");
+            }
+            pendingPairing = null;
+            pairingMessage("مجوز تأییدشده بازیابی و روی همین دستگاه ذخیره شد.", true);
+            if (window.LicenseManager && typeof LicenseManager.initializeRemoteEntitlement === "function") {
+                await LicenseManager.initializeRemoteEntitlement();
+            }
+            renderList();
+        } catch (error) {
+            pairingMessage(error.message || "بازیابی مجوز این دستگاه ناموفق بود.", false);
         } finally {
             if (button) button.disabled = false;
         }
