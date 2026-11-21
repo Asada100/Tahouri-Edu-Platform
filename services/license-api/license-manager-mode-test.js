@@ -427,6 +427,48 @@ async function main() {
         "A wall-clock rollback during a session must not extend an offline lease.");
     testWallClock = null;
 
+    // Simulate closing the browser and reopening it with a reset monotonic
+    // clock. If the persisted high-water mark survives, rollback is detected.
+    const highWaterKey = "Tahouri_Offline_Clock_High_Water_v1";
+    assert(Number(storage.getItem(highWaterKey)) > 0,
+        "The offline clock high-water mark must be persisted.");
+    testWallClock = rollbackBase - 10 * 60 * 1000;
+    const restartedWindow = {
+        ...window,
+        localStorage: storage,
+        performance: { now: () => 500 }
+    };
+    const restartedContext = {
+        window: restartedWindow,
+        Date: ClockDate,
+        localStorage: storage,
+        console: { log() {}, warn() {}, error() {} }
+    };
+    vm.runInNewContext(source, restartedContext);
+    const restartedManager = restartedWindow.LicenseManager;
+    assert.equal(await restartedManager.initializeRemoteEntitlement(), false,
+        "A restart with a persisted high-water mark and rolled-back wall clock must fail closed.");
+
+    // Characterize the unavoidable browser-storage limitation: deleting the
+    // local high-water mark removes the only cross-restart signal available
+    // to this browser-only implementation.
+    storage.removeItem(highWaterKey);
+    const tamperedWindow = {
+        ...window,
+        localStorage: storage,
+        performance: { now: () => 500 }
+    };
+    const tamperedContext = {
+        window: tamperedWindow,
+        Date: ClockDate,
+        localStorage: storage,
+        console: { log() {}, warn() {}, error() {} }
+    };
+    vm.runInNewContext(source, tamperedContext);
+    assert.equal(await tamperedWindow.LicenseManager.initializeRemoteEntitlement(), true,
+        "Removing the browser high-water mark demonstrates that cross-restart rollback cannot be guaranteed.");
+    testWallClock = null;
+
     console.log("License Manager mode and entitlement test: PASS");
 }
 
