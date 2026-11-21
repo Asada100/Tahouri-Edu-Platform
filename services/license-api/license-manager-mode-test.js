@@ -58,8 +58,11 @@ async function main() {
             gradeScope,
             studentId,
             validFrom: new Date(Date.now() - 60000).toISOString(),
-            validUntil: new Date(Date.now() + 86400000).toISOString(),
+            validUntil: new Date(Date.now() + 30 * 86400000).toISOString(),
             installationBinding: undefined,
+            deviceSlotId: "a".repeat(64),
+            revocationEpoch: Date.now() - 1000,
+            offlineLeaseExpiresAt: new Date(Date.now() + 7 * 86400000).toISOString(),
             entitlementVersion: 1
         };
     }
@@ -90,6 +93,13 @@ async function main() {
         "A verified remote entitlement must authorize its bound grade.");
     assert.equal(manager.isGradeActivated("grade5", profile.studentId), false,
         "A verified entitlement must not authorize a different grade.");
+    const originalLeaseExpiry = claims.offlineLeaseExpiresAt;
+    claims.offlineLeaseExpiresAt = new Date(Date.now() - 1000).toISOString();
+    assert.equal(manager.isGradeActivated("grade6", profile.studentId), false,
+        "An entitlement must stop authorizing immediately after its offline lease expires.");
+    claims.offlineLeaseExpiresAt = originalLeaseExpiry;
+    assert.equal(manager.isGradeActivated("grade6", profile.studentId), true,
+        "A restored unexpired device lease must remain eligible for offline authorization.");
     assert.equal(manager.isActivated(profile.studentId), true,
         "Generic activation status must reflect a verified remote entitlement.");
 
@@ -114,6 +124,24 @@ async function main() {
         "A network outage must be reported without discarding the locally verified entitlement.");
     assert.equal(manager.isGradeActivated("grade6", profile.studentId), true,
         "A locally verified, unexpired entitlement must continue to authorize offline.");
+
+    // A legacy signed envelope without a bounded device lease must not
+    // authorize offline when its proof-bound online upgrade is unavailable.
+    const legacyClaims = { ...claims };
+    delete legacyClaims.deviceSlotId;
+    delete legacyClaims.revocationEpoch;
+    delete legacyClaims.offlineLeaseExpiresAt;
+    window.TahouriEntitlementStore.readAll = () => [envelope(legacyClaims)];
+    const legacyOffline = await manager.initializeRemoteEntitlement();
+    assert.equal(legacyOffline, false,
+        "A legacy entitlement without an offline lease must fail closed during a network outage.");
+    assert.equal(manager.isGradeActivated("grade6", profile.studentId), false,
+        "A legacy entitlement without a lease must never authorize offline.");
+
+    window.TahouriEntitlementStore.readAll = () => [envelope(claims)];
+    window.TahouriLicenseClient.status = async licenseId => makeDeviceLeaseStatus(licenseId);
+    assert.equal(await manager.initializeRemoteEntitlement(), true,
+        "A valid device-bound entitlement must remain usable after the legacy offline rejection.");
 
     window.TahouriLicenseClient.status = async () => ({ valid: false });
     const revokedStatus = await manager.refreshRemoteLicenseStatus();
