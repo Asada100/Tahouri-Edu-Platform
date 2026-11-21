@@ -897,6 +897,21 @@ async function main() {
         approverInstallationId: "install-1", approverSignature: "A".repeat(344)
     });
     assert.equal(forgedRevocationChallenge.status, 401, "A forged complementary-device signature must not issue a revocation challenge.");
+    const unboundApproverProof = {
+        ...revocationChallengeProof,
+        approverInstallationId: "install-unbound-attacker"
+    };
+    const unboundApprover = await request(worker, env, "/api/licenses/device-revocation/challenge", "POST", {
+        licenseId: stored.license_id, targetDeviceType: "computer",
+        targetInstallationId: "install-computer-1", approverDeviceType: "phone",
+        approverInstallationId: "install-unbound-attacker",
+        approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(unboundApproverProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(unboundApprover.status, 409, "An installation not bound to the license must not issue a revocation challenge.");
+    assert.equal(db.prepare("SELECT revoked_at FROM license_device_slots WHERE license_id = ? AND device_type = 'computer' AND installation_id = 'install-computer-1'").get(stored.license_id).revoked_at,
+        null, "An unbound approver must not change the target slot.");
+
     const revocationChallengeResponse = await request(worker, env, "/api/licenses/device-revocation/challenge", "POST", {
         licenseId: stored.license_id, targetDeviceType: "computer",
         targetInstallationId: "install-computer-1", approverDeviceType: "phone",
@@ -908,6 +923,36 @@ async function main() {
     const revocationChallenge = await revocationChallengeResponse.json();
     assert.equal(revocationChallenge.targetKeyFingerprint, targetFingerprint);
     assert(Date.parse(revocationChallenge.expiresAt) > Date.now(), "Revocation challenges must expire in the future.");
+    const expiredChallengeId = "rev_expired_" + crypto.randomUUID();
+    const expiredNonce = crypto.randomBytes(32).toString("hex");
+    const expiredNow = new Date().toISOString();
+    const expiredAt = new Date(Date.now() - 1000).toISOString();
+    const expiredNonceHash = await sha256(expiredNonce);
+    db.prepare(`INSERT INTO device_revocation_challenges
+        (challenge_id,license_id,target_device_type,target_installation_id,target_fingerprint,
+         approver_device_type,approver_installation_id,approver_fingerprint,nonce_hash,expires_at,created_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?)`)
+        .run(expiredChallengeId, stored.license_id, "computer", "install-computer-1", targetFingerprint,
+            "phone", "install-1", approverFingerprint, expiredNonceHash, expiredAt, expiredNow);
+    const expiredProof = {
+        purpose: "tahouri-device-revocation-v1",
+        challengeId: expiredChallengeId, nonce: expiredNonce, licenseId: stored.license_id,
+        targetDeviceType: "computer", targetInstallationId: "install-computer-1",
+        targetKeyFingerprint: targetFingerprint, approverDeviceType: "phone",
+        approverInstallationId: "install-1", approverKeyFingerprint: approverFingerprint,
+        expiresAt: expiredAt
+    };
+    const expiredRevocation = await request(worker, env, "/api/licenses/device-revocation/execute", "POST", {
+        challengeId: expiredChallengeId, nonce: expiredNonce,
+        approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(expiredProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(expiredRevocation.status, 409, "An expired revocation challenge must be rejected even with a valid device signature.");
+    assert.equal(db.prepare("SELECT revoked_at FROM license_device_slots WHERE license_id = ? AND device_type = 'computer' AND installation_id = 'install-computer-1'").get(stored.license_id).revoked_at,
+        null, "An expired challenge must not revoke the target device.");
+    assert.equal(db.prepare("SELECT consumed_at FROM device_revocation_challenges WHERE challenge_id = ?").get(expiredChallengeId).consumed_at,
+        null, "A rejected expired challenge must not be consumed as a successful revocation.");
+
     const revocationProof = {
         purpose: "tahouri-device-revocation-v1",
         challengeId: revocationChallenge.challengeId,
