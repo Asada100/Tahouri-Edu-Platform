@@ -400,6 +400,28 @@ async function main() {
     assert.equal(legacyStatus.active, true,
         "Profile status must recognize the matching legacy installation binding.");
 
+    // Model a genuine pre-device-lease signed entitlement: it retains the
+    // original LocalStorage installation binding but has no slot or lease.
+    const legacyWithoutDeviceLease = { ...legacyMigrationClaims };
+    delete legacyWithoutDeviceLease.deviceSlotId;
+    delete legacyWithoutDeviceLease.revocationEpoch;
+    delete legacyWithoutDeviceLease.offlineLeaseExpiresAt;
+    window.TahouriEntitlementStore.readAll = () => [envelope(legacyWithoutDeviceLease)];
+
+    window.TahouriLicenseClient.status = async () => {
+        throw new Error("offline");
+    };
+    assert.equal(await manager.initializeRemoteEntitlement(), false,
+        "A matching legacy-bound entitlement without a device lease must fail closed while offline.");
+    assert.equal(manager.isGradeActivated("grade6", profile.studentId), false,
+        "A copied legacy installation ID must not turn an unleased entitlement into offline access.");
+
+    window.TahouriLicenseClient.status = async () => ({ valid: false, reason: "unbound_legacy_slot" });
+    assert.equal(await manager.initializeRemoteEntitlement(), false,
+        "A legacy slot without registered key material must remain inactive when the server cannot issue a device lease.");
+    assert.equal(manager.isGradeActivated("grade6", profile.studentId), false,
+        "A rejected legacy slot must not authorize the profile.");
+
     const unrelatedLegacyClaims = {
         ...legacyMigrationClaims,
         installationBinding: "different-legacy-installation"
