@@ -757,7 +757,7 @@ async function main() {
 
     const recoveryProof = {
         purpose: "tahouri-device-pairing-recovery-v1",
-        licenseId: stored.license_id, deviceType: "computer",
+        deviceType: "computer",
         installationId: "install-computer-1",
         keyFingerprint: storedPairing.requester_key_fingerprint
     };
