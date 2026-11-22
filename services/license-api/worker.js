@@ -343,6 +343,123 @@ async function verifyDeviceActivationProof(body, fields) {
   return { publicKeyPem: pem, fingerprint };
 }
 
+async function inspectMigrationDeviceKey(publicKeyPem) {
+  const pem = bounded(publicKeyPem, 4096, "devicePublicKeyPem");
+  if (!/^-----BEGIN PUBLIC KEY-----\\s+[A-Za-z0-9+/=\\s]+-----END PUBLIC KEY-----$/.test(pem)) {
+    throw Object.assign(new Error("کلید عمومی دستگاه معتبر نیست."), { status: 400 });
+  }
+  const encoded = pem.replace(/-----BEGIN PUBLIC KEY-----|-----END PUBLIC KEY-----|\\s/g, "");
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(encoded)) throw Object.assign(new Error("کدگذاری کلید عمومی دستگاه معتبر نیست."), { status: 400 });
+  let der, key;
+  try {
+    der = Uint8Array.from(atob(encoded), ch => ch.charCodeAt(0));
+    key = await crypto.subtle.importKey("spki", der, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["verify"]);
+  } catch {
+    throw Object.assign(new Error("ساختار کلید عمومی دستگاه معتبر نیست."), { status: 400 });
+  }
+  const bits = Number(key.algorithm?.modulusLength || 0);
+  if (der.byteLength < 256 || der.byteLength > 1024 || bits < 2048 || bits > 4096) {
+    throw Object.assign(new Error("طول کلید دستگاه باید بین ۲۰۴۸ و ۴۰۹۶ بیت باشد."), { status: 400 });
+  }
+  const digest = await crypto.subtle.digest("SHA-256", der);
+  return { pem, fingerprint: [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, "0")).join("") };
+}
+
+async function claimLegacyDeviceMigration(request, env, headers) {
+  if (!request.headers.get("Origin") || !allowedOrigin(request, env)) return error("مبدأ درخواست مجاز نیست.", 403, headers);
+  if (String(request.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase() !== "application/json")
+    return error("نوع محتوا باید application/json باشد.", 415, headers);
+  const body = await bodyJson(request);
+  const challengeId = bounded(body.challengeId, 160, "challengeId");
+  const nonce = bounded(body.nonce, 128, "nonce");
+  const signature = bounded(body.deviceSignature, 2048, "deviceSignature");
+  let identity;
+  try { identity = await inspectMigrationDeviceKey(body.devicePublicKeyPem); }
+  catch (e) { return error(e.message, e.status || 400, headers); }
+  const row = await env.DB.prepare("SELECT * FROM legacy_device_migration_challenges WHERE challenge_id = ?")
+    .bind(challengeId).first();
+  if (!row || row.consumed_at || Date.parse(row.expires_at) <= Date.now() ||
+      !constantTimeEqual(await sha256(nonce), row.nonce_hash)) {
+    return error("چالش مهاجرت نامعتبر، مصرف‌شده یا منقضی است.", 409, headers);
+  }
+  const proof = {
+    purpose: "tahouri-legacy-device-migration-v1", challengeId, nonce,
+    licenseId: row.license_id, studentId: row.student_id, gradeId: row.grade_id,
+    academicYear: row.academic_year, deviceType: row.device_type,
+    installationId: row.installation_id, keyFingerprint: identity.fingerprint,
+    expiresAt: row.expires_at
+  };
+  try { await verifyStoredDeviceSignature(identity.pem, signature, proof); }
+  catch (e) { return error(e.message, e.status || 401, headers); }
+
+  const license = await env.DB.prepare(`SELECT product_id AS productId, student_id AS studentId,
+      grade_id AS gradeId, academic_year AS academicYear, valid_from AS validFrom,
+      valid_until AS validUntil, status
+    FROM licenses WHERE license_id = ? AND student_id = ? AND grade_id = ? AND academic_year = ?`)
+    .bind(row.license_id, row.student_id, row.grade_id, row.academic_year).first();
+  if (!license || license.status !== "active" || Date.parse(license.validFrom) > Date.now() ||
+      Date.parse(license.validUntil) <= Date.now()) {
+    return error("مجوز برای مهاجرت فعال و معتبر نیست.", 409, headers);
+  }
+  const now = nowIso();
+  const statements = [
+    env.DB.prepare(`UPDATE license_device_slots SET public_key_pem = ?, key_fingerprint = ?, bound_at = ?
+      WHERE license_id = ? AND device_type = ? AND installation_id = ?
+        AND public_key_pem IS NULL AND key_fingerprint IS NULL AND revoked_at IS NULL
+        AND EXISTS (SELECT 1 FROM legacy_device_migration_challenges
+          WHERE challenge_id = ? AND consumed_at IS NULL AND expires_at > ? AND nonce_hash = ?)`)
+      .bind(identity.pem, identity.fingerprint, now, row.license_id, row.device_type, row.installation_id,
+        challengeId, now, row.nonce_hash),
+    env.DB.prepare(`INSERT INTO license_device_slots
+      (license_id, device_type, installation_id, bound_at, public_key_pem, key_fingerprint)
+      SELECT ?, ?, ?, ?, ?, ?
+      WHERE NOT EXISTS (SELECT 1 FROM license_device_slots WHERE license_id = ? AND device_type = ?)
+        AND EXISTS (SELECT 1 FROM legacy_device_migration_challenges
+          WHERE challenge_id = ? AND consumed_at IS NULL AND expires_at > ? AND nonce_hash = ?)
+        AND EXISTS (SELECT 1 FROM licenses WHERE license_id = ? AND student_id = ? AND grade_id = ?
+          AND academic_year = ? AND status = 'active' AND valid_from <= ? AND valid_until > ?)
+        AND EXISTS (SELECT 1 FROM student_accounts WHERE student_id = ? AND grade_id = ? AND status = 'active')`)
+      .bind(row.license_id, row.device_type, row.installation_id, now, identity.pem, identity.fingerprint,
+        row.license_id, row.device_type, challengeId, now, row.nonce_hash, row.license_id,
+        row.student_id, row.grade_id, row.academic_year, now, now, row.student_id, row.grade_id),
+    env.DB.prepare(`UPDATE legacy_device_migration_challenges SET consumed_at = ?
+      WHERE challenge_id = ? AND consumed_at IS NULL AND expires_at > ? AND nonce_hash = ?
+        AND EXISTS (SELECT 1 FROM licenses WHERE license_id = ? AND student_id = ? AND grade_id = ?
+          AND academic_year = ? AND status = 'active' AND valid_from <= ? AND valid_until > ?)
+        AND EXISTS (SELECT 1 FROM student_accounts WHERE student_id = ? AND grade_id = ? AND status = 'active')
+        AND EXISTS (SELECT 1 FROM license_device_slots WHERE license_id = ? AND device_type = ?
+          AND installation_id = ? AND public_key_pem = ? AND key_fingerprint = ? AND revoked_at IS NULL)`)
+      .bind(now, challengeId, now, row.nonce_hash, row.license_id, row.student_id, row.grade_id,
+        row.academic_year, now, now, row.student_id, row.grade_id, row.license_id, row.device_type,
+        row.installation_id, identity.pem, identity.fingerprint),
+    env.DB.prepare(`INSERT INTO audit_log(event_type, actor, license_id, code_hash, created_at, metadata_json)
+      SELECT 'device.legacy_migrated', 'admin', ?, NULL, ?, ?
+      WHERE EXISTS (SELECT 1 FROM legacy_device_migration_challenges
+        WHERE challenge_id = ? AND consumed_at = ?)`)
+      .bind(row.license_id, now, JSON.stringify({
+        studentId: row.student_id, gradeId: row.grade_id, academicYear: row.academic_year,
+        deviceType: row.device_type, installationId: row.installation_id,
+        keyFingerprint: identity.fingerprint, adminAttestation: "school_records_verified",
+        verificationReason: row.verification_reason
+      }), challengeId, now)
+  ];
+  const results = await env.DB.batch(statements);
+  const slotChanges = Number(results?.[0]?.meta?.changes || 0) + Number(results?.[1]?.meta?.changes || 0);
+  if (slotChanges !== 1 || Number(results?.[2]?.meta?.changes || 0) !== 1 ||
+      Number(results?.[3]?.meta?.changes || 0) !== 1) {
+    return error("مهاجرت انجام نشد؛ وضعیت مجوز یا جایگاه تغییر کرده است و هیچ دستگاه فعالی جایگزین نشد.", 409, headers);
+  }
+  const claims = await addDeviceLeaseClaims({
+    licenseId: row.license_id, productId: license.productId,
+    academicYear: String(license.academicYear), gradeScope: license.gradeId,
+    studentId: license.studentId, validFrom: license.validFrom, validUntil: license.validUntil,
+    installationBinding: row.installation_id, deviceType: row.device_type,
+    deviceKeyFingerprint: identity.fingerprint, entitlementVersion: 1
+  }, { boundAt: now });
+  const entitlement = await signEntitlement(claims, env);
+  return json({ ok: true, status: "migrated", entitlement }, 200, headers);
+}
+
 async function activateLicense(request, env, headers) {
   // Activation is a browser-facing cross-origin POST: require an explicitly trusted Origin.
   // Reject simple content types so cross-site HTML forms cannot submit activation payloads.
@@ -1142,6 +1259,77 @@ async function adminRoute(request, env, url, headers) {
   }
 
 
+  if (path === "/api/admin/legacy-device-migration/challenge" && request.method === "POST") {
+    const body = await bodyJson(request);
+    const suppliedPassword = await sha256(String(body.adminPassword || ""));
+    const configuredPassword = await sha256(String(env.ADMIN_PASSWORD || ""));
+    if (!env.ADMIN_PASSWORD || !constantTimeEqual(suppliedPassword, configuredPassword)) {
+      await audit(env, "admin.legacy_migration.denied", "admin", { metadata: { reason: "step_up_authentication_failed" } });
+      return error("برای مهاجرت، تأیید دوبارهٔ رمز مدیریت الزامی است.", 401, headers);
+    }
+    const licenseId = validIdentifier(body.licenseId, "licenseId");
+    const studentId = validIdentifier(body.studentId, "studentId");
+    const gradeId = validIdentifier(body.gradeId, "gradeId");
+    const academicYear = bounded(body.academicYear, 8, "academicYear");
+    const deviceType = String(body.deviceType || "").trim().toLowerCase();
+    const installationId = validIdentifier(body.installationId, "installationId");
+    const reason = String(body.verificationReason || "").trim();
+    if (!["phone", "computer"].includes(deviceType)) return error("نوع دستگاه نامعتبر است.", 400, headers);
+    if (reason.length < 10 || reason.length > 300) return error("علت تطبیق پرونده باید بین ۱۰ تا ۳۰۰ نویسه باشد.", 400, headers);
+    const windowStart = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+    const recent = await env.DB.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'admin.legacy_migration.challenge_issued' AND created_at >= ?")
+      .bind(windowStart).first();
+    if (Number(recent?.count || 0) >= 5) return error("صدور چالش مهاجرت موقتاً محدود شده است.", 429, headers);
+    const record = await env.DB.prepare(`SELECT l.student_id AS studentId, l.grade_id AS gradeId,
+        l.academic_year AS academicYear, l.valid_from AS validFrom, l.valid_until AS validUntil,
+        l.status AS licenseStatus, s.status AS studentStatus, s.grade_id AS studentGradeId
+      FROM licenses l JOIN student_accounts s ON s.student_id = l.student_id
+      WHERE l.license_id = ? AND l.student_id = ? AND l.grade_id = ? AND l.academic_year = ?`)
+      .bind(licenseId, studentId, gradeId, academicYear).first();
+    if (!record || record.studentStatus !== "active" || record.studentGradeId !== gradeId ||
+        record.licenseStatus !== "active" || Date.parse(record.validFrom) > Date.now() ||
+        Date.parse(record.validUntil) <= Date.now()) {
+      return error("مجوز و پروندهٔ دانش‌آموز برای مهاجرت دقیقاً منطبق و فعال نیستند.", 409, headers);
+    }
+    const slot = await env.DB.prepare("SELECT installation_id AS installationId, public_key_pem AS publicKeyPem, key_fingerprint AS fingerprint, revoked_at AS revokedAt FROM license_device_slots WHERE license_id = ? AND device_type = ?")
+      .bind(licenseId, deviceType).first();
+    if (slot && (slot.revokedAt || slot.installationId !== installationId ||
+        slot.publicKeyPem !== null || slot.fingerprint !== null)) {
+      return error("جایگاه این نوع دستگاه خالی یا legacy-keyless دقیقاً منطبق نیست؛ دستگاه فعال قابل جایگزینی نیست.", 409, headers);
+    }
+    const challengeId = "mig_" + crypto.randomUUID();
+    const nonce = randomHex(32);
+    const createdAt = nowIso();
+    const expiresAt = new Date(Date.now() + 2 * 60 * 1000).toISOString();
+    const nonceHash = await sha256(nonce);
+    const results = await env.DB.batch([
+      env.DB.prepare(`INSERT INTO legacy_device_migration_challenges
+        (challenge_id, license_id, student_id, grade_id, academic_year, device_type,
+         installation_id, nonce_hash, expires_at, created_by_admin, verification_reason, created_at)
+        SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, 'admin', ?, ?
+        WHERE EXISTS (SELECT 1 FROM licenses WHERE license_id = ? AND student_id = ?
+          AND grade_id = ? AND academic_year = ? AND status = 'active' AND valid_from <= ? AND valid_until > ?)
+          AND EXISTS (SELECT 1 FROM student_accounts WHERE student_id = ? AND grade_id = ? AND status = 'active')
+          AND ((EXISTS (SELECT 1 FROM license_device_slots WHERE license_id = ? AND device_type = ?
+              AND installation_id = ? AND public_key_pem IS NULL AND key_fingerprint IS NULL AND revoked_at IS NULL))
+            OR NOT EXISTS (SELECT 1 FROM license_device_slots WHERE license_id = ? AND device_type = ?))`)
+        .bind(challengeId, licenseId, studentId, gradeId, academicYear, deviceType, installationId,
+          nonceHash, expiresAt, reason, createdAt, licenseId, studentId, gradeId, academicYear,
+          createdAt, createdAt, studentId, gradeId, licenseId, deviceType, installationId, licenseId, deviceType),
+      env.DB.prepare(`INSERT INTO audit_log(event_type, actor, license_id, code_hash, created_at, metadata_json)
+        SELECT 'admin.legacy_migration.challenge_issued', 'admin', ?, NULL, ?, ?
+        WHERE EXISTS (SELECT 1 FROM legacy_device_migration_challenges WHERE challenge_id = ?)`)
+        .bind(licenseId, createdAt, JSON.stringify({ studentId, gradeId, academicYear, deviceType,
+          installationId, verificationReason: reason, adminAttestation: "school_records_verified",
+          challengeId, expiresAt }), challengeId)
+    ]);
+    if (Number(results?.[0]?.meta?.changes || 0) !== 1 || Number(results?.[1]?.meta?.changes || 0) !== 1)
+      return error("صدور چالش مهاجرت ممکن نشد؛ وضعیت داده‌ها تغییر کرده است.", 409, headers);
+    return json({ ok: true, challengeId, nonce, expiresAt, licenseId, studentId,
+      gradeId, academicYear, deviceType, installationId,
+      purpose: "tahouri-legacy-device-migration-v1" }, 201, headers);
+  }
+
   if (path === "/api/admin/device-slots/recover" && request.method === "POST") {
     const origin = request.headers.get("Origin");
     if (!origin || !allowedOrigin(request, env)) return error("مبدأ درخواست مجاز نیست.", 403, headers);
@@ -1540,6 +1728,8 @@ export default {
         return await recoverApprovedPairingEntitlement(request, env, headers);
       if (url.pathname === "/api/licenses/pairing/status" && request.method === "POST")
         return await getDevicePairingStatus(request, env, headers);
+      if (url.pathname === "/api/licenses/legacy-migration/claim" && request.method === "POST")
+        return await claimLegacyDeviceMigration(request, env, headers);
       if (url.pathname === "/api/licenses/device-status" && request.method === "POST")
         return await deviceBoundLicenseStatus(request, env, headers);
       if (url.pathname === "/api/licenses/status" && request.method === "GET")
