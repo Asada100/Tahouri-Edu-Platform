@@ -1692,7 +1692,7 @@ async function health(env, headers, requestId) {
     service: "tahouri-license-api", version: SERVICE_VERSION, runtime: "cloudflare-workers",
     database, schemaVersion, capabilities: { adminApi: true, codeManagement: true,
       licenseActivation: signingReady, licenseVerification: signingReady, paymentVerification: false,
-      signedEntitlementExtension: false }, requestId }, ready ? 200 : 503,
+      signedEntitlementExtension: signingReady }, requestId }, ready ? 200 : 503,
     { ...headers, "x-request-id": requestId });
 }
 
