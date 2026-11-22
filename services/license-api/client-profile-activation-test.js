@@ -59,7 +59,7 @@ const migrationEntitlement = {
     },
     signature: "signed-migration-entitlement"
 };
-const devicePublicKeyPem = "-----BEGIN PUBLIC KEY-----\\nTEST-DEVICE-PUBLIC-KEY\\n-----END PUBLIC KEY-----";
+const devicePublicKeyPem = "-----BEGIN PUBLIC KEY-----\nAQAB\n-----END PUBLIC KEY-----";
 
 const window = {
     ProfileManager: { get: () => profile },
