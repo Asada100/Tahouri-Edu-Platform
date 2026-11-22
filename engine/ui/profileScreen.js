@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 5.1
+// Version 5.2
 // Profile Screen
 // Multi Profile + Personal Settings
 // =====================================
@@ -175,7 +175,7 @@ const ProfileScreen = {
         this.bindSettings();
         this.refreshProfileLicenseStatus(profile);
 
-        console.log("Profile Screen v5.1 Displayed:", profile);
+        console.log("Profile Screen v5.2 Displayed:", profile);
     },
 
     // =====================================
