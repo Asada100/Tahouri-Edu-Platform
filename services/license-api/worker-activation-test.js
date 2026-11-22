@@ -1446,6 +1446,18 @@ async function main() {
       .get(noSlotLicense).count), 1);
     assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM legacy_device_migration_challenges WHERE challenge_id=? AND consumed_at IS NOT NULL")
       .get(noSlotChallenge.challengeId).count), 1, "Successful migration must consume its challenge exactly once.");
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const deniedStepUp = await worker.fetch(new Request("https://api.example.test/api/admin/legacy-device-migration/challenge", {
+        method: "POST", headers: { "content-type": "application/json", origin: env.ADMIN_ORIGIN, cookie: adminCookie },
+        body: JSON.stringify({ ...migrationAdminPayload, identityVerified: true, adminPassword: "incorrect-step-up-" + attempt })
+      }), env);
+      assert.equal(deniedStepUp.status, 401, "Incorrect migration step-up passwords must be rejected.");
+    }
+    const rateLimitedStepUp = await worker.fetch(new Request("https://api.example.test/api/admin/legacy-device-migration/challenge", {
+      method: "POST", headers: { "content-type": "application/json", origin: env.ADMIN_ORIGIN, cookie: adminCookie },
+      body: JSON.stringify({ ...migrationAdminPayload, identityVerified: true, adminPassword: "incorrect-step-up-final" })
+    }), env);
+    assert.equal(rateLimitedStepUp.status, 429, "Repeated failed migration step-up attempts must be rate-limited.");
 
     const status = await request(worker, env, "/api/licenses/status?licenseId=" + encodeURIComponent(stored.license_id), "GET");
     assert.equal(status.status, 200);
