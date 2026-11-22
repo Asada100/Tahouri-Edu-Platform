@@ -85,7 +85,8 @@ const context = {
 };
 
 vm.runInNewContext(source, context);
-const ProfileScreen = context.ProfileScreen;
+vm.runInNewContext("globalThis.__testProfileScreen = ProfileScreen;", context);
+const ProfileScreen = context.__testProfileScreen;
 
 async function main() {
     assert.ok(ProfileScreen, "ProfileScreen must load in the isolated browser context.");
