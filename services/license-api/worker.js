@@ -429,7 +429,7 @@ async function claimLegacyDeviceMigration(request, env, headers) {
     env.DB.prepare(`INSERT INTO license_device_slots
       (license_id, device_type, installation_id, bound_at, public_key_pem, key_fingerprint)
       SELECT ?, ?, ?, ?, ?, ?
-      WHERE NOT EXISTS (SELECT 1 FROM license_device_slots WHERE license_id = ? AND device_type = ?)
+      WHERE NOT EXISTS (SELECT 1 FROM license_device_slots WHERE license_id = ? AND device_type = ? AND revoked_at IS NULL)
         AND EXISTS (SELECT 1 FROM legacy_device_migration_challenges
           WHERE challenge_id = ? AND consumed_at IS NULL AND expires_at > ? AND nonce_hash = ?)
         AND EXISTS (SELECT 1 FROM licenses WHERE license_id = ? AND student_id = ? AND grade_id = ?
@@ -1298,11 +1298,12 @@ async function adminRoute(request, env, url, headers) {
       WHERE l.license_id = ? AND l.student_id = ? AND l.grade_id = ? AND l.academic_year = ?`)
       .bind(licenseId, studentId, gradeId, academicYear).first();
     if (!record || record.studentStatus !== "active" || record.studentGradeId !== gradeId ||
-        record.licenseStatus !== "active" || Date.parse(record.validFrom) > Date.now() ||
+        record.licenseStatus !== "active" || !Number.isFinite(Date.parse(record.validFrom)) ||
+        !Number.isFinite(Date.parse(record.validUntil)) || Date.parse(record.validFrom) > Date.now() ||
         Date.parse(record.validUntil) <= Date.now()) {
       return error("مجوز و پروندهٔ دانش‌آموز برای مهاجرت دقیقاً منطبق و فعال نیستند.", 409, headers);
     }
-    const slot = await env.DB.prepare("SELECT installation_id AS installationId, public_key_pem AS publicKeyPem, key_fingerprint AS fingerprint, revoked_at AS revokedAt FROM license_device_slots WHERE license_id = ? AND device_type = ?")
+    const slot = await env.DB.prepare("SELECT installation_id AS installationId, public_key_pem AS publicKeyPem, key_fingerprint AS fingerprint, revoked_at AS revokedAt FROM license_device_slots WHERE license_id = ? AND device_type = ? AND revoked_at IS NULL")
       .bind(licenseId, deviceType).first();
     const duplicateInstallation = await env.DB.prepare("SELECT 1 AS found FROM license_device_slots WHERE license_id = ? AND installation_id = ? AND device_type <> ? AND revoked_at IS NULL")
       .bind(licenseId, installationId, deviceType).first();
@@ -1326,7 +1327,7 @@ async function adminRoute(request, env, url, headers) {
           AND EXISTS (SELECT 1 FROM student_accounts WHERE student_id = ? AND grade_id = ? AND status = 'active')
           AND ((EXISTS (SELECT 1 FROM license_device_slots WHERE license_id = ? AND device_type = ?
               AND installation_id = ? AND public_key_pem IS NULL AND key_fingerprint IS NULL AND revoked_at IS NULL))
-            OR NOT EXISTS (SELECT 1 FROM license_device_slots WHERE license_id = ? AND device_type = ?))`)
+            OR NOT EXISTS (SELECT 1 FROM license_device_slots WHERE license_id = ? AND device_type = ? AND revoked_at IS NULL))`)
         .bind(challengeId, licenseId, studentId, gradeId, academicYear, deviceType, installationId,
           nonceHash, expiresAt, reason, createdAt, licenseId, studentId, gradeId, academicYear,
           createdAt, createdAt, studentId, gradeId, licenseId, deviceType, installationId, licenseId, deviceType),
