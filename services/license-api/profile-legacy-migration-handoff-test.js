@@ -44,12 +44,13 @@ let licenseStatus = {
 let identityCalls = 0;
 let claimCalls = [];
 let refreshCalls = 0;
+let statusLookups = 0;
 let storedResult = { entitlementStored: true };
 
 const ProfileManager = { get: () => currentProfile };
 const window = {
     LicenseManager: {
-        getProfileEntitlementStatus: async () => licenseStatus,
+        getProfileEntitlementStatus: async () => { statusLookups += 1; return licenseStatus; },
         initializeRemoteEntitlement: async () => { refreshCalls += 1; return true; }
     },
     ActivationGate: {
@@ -131,6 +132,7 @@ async function main() {
         studentId: currentProfile.studentId,
         gradeId: currentProfile.grade
     });
+    const statusLookupsBeforeSuccess = statusLookups;
     const success = await ProfileScreen.claimLegacyMigrationFromProfile(
         currentProfile.studentId, currentProfile.grade, claimButton
     );
@@ -141,8 +143,10 @@ async function main() {
         "The challenge input must be cleared only after verified storage succeeds.");
     assert.match(message.textContent, /اتصال امن انجام شد/);
     assert.equal(claimButton.disabled, false);
-    assert.ok(refreshCalls >= 2,
-        "Successful migration must refresh the selected profile entitlement and status.");
+    assert.ok(refreshCalls >= 1,
+        "Successful migration must refresh the selected profile entitlement.");
+    assert.ok(statusLookups > statusLookupsBeforeSuccess,
+        "Successful migration must refresh the displayed profile license status.");
 
     challengeInput.value = JSON.stringify({
         challengeId: "synthetic-challenge-not-stored",
