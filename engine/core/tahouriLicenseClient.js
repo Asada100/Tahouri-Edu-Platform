@@ -170,6 +170,64 @@
         });
     }
 
+    async function claimLegacyMigration(challenge) {
+        if (!challenge || !challenge.challengeId || !challenge.nonce || !challenge.expiresAt) {
+            throw new Error("اطلاعات چالش مهاجرت معتبر نیست.");
+        }
+        if (Date.parse(challenge.expiresAt) <= Date.now()) throw new Error("مهلت چالش مهاجرت پایان یافته است.");
+        const identity = await window.TahouriDeviceIdentity.getOrCreate();
+        const deviceType = detectDeviceType();
+        if (challenge.installationId !== identity.installationId || challenge.deviceType !== deviceType) {
+            throw new Error("این چالش برای همین نصب و نوع دستگاه صادر نشده است.");
+        }
+        const keyFingerprint = await publicKeyFingerprint(identity.publicKey);
+        const proof = {
+            purpose: "tahouri-legacy-device-migration-v1",
+            challengeId: challenge.challengeId,
+            nonce: challenge.nonce,
+            licenseId: challenge.licenseId,
+            studentId: challenge.studentId,
+            gradeId: challenge.gradeId,
+            academicYear: challenge.academicYear,
+            deviceType,
+            installationId: identity.installationId,
+            keyFingerprint,
+            expiresAt: challenge.expiresAt
+        };
+        const signed = await signedPayload(proof);
+        const result = await request("/licenses/legacy-migration/claim", {
+            method: "POST",
+            body: JSON.stringify({
+                challengeId: challenge.challengeId,
+                nonce: challenge.nonce,
+                devicePublicKeyPem: identity.publicKey,
+                deviceSignature: signed.signature
+            })
+        });
+        const verifier = window.TahouriEntitlementVerifier;
+        const store = window.TahouriEntitlementStore;
+        if (!result || !result.entitlement || !verifier ||
+            typeof verifier.verifyEnvelope !== "function" || !store ||
+            typeof store.write !== "function") {
+            throw new Error("مجوز مهاجرت دریافت شد، اما امکان بررسی یا ذخیره امن آن وجود ندارد.");
+        }
+        const verification = await verifier.verifyEnvelope(result.entitlement);
+        const claims = verification && verification.claims;
+        if (!verification || !verification.valid || !claims ||
+            claims.licenseId !== challenge.licenseId ||
+            claims.studentId !== challenge.studentId ||
+            claims.gradeScope !== challenge.gradeId ||
+            String(claims.academicYear) !== String(challenge.academicYear) ||
+            claims.installationBinding !== identity.installationId ||
+            claims.deviceType !== deviceType ||
+            claims.deviceKeyFingerprint !== keyFingerprint ||
+            !claims.offlineLeaseExpiresAt || !claims.deviceSlotId) {
+            throw new Error("مجوز امضاشده با هویت این دستگاه یا چالش مهاجرت مطابقت ندارد.");
+        }
+        if (!store.write(result.entitlement)) throw new Error("ذخیره مجوز مهاجرت روی این دستگاه انجام نشد.");
+        return { ...result, entitlementStored: true };
+    }
+
     async function pairingStatus(pairingId, token) {
         return request("/licenses/pairing/status", {
             method: "POST", body: JSON.stringify({ pairingId: String(pairingId || ""), token: String(token || "") })
@@ -280,6 +338,6 @@
             })
         });
     }
-    window.TahouriLicenseClient = { activate, health, status, requestPairing, requestPairingChallenge, decidePairing, pairingStatus, recoverApprovedPairingEntitlement, cancelPairing, listPendingPairings, listBoundDeviceSlots, requestDeviceRevocationChallenge, executeDeviceRevocation };
+    window.TahouriLicenseClient = { activate, health, status, requestPairing, requestPairingChallenge, decidePairing, pairingStatus, recoverApprovedPairingEntitlement, claimLegacyMigration, cancelPairing, listPendingPairings, listBoundDeviceSlots, requestDeviceRevocationChallenge, executeDeviceRevocation };
     console.log("Tahouri License Client v1.9 Ready");
 })();
