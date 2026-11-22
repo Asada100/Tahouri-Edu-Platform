@@ -398,7 +398,7 @@ async function main() {
         "A valid legacy-bound entitlement must preserve access during the transition.");
     const legacyStatus = await manager.getProfileEntitlementStatus(profile.studentId, "grade6");
     assert.equal(legacyStatus.active, true,
-        "Profile status must recognize the matching legacy installation binding.");
+        "A legacy-bound entitlement carrying a valid device lease must remain active.");
 
     // Model a genuine pre-device-lease signed entitlement: it retains the
     // original LocalStorage installation binding but has no slot or lease.
@@ -415,6 +415,11 @@ async function main() {
         "A matching legacy-bound entitlement without a device lease must fail closed while offline.");
     assert.equal(manager.isGradeActivated("grade6", profile.studentId), false,
         "A copied legacy installation ID must not turn an unleased entitlement into offline access.");
+    const unleasedLegacyStatus = await manager.getProfileEntitlementStatus(profile.studentId, "grade6");
+    assert.equal(unleasedLegacyStatus.active, false,
+        "A legacy entitlement without a device lease must never be displayed as active.");
+    assert.equal(unleasedLegacyStatus.status, "renewal_required",
+        "An unleased legacy entitlement must request online migration.");
 
     window.TahouriLicenseClient.status = async () => ({ valid: false, reason: "unbound_legacy_slot" });
     assert.equal(await manager.initializeRemoteEntitlement(), false,
