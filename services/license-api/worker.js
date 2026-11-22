@@ -407,9 +407,13 @@ async function claimLegacyDeviceMigration(request, env, headers) {
       WHERE license_id = ? AND device_type = ? AND installation_id = ?
         AND public_key_pem IS NULL AND key_fingerprint IS NULL AND revoked_at IS NULL
         AND EXISTS (SELECT 1 FROM legacy_device_migration_challenges
-          WHERE challenge_id = ? AND consumed_at IS NULL AND expires_at > ? AND nonce_hash = ?)`)
+          WHERE challenge_id = ? AND consumed_at IS NULL AND expires_at > ? AND nonce_hash = ?)
+        AND EXISTS (SELECT 1 FROM licenses WHERE license_id = ? AND student_id = ? AND grade_id = ?
+          AND academic_year = ? AND status = 'active' AND valid_from <= ? AND valid_until > ?)
+        AND EXISTS (SELECT 1 FROM student_accounts WHERE student_id = ? AND grade_id = ? AND status = 'active')`)
       .bind(identity.pem, identity.fingerprint, now, row.license_id, row.device_type, row.installation_id,
-        challengeId, now, row.nonce_hash),
+        challengeId, now, row.nonce_hash, row.license_id, row.student_id, row.grade_id,
+        row.academic_year, now, now, row.student_id, row.grade_id),
     env.DB.prepare(`INSERT INTO license_device_slots
       (license_id, device_type, installation_id, bound_at, public_key_pem, key_fingerprint)
       SELECT ?, ?, ?, ?, ?, ?
