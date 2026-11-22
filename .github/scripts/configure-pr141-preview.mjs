@@ -10,7 +10,7 @@ if (!configPath) throw new Error("Usage: node configure-pr141-preview.mjs <stage
 
 const parsed = new URL(apiBaseUrl);
 if (parsed.protocol !== "https:" ||
-    parsed.hostname !== "tahouri-pr141-device-e2e-20261119.asadtahouri1986.workers.dev" ||
+    parsed.hostname !== "tahouri-pr141-legacy-migration-e2e-20261122.asadtahouri1986.workers.dev" ||
     parsed.pathname !== "/api" || parsed.search || parsed.hash) {
     throw new Error("PR141 preview must target only the isolated test Worker /api endpoint.");
 }
