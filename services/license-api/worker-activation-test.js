@@ -543,6 +543,7 @@ async function main() {
     const health = await request(worker, env, "/api/health", "GET");
     assert.equal(health.status, 200, "Health must be ready with D1 schema and signing key.");
     assert.equal((await health.json()).capabilities.licenseActivation, true);
+    assert.equal((await health.json()).capabilities.signedEntitlementExtension, true);
 
     const year = currentIranianYear();
     const code = "THR-GRADE6-" + year + "-ONE-TIME-TEST";
