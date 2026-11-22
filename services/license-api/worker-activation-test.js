@@ -1345,7 +1345,7 @@ async function main() {
     assert(migratedBody.entitlement.claims.offlineLeaseExpiresAt, "Successful migration must issue a fresh signed offline lease.");
     const migratedSlot = db.prepare("SELECT public_key_pem, key_fingerprint, revoked_at FROM license_device_slots WHERE license_id=? AND device_type='phone' AND installation_id=?")
       .get(stored.license_id, legacyInstallationId);
-    assert.equal(migratedSlot.public_key_pem, migrationKeyPair.publicKey.export({ type: "spki", format: "pem" }));
+    assert.equal(migratedSlot.public_key_pem, migrationKeyPair.publicKey.export({ type: "spki", format: "pem" }).trim());
     assert.equal(migratedSlot.revoked_at, null);
     assert.equal(db.prepare("SELECT revoked_at FROM license_device_slots WHERE license_id=? AND device_type='computer' AND revoked_at IS NULL")
       .get(stored.license_id).revoked_at, null, "Migration must preserve the complementary computer slot.");
