@@ -96,6 +96,9 @@ jobs:
       - name: Client legacy migration behavior test
         run: node client-legacy-migration-test.js
 
+      - name: Client-to-Worker legacy migration end-to-end test
+        run: npm run client-worker-migration-e2e-test
+
       - name: Pairing result UI regression test
         run: node license-screen-pairing-ui-test.js
 
