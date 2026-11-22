@@ -1271,7 +1271,7 @@ async function main() {
       licenseId: stored.license_id, studentId: legacyLicense.student_id,
       gradeId: legacyLicense.grade_id, academicYear: legacyLicense.academic_year,
       deviceType: "phone", installationId: legacyInstallationId,
-      verificationReason: "پرونده رسمی دانش‌آموز با حضور مدیر تطبیق داده شد"
+      identityVerified: true, verificationReason: "پرونده رسمی دانش‌آموز با حضور مدیر تطبیق داده شد"
     };
     const migrationChallengeCount = Number(db.prepare("SELECT COUNT(*) AS count FROM legacy_device_migration_challenges").get().count);
     const deniedMigrationChallenge = await worker.fetch(new Request("https://api.example.test/api/admin/legacy-device-migration/challenge", {
@@ -1379,7 +1379,7 @@ async function main() {
       licenseId: noSlotLicense, studentId: noSlotStudent, gradeId: "grade6",
       academicYear: String(year), deviceType: "computer",
       installationId: "migration-new-computer",
-      verificationReason: "پرونده رسمی دانش‌آموز با حضور مدیر تطبیق داده شد"
+      identityVerified: true, verificationReason: "پرونده رسمی دانش‌آموز با حضور مدیر تطبیق داده شد"
     };
     const noSlotChallengeResponse = await issueLegacyMigrationChallenge(noSlotPayload);
     assert.equal(noSlotChallengeResponse.status, 201, "Admin must be able to issue a challenge when no slot row exists.");
