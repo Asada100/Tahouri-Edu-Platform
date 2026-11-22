@@ -80,6 +80,16 @@ const ProfileScreen = {
         <button id="activateCurrentProfileBtn" type="button" hidden>🔐 فعال‌سازی این پروفایل</button>
     </section>
 
+    <section id="legacyDeviceMigrationPanel" class="profile-license-panel" hidden aria-labelledby="legacyMigrationHeading">
+        <h2 id="legacyMigrationHeading">🔄 تکمیل اتصال امن مجوز قدیمی</h2>
+        <p>شناسه نصب زیر را به مدیر مدرسه بدهید. مدیر پس از تطبیق پرونده رسمی، یک چالش یک‌بارمصرف صادر می‌کند. متن JSON چالش را فقط از مدیر مورد اعتماد دریافت و در کادر وارد کنید.</p>
+        <p>شناسه نصب این دستگاه: <strong id="legacyMigrationInstallationId">در حال آماده‌سازی...</strong></p>
+        <label for="legacyMigrationChallengeInput">متن چالش یک‌بارمصرف مدیر</label>
+        <textarea id="legacyMigrationChallengeInput" rows="5" placeholder="متن کامل JSON چالش را اینجا وارد کنید"></textarea>
+        <button id="claimLegacyMigrationBtn" type="button">تکمیل اتصال امن این دستگاه</button>
+        <p id="legacyMigrationMessage" aria-live="polite"></p>
+    </section>
+
     <hr>
 
     <button id="editProfileBtn" type="button">✏ ویرایش پروفایل</button>
@@ -153,6 +163,12 @@ const ProfileScreen = {
         if (activateButton) {
             activateButton.onclick = function () {
                 ProfileScreen.activateProfile(profile.studentId, profile.grade, activateButton);
+            };
+        }
+        const migrationButton = document.getElementById("claimLegacyMigrationBtn");
+        if (migrationButton) {
+            migrationButton.onclick = function () {
+                ProfileScreen.claimLegacyMigrationFromProfile(profile.studentId, profile.grade, migrationButton);
             };
         }
 
@@ -391,6 +407,28 @@ const ProfileScreen = {
             statusElement.className = "profile-license-status " +
                 (result && result.active ? "is-active" : "is-inactive");
 
+            const migrationPanel = document.getElementById("legacyDeviceMigrationPanel");
+            const canMigrateLegacy = !!(result && result.status === "renewal_required" &&
+                /تکمیل مهاجرت مجوز قدیمی/.test(result.reason || "") &&
+                window.TahouriDeviceIdentity && window.TahouriLicenseClient &&
+                typeof window.TahouriLicenseClient.claimLegacyMigration === "function");
+            if (migrationPanel) {
+                migrationPanel.hidden = !canMigrateLegacy;
+                if (canMigrateLegacy) {
+                    try {
+                        const identity = await window.TahouriDeviceIdentity.getOrCreate();
+                        const current = ProfileManager.get();
+                        if (sequence !== this.licenseStatusSequence || !current ||
+                            current.studentId !== profile.studentId) return;
+                        const identityElement = document.getElementById("legacyMigrationInstallationId");
+                        if (identityElement) identityElement.textContent = identity.installationId;
+                    } catch (identityError) {
+                        const message = document.getElementById("legacyMigrationMessage");
+                        if (message) message.textContent = identityError.message || "آماده‌سازی هویت دستگاه انجام نشد.";
+                    }
+                }
+            }
+
             if (activateButton) {
                 const canActivate = !result || ["inactive", "invalid", "expired", "renewal_required"].includes(result.status);
                 activateButton.hidden = !canActivate;
@@ -464,6 +502,48 @@ const ProfileScreen = {
 
         this.show();
         return true;
+    },
+
+    claimLegacyMigrationFromProfile: async function (studentId, gradeId, button) {
+        const message = document.getElementById("legacyMigrationMessage");
+        const input = document.getElementById("legacyMigrationChallengeInput");
+        const current = ProfileManager.get();
+        if (!current || current.studentId !== studentId || current.grade !== gradeId) {
+            if (message) message.textContent = "پروفایل فعال تغییر کرده است؛ دوباره وضعیت را بررسی کنید.";
+            return false;
+        }
+        if (!window.TahouriLicenseClient ||
+            typeof window.TahouriLicenseClient.claimLegacyMigration !== "function") {
+            if (message) message.textContent = "قابلیت تکمیل مهاجرت در این نسخه در دسترس نیست.";
+            return false;
+        }
+        if (button) {
+            button.disabled = true;
+            button.textContent = "در حال تأیید هویت دستگاه...";
+        }
+        try {
+            const challenge = JSON.parse(String(input && input.value || ""));
+            if (challenge.studentId !== String(studentId) || challenge.gradeId !== String(gradeId)) {
+                throw new Error("چالش برای این دانش‌آموز یا پایه صادر نشده است.");
+            }
+            const result = await window.TahouriLicenseClient.claimLegacyMigration(challenge);
+            if (!result || !result.entitlementStored) {
+                throw new Error("اتصال دستگاه انجام شد، اما ذخیره مجوز تأیید نشد.");
+            }
+            if (input) input.value = "";
+            if (message) message.textContent = "اتصال امن انجام شد و مجوز امضاشده روی همین دستگاه ذخیره شد.";
+            await this.refreshSelectedProfileEntitlement();
+            await this.refreshProfileLicenseStatus(ProfileManager.get());
+            return true;
+        } catch (error) {
+            if (message) message.textContent = error.message || "تکمیل مهاجرت انجام نشد.";
+            return false;
+        } finally {
+            if (button) {
+                button.disabled = false;
+                button.textContent = "تکمیل اتصال امن این دستگاه";
+            }
+        }
     },
 
     activateProfile: async function (studentId, gradeId, button) {
