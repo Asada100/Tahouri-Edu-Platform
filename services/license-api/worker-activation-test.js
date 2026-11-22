@@ -1281,6 +1281,13 @@ async function main() {
     assert.equal(deniedMigrationChallenge.status, 401, "Legacy migration challenge must require admin password step-up.");
     assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM legacy_device_migration_challenges").get().count), migrationChallengeCount,
       "Failed admin step-up must not create a migration challenge.");
+    const missingAttestation = await worker.fetch(new Request("https://api.example.test/api/admin/legacy-device-migration/challenge", {
+      method: "POST", headers: { "content-type": "application/json", origin: env.ADMIN_ORIGIN, cookie: adminCookie },
+      body: JSON.stringify({ ...migrationAdminPayload, identityVerified: false, adminPassword: env.ADMIN_PASSWORD })
+    }), env);
+    assert.equal(missingAttestation.status, 400, "Migration must require an explicit independent school-record verification attestation.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM legacy_device_migration_challenges").get().count), migrationChallengeCount,
+      "Missing identity attestation must not create a migration challenge.");
 
     async function issueLegacyMigrationChallenge(payload) {
       return worker.fetch(new Request("https://api.example.test/api/admin/legacy-device-migration/challenge", {
@@ -1288,6 +1295,11 @@ async function main() {
         body: JSON.stringify({ ...payload, adminPassword: env.ADMIN_PASSWORD })
       }), env);
     }
+    const wrongStudentChallenge = await issueLegacyMigrationChallenge({ ...migrationAdminPayload, studentId: "different-student" });
+    assert.equal(wrongStudentChallenge.status, 409, "A challenge must not be issued for a mismatched student.");
+    const wrongGradeChallenge = await issueLegacyMigrationChallenge({ ...migrationAdminPayload, gradeId: "grade5" });
+    assert.equal(wrongGradeChallenge.status, 409, "A challenge must not be issued for a mismatched grade.");
+
     function makeMigrationProof(challenge, keyPair) {
       const der = keyPair.publicKey.export({ type: "spki", format: "der" });
       const fingerprint = crypto.createHash("sha256").update(der).digest("hex");
