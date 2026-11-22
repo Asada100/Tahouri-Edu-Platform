@@ -402,6 +402,15 @@ async function claimLegacyDeviceMigration(request, env, headers) {
     return error("مجوز برای مهاجرت فعال و معتبر نیست.", 409, headers);
   }
   const now = nowIso();
+  const claims = await addDeviceLeaseClaims({
+    licenseId: row.license_id, productId: license.productId,
+    academicYear: String(license.academicYear), gradeScope: license.gradeId,
+    studentId: license.studentId, validFrom: license.validFrom, validUntil: license.validUntil,
+    installationBinding: row.installation_id, deviceType: row.device_type,
+    deviceKeyFingerprint: identity.fingerprint, entitlementVersion: 1
+  }, { boundAt: now });
+  // Validate signing configuration before any persistent slot transition.
+  const entitlement = await signEntitlement(claims, env);
   const statements = [
     env.DB.prepare(`UPDATE license_device_slots SET public_key_pem = ?, key_fingerprint = ?, bound_at = ?
       WHERE license_id = ? AND device_type = ? AND installation_id = ?
@@ -453,14 +462,6 @@ async function claimLegacyDeviceMigration(request, env, headers) {
       Number(results?.[3]?.meta?.changes || 0) !== 1) {
     return error("مهاجرت انجام نشد؛ وضعیت مجوز یا جایگاه تغییر کرده است و هیچ دستگاه فعالی جایگزین نشد.", 409, headers);
   }
-  const claims = await addDeviceLeaseClaims({
-    licenseId: row.license_id, productId: license.productId,
-    academicYear: String(license.academicYear), gradeScope: license.gradeId,
-    studentId: license.studentId, validFrom: license.validFrom, validUntil: license.validUntil,
-    installationBinding: row.installation_id, deviceType: row.device_type,
-    deviceKeyFingerprint: identity.fingerprint, entitlementVersion: 1
-  }, { boundAt: now });
-  const entitlement = await signEntitlement(claims, env);
   return json({ ok: true, status: "migrated", entitlement }, 200, headers);
 }
 
