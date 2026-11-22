@@ -36,9 +36,9 @@ assert(
     indexHtml.includes("tahouriServiceConfig.js?v=1.3") &&
     indexHtml.includes("tahouriEntitlementVerifier.js?v=1.5") &&
     indexHtml.includes("tahouriDeviceIdentity.js?v=1.0") &&
-    indexHtml.includes("tahouriLicenseClient.js?v=1.9") &&
+    indexHtml.includes("tahouriLicenseClient.js?v=2.0") &&
     indexHtml.indexOf("tahouriDeviceIdentity.js") < indexHtml.indexOf("tahouriLicenseClient.js") &&
-    indexHtml.includes("profileScreen.js?v=5.1") &&
+    indexHtml.includes("profileScreen.js?v=5.2") &&
     indexHtml.includes("licenseScreen.js?v=pr141-recovery-1") &&
     indexHtml.includes("licenseManager.js?v=2.2") &&
     indexHtml.includes("activationGate.js?v=8.5") &&
@@ -60,7 +60,7 @@ assert(
     !licenseClient.includes("registerExistingProfiles") &&
     !licenseClient.includes("registerProfile") &&
     !licenseClient.includes("/students/register") &&
-    licenseClient.includes("window.TahouriLicenseClient = { activate, health, status, requestPairing, requestPairingChallenge, decidePairing, pairingStatus, recoverApprovedPairingEntitlement, cancelPairing, listPendingPairings, listBoundDeviceSlots, requestDeviceRevocationChallenge, executeDeviceRevocation };") &&
+    licenseClient.includes("window.TahouriLicenseClient = { activate, health, status, requestPairing, requestPairingChallenge, decidePairing, pairingStatus, recoverApprovedPairingEntitlement, claimLegacyMigration, cancelPairing, listPendingPairings, listBoundDeviceSlots, requestDeviceRevocationChallenge, executeDeviceRevocation };") &&
     licenseClient.includes("async function listBoundDeviceSlots(licenseId)") &&
     licenseClient.includes("async function cancelPairing(pairingId, token)") &&
     licenseClient.includes("devicePublicKeyPem: identity.publicKey") &&
