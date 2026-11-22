@@ -380,9 +380,10 @@ async function main() {
         "An expired entitlement must be reported as expired.");
 
     // A previously activated installation may have a signed entitlement
-    // bound to the legacy LocalStorage installation ID. Preserve that exact
-    // entitlement locally during the transition, without treating the legacy
-    // ID as proof for pairing or device replacement.
+    // bound to the legacy LocalStorage installation ID and a valid device
+    // offline lease. Preserve that exact entitlement locally during the
+    // transition, without treating the legacy ID as proof for pairing or
+    // device replacement.
     const legacyInstallationId = "legacy-installation-for-migration-test";
     storage.setItem("Tahouri_Installation_Id_v1", legacyInstallationId);
     const legacyMigrationClaims = makeClaims(profile.studentId, "grade6", "lic_legacy_offline");
@@ -393,9 +394,9 @@ async function main() {
     window.TahouriEntitlementStore.readAll = () => [envelope(legacyMigrationClaims)];
 
     assert.equal(await manager.initializeRemoteEntitlement(), true,
-        "A valid signed legacy-bound entitlement must remain selectable during offline migration.");
+        "A matching legacy-bound entitlement with a valid device lease must remain selectable offline.");
     assert.equal(manager.isGradeActivated("grade6", profile.studentId), true,
-        "A valid legacy-bound entitlement must preserve access during the transition.");
+        "A valid legacy-bound entitlement with a device lease must preserve access during the transition.");
     const legacyStatus = await manager.getProfileEntitlementStatus(profile.studentId, "grade6");
     assert.equal(legacyStatus.active, true,
         "A legacy-bound entitlement carrying a valid device lease must remain active.");
