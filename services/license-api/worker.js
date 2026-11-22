@@ -1285,6 +1285,7 @@ async function adminRoute(request, env, url, headers) {
     const deviceType = String(body.deviceType || "").trim().toLowerCase();
     const installationId = validIdentifier(body.installationId, "installationId");
     const reason = String(body.verificationReason || "").trim();
+    if (body.identityVerified !== true) return error("تأیید مستقل هویت دانش‌آموز بر اساس پرونده رسمی الزامی است.", 400, headers);
     if (!["phone", "computer"].includes(deviceType)) return error("نوع دستگاه نامعتبر است.", 400, headers);
     if (reason.length < 10 || reason.length > 300) return error("علت تطبیق پرونده باید بین ۱۰ تا ۳۰۰ نویسه باشد.", 400, headers);
     const windowStart = new Date(Date.now() - 15 * 60 * 1000).toISOString();
