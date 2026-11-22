@@ -419,10 +419,13 @@ async function claimLegacyDeviceMigration(request, env, headers) {
           WHERE challenge_id = ? AND consumed_at IS NULL AND expires_at > ? AND nonce_hash = ?)
         AND EXISTS (SELECT 1 FROM licenses WHERE license_id = ? AND student_id = ? AND grade_id = ?
           AND academic_year = ? AND status = 'active' AND valid_from <= ? AND valid_until > ?)
-        AND EXISTS (SELECT 1 FROM student_accounts WHERE student_id = ? AND grade_id = ? AND status = 'active')`)
+        AND EXISTS (SELECT 1 FROM student_accounts WHERE student_id = ? AND grade_id = ? AND status = 'active')
+        AND NOT EXISTS (SELECT 1 FROM license_device_slots WHERE license_id = ? AND installation_id = ?
+          AND device_type <> ? AND revoked_at IS NULL)`)
       .bind(identity.pem, identity.fingerprint, now, row.license_id, row.device_type, row.installation_id,
         challengeId, now, row.nonce_hash, row.license_id, row.student_id, row.grade_id,
-        row.academic_year, now, now, row.student_id, row.grade_id),
+        row.academic_year, now, now, row.student_id, row.grade_id,
+        row.license_id, row.installation_id, row.device_type),
     env.DB.prepare(`INSERT INTO license_device_slots
       (license_id, device_type, installation_id, bound_at, public_key_pem, key_fingerprint)
       SELECT ?, ?, ?, ?, ?, ?
@@ -431,10 +434,13 @@ async function claimLegacyDeviceMigration(request, env, headers) {
           WHERE challenge_id = ? AND consumed_at IS NULL AND expires_at > ? AND nonce_hash = ?)
         AND EXISTS (SELECT 1 FROM licenses WHERE license_id = ? AND student_id = ? AND grade_id = ?
           AND academic_year = ? AND status = 'active' AND valid_from <= ? AND valid_until > ?)
-        AND EXISTS (SELECT 1 FROM student_accounts WHERE student_id = ? AND grade_id = ? AND status = 'active')`)
+        AND EXISTS (SELECT 1 FROM student_accounts WHERE student_id = ? AND grade_id = ? AND status = 'active')
+        AND NOT EXISTS (SELECT 1 FROM license_device_slots WHERE license_id = ? AND installation_id = ?
+          AND device_type <> ? AND revoked_at IS NULL)`)
       .bind(row.license_id, row.device_type, row.installation_id, now, identity.pem, identity.fingerprint,
         row.license_id, row.device_type, challengeId, now, row.nonce_hash, row.license_id,
-        row.student_id, row.grade_id, row.academic_year, now, now, row.student_id, row.grade_id),
+        row.student_id, row.grade_id, row.academic_year, now, now, row.student_id, row.grade_id,
+        row.license_id, row.installation_id, row.device_type),
     env.DB.prepare(`UPDATE legacy_device_migration_challenges SET consumed_at = ?
       WHERE challenge_id = ? AND consumed_at IS NULL AND expires_at > ? AND nonce_hash = ?
         AND EXISTS (SELECT 1 FROM licenses WHERE license_id = ? AND student_id = ? AND grade_id = ?
@@ -1298,6 +1304,9 @@ async function adminRoute(request, env, url, headers) {
     }
     const slot = await env.DB.prepare("SELECT installation_id AS installationId, public_key_pem AS publicKeyPem, key_fingerprint AS fingerprint, revoked_at AS revokedAt FROM license_device_slots WHERE license_id = ? AND device_type = ?")
       .bind(licenseId, deviceType).first();
+    const duplicateInstallation = await env.DB.prepare("SELECT 1 AS found FROM license_device_slots WHERE license_id = ? AND installation_id = ? AND device_type <> ? AND revoked_at IS NULL")
+      .bind(licenseId, installationId, deviceType).first();
+    if (duplicateInstallation) return error("این شناسه نصب از قبل در جایگاه دستگاه مکمل ثبت شده است.", 409, headers);
     if (slot && (slot.revokedAt || slot.installationId !== installationId ||
         slot.publicKeyPem !== null || slot.fingerprint !== null)) {
       return error("جایگاه این نوع دستگاه خالی یا legacy-keyless دقیقاً منطبق نیست؛ دستگاه فعال قابل جایگزینی نیست.", 409, headers);
