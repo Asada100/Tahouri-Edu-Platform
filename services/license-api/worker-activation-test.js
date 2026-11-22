@@ -1244,6 +1244,21 @@ async function main() {
     assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type='device.admin_recovered' AND license_id=?").get(stored.license_id).count), 1,
       "A rejected legacy recovery attempt must not create a successful-recovery audit event.");
 
+    const legacyDeviceStatus = await request(worker, env, "/api/licenses/device-status", "POST", {
+      licenseId: stored.license_id,
+      deviceType: "phone",
+      installationId: legacyInstallationId,
+      keyFingerprint: "a".repeat(64),
+      deviceSignature: "A".repeat(344)
+    });
+    assert.equal(legacyDeviceStatus.status, 200);
+    assert.deepEqual(await legacyDeviceStatus.json(), { ok: true, valid: false },
+      "A legacy slot without a registered public key must not receive a device-bound entitlement or offline lease.");
+    const unchangedLegacyAfterStatus = db.prepare("SELECT revoked_at, public_key_pem, key_fingerprint FROM license_device_slots WHERE license_id=? AND device_type='phone' AND installation_id=?")
+      .get(stored.license_id, legacyInstallationId);
+    assert.deepEqual(unchangedLegacyAfterStatus, unchangedLegacySlot,
+      "A failed legacy device-status check must leave the legacy slot unchanged.");
+
     const status = await request(worker, env, "/api/licenses/status?licenseId=" + encodeURIComponent(stored.license_id), "GET");
     assert.equal(status.status, 200);
     assert.deepEqual(await status.json(), { ok: true, valid: true },
