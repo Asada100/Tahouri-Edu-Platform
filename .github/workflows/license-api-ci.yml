@@ -117,6 +117,9 @@ jobs:
       - name: Client-to-profile activation flow test
         run: npm run client-profile-activation-test
 
+      - name: Profile legacy migration handoff behavior test
+        run: node profile-legacy-migration-handoff-test.js
+
       - name: Integration test
         run: npm run integration-test
       - name: Migration verification
