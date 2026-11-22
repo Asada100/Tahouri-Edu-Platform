@@ -1351,8 +1351,12 @@ async function main() {
       .get(stored.license_id).revoked_at, null, "Migration must preserve the complementary computer slot.");
     assert.deepEqual(db.prepare("SELECT status, grade_id, activation_status FROM student_accounts WHERE student_id=?")
       .get(legacyLicense.student_id), legacyStudentBefore, "Migration must not mutate student identity or activation status.");
-    assert.deepEqual(db.prepare("SELECT student_id, grade_id, academic_year, valid_from, valid_until, status FROM licenses WHERE license_id=?")
-      .get(stored.license_id), legacyLicenseBefore, "Migration must preserve the existing license row.");
+    const legacyLicenseAfter = db.prepare("SELECT student_id, grade_id, academic_year, valid_from, valid_until, status FROM licenses WHERE license_id=?")
+      .get(stored.license_id);
+    for (const field of ["student_id", "grade_id", "academic_year", "valid_from", "valid_until", "status"]) {
+      assert.equal(legacyLicenseAfter[field], legacyLicenseBefore[field],
+        "Migration must preserve the existing license field: " + field);
+    }
     const migrationAudit = db.prepare("SELECT metadata_json FROM audit_log WHERE event_type='device.legacy_migrated' AND license_id=?")
       .get(stored.license_id);
     assert(migrationAudit, "Successful migration must write an audit event.");
