@@ -166,6 +166,10 @@ async function main() {
     assert.match(adminHtml, /id="recoveryFingerprint"/);
     assert.match(adminHtml, /id="recoveryAdminPassword"/);
     assert.match(adminHtml, /data-action="recoverDeviceSlot"/);
+    assert.match(adminHtml, /id="legacyMigrationAdminCard"/);
+    assert.match(adminHtml, /id="migrationIdentityVerified"/);
+    assert.match(adminHtml, /data-action="createLegacyMigrationChallenge"/);
+    assert.match(adminHtml, /id="legacyMigrationChallengeOutput"/);
     assert.match(adminHtml, /data-action="createBulkCodesFromFile"/,
         "The authenticated admin UI must expose the bulk issuance action.");
     assert.match(adminHtml, /id="bulkProfilesFile"/,
@@ -176,6 +180,8 @@ async function main() {
     const adminScriptText = await adminScript.text();
     assert.match(adminScriptText, /document\.addEventListener/);
     assert.match(adminScriptText, /async function importStudentsFile/);
+    assert.match(adminScriptText, /async function createLegacyMigrationChallenge/);
+    assert.match(adminScriptText, /legacy-device-migration\/challenge/);
     assert.match(adminScriptText, /\/api\/admin\/students\/import/);
     assert.match(adminScriptText, /credentials:"include"/,
         "The profile import client must send the authenticated admin session.");
@@ -208,6 +214,15 @@ async function main() {
                     { studentId: "ui-bulk-01", fullName: "دانش‌آموز یک", gradeId: "grade2", code: "THR-GRADE2-1405-TEST001" },
                     { studentId: "ui-bulk-02", fullName: "دانش‌آموز دو", gradeId: "grade4", code: "THR-GRADE4-1405-TEST002" }
                 ] }) };
+            }
+            if (String(url).endsWith("/api/admin/legacy-device-migration/challenge")) {
+                return { ok: true, status: 201, json: async () => ({
+                    ok: true, challengeId: "mig-ui-test", nonce: "n".repeat(64),
+                    expiresAt: new Date(Date.now() + 120000).toISOString(),
+                    licenseId: "lic-ui-test", studentId: "ui-student", gradeId: "grade6",
+                    academicYear: "1405", deviceType: "phone", installationId: "inst-ui-test",
+                    purpose: "tahouri-legacy-device-migration-v1"
+                }) };
             }
             if (String(url).endsWith("/api/admin/codes")) {
                 return { ok: true, status: 200, json: async () => ({ ok: true, codes: [] }) };
@@ -255,6 +270,29 @@ async function main() {
     assert.equal(bulkFileInput.value, "", "The UI must clear the bulk file after successful issuance.");
     assert.match(uiAlerts[1] || "", /2 کد ساخته شد/,
         "The UI must confirm the number of generated bulk codes.");
+
+    for (const [id, value] of Object.entries({
+        migrationLicenseId: "lic-ui-test", migrationStudentId: "ui-student",
+        migrationAcademicYear: "1405", migrationInstallationId: "inst-ui-test",
+        migrationVerificationReason: "پرونده رسمی دانش‌آموز بررسی شد",
+        migrationAdminPassword: env.ADMIN_PASSWORD
+    })) getUiElement(id).value = value;
+    getUiElement("migrationGradeId").value = "grade6";
+    getUiElement("migrationDeviceType").value = "phone";
+    getUiElement("migrationIdentityVerified").checked = true;
+    await uiContext.createLegacyMigrationChallenge();
+    const migrationUiCall = uiFetchCalls.find(call => call.url.endsWith("/api/admin/legacy-device-migration/challenge"));
+    assert(migrationUiCall, "The admin migration UI must call the authenticated challenge endpoint.");
+    assert.equal(migrationUiCall.options.method, "POST");
+    assert.equal(migrationUiCall.options.credentials, "include");
+    const migrationUiBody = JSON.parse(migrationUiCall.options.body);
+    assert.equal(migrationUiBody.identityVerified, true);
+    assert.equal(migrationUiBody.adminPassword, env.ADMIN_PASSWORD);
+    assert.equal(migrationUiBody.licenseId, "lic-ui-test");
+    assert.equal(migrationUiBody.installationId, "inst-ui-test");
+    assert.match(getUiElement("legacyMigrationChallengeOutput").value, /mig-ui-test/);
+    assert.equal(getUiElement("migrationAdminPassword").value, "",
+        "The admin migration UI must clear the step-up password after challenge issuance.");
 
     const publicKeyResponse = await request(worker, env, "/api/public-key", "GET");
     assert.equal(publicKeyResponse.status, 200);
