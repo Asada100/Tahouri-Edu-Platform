@@ -77,6 +77,7 @@ const context = {
     window,
     document,
     ProfileManager,
+    ActivationGate: window.ActivationGate,
     console: { log() {}, warn() {}, error() {} },
     Date,
     Intl,
