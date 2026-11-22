@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri License Client
-// Version 1.2 — admin-managed profile enrollment
+// Version 2.0 — device-bound migration and pairing
 // =====================================
 (function () {
     "use strict";
@@ -339,5 +339,5 @@
         });
     }
     window.TahouriLicenseClient = { activate, health, status, requestPairing, requestPairingChallenge, decidePairing, pairingStatus, recoverApprovedPairingEntitlement, claimLegacyMigration, cancelPairing, listPendingPairings, listBoundDeviceSlots, requestDeviceRevocationChallenge, executeDeviceRevocation };
-    console.log("Tahouri License Client v1.9 Ready");
+    console.log("Tahouri License Client v2.0 Ready");
 })();
