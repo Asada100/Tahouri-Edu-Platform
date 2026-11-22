@@ -1272,6 +1272,10 @@ async function adminRoute(request, env, url, headers) {
 
   if (path === "/api/admin/legacy-device-migration/challenge" && request.method === "POST") {
     const body = await bodyJson(request);
+    const stepUpWindow = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+    const failedStepUps = await env.DB.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'admin.legacy_migration.denied' AND actor = 'admin' AND created_at >= ?")
+      .bind(stepUpWindow).first();
+    if (Number(failedStepUps?.count || 0) >= 5) return error("تلاش‌های تأیید دوباره رمز مدیریت موقتاً محدود شده است.", 429, headers);
     const suppliedPassword = await sha256(String(body.adminPassword || ""));
     const configuredPassword = await sha256(String(env.ADMIN_PASSWORD || ""));
     if (!env.ADMIN_PASSWORD || !constantTimeEqual(suppliedPassword, configuredPassword)) {
