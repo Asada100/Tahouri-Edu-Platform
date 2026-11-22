@@ -61,3 +61,22 @@ Replacement is a separate, explicit, signed revocation action performed by the c
 - Complete a real physical phone + Windows computer test on the isolated PR141 Preview and D1 before production consideration.
 
 The code path and isolated test coverage are implemented on this PR branch. Physical two-device acceptance testing remains a release gate. No production deployment or production data change is authorized by this document.
+
+
+## Legacy entitlement migration gate (2026-11-22)
+
+This section clarifies the required behavior for installations created before device-bound leases. It supersedes any earlier wording above that could be read as allowing a legacy installation ID, by itself, to establish device identity.
+
+- A legacy installation ID is a compatibility identifier only. It is not proof of possession, cannot identify the original browser when a profile has been copied, and cannot authorize pairing, approval, slot replacement, or key registration.
+- A legacy entitlement may remain usable offline only while it contains a valid, unexpired signed device lease with a valid device-slot ID and revocation epoch. When the lease is absent, malformed, or expired, offline access must fail closed and the profile status must be `renewal_required`.
+- A legacy slot without a registered public key and key fingerprint must not receive a device lease from the device-status endpoint, even if a caller supplies a legacy installation ID, a claimed fingerprint, or an invalid signature. It must not be silently bound to the first browser that reconnects.
+- Migration of an unbound legacy installation requires an online, independently authenticated migration flow that can establish the rightful account/device owner without trusting the legacy installation ID alone. Until that flow is implemented and tested, the installation must remain renewal-required; do not bypass the gate or auto-claim the slot.
+- Do not ask users to disclose activation codes or private keys in support conversations. Use the approved authenticated activation/recovery process.
+- Production rollout remains blocked until the online migration path for existing no-lease installations is implemented and tested, including cloned-profile/conflicting-claim cases and preservation of existing license/student records.
+
+## Current verification status (2026-11-22)
+
+- The isolated PR Preview physical phone + Windows acceptance test has passed. There is no third physical device; third-device contention is covered only by synthetic fixtures against mock D1 and must not be described as a third-device physical test.
+- Automated coverage now includes concurrent pairing requests, concurrent approval/revocation conflict handling, pending-pairing behavior after revocation, legacy offline lease enforcement, and rejection of fake proof for an unbound legacy slot. The latest reviewed CI commit for the legacy lease test clarification passed all five PR workflows.
+- These results apply only to the isolated PR branch/Preview and mock test environment. They do not authorize or imply a production Worker deployment, production D1 mutation, or production release.
+- Remaining release gates include implementing and testing the independently authenticated online migration flow for legacy no-lease installations, plus any outstanding lifecycle/adversarial checks. Do not mark the production release gate complete until those are satisfied.
