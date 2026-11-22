@@ -2084,6 +2084,20 @@
                     lastReason = "این مجوز به دستگاه دیگری متصل است.";
                     continue;
                 }
+                const leaseExpiry = Date.parse(claims.offlineLeaseExpiresAt || "");
+                const hasDeviceLease =
+                    typeof claims.deviceSlotId === "string" &&
+                    /^[a-f0-9]{64}$/.test(claims.deviceSlotId) &&
+                    Number.isFinite(Number(claims.revocationEpoch)) &&
+                    Number(claims.revocationEpoch) > 0 &&
+                    Number.isFinite(leaseExpiry) &&
+                    leaseExpiry > Date.now();
+                if (!hasDeviceLease) {
+                    lastStatus = "renewal_required";
+                    lastReason = "برای تکمیل مهاجرت مجوز قدیمی، اتصال آنلاین و تأیید هویت دستگاه لازم است.";
+                    continue;
+                }
+
                 if (String(claims.academicYear) !== currentAcademicYear) {
                     lastStatus = "renewal_required";
                     lastReason = "مجوز این پروفایل مربوط به سال تحصیلی دیگری است.";
