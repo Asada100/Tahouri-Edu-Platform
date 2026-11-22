@@ -8,7 +8,7 @@ const crypto = require("node:crypto");
 const { DatabaseSync } = require("node:sqlite");
 
 const db = new DatabaseSync(":memory:");
-for (const file of ["migrations/0001_initial_schema.sql", "migrations/0002_admin_login_attempts.sql", "migrations/0003_activation_integrity_indexes.sql", "migrations/0004_student_accounts.sql", "migrations/0005_student_activation_status.sql", "migrations/0006_one_phone_one_computer.sql", "migrations/0007_device_slot_public_keys.sql", "migrations/0008_pairing_request_identity.sql", "migrations/0009_pairing_signed_decisions.sql", "migrations/0010_pairing_entitlement_delivery.sql", "migrations/0011_device_slot_history.sql", "migrations/0012_device_revocation_challenges.sql"]) {
+for (const file of ["migrations/0001_initial_schema.sql", "migrations/0002_admin_login_attempts.sql", "migrations/0003_activation_integrity_indexes.sql", "migrations/0004_student_accounts.sql", "migrations/0005_student_activation_status.sql", "migrations/0006_one_phone_one_computer.sql", "migrations/0007_device_slot_public_keys.sql", "migrations/0008_pairing_request_identity.sql", "migrations/0009_pairing_signed_decisions.sql", "migrations/0010_pairing_entitlement_delivery.sql", "migrations/0011_device_slot_history.sql", "migrations/0012_device_revocation_challenges.sql", "migrations/0013_legacy_device_migration_challenges.sql"]) {
     db.exec(fs.readFileSync(path.join(__dirname, file), "utf8"));
 }
 
@@ -105,7 +105,11 @@ async function request(worker, env, pathName, method, body, origin = "https://as
 
 async function main() {
     const migrations = db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get();
-    assert.equal(Number(migrations.version), 12, "D1 migrations must create the version-12 device revocation challenge schema.");
+    assert.equal(Number(migrations.version), 13, "D1 migrations must create the version-13 legacy device migration challenge schema.");
+    const migrationColumns = db.prepare("PRAGMA table_info(legacy_device_migration_challenges)").all().map(row => row.name);
+    for (const column of ["challenge_id", "license_id", "student_id", "grade_id", "academic_year", "device_type", "installation_id", "nonce_hash", "expires_at", "consumed_at", "created_by_admin", "verification_reason"]) {
+        assert(migrationColumns.includes(column), "Legacy migration challenge schema is missing " + column + ".");
+    }
     const revocationColumns = db.prepare("PRAGMA table_info(device_revocation_challenges)").all().map(row => row.name);
     for (const column of ["challenge_id", "license_id", "target_device_type", "target_installation_id", "target_fingerprint", "approver_device_type", "approver_installation_id", "approver_fingerprint", "nonce_hash", "expires_at", "consumed_at"]) {
         assert(revocationColumns.includes(column), "Device revocation challenge schema is missing " + column + ".");
@@ -1258,6 +1262,136 @@ async function main() {
       .get(stored.license_id, legacyInstallationId);
     assert.deepEqual(unchangedLegacyAfterStatus, unchangedLegacySlot,
       "A failed legacy device-status check must leave the legacy slot unchanged.");
+
+    // Supervised legacy migration: admin step-up + school-record attestation + fresh device PoP.
+    const legacyLicense = db.prepare("SELECT student_id, grade_id, academic_year, valid_from, valid_until, status FROM licenses WHERE license_id=?").get(stored.license_id);
+    const legacyStudentBefore = db.prepare("SELECT status, grade_id, activation_status FROM student_accounts WHERE student_id=?").get(legacyLicense.student_id);
+    const legacyLicenseBefore = { ...legacyLicense };
+    const migrationAdminPayload = {
+      licenseId: stored.license_id, studentId: legacyLicense.student_id,
+      gradeId: legacyLicense.grade_id, academicYear: legacyLicense.academic_year,
+      deviceType: "phone", installationId: legacyInstallationId,
+      verificationReason: "پرونده رسمی دانش‌آموز با حضور مدیر تطبیق داده شد"
+    };
+    const migrationChallengeCount = Number(db.prepare("SELECT COUNT(*) AS count FROM legacy_device_migration_challenges").get().count);
+    const deniedMigrationChallenge = await worker.fetch(new Request("https://api.example.test/api/admin/legacy-device-migration/challenge", {
+      method: "POST", headers: { "content-type": "application/json", origin: env.ADMIN_ORIGIN, cookie: adminCookie },
+      body: JSON.stringify({ ...migrationAdminPayload, adminPassword: "wrong-password" })
+    }), env);
+    assert.equal(deniedMigrationChallenge.status, 401, "Legacy migration challenge must require admin password step-up.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM legacy_device_migration_challenges").get().count), migrationChallengeCount,
+      "Failed admin step-up must not create a migration challenge.");
+
+    async function issueLegacyMigrationChallenge(payload) {
+      return worker.fetch(new Request("https://api.example.test/api/admin/legacy-device-migration/challenge", {
+        method: "POST", headers: { "content-type": "application/json", origin: env.ADMIN_ORIGIN, cookie: adminCookie },
+        body: JSON.stringify({ ...payload, adminPassword: env.ADMIN_PASSWORD })
+      }), env);
+    }
+    function makeMigrationProof(challenge, keyPair) {
+      const der = keyPair.publicKey.export({ type: "spki", format: "der" });
+      const fingerprint = crypto.createHash("sha256").update(der).digest("hex");
+      const proof = {
+        purpose: "tahouri-legacy-device-migration-v1",
+        challengeId: challenge.challengeId, nonce: challenge.nonce,
+        licenseId: challenge.licenseId, studentId: challenge.studentId,
+        gradeId: challenge.gradeId, academicYear: challenge.academicYear,
+        deviceType: challenge.deviceType, installationId: challenge.installationId,
+        keyFingerprint: fingerprint, expiresAt: challenge.expiresAt
+      };
+      return {
+        challengeId: challenge.challengeId, nonce: challenge.nonce,
+        devicePublicKeyPem: keyPair.publicKey.export({ type: "spki", format: "pem" }),
+        deviceSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(proof)), keyPair.privateKey).toString("base64")
+      };
+    }
+
+    const expiredChallengeResponse = await issueLegacyMigrationChallenge(migrationAdminPayload);
+    assert.equal(expiredChallengeResponse.status, 201, "Admin must issue a short-lived challenge for an exact keyless legacy slot.");
+    const expiredChallenge = await expiredChallengeResponse.json();
+    db.prepare("UPDATE legacy_device_migration_challenges SET expires_at=? WHERE challenge_id=?")
+      .run(new Date(Date.now() - 1000).toISOString(), expiredChallenge.challengeId);
+    const expiredKeyPair = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
+    const expiredClaim = await request(worker, env, "/api/licenses/legacy-migration/claim", "POST",
+      makeMigrationProof({ ...expiredChallenge, expiresAt: expiredChallenge.expiresAt }, expiredKeyPair));
+    assert.equal(expiredClaim.status, 409, "Expired migration challenges must be rejected.");
+
+    const validChallengeResponse = await issueLegacyMigrationChallenge(migrationAdminPayload);
+    assert.equal(validChallengeResponse.status, 201);
+    const validChallenge = await validChallengeResponse.json();
+    const migrationKeyPair = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
+    const migrationProof = makeMigrationProof(validChallenge, migrationKeyPair);
+    const forgedKeyPair = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
+    const forgedProof = makeMigrationProof(validChallenge, forgedKeyPair);
+    const invalidProof = await request(worker, env, "/api/licenses/legacy-migration/claim", "POST",
+      { ...migrationProof, deviceSignature: forgedProof.deviceSignature });
+    assert.equal(invalidProof.status, 401, "A signature from a different private key must not claim the legacy slot.");
+    assert.equal(db.prepare("SELECT public_key_pem FROM license_device_slots WHERE license_id=? AND device_type='phone' AND installation_id=?")
+      .get(stored.license_id, legacyInstallationId).public_key_pem, null,
+      "Invalid proof must leave the legacy slot keyless.");
+
+    const legacyMigrationResults = await Promise.all([
+      request(worker, env, "/api/licenses/legacy-migration/claim", "POST", migrationProof),
+      request(worker, env, "/api/licenses/legacy-migration/claim", "POST", migrationProof)
+    ]);
+    const legacyMigrationStatuses = legacyMigrationResults.map(response => response.status).sort((a,b) => a-b);
+    assert.deepEqual(legacyMigrationStatuses, [200, 409],
+      "Concurrent claims against one legacy migration challenge must allow exactly one winner.");
+    const migratedResponse = legacyMigrationResults.find(response => response.status === 200);
+    const migratedBody = await migratedResponse.json();
+    assert.equal(migratedBody.status, "migrated");
+    assert.equal(migratedBody.entitlement.claims.deviceKeyFingerprint,
+      crypto.createHash("sha256").update(migrationKeyPair.publicKey.export({ type: "spki", format: "der" })).digest("hex"));
+    assert(migratedBody.entitlement.claims.offlineLeaseExpiresAt, "Successful migration must issue a fresh signed offline lease.");
+    const migratedSlot = db.prepare("SELECT public_key_pem, key_fingerprint, revoked_at FROM license_device_slots WHERE license_id=? AND device_type='phone' AND installation_id=?")
+      .get(stored.license_id, legacyInstallationId);
+    assert.equal(migratedSlot.public_key_pem, migrationKeyPair.publicKey.export({ type: "spki", format: "pem" }));
+    assert.equal(migratedSlot.revoked_at, null);
+    assert.equal(db.prepare("SELECT revoked_at FROM license_device_slots WHERE license_id=? AND device_type='computer' AND revoked_at IS NULL")
+      .get(stored.license_id).revoked_at, null, "Migration must preserve the complementary computer slot.");
+    assert.deepEqual(db.prepare("SELECT status, grade_id, activation_status FROM student_accounts WHERE student_id=?")
+      .get(legacyLicense.student_id), legacyStudentBefore, "Migration must not mutate student identity or activation status.");
+    assert.deepEqual(db.prepare("SELECT student_id, grade_id, academic_year, valid_from, valid_until, status FROM licenses WHERE license_id=?")
+      .get(stored.license_id), legacyLicenseBefore, "Migration must preserve the existing license row.");
+    const migrationAudit = db.prepare("SELECT metadata_json FROM audit_log WHERE event_type='device.legacy_migrated' AND license_id=?")
+      .get(stored.license_id);
+    assert(migrationAudit, "Successful migration must write an audit event.");
+    const migrationAuditText = migrationAudit.metadata_json;
+    assert(!migrationAuditText.includes(validChallenge.nonce) && !migrationAuditText.includes(migrationProof.devicePublicKeyPem),
+      "Migration audit must not contain raw nonce or public-key material.");
+    const activeSlotConflict = await issueLegacyMigrationChallenge(migrationAdminPayload);
+    assert.equal(activeSlotConflict.status, 409, "Migration must never overwrite an already key-bound active slot.");
+
+    // The no-existing-slot path is also one-time and concurrency safe.
+    const noSlotStudent = "migration-student-no-slot";
+    const noSlotLicense = "lic_migration_no_slot";
+    const migrationNow = new Date();
+    db.prepare("INSERT INTO student_accounts (student_id, full_name, grade_id, status, created_at, updated_at) VALUES (?, ?, 'grade6', 'active', ?, ?)")
+      .run(noSlotStudent, "دانش‌آموز مهاجرت آزمایشی", migrationNow.toISOString(), migrationNow.toISOString());
+    db.prepare("INSERT INTO licenses (license_id, product_id, student_id, grade_id, academic_year, valid_from, valid_until, installation_binding, status, entitlement_json, created_at) VALUES (?, 'tahouri-edu', ?, 'grade6', ?, ?, ?, ?, 'active', '{}', ?)")
+      .run(noSlotLicense, noSlotStudent, String(year), new Date(Date.now()-60000).toISOString(),
+        new Date(Date.now()+86400000).toISOString(), "legacy-no-slot-install", migrationNow.toISOString());
+    const noSlotPayload = {
+      licenseId: noSlotLicense, studentId: noSlotStudent, gradeId: "grade6",
+      academicYear: String(year), deviceType: "computer",
+      installationId: "migration-new-computer",
+      verificationReason: "پرونده رسمی دانش‌آموز با حضور مدیر تطبیق داده شد"
+    };
+    const noSlotChallengeResponse = await issueLegacyMigrationChallenge(noSlotPayload);
+    assert.equal(noSlotChallengeResponse.status, 201, "Admin must be able to issue a challenge when no slot row exists.");
+    const noSlotChallenge = await noSlotChallengeResponse.json();
+    const noSlotKeyPair = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
+    const noSlotProof = makeMigrationProof(noSlotChallenge, noSlotKeyPair);
+    const noSlotClaims = await Promise.all([
+      request(worker, env, "/api/licenses/legacy-migration/claim", "POST", noSlotProof),
+      request(worker, env, "/api/licenses/legacy-migration/claim", "POST", noSlotProof)
+    ]);
+    assert.deepEqual(noSlotClaims.map(response => response.status).sort((a,b) => a-b), [200, 409],
+      "Concurrent no-slot migration claims must create exactly one active device slot.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id=? AND device_type='computer' AND revoked_at IS NULL")
+      .get(noSlotLicense).count), 1);
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM legacy_device_migration_challenges WHERE challenge_id=? AND consumed_at IS NOT NULL")
+      .get(noSlotChallenge.challengeId).count), 1, "Successful migration must consume its challenge exactly once.");
 
     const status = await request(worker, env, "/api/licenses/status?licenseId=" + encodeURIComponent(stored.license_id), "GET");
     assert.equal(status.status, 200);
