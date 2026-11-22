@@ -82,7 +82,7 @@ This section clarifies the required behavior for installations created before de
 - Remaining release gates include implementing and testing the independently authenticated online migration flow for legacy no-lease installations, plus any outstanding lifecycle/adversarial checks. Do not mark the production release gate complete until those are satisfied.
 
 
-## Proposed online migration flow for legacy no-lease installations (design only; not implemented)
+## Online migration flow for legacy no-lease installations (implemented on isolated PR branch)
 
 The existing admin device-recovery endpoint is not a migration mechanism: it only revokes an exact slot that already has a key fingerprint. The existing admin code-issuance endpoint creates a new activation code, and normal activation creates a new license; neither safely rebinds the existing legacy license. Do not repurpose either endpoint.
 
@@ -96,3 +96,20 @@ A safe candidate is an administrator-supervised, one-time enrollment of a new de
 6. **Failure and recovery:** challenges expire quickly and are single-use. Concurrent claims must allow at most one success. A failed or conflicting attempt must leave the license, student, and existing device slots unchanged. If an active bound slot conflicts, use the existing signed replacement/revocation workflow separately; migration must not silently displace it.
 
 This is a proposed design, not an implemented API or an approved school identity policy. Before implementation, confirm that the school can perform and audit the independent identity check. Add isolated mock-D1 tests for keyless legacy-row enrollment, no-slot legacy enrollment, wrong student/license/class, expired/replayed challenge, invalid proof, concurrent claims, active-key conflict, and preservation of the complementary slot. Keep production rollout blocked until implementation, CI, and isolated Preview acceptance all pass.
+
+
+## Implemented supervised legacy migration API (2026-11-22)
+
+Migration 0013 and the Worker routes now implement the supervised flow on this PR branch. This is an API implementation; administrator-panel form and student-device UI integration remain separate client work and are not claimed complete.
+
+1. An authenticated administrator calls `POST /api/admin/legacy-device-migration/challenge` with the exact license, student, grade, academic year, target device class, installation ID, a 10–300 character verification reason, and password re-entry. The administrator attests that the student's identity was independently checked against school records. The route requires an active, currently valid license and active matching student. It permits only the exact active keyless legacy slot or a truly absent slot; revoked or already key-bound rows are rejected.
+2. The response includes a random challenge ID and nonce with a two-minute expiry. The administrator transfers this one-time challenge to the intended device through the school's controlled process.
+3. The device submits `POST /api/licenses/legacy-migration/claim` with the challenge ID, nonce, a fresh RSA public key, and a signature over the canonical migration payload. The payload binds purpose, challenge, nonce, license, student, grade, academic year, device class, installation ID, server expiry, and the server-derived SHA-256 public-key fingerprint.
+4. The Worker verifies proof of possession and performs the keyless-slot update or no-slot insert, challenge consumption, and audit insertion in one D1 batch. Conditional writes re-check the license/student eligibility and exact challenge state. The operation cannot overwrite a bound key or revoke/replace the complementary device. A successful response contains a newly signed device-bound entitlement and offline lease.
+5. Audit metadata records the administrator attestation and reason, exact account/license/device identifiers, fingerprint, and result. Raw nonce, private key, activation code, and identity documents are not stored in audit metadata or the challenge table.
+
+Migration 0013 stores only a nonce hash and short-lived challenge metadata. It does not modify the license or student records. The migration API is fail-closed on expired/replayed challenges, invalid signatures, mismatched records, and active-key conflicts.
+
+Automated mock-D1 coverage now exercises password step-up rejection, expired challenges, invalid signatures, concurrent legacy-slot claims (one success/one conflict), active-key overwrite rejection, complementary-slot preservation, unchanged license/student rows, audit redaction, no-slot enrollment, and concurrent no-slot claims (one success/one conflict). These tests are not a controlled Cloudflare D1 test or physical-device acceptance test.
+
+**Release remains blocked:** run License API CI and the full isolated Preview acceptance flow, including the admin-to-device challenge handoff and the existing offline-entitlement startup path. Keep this PR Draft and unmerged; do not deploy a Worker or write to production D1.
