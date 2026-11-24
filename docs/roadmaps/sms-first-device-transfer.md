@@ -476,3 +476,34 @@ No application behavior, database schema, production resource, or student/licens
 5. Run export/import round-trip and profile-switch integration tests with synthetic data before claiming lossless migration.
 
 No application code, SQL migration, production resource, or real student/license data was changed. Phase 0 remains **in progress**.
+
+
+## Phase 0 findings — existing test coverage and missing multi-profile learning-data tests (2026-11-24)
+
+### Existing tests that should be reused
+
+- `services/license-api/license-manager-mode-test.js` already exercises two synthetic students and multiple stored entitlement envelopes. It checks matching by student and grade, skips unrelated envelopes regardless of array order, repeated profile switches, ignores stale asynchronous entitlement selection, ignores delayed status responses from the previous profile, rejects missing/wrong grade or student/installation bindings, and checks profile-specific status for different academic years.
+- `services/license-api/client-profile-activation-test.js` verifies the active profile ID and grade are included in the activation request, and checks the device proof binds student, grade, installation, device class and code hash.
+- `services/license-api/client-license-safety-test.js` statically checks the production entitlement selection and profile-switch sequence guards.
+- `tests/progress-tracker-best-results.test.js` verifies latest and best score/percentage/star values and a legacy progress migration case.
+- `services/license-api/worker-activation-test.js` covers server-side student registry and bound activation; existing device pairing/revocation and legacy migration tests cover parts of the device lifecycle.
+
+### Coverage gap — do not mistake license isolation for full student-data portability
+
+The existing two-student tests are focused on signed license entitlement selection. They do not instantiate the real `ProfileManager` together with `ProfileContext`, `ProgressTracker`, `StatisticsManager`, `ContentLockManager`, `DailyLearningStreak`, notification store, spelling performance store, and export/import path in one round-trip scenario. The progress tracker test validates a single profile context stub and does not prove two real profiles remain isolated through switch, reload, export and import.
+
+No dedicated synthetic multi-profile learning-data export/import round-trip test was identified in the existing test inventory. No test currently demonstrates that all student-owned stores are exported, restored idempotently without overwriting conflicting destination data, and remain isolated after alternating profile switches. The known unscoped `Tahouri_ActivityHistory` behavior also lacks a profile-switch regression test.
+
+### Test implementation plan (not yet implemented)
+
+1. Build a Node VM/browser-storage harness loading the real profile manager and learning-data managers with a deterministic localStorage implementation; use two synthetic student IDs and distinct sentinel values for every student-owned store.
+2. Exercise A → B → A switches, reload the harness, and assert no store returns or writes the other student's sentinel values.
+3. Export both profiles using the proposed versioned student-data envelope, import into a clean destination, repeat import to verify idempotency, and test conflict behavior without silent overwrite.
+4. Assert progress stars/bestStars, statistics, content locks, progression, streak, notifications, spelling records and profile settings survive the round trip.
+5. Explicitly test legacy unscoped progress/statistics/locks migration: one-time migration must not duplicate a legacy record into both profiles.
+6. Add a separate regression for ActivityHistory's chosen policy (student-scoped migration or device-only hint) and verify no cross-profile continue-learning leak.
+7. Verify push subscriptions, installation identity, offline clock state, reminder flags and cached entitlements are not copied as student-owned data; server entitlements must be re-fetched/re-verified on the destination device.
+
+### Execution status and scope
+
+This review inspected the existing test sources and CI workflow definitions on the development branch; it did not execute the tests in a local runtime. CI workflow presence is not a test pass. No application code, SQL migration, production resource, or real student/license data was changed. Phase 0 remains **in progress**; the multi-profile learning-data harness and full export/import implementation remain future work.
