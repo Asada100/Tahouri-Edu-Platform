@@ -332,3 +332,45 @@ Reviewed the Worker handlers for pairing request/list/challenge/decision/cancel/
 4. Replace the placeholder empty metrics-alert response with real alert evaluation before relying on the admin dashboard for operational monitoring.
 
 Phase 0 remains **in progress**. Remaining audit work includes targeted badges/achievements and full export/backup call-site discovery, plus a verified local-SQLite/D1 schema diff and execution of isolated device lifecycle tests. No application code, SQL migration, production resource, or real student/license data was changed by this audit.
+
+
+## Phase 0 findings — local profile export and backup coverage audit (2026-11-24)
+
+### Existing profile export formats
+
+Reviewed `tools/profile-export.html`, `mobile-profile-export.html`, the admin profile-import flow, and the profile manager import implementation.
+
+- The desktop export tool reads `Tahouri_Profiles` and `Tahouri_Active_Profile`, validates the profile identities, and emits only `{studentId, fullName, gradeId}` plus export metadata. Its on-page warning explicitly says progress, scores, and settings are not exported.
+- The mobile export tool also reads only `Tahouri_Profiles` and emits identity rows only. It previews missing fields and duplicate IDs, but it does not export the active profile marker or any learning-data stores.
+- The central admin import and `ProfileManager.importProfiles()` are also identity-only. Importing this JSON cannot restore progress, statistics, content locks, streaks, activity history, notifications, or profile settings.
+- Profile settings are stored inside each profile object (the profile serializer merges defaults with `profile.settings`), so the current identity-only export omits them too.
+
+### Local learning-data inventory relevant to transfer
+
+- Progress: `Tahouri_Progress:<studentId>`; a legacy unscoped `Tahouri_Progress` may be copied once to whichever profile is active when migration first runs.
+- Statistics: `Tahouri_Statistics:<studentId>`; legacy unscoped statistics are deliberately migrated at most once to the active profile, to avoid duplicating one learner's history into later profiles.
+- Content locks: `Tahouri_ContentLocks:<studentId>`; legacy unscoped locks are migrated to the active profile when its scoped record is absent.
+- Daily streak: `tahouri_daily_learning_streak:<studentId>`.
+- Notifications: `tahouri_notifications:<studentId>`.
+- Profile identity, creation time, and settings: inside `Tahouri_Profiles`; active profile selection is separately stored in `Tahouri_Active_Profile`.
+- Activity history: the single unscoped `Tahouri_ActivityHistory` key remains a device/browser-level exception and must not silently be treated as a per-student learning record.
+- Navigation history is an in-memory stack in the reviewed manager, not a persistent student record.
+- No dedicated badge/achievement storage manager or clearly named badge/achievement file was found in the repository tree reviewed. This is not proof that no achievement-like data is embedded in another record; the exact badge/award representation remains unverified and must be traced before migration scope is frozen.
+
+### License database backup scope
+
+- The documented production backup pipeline backs up the local license API SQLite database using `VACUUM INTO`, validates SQLite integrity and a small set of required license-service tables, encrypts the file, signs it, and can replicate it off-site.
+- Its backup/recovery test checks encryption, signature enforcement, off-site copy, restore rehearsal, tamper rejection, and that the source license database remains unchanged during the test.
+- This backup is for the license-service database. It does not read browser `localStorage` and therefore does not back up student profiles or the learning-data stores listed above.
+- The backup test fixture contains only license-service tables (activation codes, licenses, audit log, payments); it does not exercise browser profile/progress data. A successful license DB restore test must not be represented as a successful student learning-data restore test.
+
+### Data migration requirements confirmed by this audit
+
+1. Design a separate, versioned student-data export/import envelope that includes each student's identity, profile settings, progress, statistics, content locks, streaks, notifications, and any verified achievement data.
+2. Include explicit active-profile selection only as device preference metadata; do not let it determine ownership of a student's records during import.
+3. Validate all student IDs and payload schemas before writing. Import must be idempotent, preserve existing IDs and records, and never overwrite a non-empty destination silently.
+4. Preserve the old identity-only JSON format as a compatibility path, but label it accurately as profile identity transfer—not a complete backup.
+5. Define a separate treatment for unscoped legacy progress/statistics/locks and `Tahouri_ActivityHistory`; do not assign ambiguous legacy data to multiple students.
+6. Add synthetic multi-profile round-trip tests proving every student's data and settings survive export/import and remain isolated. Test browser local data separately from the license database backup/restore pipeline.
+
+Phase 0 remains **in progress**. Remaining work is to verify achievement-like data at call sites, inspect any additional persistent settings stores, compare the complete local SQLite schema against D1 migrations, and execute the isolated device lifecycle tests. No application code, SQL migration, production resource, or real student/license data was changed by this audit.
