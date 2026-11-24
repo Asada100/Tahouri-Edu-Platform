@@ -252,6 +252,16 @@ function testProfileManagerPreservesSettingsAndKeepsIdentityOnlyImportCompatible
     assert.equal(added.createdAt, "2026-02-02T00:00:00.000Z");
 }
 
+function testExportRejectsIncompleteProfileIdentity() {
+    const harness = makeHarness({}, [{
+        studentId: "student-bad",
+        name: "",
+        grade: null,
+        settings: settingsA
+    }], "student-bad");
+    assert.throws(() => harness.transfer.exportAll(), /نام یا پایه/);
+}
+
 function testProfileScreenWiresFullBackupControls() {
     assert.match(indexSource, /engine\/core\/studentDataTransfer\.js/,
         "The transfer module must load before the profile screen.");
@@ -264,6 +274,7 @@ function testProfileScreenWiresFullBackupControls() {
 
 function main() {
     testProfileManagerPreservesSettingsAndKeepsIdentityOnlyImportCompatible();
+    testExportRejectsIncompleteProfileIdentity();
     testProfileScreenWiresFullBackupControls();
     testExportCapturesAllStudentOwnedLearningStores();
     testImportRestoresEveryProfileAndIsIdempotent();
