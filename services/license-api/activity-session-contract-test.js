@@ -136,6 +136,21 @@ async function main() {
     assert.equal(manager.capture("resumable"), true);
     assert.equal(manager.getResumable("profile-bound").profileId, "student-A");
 
+    const validStoredSession = storage.get(manager.storageKey());
+    const rejectedSessions = [
+        { ...validStoredSession, version: "999.0" },
+        { ...validStoredSession, profileId: "student-B" },
+        { ...validStoredSession, activityType: "UnknownEngine" },
+        { ...validStoredSession, engineState: { kind: "quiz", questions: "not-an-array" } }
+    ];
+    for (const invalid of rejectedSessions) {
+        storage.set(manager.storageKey(), JSON.parse(JSON.stringify(invalid)));
+        assert.equal(manager.load(), null, "unsupported or malformed session is rejected");
+        assert.equal(storage.has(manager.storageKey()), true, "rejected session remains stored");
+    }
+    storage.set(manager.storageKey(), validStoredSession);
+    assert.equal(manager.load("profile-bound").activityId, "profile-bound", "valid current-version session loads");
+
     const transferSource = read("engine/core/studentDataTransfer.js");
     assert.equal(transferSource.includes('key: "Tahouri_ActivitySession:'), false);
 
