@@ -126,6 +126,9 @@ jobs:
       - name: Profile legacy migration handoff behavior test
         run: node profile-legacy-migration-handoff-test.js
 
+      - name: Activity session portability contract test
+        run: node activity-session-contract-test.js
+
       - name: Student learning data portability regression test
         run: node student-data-transfer-test.js
 
