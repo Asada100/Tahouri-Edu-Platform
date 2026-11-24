@@ -82,7 +82,7 @@ const ProfileScreen = {
 
     <section id="legacyDeviceMigrationPanel" class="profile-license-panel" hidden aria-labelledby="legacyMigrationHeading">
         <h2 id="legacyMigrationHeading">🔄 تکمیل اتصال امن مجوز قدیمی</h2>
-        <p>شناسه نصب زیر را به مدیر مدرسه بدهید. مدیر پس از تطبیق پرونده رسمی، یک چالش یک‌بارمصرف صادر می‌کند. متن JSON چالش را فقط از مدیر مورد اعتماد دریافت و در کادر وارد کنید.</p>
+        <p>شناسه نصب زیر را به مدیر مدرسه بدهید. مدیر پس از تطبیق پرونده رسمی، یک چالش یک‌بارمصرف صادر می‌کند. کد انتقال یک‌بارمصرف را از مدیر مورد اعتماد دریافت و در کادر وارد کنید.</p>
         <p>شناسه نصب این دستگاه: <strong id="legacyMigrationInstallationId">در حال آماده‌سازی...</strong></p>
         <label for="legacyMigrationChallengeInput">متن چالش یک‌بارمصرف مدیر</label>
         <textarea id="legacyMigrationChallengeInput" rows="5" placeholder="متن کامل JSON چالش را اینجا وارد کنید"></textarea>
