@@ -374,3 +374,40 @@ Reviewed `tools/profile-export.html`, `mobile-profile-export.html`, the admin pr
 6. Add synthetic multi-profile round-trip tests proving every student's data and settings survive export/import and remain isolated. Test browser local data separately from the license database backup/restore pipeline.
 
 Phase 0 remains **in progress**. Remaining work is to verify achievement-like data at call sites, inspect any additional persistent settings stores, compare the complete local SQLite schema against D1 migrations, and execute the isolated device lifecycle tests. No application code, SQL migration, production resource, or real student/license data was changed by this audit.
+
+
+## Phase 0 findings — achievement-like records, secondary stores, and local/D1 schema comparison (2026-11-24)
+
+### Stars, scores, and achievement-like records
+
+- `ResultManager.create()` calculates a 1–5 star value for each activity result. The reviewed result object is transient; the persistent `StatisticsManager.addResult()` path stores score, correct/wrong counts, percentage, and aggregate best/average values, but does not persist the calculated `stars` field in its activity record.
+- The reviewed statistics schema contains overall, subject, chapter, and activity aggregates. It does not define a separate badge, achievement, award, or certificate collection.
+- Content progression is stored separately under the profile-scoped parity progression key generated from `ProfileContext.key(...)`. It records unlocked activity IDs, not a badge ledger.
+- `SpellingPerformanceStore` persists answer-level spelling records under `Tahouri_Spelling_Performance:<studentId>` (bounded to the most recent 2,000 records in each array). This is learning evidence and must be included in a complete learning-data export.
+- No dedicated badge/achievement manager or durable badge/award table was found in the complete `engine/` and `services/license-api/` source-file inventory reviewed. This narrows the current scope but does not rule out achievement-like UI computed from scores or other records; do not promise badge preservation until the UI/report call sites are traced.
+
+### Additional persistent browser stores
+
+- `tahouri_reminder_state` is unscoped and stores only the current date's reminder/activity-done flags. It is device-level reminder state, not student learning history.
+- `tahouri_push_subscription:<studentId>` stores a push subscription and timestamp. This is profile-associated device/service metadata; it should not be copied blindly to another device because the subscription may be tied to the original browser push endpoint.
+- `Tahouri_Activation_Licenses` and `Tahouri_License_History` are unscoped browser-side license caches/history. They are not substitutes for authoritative server-side licenses and should be re-fetched/reconciled during account/device migration rather than treated as transferable student learning data.
+- `Tahouri_ActivityHistory` remains unscoped and contains the continue-learning activity pointer. It needs an explicit device-hint versus student-owned-history decision.
+- `NavigationHistory` is an in-memory stack, not a durable export target.
+- Combined with the earlier inventory, the browser-data export scope must distinguish: student-owned learning records (progress, statistics, content locks, progression unlocks, streak, spelling performance, profile settings, notifications); device-bound state (push subscription, active profile selection, navigation/continue-learning hint unless ownership is resolved); and server-authoritative license state (reconcile from API, never trust/import as authority).
+
+### Local Node SQLite versus Cloudflare D1 migrations
+
+- Local `server.js` creates `activation_codes`, `licenses`, `audit_log`, `admin_sessions`, and `payments`, with indexes, and applies a single `DB_SCHEMA_VERSION = 1` migration marker. Its migration test verifies initial startup, restart idempotency, and rejection of a database with a newer `user_version`.
+- The Cloudflare D1 chain is materially broader: migrations 0001–0013 add `schema_migrations`, `admin_login_attempts`, `student_accounts`, `license_device_slots`, `device_pairing_requests`, `device_revocation_challenges`, `legacy_device_migration_challenges`, and additional columns/indexes for activation, pairing, and device-key lifecycle.
+- The local Node schema is therefore not schema-equivalent to the D1 Worker schema. Local SQLite v1 is not an implementation of D1 migration 0013 and must not be described as a local mirror of production D1.
+- The current local migration test tests only the local schema version lifecycle; it does not diff table definitions, columns, constraints, foreign keys, or indexes against the D1 migration chain.
+
+### Required next safeguards
+
+1. Add a machine-readable schema inventory/diff test for local SQLite and D1, or formally declare them separate products with explicit feature parity boundaries. Do not run the local migration chain against D1 or assume parity from version numbers.
+2. Decide whether the local Node service is still an intentionally limited development/test harness. If it is expected to support the same device/account workflows, implement and test its missing D1-era schema and behavior before relying on it.
+3. Trace reports/dashboard/learning-card UI for derived stars, awards, badges, and certificates; distinguish computed presentation from persisted records.
+4. Include spelling performance and progression unlock state in the future student-data export; exclude or explicitly classify device-bound push subscriptions, reminder flags, license caches, and active-device preferences.
+5. Keep account/device migration tests separate from license DB backup tests and browser local-data round-trip tests.
+
+Phase 0 remains **in progress**. No application code, SQL migration, production resource, or real student/license data was changed by this documentation audit.
