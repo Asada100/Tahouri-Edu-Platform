@@ -507,3 +507,24 @@ No dedicated synthetic multi-profile learning-data export/import round-trip test
 ### Execution status and scope
 
 This review inspected the existing test sources and CI workflow definitions on the development branch; it did not execute the tests in a local runtime. CI workflow presence is not a test pass. No application code, SQL migration, production resource, or real student/license data was changed. Phase 0 remains **in progress**; the multi-profile learning-data harness and full export/import implementation remain future work.
+
+
+## Phase 0 findings — legacy content-lock migration can cross profile boundaries (2026-11-24)
+
+### Confirmed code-path risk
+
+`engine/core/contentLockManager.js` keeps the legacy source at the unscoped key `Tahouri_ContentLocks`, but its migration marker is generated as `Tahouri_ContentLocks_ProfileMigration_v1:<profile-scoped-key>`. `migrateLegacyLocks(profileKey)` therefore uses a different completion marker for each student. If the legacy unscoped key exists, profile A can receive a copy and set A's marker; after switching to profile B, B has no marker and can receive the same legacy dataset as well. This conflicts with the function's stated intent that the legacy dataset be migrated to the active profile, and can attribute one student's historical lock/progression state to multiple students.
+
+By comparison, `ProgressTracker` and `StatisticsManager` use a single global legacy-migration marker, preventing the same unscoped legacy dataset from being copied into every subsequently activated profile. Content-lock migration currently differs from those safer patterns.
+
+### Required regression test
+
+- Seed a synthetic unscoped `Tahouri_ContentLocks` value and two empty profile-scoped lock keys.
+- Initialize/apply locks with student A active; assert the legacy data is migrated only to A.
+- Switch to student B and apply locks; assert B does not receive A's legacy data and the legacy source is not re-consumed.
+- Repeat after a simulated reload to verify the one-time decision persists.
+- Include a conflict case where A already has scoped data; the legacy source must not overwrite it, and must not then leak into B.
+
+### Scope and status
+
+This is a source-level finding from the migration key and call flow; the regression test has not yet been implemented or executed. Do not patch production behavior until the intended ownership rule for ambiguous legacy data is confirmed and the test is ready. No application code, local data, SQL, or deployed service was changed.
