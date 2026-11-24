@@ -582,3 +582,25 @@ Adopt the following conservative rule for implementation:
 ### Status and boundary
 
 The reproducer has executed successfully in CI. The production content-lock migration is **not fixed yet**. This policy is the implementation safety contract for the next change; the code change and no-leak regression tests remain pending. No production Pages, Worker, D1, browser storage, licenses, or real student records were changed. PR #141 remains Draft and unmerged.
+
+## Phase 0 implementation update — content-lock legacy quarantine fix (2026-11-24)
+
+### Code change
+
+- `engine/core/contentLockManager.js` now treats an unscoped legacy content-lock payload as owner-unknown. It writes a recoverable archive at `Tahouri_ContentLocks_LegacyArchive_v1` and a single global decision at `Tahouri_ContentLocks_LegacyMigrationState_v1`.
+- It does not copy the payload into the active profile, does not delete or rewrite the original `Tahouri_ContentLocks` source, and does not overwrite an existing profile-scoped record.
+- The global state makes subsequent profile switches and reloads idempotent. An archive conflict is recorded without overwriting either payload.
+- Removed the obsolete per-profile migration-marker helper from the active implementation.
+
+### Regression result
+
+The former bug-reproducer test was converted into an ownership-safety regression test. In CI run [45476371906](https://github.com/Asada100/Tahouri-Edu-Platform/actions/runs/45476371906), the step completed with **PASS** and verified quarantine, global one-time decision, reload, conflict preservation, malformed-source preservation, and zero cross-profile copies. The full License API CI workflow and Required PR Gate also completed successfully on commit `df88245df9158c47840ec30ea85267d923902a0f`.
+
+### Remaining migration limits
+
+- This change deliberately quarantines ambiguous legacy data; it does not yet implement the authenticated recovery operation that attaches archived data to a confirmed owner.
+- A previously copied profile-scoped record from an older application version cannot be safely identified as the rightful owner's data from the old per-profile marker alone. The new code does not delete or rewrite such existing scoped records. A separate recovery/audit policy is required before attempting to reconcile historical copies.
+- The current regression test covers the quarantine boundary and isolation. Verified-owner recovery, interrupted-write simulation, empty-source behavior, and a full two-profile learning-data integration test remain outstanding.
+- The CI workflow step is now named as an ownership-safety regression rather than a bug reproducer.
+
+No production Pages, Worker, D1, browser storage, licenses, or real student records were changed. PR #141 remains Draft and unmerged.
