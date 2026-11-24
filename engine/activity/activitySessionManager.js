@@ -4,6 +4,7 @@
 const ActivitySessionManager = {
     BASE_KEY: "Tahouri_ActivitySession",
     VERSION: "1.9",
+    SCHEMA_VERSION: 1,
     currentSession: null,
     exitControlId: "activitySessionControl",
     overlayId: "activitySessionOverlay",
@@ -20,6 +21,9 @@ const ActivitySessionManager = {
     validateSession(session) {
         if (!session || typeof session !== "object" || Array.isArray(session)) return false;
         if (session.version !== this.VERSION) return false;
+        // Sessions written before schemaVersion was introduced are treated as
+        // schema v1 only when they carry the exact known manager version.
+        if (session.schemaVersion !== undefined && session.schemaVersion !== this.SCHEMA_VERSION) return false;
         if (typeof session.profileId !== "string" || !session.profileId) return false;
         if (
             typeof ProfileContext === "undefined" ||
@@ -37,7 +41,9 @@ const ActivitySessionManager = {
                 !!data.content && Array.isArray(data.content.questions) && data.content.questions.length > 0;
         }
         if (type === "WordPuzzleEngine" || type === "wordPuzzle") {
-            return data.kind === "wordPuzzle";
+            return data.kind === "wordPuzzle" &&
+                !!data.state && typeof data.state === "object" && !Array.isArray(data.state) &&
+                !!data.round && typeof data.round === "object" && !Array.isArray(data.round);
         }
         if (type === "QuizEngine" || type === "quiz") {
             return data.kind === "quiz" && !!data.state && typeof data.state === "object" &&
@@ -85,6 +91,7 @@ const ActivitySessionManager = {
         if (!key || typeof SaveManager === "undefined" || !session) return false;
 
         session.version = this.VERSION;
+        session.schemaVersion = this.SCHEMA_VERSION;
         session.updatedAt = Date.now();
 
         const ok = SaveManager.save(key, session);
@@ -202,6 +209,7 @@ const ActivitySessionManager = {
 
         const session = {
             version: this.VERSION,
+            schemaVersion: this.SCHEMA_VERSION,
             id: "activity-session-" + activity.id + "-" + Date.now(),
             profileId:
                 typeof ProfileContext !== "undefined" && typeof ProfileContext.getStudentId === "function"
