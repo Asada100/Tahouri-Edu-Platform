@@ -17,6 +17,8 @@ const ContentLockManager = {
 
     BASE_STORAGE_KEY: "Tahouri_ContentLocks",
     MIGRATION_KEY_PREFIX: "Tahouri_ContentLocks_ProfileMigration_v1:",
+    LEGACY_ARCHIVE_KEY: "Tahouri_ContentLocks_LegacyArchive_v1",
+    LEGACY_MIGRATION_STATE_KEY: "Tahouri_ContentLocks_LegacyMigrationState_v1",
 
     currentStorageKey: null,
     ready: false,
@@ -136,36 +138,53 @@ const ContentLockManager = {
     migrateLegacyLocks: function (profileKey) {
         if (!profileKey) return;
 
-        const migrationKey = this.getMigrationKey(profileKey);
-        if (localStorage.getItem(migrationKey) === "true") return;
+        const state = localStorage.getItem(this.LEGACY_MIGRATION_STATE_KEY);
+        if (state) return;
 
         const legacy = localStorage.getItem(this.BASE_STORAGE_KEY);
-        if (!legacy) return;
-
-        if (localStorage.getItem(profileKey) !== null) {
-            localStorage.setItem(migrationKey, "true");
-            return;
-        }
+        if (legacy === null) return;
 
         try {
-            const parsed = JSON.parse(legacy);
+            const archived = localStorage.getItem(this.LEGACY_ARCHIVE_KEY);
 
-            if (
-                parsed &&
-                typeof parsed === "object" &&
-                !Array.isArray(parsed)
-            ) {
-                localStorage.setItem(profileKey, legacy);
-                localStorage.setItem(migrationKey, "true");
-
-                console.log(
-                    "Legacy Content Locks Migrated To Active Profile"
-                );
+            // Preserve the original payload before recording the one-time
+            // decision. If the browser stops between these writes, retrying
+            // is safe because the archive is never overwritten.
+            if (archived === null) {
+                localStorage.setItem(this.LEGACY_ARCHIVE_KEY, legacy);
             }
+            else if (archived !== legacy) {
+                localStorage.setItem(
+                    this.LEGACY_MIGRATION_STATE_KEY,
+                    JSON.stringify({
+                        version: 1,
+                        status: "archive_conflict",
+                        reason: "existing_archive_differs_from_legacy_source"
+                    })
+                );
+                return;
+            }
+
+            // The old key has no trustworthy student owner. Quarantine it
+            // once instead of assigning it to whichever profile is active.
+            // Keep both the source and archive recoverable for supervised
+            // ownership resolution; never copy this data to another profile.
+            localStorage.setItem(
+                this.LEGACY_MIGRATION_STATE_KEY,
+                JSON.stringify({
+                    version: 1,
+                    status: "quarantined",
+                    reason: "legacy_owner_unverified"
+                })
+            );
+
+            console.warn(
+                "Legacy Content Locks Quarantined: student ownership is unverified."
+            );
         }
         catch (error) {
             console.error(
-                "Legacy Content Locks Migration Error",
+                "Legacy Content Locks Quarantine Error",
                 error
             );
         }
