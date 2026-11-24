@@ -2047,6 +2047,7 @@
         let matchingEntitlementFound = false;
         let lastStatus = "inactive";
         let lastReason = "برای این پروفایل هنوز مجوزی ثبت نشده است.";
+        let lastRequiresLegacyDeviceMigration = false;
 
         try {
             const envelopes = typeof store.readAll === "function"
@@ -2095,6 +2096,7 @@
                 if (!hasDeviceLease) {
                     lastStatus = "renewal_required";
                     lastReason = "برای تکمیل مهاجرت مجوز قدیمی، اتصال آنلاین و تأیید هویت دستگاه لازم است.";
+                    lastRequiresLegacyDeviceMigration = true;
                     continue;
                 }
 
@@ -2143,7 +2145,8 @@
         return {
             active: false,
             status: matchingEntitlementFound ? lastStatus : "inactive",
-            reason: lastReason
+            reason: lastReason,
+            requiresLegacyDeviceMigration: lastRequiresLegacyDeviceMigration
         };
     }
 
