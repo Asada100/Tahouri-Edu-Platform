@@ -84,8 +84,8 @@ const ProfileScreen = {
         <h2 id="legacyMigrationHeading">🔄 تکمیل اتصال امن مجوز قدیمی</h2>
         <p>شناسه نصب زیر را به مدیر مدرسه بدهید. مدیر پس از تطبیق پرونده رسمی، یک چالش یک‌بارمصرف صادر می‌کند. کد انتقال یک‌بارمصرف را از مدیر مورد اعتماد دریافت و در کادر وارد کنید.</p>
         <p>شناسه نصب این دستگاه: <strong id="legacyMigrationInstallationId">در حال آماده‌سازی...</strong></p>
-        <label for="legacyMigrationChallengeInput">متن چالش یک‌بارمصرف مدیر</label>
-        <textarea id="legacyMigrationChallengeInput" rows="5" placeholder="متن کامل JSON چالش را اینجا وارد کنید"></textarea>
+        <label for="legacyMigrationChallengeInput">کد انتقال یک‌بارمصرف</label>
+        <input id="legacyMigrationChallengeInput" type="text" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="کد انتقال را اینجا وارد کنید">
         <button id="claimLegacyMigrationBtn" type="button">تکمیل اتصال امن این دستگاه</button>
         <p id="legacyMigrationMessage" aria-live="polite"></p>
     </section>
