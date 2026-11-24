@@ -1381,6 +1381,11 @@ async function main() {
     assert.equal(preparedMigrationBody.challengeId, validChallenge.challengeId);
     assert.equal(preparedMigrationBody.installationId, validChallenge.installationId);
     assert.equal(preparedMigrationBody.studentId, validChallenge.studentId);
+    const crossOriginPrepare = await request(worker, env,
+      "/api/licenses/legacy-migration/prepare", "POST",
+      { transferCode: validChallenge.transferCode }, "https://attacker.example");
+    assert.equal(crossOriginPrepare.status, 403,
+      "Transfer-code preparation must reject untrusted application Origins.");
     const invalidTransferCode = await request(worker, env,
       "/api/licenses/legacy-migration/prepare", "POST", { transferCode: "not-a-valid-code" });
     assert.equal(invalidTransferCode.status, 400,
@@ -1411,6 +1416,11 @@ async function main() {
     const legacyMigrationStatuses = legacyMigrationResults.map(response => response.status).sort((a,b) => a-b);
     assert.deepEqual(legacyMigrationStatuses, [200, 409],
       "Concurrent claims against one legacy migration challenge must allow exactly one winner.");
+    const replayedPrepare = await request(worker, env,
+      "/api/licenses/legacy-migration/prepare", "POST",
+      { transferCode: validChallenge.transferCode });
+    assert.equal(replayedPrepare.status, 409,
+      "A consumed transfer code must not resolve to a reusable challenge.");
     const migratedResponse = legacyMigrationResults.find(response => response.status === 200);
     const migratedBody = await migratedResponse.json();
     assert.equal(migratedBody.status, "migrated");
