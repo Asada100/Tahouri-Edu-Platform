@@ -172,7 +172,7 @@ async function testInvalidExistingProfileDataIsNotOverwritten() {
         version: 1,
         status: "profile_data_conflict",
         ownerProfileKey: "Tahouri_ContentLocks:student-A",
-        reason: "existing_profile_payload_is_not_an_object"
+        reason: "existing_profile_payload_is_not_valid_json"
     }, "An invalid target must stop migration rather than overwrite profile data.");
 
     harness.setActiveStudent("student-B");
