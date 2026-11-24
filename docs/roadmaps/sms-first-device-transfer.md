@@ -258,3 +258,38 @@ Reviewed every current SQL migration from `0001_initial_schema.sql` through `001
 - Inspect the full admin Worker routes and HTML to map permissions, audit events, and account-management extension points.
 - Confirm whether any non-migration runtime schema or local SQLite schema differs from the 13 versioned D1 migrations.
 - Design the account/contact/OTP schema only after these paths are mapped. Do not alter the existing student table by adding duplicate email/phone fields.
+
+
+## Phase 0 findings — learning-data portability and license/admin flow audit (2026-11-24)
+
+### Local learning data and profile portability
+
+Reviewed the profile manager, profile context, progress tracker, statistics manager, content-lock manager, daily streak manager, activity history, save manager, and admin profile-import client.
+
+- ProfileManager stores the local profile collection and active profile separately. Its reviewed importProfiles() method imports only student identity fields (student ID, name, grade); it does not import learning progress, statistics, locks, streaks, or activity history.
+- ProfileContext provides the student-scoped storage-key convention. ProgressTracker, StatisticsManager, and ContentLockManager use that convention, so their principal records are isolated by student ID.
+- DailyLearningStreak uses its own student-specific key (tahouri_daily_learning_streak:<studentId>), preserving daily activity, current streak, best streak, and last completed date separately per profile.
+- ActivityHistory is an important exception: it reads and writes the single unscoped key Tahouri_ActivityHistory. The reviewed implementation does not bind this record to a student ID. Switching profiles can therefore expose or overwrite the last-activity/continue-learning record across profiles unless another caller scopes it externally; no such scope was established in this audit.
+- SaveManager.clear() is deliberately disabled to avoid wiping independent local stores. This protective behavior must remain intact during account migration.
+- The admin UI accepts a tahouri-student-profiles JSON export and imports the identity list into central student records. The reviewed profile import method is identity-only. A complete, lossless export/import path for all learning data was not established; the source and exact schema of the profile export file remain to be traced.
+- No conclusion about a dedicated badges/achievements store is recorded yet; that requires a targeted repository-wide trace before the migration inventory can be considered complete.
+
+### License activation, renewal, and device transition
+
+- The current activation endpoint still requires client-supplied studentId and gradeId, in addition to the activation code, installation ID, device class, and cryptographic device proof. This confirms that the planned code-only redemption and server-side context resolution remain unimplemented.
+- Activation checks the code's student and grade against the student record, rejects used/inactive codes, and checks future-year reservation rules. Promotion requires the next grade; repeat-year reservation requires the same grade and an active current license.
+- The activation operation groups code consumption, license creation, device-slot insertion, audit insertion, and student activation-status update in one D1 batch, then checks that each expected statement changed exactly one row. This is a useful atomicity boundary, but concurrency/idempotency and failure behavior still need dedicated tests against isolated D1.
+- Future-year activation creates a future license reservation; it does not itself replace the currently active license. The reviewed route rejects a duplicate future reservation for the same product/student/grade/year.
+- Pairing checks that the requested device class has no active slot and that an active complementary device exists. The legacy migration claim also uses a D1 batch and conditional checks. These paths preserve the per-license phone/computer distinction, but the full revocation, pairing recovery, and slot replacement transaction paths still need separate review and tests.
+- Admin UI includes student import, code creation/revocation, license revocation/extension, search, audit viewing, device-slot recovery, and supervised legacy migration challenge issuance. It does not yet expose guardian accounts, contact verification, or OTP management.
+- Admin login uses a server-side password, hashed session identifier, expiry, failed-login throttling/lockout, and audit events. The full route-by-route authorization and audit matrix is still outstanding; the presence of a UI action alone is not proof of its server-side permission boundary.
+
+### Required consequences for the implementation design
+
+1. Account linking must not overwrite or regenerate existing student IDs.
+2. The migration plan must enumerate and transfer each student-scoped store independently, including progress, statistics, content locks, streaks, and any verified badge/achievement data.
+3. Tahouri_ActivityHistory needs an explicit compatibility decision: migrate it to a student-scoped key while preserving the existing legacy value, or retain it as a clearly defined device-level navigation hint. It must not silently become shared account learning history.
+4. Profile identity import must not be described as a full learning-data backup/restore.
+5. Before any data migration is implemented, create synthetic multi-profile fixtures and prove that each student's records remain isolated and unchanged across export, import, account linking, and device replacement.
+
+Phase 0 remains **in progress**. The next audit items are the full license slot/revocation transaction paths, the complete admin authorization matrix, all export/backup call sites, badges/achievements discovery, and comparison of runtime/local SQLite schema against the versioned D1 migrations. No application code, SQL migration, production resource, or real student/license data was changed by this audit.
