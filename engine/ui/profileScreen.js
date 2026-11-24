@@ -33,8 +33,16 @@ const ProfileScreen = {
         ➕ ایجاد پروفایل
     </button>
     <hr>
-    <h2>انتقال پروفایل از دستگاه دیگر</h2>
-    <p>فایل خروجی پروفایل را انتخاب کنید؛ شناسهٔ دانش‌آموز حفظ می‌شود. نمره‌ها و تنظیمات منتقل نمی‌شوند.</p>
+    <section class="profile-import-panel">
+        <h2>🗂 پشتیبان کامل اطلاعات یادگیری</h2>
+        <p>پیشرفت، ستاره‌ها، آمار، قفل‌ها، استمرار روزانه، اعلان‌ها، سوابق املا، عملکرد پرسش‌ها و تنظیمات پروفایل‌ها منتقل می‌شوند. مجوز و شناسهٔ دستگاه منتقل نمی‌شوند.</p>
+        <button id="studentDataExportBtn" type="button">دانلود پشتیبان کامل</button>
+        <input id="studentDataImportFile" type="file" accept=".json,application/json">
+        <button id="studentDataImportBtn" type="button">بازیابی پشتیبان کامل</button>
+        <p id="studentDataTransferMessage" aria-live="polite"></p>
+    </section>
+    <h2>ورود فهرست هویتی پروفایل‌ها</h2>
+    <p>این گزینه فقط شناسه، نام و پایه را وارد می‌کند و جایگزین پشتیبان کامل نیست.</p>
     <input id="profileImportFile" type="file" accept=".json,application/json">
     <button id="profileImportBtn" type="button">واردکردن فایل پروفایل</button>
     <p id="profileImportMessage" aria-live="polite"></p>
@@ -46,6 +54,12 @@ const ProfileScreen = {
             };
             document.getElementById("profileImportBtn").onclick = function () {
                 ProfileScreen.importProfilesFromFile();
+            };
+            document.getElementById("studentDataExportBtn").onclick = function () {
+                ProfileScreen.exportStudentLearningData();
+            };
+            document.getElementById("studentDataImportBtn").onclick = function () {
+                ProfileScreen.importStudentLearningDataFromFile();
             };
             return;
         }
@@ -264,8 +278,16 @@ const ProfileScreen = {
     <button id="exportProfilesForAdminBtn" type="button">دانلود فهرست پروفایل‌ها برای پنل مدیریت</button>
     <p id="exportProfilesMessage" aria-live="polite"></p>
     <section class="profile-import-panel">
-        <h2>انتقال پروفایل از دستگاه دیگر</h2>
-        <p>فایل خروجی پروفایل را انتخاب کنید؛ شناسهٔ دانش‌آموز حفظ می‌شود. نمره‌ها و تنظیمات منتقل نمی‌شوند.</p>
+        <h2>🗂 پشتیبان کامل اطلاعات یادگیری</h2>
+        <p>پیشرفت، ستاره‌ها، آمار، قفل‌ها، استمرار روزانه، اعلان‌ها، سوابق املا، عملکرد پرسش‌ها و تنظیمات پروفایل‌ها منتقل می‌شوند. مجوز و شناسهٔ دستگاه منتقل نمی‌شوند.</p>
+        <button id="studentDataExportBtn" type="button">دانلود پشتیبان کامل</button>
+        <input id="studentDataImportFile" type="file" accept=".json,application/json">
+        <button id="studentDataImportBtn" type="button">بازیابی پشتیبان کامل</button>
+        <p id="studentDataTransferMessage" aria-live="polite"></p>
+    </section>
+    <section class="profile-import-panel">
+        <h2>ورود فهرست هویتی پروفایل‌ها</h2>
+        <p>این گزینه فقط شناسه، نام و پایه را وارد می‌کند و جایگزین پشتیبان کامل نیست.</p>
         <input id="profileImportFile" type="file" accept=".json,application/json">
         <button id="profileImportBtn" type="button">واردکردن فایل پروفایل</button>
         <p id="profileImportMessage" aria-live="polite"></p>
@@ -298,6 +320,15 @@ const ProfileScreen = {
                 ProfileScreen.exportProfilesForAdmin();
             };
         }
+        const dataExportButton = document.getElementById("studentDataExportBtn");
+        if (dataExportButton) dataExportButton.onclick = function () {
+            ProfileScreen.exportStudentLearningData();
+        };
+        const dataImportButton = document.getElementById("studentDataImportBtn");
+        if (dataImportButton) dataImportButton.onclick = function () {
+            ProfileScreen.importStudentLearningDataFromFile();
+        };
+
         const importButton = document.getElementById("profileImportBtn");
         if (importButton) {
             importButton.onclick = function () {
@@ -601,6 +632,57 @@ const ProfileScreen = {
             }
         } catch (error) {
             if (message) message.textContent = error.message || "واردکردن پروفایل انجام نشد.";
+        }
+    },
+
+    exportStudentLearningData: function () {
+        const message = document.getElementById("studentDataTransferMessage");
+        try {
+            if (!window.StudentDataTransfer) throw new Error("ابزار پشتیبان‌گیری بارگذاری نشده است.");
+            const payload = window.StudentDataTransfer.exportAll();
+            const serialized = JSON.stringify(payload, null, 2);
+            if (serialized.length > window.StudentDataTransfer.maxBytes) {
+                throw new Error("حجم پشتیبان بیش از ۲۰ مگابایت است؛ خروجی متوقف شد.");
+            }
+            const blob = new Blob([serialized], { type: "application/json;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = "tahouri-student-learning-backup-v1.json";
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(function () { URL.revokeObjectURL(url); }, 30000);
+            if (message) message.textContent = "پشتیبان کامل " + payload.profiles.length +
+                " پروفایل آماده شد. اطلاعات یادگیری و تنظیمات در فایل قرار دارند؛ اطلاعات دستگاه و مجوز صادر نشده‌اند.";
+            return true;
+        } catch (error) {
+            if (message) message.textContent = error.message || "تهیهٔ پشتیبان انجام نشد.";
+            return false;
+        }
+    },
+
+    importStudentLearningDataFromFile: async function () {
+        const input = document.getElementById("studentDataImportFile");
+        const message = document.getElementById("studentDataTransferMessage");
+        try {
+            const file = input && input.files && input.files[0];
+            if (!file) throw new Error("ابتدا فایل پشتیبان کامل را انتخاب کنید.");
+            if (file.size > window.StudentDataTransfer.maxBytes) {
+                throw new Error("حجم فایل پشتیبان بیش از ۲۰ مگابایت است.");
+            }
+            const payload = JSON.parse(await file.text());
+            const result = window.StudentDataTransfer.importAll(payload, file.size);
+            if (input) input.value = "";
+            ProfileScreen.showProfiles();
+            const status = document.getElementById("studentDataTransferMessage");
+            if (status) status.textContent = "بازیابی موفق: " + result.profiles +
+                " پروفایل بررسی شد؛ " + result.newProfiles + " پروفایل جدید و " +
+                result.dataItemsRestored + " مجموعه‌داده بازیابی شد. داده‌های موجود بازنویسی نشدند.";
+            return result;
+        } catch (error) {
+            if (message) message.textContent = error.message || "بازیابی پشتیبان انجام نشد.";
+            return false;
         }
     },
 
