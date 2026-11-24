@@ -10,6 +10,10 @@ assert.match(source, /id="legacyMigrationChallengeInput" type="text"/,
     "Student UI must accept a single transfer code, not a JSON challenge textarea.");
 assert.doesNotMatch(source, /JSON\.parse\(String\(input && input\.value/,
     "Student UI must not parse administrator JSON.");
+assert.match(source, /claimLegacyMigrationCode/,
+    "The profile screen must use the one-time transfer-code client method.");
+assert.match(source, /typeof window\.TahouriLicenseClient\.claimLegacyMigrationCode === "function"/,
+    "The migration panel must be gated on the transfer-code client method.");
 
 const elements = new Map();
 function element(id, extra = {}) {
