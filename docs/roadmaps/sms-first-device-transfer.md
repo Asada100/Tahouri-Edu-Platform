@@ -411,3 +411,35 @@ Phase 0 remains **in progress**. Remaining work is to verify achievement-like da
 5. Keep account/device migration tests separate from license DB backup tests and browser local-data round-trip tests.
 
 Phase 0 remains **in progress**. No application code, SQL migration, production resource, or real student/license data was changed by this documentation audit.
+
+
+## Phase 0 findings — report/dashboard call-site trace and correction to star persistence finding (2026-11-24)
+
+### Important correction: stars are persisted per student
+
+The previous section correctly noted that `ResultManager` calculates a transient result `stars` value and `StatisticsManager` does not persist that field, but it was incomplete to infer from this that stars are not persisted. The call-site trace confirms a separate persistent path:
+
+- `ProgressTracker.update(activityId, result)` calculates `stars` and stores both current `stars` and historical `bestStars`, alongside `bestScore`, `percentage`, `bestPercentage`, completion state, and `lastPlayed`.
+- This progress object is saved under the profile-scoped `Tahouri_Progress:<studentId>` key via `ProfileContext`. Therefore per-activity stars and best stars are part of student learning data and must be exported/imported with progress.
+- `ContentLockManager.recordProgressionResult()` is called after successful statistics save; progression/unlock state is a separate store and must also be preserved.
+- `ResultManager` and `ActivityResult` create result/view objects, but the durable star history is the `ProgressTracker` record, not a separate badge/achievement ledger.
+
+### How reports and dashboard consume the records
+
+- The reports UI reads `StatisticsManager` for overall, subject, chapter, and activity aggregates. Activity detail and activity lists render star icons from `bestPercentage` (rounded to a 0–5 display), plus best score, average, attempts, total score, correct and wrong answers. The overall report also derives a star display from the overall best score. It does not read a separate badge/award collection.
+- `ReportsController` filters report entries to the active grade where grade metadata is available, then adapts the statistics into the reports view model.
+- Dashboard progress counts completed activities using `ProgressTracker.isCompleted()` against the activity catalogue for the active grade. It displays current streak from `DailyLearningStreak`, continue/resume activity information, and completed/total activity count with a percentage.
+- Dashboard calendar reads daily records from `DailyLearningStreak.getDay()`. The reviewed dashboard has no separate award/badge inventory.
+- `resultModal.js` displays stars for the just-completed attempt from its result percentage. This is immediate result presentation; the long-term per-activity star record is held by `ProgressTracker`.
+
+### Current achievement-data conclusion
+
+- Persisted star progress exists and is confirmed; it was missed by looking only at `StatisticsManager`. Correct export scope includes the full `Tahouri_Progress:<studentId>` payload, not merely score aggregates.
+- No independent persisted badges, awards, or certificates collection was identified in the traced result, reports, dashboard, progress, and statistics call sites. Existing trophy/medal icons in the reports are labels for aggregate best score, not evidence of a separate award ledger.
+- This conclusion is limited to the call sites and source inventory traced; before implementation, run a repository-wide exact search for all award/badge identifiers and verify no feature-specific storage namespace exists.
+
+### Export/import implications
+
+The complete student-owned learning payload now confirmed includes: profile settings and identity, `Tahouri_Progress` (including stars/bestStars and completion), `Tahouri_Statistics`, content locks/progression unlocks, daily streak/calendar records, notifications, and spelling performance. Device-bound push subscriptions, active-profile selection, reminder flags, continue-learning/activity-history pointer, and license caches require separate classification/recreation rather than blind cross-device copying.
+
+No application behavior, database schema, production resource, or student/license record was changed. This was a documentation-only audit and Phase 0 remains **in progress**.
