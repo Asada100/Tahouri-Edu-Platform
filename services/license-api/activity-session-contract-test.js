@@ -21,6 +21,7 @@ const document = {
 };
 const window = { addEventListener() {} };
 const engines = {};
+let activityState = "idle";
 const context = {
     window, document, console: { log() {}, warn() {}, error() {} },
     EventManager: { on() {}, emit() {} },
@@ -31,7 +32,7 @@ const context = {
         load(key) { return storage.get(key) || null; },
         remove(key) { storage.delete(key); }
     },
-    ActivityState: { set() {} },
+    ActivityState: { set(value) { activityState = value; } },
     ActivityManager: {
         currentActivity: null,
         getCurrent() { return this.currentActivity; },
@@ -157,6 +158,52 @@ async function main() {
     }
     storage.set(manager.storageKey(), validStoredSession);
     assert.equal(manager.load("profile-bound").activityId, "profile-bound", "valid current-version session loads");
+
+    // Failed restore must not publish a half-started global activity.
+    const priorActivity = { id: "already-running" };
+    const priorSession = { activityId: "prior-session" };
+    const priorState = "dashboard";
+    context.ActivityManager.currentActivity = priorActivity;
+    activityState = priorState;
+    manager.currentSession = priorSession;
+    manager.gameplayActive = true;
+    classes.clear();
+    classes.add("pre-existing-class");
+    const storageBeforeFailure = new Map(storage);
+
+    engines.WordPuzzleEngine = { restoreSession() { return false; } };
+    assert.equal(await manager.restoreEngine(
+        { id: "failed-word", engine: "WordPuzzleEngine" },
+        { activityType: "WordPuzzleEngine", engineState: { kind: "wordPuzzle" } }
+    ), false, "wordPuzzle false restore is rejected");
+    assert.equal(context.ActivityManager.currentActivity, priorActivity, "failed wordPuzzle restore preserves current activity");
+    assert.equal(activityState, priorState, "failed wordPuzzle restore preserves ActivityState");
+    assert.equal(manager.currentSession, priorSession, "failed wordPuzzle restore preserves current session");
+    assert.equal(manager.gameplayActive, true, "failed wordPuzzle restore preserves gameplay flag");
+    assert.deepEqual([...classes], ["pre-existing-class"], "failed wordPuzzle restore preserves body classes");
+    assert.deepEqual([...storage], [...storageBeforeFailure], "failed wordPuzzle restore preserves stored session");
+
+    engines.WordPuzzleEngine = { restoreSession() { throw new Error("synthetic restore failure"); } };
+    await assert.rejects(
+        manager.restoreEngine(
+            { id: "throwing-word", engine: "WordPuzzleEngine" },
+            { activityType: "WordPuzzleEngine", engineState: { kind: "wordPuzzle" } }
+        ),
+        /synthetic restore failure/
+    );
+    assert.equal(context.ActivityManager.currentActivity, priorActivity, "throwing restore preserves current activity");
+    assert.equal(activityState, priorState, "throwing restore preserves ActivityState");
+
+    engines.ClassificationEngine = { restoreSession() { return false; } };
+    const priorActivityData = { id: "prior-engine-data" };
+    engines.ClassificationEngine.activityData = priorActivityData;
+    assert.equal(await manager.restoreEngine(
+        { id: "failed-classification", engine: "ClassificationEngine", classification: {} },
+        { activityType: "ClassificationEngine", engineState: { items: [{ id: "i" }], categories: [{ id: "c" }] } }
+    ), false, "classification false restore is rejected");
+    assert.equal(context.ActivityManager.currentActivity, priorActivity, "failed classification restore preserves current activity");
+    assert.equal(engines.ClassificationEngine.activityData, priorActivityData, "failed classification restore preserves engine activity data");
+    assert.equal(activityState, priorState, "failed classification restore preserves ActivityState");
 
     const transferSource = read("engine/core/studentDataTransfer.js");
     assert.equal(transferSource.includes('key: "Tahouri_ActivitySession:'), false);
