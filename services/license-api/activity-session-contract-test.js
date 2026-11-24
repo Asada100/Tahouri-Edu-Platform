@@ -137,9 +137,16 @@ async function main() {
     assert.equal(manager.getResumable("profile-bound").profileId, "student-A");
 
     const validStoredSession = storage.get(manager.storageKey());
+    assert.equal(validStoredSession.schemaVersion, 1, "new sessions carry explicit schema version 1");
+    const legacySchemaOne = { ...validStoredSession };
+    delete legacySchemaOne.schemaVersion;
+    storage.set(manager.storageKey(), legacySchemaOne);
+    assert.equal(manager.load("profile-bound").activityId, "profile-bound", "known pre-schemaVersion v1 sessions remain readable");
     const rejectedSessions = [
         { ...validStoredSession, version: "999.0" },
+        { ...validStoredSession, schemaVersion: 999 },
         { ...validStoredSession, profileId: "student-B" },
+        { ...validStoredSession, activityType: "WordPuzzleEngine", engineState: { kind: "wordPuzzle" } },
         { ...validStoredSession, activityType: "UnknownEngine" },
         { ...validStoredSession, engineState: { kind: "quiz", questions: "not-an-array" } }
     ];
