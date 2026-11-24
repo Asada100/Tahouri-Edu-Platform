@@ -150,8 +150,13 @@
 
         const exportedProfiles = profiles.map(profile => {
             const studentId = String(profile.studentId || "").trim();
+            const name = String(profile.name || "").trim();
+            const grade = String(profile.grade || "").trim();
             if (!studentId || !/^[A-Za-z0-9_-]{1,128}$/.test(studentId)) {
                 throw new Error("شناسهٔ یکی از پروفایل‌ها معتبر نیست.");
+            }
+            if (!name || name.length > 160 || !/^grade[1-6]$/.test(grade)) {
+                throw new Error("نام یا پایهٔ یکی از پروفایل‌ها معتبر نیست؛ خروجی ناقص صادر نشد.");
             }
             const data = {};
             DATASETS.forEach(dataset => {
@@ -161,8 +166,8 @@
             });
             return {
                 studentId,
-                name: String(profile.name || "").trim(),
-                grade: String(profile.grade || ""),
+                name: name,
+                grade: grade,
                 createdAt: profile.createdAt || null,
                 settings: normalizeSettings(profile.settings || {}),
                 data
