@@ -10,11 +10,20 @@ const profileManagerSource = fs.readFileSync(path.join(__dirname, "../../engine/
 const profileScreenSource = fs.readFileSync(path.join(__dirname, "../../engine/ui/profileScreen.js"), "utf8");
 const indexSource = fs.readFileSync(path.join(__dirname, "../../index.html"), "utf8");
 
-function makeHarness(seed, profiles, activeId) {
+function makeHarness(seed, profiles, activeId, failAtSet) {
     const values = new Map(Object.entries(seed || {}));
+    let setCalls = 0;
+    let failurePoint = failAtSet || 0;
     const localStorage = {
         getItem(key) { return values.has(key) ? values.get(key) : null; },
-        setItem(key, value) { values.set(key, String(value)); },
+        setItem(key, value) {
+            setCalls++;
+            if (failurePoint && setCalls === failurePoint) {
+                failurePoint = 0;
+                throw new Error("synthetic storage quota failure");
+            }
+            values.set(key, String(value));
+        },
         removeItem(key) { values.delete(key); }
     };
     const ProfileManager = {
@@ -177,6 +186,20 @@ function testConflictRejectsWholeImportWithoutPartialWrites() {
     assert.equal(target.manager.profiles.length, 0);
 }
 
+function testStorageFailureRollsBackAllStagedData() {
+    const sourceSeed = new Map();
+    seedProfile(sourceSeed, "student-A", dataA);
+    const source = makeHarness(Object.fromEntries(sourceSeed), [makeProfiles()[0]], "student-A");
+    const payload = source.transfer.exportAll();
+
+    const target = makeHarness({}, [], null, 2);
+    assert.throws(() => target.transfer.importAll(payload, JSON.stringify(payload).length), /quota/);
+    assert.equal(target.values.size, 0,
+        "A storage failure during staged writes must roll back every earlier dataset write.");
+    assert.equal(target.manager.profiles.length, 0,
+        "A failed restore must not leave a newly imported profile behind.");
+}
+
 function testInvalidEnvelopeAndOversizeAreRejected() {
     const target = makeHarness({}, [], null);
     assert.throws(() => target.transfer.importAll({ format: "wrong", version: 1, profiles: [] }, 10), /ساختار/);
@@ -246,6 +269,7 @@ function main() {
     testImportRestoresEveryProfileAndIsIdempotent();
     testExistingEmptyDefaultsCanBeRestoredWithoutOverwritingRealData();
     testConflictRejectsWholeImportWithoutPartialWrites();
+    testStorageFailureRollsBackAllStagedData();
     testInvalidEnvelopeAndOversizeAreRejected();
     console.log("Student learning data portability regression: PASS");
     console.log("Verified: multi-profile export, all declared learning stores, settings, device-bound exclusions, lossless restore, idempotency, empty-default restore, and atomic conflict preflight.");
