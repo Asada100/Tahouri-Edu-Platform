@@ -16,7 +16,6 @@ const ContentLockManager = {
     defaultLocks: {},
 
     BASE_STORAGE_KEY: "Tahouri_ContentLocks",
-    MIGRATION_KEY_PREFIX: "Tahouri_ContentLocks_ProfileMigration_v1:",
     LEGACY_ARCHIVE_KEY: "Tahouri_ContentLocks_LegacyArchive_v1",
     LEGACY_MIGRATION_STATE_KEY: "Tahouri_ContentLocks_LegacyMigrationState_v1",
 
@@ -33,12 +32,6 @@ const ContentLockManager = {
         }
 
         return ProfileContext.key(this.BASE_STORAGE_KEY);
-    },
-
-    getMigrationKey: function (profileKey) {
-        return profileKey
-            ? this.MIGRATION_KEY_PREFIX + String(profileKey)
-            : null;
     },
 
     init: function () {
