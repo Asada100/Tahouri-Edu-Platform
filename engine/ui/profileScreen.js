@@ -513,7 +513,7 @@ const ProfileScreen = {
             return false;
         }
         if (!window.TahouriLicenseClient ||
-            typeof window.TahouriLicenseClient.claimLegacyMigration !== "function") {
+            typeof window.TahouriLicenseClient.claimLegacyMigrationCode !== "function") {
             if (message) message.textContent = "قابلیت تکمیل مهاجرت در این نسخه در دسترس نیست.";
             return false;
         }
@@ -522,11 +522,9 @@ const ProfileScreen = {
             button.textContent = "در حال تأیید هویت دستگاه...";
         }
         try {
-            const challenge = JSON.parse(String(input && input.value || ""));
-            if (challenge.studentId !== String(studentId) || challenge.gradeId !== String(gradeId)) {
-                throw new Error("چالش برای این دانش‌آموز یا پایه صادر نشده است.");
-            }
-            const result = await window.TahouriLicenseClient.claimLegacyMigration(challenge);
+            const transferCode = String(input && input.value || "").trim();
+            if (!transferCode) throw new Error("کد انتقال را وارد کنید.");
+            const result = await window.TahouriLicenseClient.claimLegacyMigrationCode(transferCode);
             if (!result || !result.entitlementStored) {
                 throw new Error("اتصال دستگاه انجام شد، اما ذخیره مجوز تأیید نشد.");
             }
