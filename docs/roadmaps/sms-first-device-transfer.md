@@ -443,3 +443,36 @@ The previous section correctly noted that `ResultManager` calculates a transient
 The complete student-owned learning payload now confirmed includes: profile settings and identity, `Tahouri_Progress` (including stars/bestStars and completion), `Tahouri_Statistics`, content locks/progression unlocks, daily streak/calendar records, notifications, and spelling performance. Device-bound push subscriptions, active-profile selection, reminder flags, continue-learning/activity-history pointer, and license caches require separate classification/recreation rather than blind cross-device copying.
 
 No application behavior, database schema, production resource, or student/license record was changed. This was a documentation-only audit and Phase 0 remains **in progress**.
+
+
+## Phase 0 findings — profile-switch isolation and secondary storage audit (2026-11-24)
+
+### Profile context and switching
+
+- `ProfileContext.key(baseKey)` appends the active `studentId` and returns `null` without an active profile. Progress, statistics, content locks, parity progression, daily streak, notifications, spelling performance and the push-subscription metadata use profile-aware keys or resolve the active student.
+- `ProfileManager.switchProfile(studentId)` validates the target exists, updates the active ID in memory and persists `Tahouri_Active_Profile`. `ProfileScreen.selectProfile()` then refreshes the selected profile's remote entitlement and checks that the selection sequence and active student still match before returning to the profile screen.
+- The switch method itself does not emit a dedicated profile-changed event or explicitly rebind every manager. Most student-owned managers re-resolve their active profile context on their read/write methods; this behavior needs integration tests to prove no stale in-memory state survives a rapid switch.
+
+### Confirmed unscoped stores and classification
+
+- `Tahouri_ActivityHistory` is a single unscoped localStorage key. `ActivityManager` writes the current activity there, and `resultModal` can read it as a fallback when the live ActivityManager has no current activity. This is a device/browser-level continue-learning pointer, not a safe student-owned history store. It can outlive a profile switch and must not be exported as a particular student's learning history without resolving ownership. Recommended implementation decision: migrate to a student-scoped key with a one-time compatibility rule, or explicitly retain it as a device-level navigation hint and never use it as a student's authoritative record.
+- `Tahouri_Activation_Licenses` and `Tahouri_License_History` are unscoped browser caches. The license-history manager filters returned history by `studentId`; the cache must remain non-authoritative and be reconciled with the server. Do not treat it as a transferable license entitlement or student-data backup.
+- `Tahouri_Signed_Entitlement_v1` is an unscoped collection of signed entitlement envelopes. This is intentionally device-level cache storage: `LicenseManager` selects envelopes only after matching signed claims to the active `studentId`, grade scope, and installation binding, and verifies the signature. Preserve the verification and binding checks; never import an envelope as trusted authority or select it by array position alone.
+- `tahouri_reminder_state` is unscoped and contains device-level reminder/day flags; it should not be copied as student learning progress.
+- `tahouri_push_subscription:<studentId>` is keyed by student, but the subscription endpoint is browser/device-bound. Do not copy it to a replacement device as if it were portable; recreate/reconcile the subscription on the destination device.
+- `Tahouri_Installation_Id_v1` and offline clock high-water state are device identity/security state, not student-owned data. Never include them in a student profile export or clone them onto another device.
+
+### Profile deletion and active selection
+
+- Deleting the active profile selects the first remaining profile and then calls `save()`, which persists both the profile collection and active profile ID. The reviewed path does not delete the student's profile-scoped learning keys; deletion is therefore not equivalent to a data-erasure workflow. Any future delete/archive feature must define retention and explicit erasure semantics separately.
+- The profile import routine remains identity-only and checks collisions for a matching `studentId` with differing name/grade; it does not merge learning data. This remains insufficient as a full student-data restore.
+
+### Test requirements before account linking/device transfer
+
+1. Create two synthetic students with deliberately distinct progress, stars, statistics, locks, progression, streak, notifications, spelling records and settings; alternate profile switches and assert every manager reads/writes only the active student's namespace.
+2. Verify `ActivityHistory` behavior on switch, restart, and continue/resume; ensure no student's activity is presented as another student's history.
+3. Verify remote entitlement selection with multiple signed envelopes for two students, two grades, and different installation bindings; reject mismatched student, grade, installation, tampered signature, and replayed stale envelope.
+4. Verify profile deletion does not silently imply erasure and that device-bound push/reminder/installation state is not copied by student export.
+5. Run export/import round-trip and profile-switch integration tests with synthetic data before claiming lossless migration.
+
+No application code, SQL migration, production resource, or real student/license data was changed. Phase 0 remains **in progress**.
