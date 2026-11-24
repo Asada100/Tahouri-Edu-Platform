@@ -17,29 +17,64 @@ const ActivitySessionManager = {
             : null;
     },
 
+    validateSession(session) {
+        if (!session || typeof session !== "object" || Array.isArray(session)) return false;
+        if (session.version !== this.VERSION) return false;
+        if (typeof session.profileId !== "string" || !session.profileId) return false;
+        if (
+            typeof ProfileContext === "undefined" ||
+            typeof ProfileContext.getStudentId !== "function" ||
+            session.profileId !== ProfileContext.getStudentId()
+        ) return false;
+        if (typeof session.activityId !== "string" || !session.activityId) return false;
+        if (!["active", "resumable"].includes(session.status)) return false;
+        if (!session.engineState || typeof session.engineState !== "object" || Array.isArray(session.engineState)) return false;
+
+        const type = session.activityType;
+        const data = session.engineState;
+        if (type === "DictationEngine" || type === "dictation") {
+            return data.kind === "dictation" && !!data.state && typeof data.state === "object" &&
+                !!data.content && Array.isArray(data.content.questions) && data.content.questions.length > 0;
+        }
+        if (type === "WordPuzzleEngine" || type === "wordPuzzle") {
+            return data.kind === "wordPuzzle";
+        }
+        if (type === "QuizEngine" || type === "quiz") {
+            return data.kind === "quiz" && !!data.state && typeof data.state === "object" &&
+                Array.isArray(data.questions) && data.questions.length > 0 &&
+                Number.isInteger(data.currentQuestion) && data.currentQuestion >= 0 &&
+                data.currentQuestion < data.questions.length;
+        }
+        if (type === "MemoryEngine" || type === "memory") {
+            return data.kind === "memory" && Array.isArray(data.cards) && data.cards.length > 0 &&
+                Number.isInteger(data.totalPairs) && data.totalPairs > 0 &&
+                Number.isInteger(data.matchedPairs) && data.matchedPairs >= 0 &&
+                data.matchedPairs <= data.totalPairs;
+        }
+        if (type === "PuzzleEngine" || type === "puzzle") {
+            return data.kind === "puzzle" && !!data.state && typeof data.state === "object" &&
+                Array.isArray(data.items) && !!data.puzzle && typeof data.puzzle === "object";
+        }
+        if (type === "ClassificationEngine" || type === "classification") {
+            return Array.isArray(data.items) && data.items.length > 0 &&
+                Array.isArray(data.categories) && data.categories.length > 0;
+        }
+        return false;
+    },
+
     load(activityId) {
         const key = this.storageKey();
         if (!key || typeof SaveManager === "undefined") return null;
 
         const session = SaveManager.load(key);
-        if (!session || !session.activityId) return null;
-
-        if (activityId && session.activityId !== activityId) return null;
-
-        // Discard broken empty Classification sessions created before content
-        // was loaded correctly. They cannot be restored safely.
-        if (
-            (session.activityType === "classification" || session.activityType === "ClassificationEngine") &&
-            session.engineState &&
-            Array.isArray(session.engineState.items) &&
-            Array.isArray(session.engineState.categories) &&
-            (session.engineState.items.length === 0 || session.engineState.categories.length === 0)
-        ) {
-            console.warn("ActivitySessionManager: Ignoring invalid empty classification session", session.activityId);
-            SaveManager.remove(key);
+        if (!this.validateSession(session)) {
+            // Reject unsupported or malformed snapshots without deleting them.
+            // This preserves evidence and allows a future compatible migrator.
             this.currentSession = null;
             return null;
         }
+
+        if (activityId && session.activityId !== activityId) return null;
 
         this.currentSession = session;
         return session;
@@ -250,8 +285,11 @@ const ActivitySessionManager = {
         }
 
         const activity = App.resolveActivityById(session.activityId);
-        if (!activity) {
-            this.clear();
+        if (
+            !activity ||
+            activity.id !== session.activityId ||
+            this.type(activity) !== session.activityType
+        ) {
             return false;
         }
 
