@@ -604,3 +604,21 @@ The former bug-reproducer test was converted into an ownership-safety regression
 - The CI workflow step is now named as an ownership-safety regression rather than a bug reproducer.
 
 No production Pages, Worker, D1, browser storage, licenses, or real student records were changed. PR #141 remains Draft and unmerged.
+
+## Legacy migration handoff UX — single-use transfer code (2026-11-24)
+
+The student-facing legacy migration handoff no longer requires pasting administrator JSON. The authenticated administrator UI displays/copies a single opaque 256-bit transfer code; the student enters that code in one ordinary text field. The Worker resolves it to the server-held challenge only when the code hash matches an unused, unexpired challenge and the request comes from an allowed application Origin. The client then performs the existing installation/device-class checks, signs the canonical proof with the device private key, verifies the Worker-signed entitlement, and stores it.
+
+- The database continues to store only the SHA-256 hash in the existing `nonce_hash` column; no schema migration is required.
+- The code is valid for the existing two-minute challenge lifetime and is consumed by the existing atomic claim operation.
+- The challenge response remains API-compatible for existing trusted callers, while the admin UI displays only the transfer code.
+- The profile UI no longer parses or asks the student to handle JSON.
+- The transfer code is a bearer secret: administrators must deliver it only to the exact intended device through the school's controlled channel. Do not put it in public chat, support tickets, screenshots, or logs.
+- The public prepare endpoint is Origin-checked and returns only the challenge bound to the presented high-entropy code. Unknown, expired, or consumed codes are rejected.
+
+### Verification still required
+
+- Run the full License API CI against the final PR head, including Worker activation/admin UI, client-to-Worker migration E2E, and profile handoff tests.
+- Verify malformed/incorrect, expired, consumed, and replayed transfer codes fail without changing slots or licenses.
+- Complete the dedicated physical phone + Windows acceptance test on the isolated PR Preview and isolated D1.
+- Production remains untouched; PR #141 remains Draft and unmerged.
