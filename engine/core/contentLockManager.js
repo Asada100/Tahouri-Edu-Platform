@@ -178,7 +178,22 @@ const ContentLockManager = {
             const existingRaw = localStorage.getItem(profileKey);
             let existingLocks = {};
             if (existingRaw !== null) {
-                existingLocks = JSON.parse(existingRaw);
+                try {
+                    existingLocks = JSON.parse(existingRaw);
+                }
+                catch (profileParseError) {
+                    localStorage.setItem(
+                        this.LEGACY_MIGRATION_STATE_KEY,
+                        JSON.stringify({
+                            version: 1,
+                            status: "profile_data_conflict",
+                            ownerProfileKey: profileKey,
+                            reason: "existing_profile_payload_is_not_valid_json"
+                        })
+                    );
+                    return;
+                }
+
                 if (
                     !existingLocks ||
                     typeof existingLocks !== "object" ||
