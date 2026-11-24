@@ -641,10 +641,10 @@ const ProfileScreen = {
             if (!window.StudentDataTransfer) throw new Error("ابزار پشتیبان‌گیری بارگذاری نشده است.");
             const payload = window.StudentDataTransfer.exportAll();
             const serialized = JSON.stringify(payload, null, 2);
-            if (serialized.length > window.StudentDataTransfer.maxBytes) {
+            const blob = new Blob([serialized], { type: "application/json;charset=utf-8" });
+            if (blob.size > window.StudentDataTransfer.maxBytes) {
                 throw new Error("حجم پشتیبان بیش از ۲۰ مگابایت است؛ خروجی متوقف شد.");
             }
-            const blob = new Blob([serialized], { type: "application/json;charset=utf-8" });
             const url = URL.createObjectURL(blob);
             const link = document.createElement("a");
             link.href = url;
