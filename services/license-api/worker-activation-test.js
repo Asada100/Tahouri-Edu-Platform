@@ -293,14 +293,6 @@ async function main() {
     const issuedTransferCode = getUiElement("legacyMigrationChallengeOutput").value;
     assert.match(issuedTransferCode, /^[a-f0-9]{64}$/i,
         "The admin UI must expose one opaque transfer code, not a JSON challenge.");
-    const preparedMigration = await request(worker, env,
-        "/api/licenses/legacy-migration/prepare", "POST",
-        { transferCode: issuedTransferCode });
-    assert.equal(preparedMigration.status, 200,
-        "The one-time code must resolve to its server-held challenge.");
-    const preparedMigrationBody = await preparedMigration.json();
-    assert.equal(preparedMigrationBody.installationId, "inst-ui-test");
-    assert.equal(preparedMigrationBody.studentId, "ui-student");
     assert.equal(getUiElement("migrationAdminPassword").value, "",
         "The admin migration UI must clear the step-up password after challenge issuance.");
 
@@ -1381,6 +1373,26 @@ async function main() {
     const validChallengeResponse = await issueLegacyMigrationChallenge(migrationAdminPayload);
     assert.equal(validChallengeResponse.status, 201);
     const validChallenge = await validChallengeResponse.json();
+    const preparedMigration = await request(worker, env,
+      "/api/licenses/legacy-migration/prepare", "POST", { transferCode: validChallenge.transferCode });
+    assert.equal(preparedMigration.status, 200,
+      "The one-time transfer code must resolve to its server-held challenge.");
+    const preparedMigrationBody = await preparedMigration.json();
+    assert.equal(preparedMigrationBody.challengeId, validChallenge.challengeId);
+    assert.equal(preparedMigrationBody.installationId, validChallenge.installationId);
+    assert.equal(preparedMigrationBody.studentId, validChallenge.studentId);
+    const invalidTransferCode = await request(worker, env,
+      "/api/licenses/legacy-migration/prepare", "POST", { transferCode: "not-a-valid-code" });
+    assert.equal(invalidTransferCode.status, 400,
+      "Malformed transfer codes must be rejected.");
+    const unknownTransferCode = await request(worker, env,
+      "/api/licenses/legacy-migration/prepare", "POST", { transferCode: "f".repeat(64) });
+    assert.equal(unknownTransferCode.status, 409,
+      "Unknown transfer codes must not disclose challenge details.");
+    const expiredTransferCode = await request(worker, env,
+      "/api/licenses/legacy-migration/prepare", "POST", { transferCode: expiredChallenge.transferCode });
+    assert.equal(expiredTransferCode.status, 409,
+      "Expired transfer codes must be rejected before proof submission.");
     const migrationKeyPair = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
     const migrationProof = makeMigrationProof(validChallenge, migrationKeyPair);
     const forgedKeyPair = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
