@@ -228,6 +228,16 @@
         return { ...result, entitlementStored: true };
     }
 
+    async function claimLegacyMigrationCode(transferCode) {
+        const code = String(transferCode || "").trim();
+        if (!/^[a-f0-9]{64}$/i.test(code)) throw new Error("کد انتقال باید معتبر و کامل باشد.");
+        const challenge = await request("/licenses/legacy-migration/prepare", {
+            method: "POST",
+            body: JSON.stringify({ transferCode: code })
+        });
+        return claimLegacyMigration(challenge);
+    }
+
     async function pairingStatus(pairingId, token) {
         return request("/licenses/pairing/status", {
             method: "POST", body: JSON.stringify({ pairingId: String(pairingId || ""), token: String(token || "") })
@@ -338,6 +348,6 @@
             })
         });
     }
-    window.TahouriLicenseClient = { activate, health, status, requestPairing, requestPairingChallenge, decidePairing, pairingStatus, recoverApprovedPairingEntitlement, claimLegacyMigration, cancelPairing, listPendingPairings, listBoundDeviceSlots, requestDeviceRevocationChallenge, executeDeviceRevocation };
+    window.TahouriLicenseClient = { activate, health, status, requestPairing, requestPairingChallenge, decidePairing, pairingStatus, recoverApprovedPairingEntitlement, claimLegacyMigration, claimLegacyMigrationCode, cancelPairing, listPendingPairings, listBoundDeviceSlots, requestDeviceRevocationChallenge, executeDeviceRevocation };
     console.log("Tahouri License Client v2.0 Ready");
 })();
