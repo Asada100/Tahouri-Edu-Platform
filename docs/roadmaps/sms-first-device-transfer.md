@@ -197,3 +197,64 @@ Reviewed the current PR #141 head after the roadmap commit (`3c53ad24cf591a456fa
 Phase 0 is **partially complete**. This is not yet proof that no phone column exists anywhere in every historical database migration or admin import path. The next required inspection is the complete `student_accounts` schema and all profile-import/enrollment paths before designing the phone-enrollment migration.
 
 Immediate next task: finish the schema/data-model audit, then write the phone ownership and guardian-number policy before changing application code.
+
+
+## Phase 0 findings — data model and application flow audit (2026-11-24)
+
+### Existing database structure
+
+Reviewed every current SQL migration from `0001_initial_schema.sql` through `0013_legacy_device_migration_challenges.sql`.
+
+- `student_accounts` is the current identity-like table, keyed by `student_id`, with `full_name`, `grade_id`, status, activation status, and timestamps. It is a student record, not a guardian/user account.
+- No account/guardian table, account-to-student relationship table, email contact table, phone contact table, contact verification metadata, or OTP challenge table is defined in these 13 migrations.
+- `activation_codes` are hashed and tied to a student, grade, academic year, status, and eventual license. The code is single-use and cannot be reused after redemption.
+- `licenses` are tied to student, grade, academic year, and validity period.
+- Device slots are keyed by `license_id` and device class. The current schema enforces one active phone and one active computer slot **per license**, not per guardian account. This preserves the complementary device class during a class-specific replacement.
+- Device key material, pairing challenges, slot history, revocation challenges, and legacy migration challenges already exist through migration 0013.
+- The legacy migration challenge table records admin identity attestation and exact license/student/grade/year/device context; it is an administrative recovery mechanism, not an end-user login method.
+
+### Existing application and API flow
+
+- Local `ProfileManager` already supports multiple student profiles on one installation and persists them in local storage. Each profile has its own student ID, name, grade, and settings. This is a local profile collection, not a centrally authenticated guardian account.
+- The Worker profile import path creates `student_accounts` records from imported local profiles. The reviewed import route is admin-protected.
+- Public `POST /api/students/register` currently returns HTTP 410 with `enrollment_requires_admin`; public self-registration is disabled.
+- License activation currently expects the client to submit activation code, student ID, grade ID, installation ID, device class, and cryptographic device proof. The server checks the supplied student and grade against the activation-code record. Therefore the desired end-user flow that resolves student/license/grade/year automatically is not implemented yet.
+- The current license client exposes activation, device pairing, revocation, status, and legacy migration methods. No email OTP, SMS OTP, contact verification, account login, or account recovery methods were found in the reviewed client.
+- The current profile UI includes the legacy JSON challenge textarea and paste flow. It must not remain the normal customer-facing transfer process.
+- The admin panel currently manages student records, activation codes, licenses, payments, and audit logs. No guardian accounts, verified contact methods, or account-to-student management UI is present in the reviewed admin client.
+
+### Current-state matrix
+
+| Capability | Current state | Consequence |
+|---|---|---|
+| Multiple local student profiles | Present | Can be retained and linked; not a substitute for an account |
+| Central student records | Present | Keep student IDs stable |
+| Guardian/user account | Missing | Add a separate account identity |
+| One guardian to multiple students | Missing centrally | Add an account-student relationship without duplicating contact data |
+| Email/mobile contact methods | Not present in reviewed migrations | Add account-level contact records |
+| At-least-one contact validation | Missing | Enforce OR validation in both form and Worker |
+| Required full name and grade | Present in student import schema; public self-registration is disabled | Apply the approved registration contract at the new account/student enrollment boundary |
+| Email/SMS OTP | Missing | Add provider-neutral OTP service and channel adapters |
+| Public registration | Disabled (410) | Must be deliberately replaced by authenticated/verified enrollment, not simply reopened |
+| Activation code single-use | Present | Preserve and resolve the student/license context server-side |
+| Automatic activation context resolution | Missing in current client request contract | Redesign redemption so the user pastes only the activation code after account verification and the server resolves its binding |
+| One phone + one computer | Present per license | Retain license-scoped slot enforcement unless a separately reviewed policy changes it |
+| Cryptographic device identity | Present | Preserve proof-of-possession; OTP does not replace it |
+| Legacy admin-assisted migration | Present | Keep only as controlled fallback, not ordinary user UX |
+| Admin account/contact management | Missing | Extend admin workflows after account schema and security policy are reviewed |
+
+### Account and device scope clarification
+
+- Guardian account identity and student/license identity remain separate.
+- Email and phone belong to the guardian account. One guardian may have multiple linked students; a shared family phone must not be copied into each student record or treated as a unique student key.
+- Existing device-slot enforcement is per license. The intended one-phone/one-computer rule therefore applies independently to each student license, not as a single global device pair shared by all children in a guardian account. A transfer for one child's license must not affect another child's slots.
+- After OTP authentication, the server resolves the guardian account and its linked student profiles. Where multiple students exist, the user selects the relevant student profile. Activation-code redemption then resolves the license, grade, and academic year from the code record; the client must not be trusted to choose or override these values.
+- A contact method is verified independently. At least one must be verified before the account can be used for authenticated recovery or device transfer. If both are supplied, both can be verified; the second is optional.
+
+### Remaining audit work before schema design is frozen
+
+- Trace all local profile backup/export/import and learning-progress storage keys to define a lossless account-linking migration.
+- Inspect every license creation, renewal, grade/year transition, and device slot route for transaction boundaries and idempotency.
+- Inspect the full admin Worker routes and HTML to map permissions, audit events, and account-management extension points.
+- Confirm whether any non-migration runtime schema or local SQLite schema differs from the 13 versioned D1 migrations.
+- Design the account/contact/OTP schema only after these paths are mapped. Do not alter the existing student table by adding duplicate email/phone fields.
