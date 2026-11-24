@@ -293,3 +293,42 @@ Reviewed the profile manager, profile context, progress tracker, statistics mana
 5. Before any data migration is implemented, create synthetic multi-profile fixtures and prove that each student's records remain isolated and unchanged across export, import, account linking, and device replacement.
 
 Phase 0 remains **in progress**. The next audit items are the full license slot/revocation transaction paths, the complete admin authorization matrix, all export/backup call sites, badges/achievements discovery, and comparison of runtime/local SQLite schema against the versioned D1 migrations. No application code, SQL migration, production resource, or real student/license data was changed by this audit.
+
+
+## Phase 0 findings — device lifecycle, admin authorization, and runtime schema audit (2026-11-24)
+
+### Device pairing, revocation, and recovery
+
+Reviewed the Worker handlers for pairing request/list/challenge/decision/cancel/recovery, device revocation challenge/execute, admin device recovery, and the route dispatcher.
+
+- Pairing requests are bound to a license, student, grade, requester device class, installation ID, public key, and key fingerprint. The complementary active device must sign the challenge/decision. Approval conditionally inserts the new slot, consumes the challenge/request, stores the signed entitlement, and records an audit event in one D1 batch.
+- Approved-pairing entitlement recovery is read-only with respect to device slots. It requires the exact installation and key fingerprint and a signature from the already-bound private key; it returns the stored entitlement rather than creating a second slot.
+- Device revocation requires a signed challenge from the complementary device. The execution batch targets the exact license/device class/installation/fingerprint, consumes the challenge, cancels pending pairings for that same device class, and records an audit event. The complementary device class is not targeted by these statements.
+- Emergency admin device recovery also targets the exact license, device class, installation, and fingerprint; it requires a fresh admin-password check and a reason, and records an audit event. Its SQL does not target the complementary device class.
+- These code paths are structurally scoped to preserve the other device class. However, no isolated D1 concurrency/replay/failure-injection test was run during this documentation audit; code inspection is not a substitute for those tests.
+
+### Admin authorization and operational visibility
+
+- The Worker route dispatcher sends `/api/admin/*`, `/api/metrics`, and `/api/metrics/alerts` through the admin route handler. Except login/logout/session-check, the handler requires a valid unexpired admin session before returning data or performing an operation. POST mutations require a trusted Origin and JSON content type.
+- Admin login uses a random session token whose hash is stored, a time-limited session, failed-login throttling/lockout, and audit events. Global session revocation deletes all sessions and records the operation in one D1 batch.
+- Sensitive legacy migration and emergency device recovery additionally require re-entering the admin password and a reason/identity attestation.
+- The admin UI's license-extension action is disabled, and its Worker endpoint explicitly returns 501. Do not treat license extension as an available admin capability.
+- Admin license revocation currently updates only licenses with status `active`; it does not revoke a `future` reservation through that endpoint. The student archive route does revoke both active and future licenses.
+- Admin license revocation performs the license update and audit insertion as separate operations, not one atomic batch. A failure between them can leave a revoked license without its corresponding audit event. This should be corrected and tested before production use.
+- `/api/metrics/alerts` currently returns an empty alert list rather than evaluating persisted D1 operational signals. The dashboard therefore must not be interpreted as a complete security/operations alerting system.
+
+### Local SQLite versus Cloudflare D1 schema
+
+- The local Node service (`services/license-api/server.js`) uses `node:sqlite`, a separate SQLite database file, and its own `DB_SCHEMA_VERSION = 1` / `DATABASE_MIGRATIONS` list containing only version 1.
+- Cloudflare Worker/D1 uses the versioned SQL migration directory `services/license-api/migrations`, currently through migration 0013, and its health check reads `schema_migrations` and expects the D1 schema at least version 5 plus required tables/indexes.
+- These are distinct migration mechanisms and version numbers; local SQLite schema version 1 is not evidence that local SQLite matches D1 migration 0013. No automatic parity or schema equivalence was established.
+- The repository's local migration test validates the local service's version-1 startup migration/restart behavior; it does not compare its tables/columns/indexes against the D1 migration chain.
+
+### Required implementation safeguards
+
+1. Add a schema-diff/parity test that compares the intended shared tables, columns, constraints, and indexes between local SQLite and D1, or explicitly document and enforce that the schemas are intentionally different.
+2. Make license revocation and its audit record atomic; define a separate explicit policy for revoking future reservations.
+3. Add isolated D1 tests for simultaneous pairing approvals, duplicate/replayed revocation execution, admin recovery, audit-write failure, and preservation of the complementary device class.
+4. Replace the placeholder empty metrics-alert response with real alert evaluation before relying on the admin dashboard for operational monitoring.
+
+Phase 0 remains **in progress**. Remaining audit work includes targeted badges/achievements and full export/backup call-site discovery, plus a verified local-SQLite/D1 schema diff and execution of isolated device lifecycle tests. No application code, SQL migration, production resource, or real student/license data was changed by this audit.
