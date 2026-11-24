@@ -528,3 +528,23 @@ By comparison, `ProgressTracker` and `StatisticsManager` use a single global leg
 ### Scope and status
 
 This is a source-level finding from the migration key and call flow; the regression test has not yet been implemented or executed. Do not patch production behavior until the intended ownership rule for ambiguous legacy data is confirmed and the test is ready. No application code, local data, SQL, or deployed service was changed.
+
+
+## Phase 0 follow-up — executable content-lock legacy migration reproducer (2026-11-24)
+
+### Test added
+
+- Added `services/license-api/content-lock-legacy-migration-reproduction-test.js`. It loads the real `engine/core/contentLockManager.js` in a Node VM with synthetic localStorage and a switchable active student context; no production browser storage or student data is accessed.
+- Scenario 1 seeds one unscoped legacy lock dataset, migrates it while student A is active, switches to student B, and asserts that the current implementation copies the same dataset to B. It then reloads the harness and confirms the duplicate attribution persists.
+- Scenario 2 gives student A an existing scoped lock record, verifies it is not overwritten, then switches to B and reproduces B consuming the still-unscoped legacy dataset.
+- The test is deliberately a **bug reproducer**: PASS means the unsafe current behavior was observed. It is not a no-leak regression guard and must be converted after the ownership-safe production fix is agreed and implemented.
+
+### CI wiring and execution boundary
+
+- Added the reproducer to `.github/workflows/license-api-ci.yml`; the existing pull-request path filter already includes `services/license-api/**`, so this change should cause the License API CI workflow to include the new test on the PR.
+- The test has not been executed in this authoring environment. A GitHub Actions run is required before reporting an execution PASS. Workflow configuration presence is not evidence that the test passed.
+- No production application code, SQL migration, D1/Worker/Pages resource, local storage, license, or real student record was changed. PR #141 remains a Draft and must not be merged as part of this work.
+
+### Next implementation gate
+
+Before changing the migration behavior, decide and document how to handle an ambiguous unscoped legacy dataset when no reliable student owner can be established. The safe fix must prevent a second profile from consuming the same source, preserve existing scoped data, avoid silent attribution to the wrong student, and provide a controlled recovery path for ambiguous data. Then convert this reproducer into assertions that prove no cross-profile copy occurs and add migration/conflict/reload coverage.
