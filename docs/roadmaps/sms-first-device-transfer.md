@@ -548,3 +548,37 @@ This is a source-level finding from the migration key and call flow; the regress
 ### Next implementation gate
 
 Before changing the migration behavior, decide and document how to handle an ambiguous unscoped legacy dataset when no reliable student owner can be established. The safe fix must prevent a second profile from consuming the same source, preserve existing scoped data, avoid silent attribution to the wrong student, and provide a controlled recovery path for ambiguous data. Then convert this reproducer into assertions that prove no cross-profile copy occurs and add migration/conflict/reload coverage.
+
+## Phase 0 follow-up — ownership-safe legacy content-lock migration policy (2026-11-24)
+
+### Verified reproducer result
+
+GitHub Actions run [45470898784](https://github.com/Asada100/Tahouri-Edu-Platform/actions/runs/45470898784) completed successfully on commit `9ab7d44d54fc3c148f9ab65de2efc556195419b7`. The step `Content-lock legacy migration cross-profile bug reproduction` passed and its log explicitly confirms that the current cross-profile leak was reproduced. This is a **successful bug-reproduction test**, not evidence that the production behavior is fixed. The other steps in the License API CI job also completed successfully.
+
+### Safety rule for ambiguous legacy data
+
+Adopt the following conservative rule for implementation:
+
+1. Never automatically assign an unscoped legacy content-lock dataset to whichever student happens to be active when the application first opens. The currently active profile does not prove historical ownership.
+2. Never copy the same unscoped legacy dataset into more than one student profile.
+3. Preserve the original unscoped value unchanged until a migration decision is completed. Do not silently delete, overwrite, or reinterpret it.
+4. Automatic migration is permitted only when reliable persisted evidence identifies the original student owner. A single profile existing today is not, by itself, sufficient evidence of historical ownership.
+5. If ownership is ambiguous, quarantine the legacy dataset as recoverable legacy data and require an explicit, authenticated ownership decision through a controlled recovery flow before attaching it to a student. Do not make ordinary students handle JSON or internal IDs.
+6. Existing profile-scoped records are authoritative and must never be overwritten by legacy data. A conflict must be recorded as unresolved, not used as a reason to let another profile consume the legacy source.
+7. The migration decision must be global and one-time for the legacy source, not separately repeatable per profile. It must be idempotent across reloads and safe against partial writes; retain enough source/decision metadata to recover after interruption.
+8. If no owner can be established, keep the data quarantined and continue with the profile's normal defaults. Do not sacrifice student isolation to make the old data appear automatically.
+
+### Required implementation and regression coverage
+
+- Replace the current per-profile migration marker behavior with a single source-level migration state/decision.
+- Test verified-owner migration to A, then A → B → A switching and reload; B must never receive A's legacy values.
+- Test ambiguous ownership: no profile receives the data automatically; the original legacy payload remains recoverable.
+- Test explicit recovery assignment to the confirmed owner, idempotent retries, and interruption between persistence steps.
+- Test an existing scoped record: it remains byte-for-byte unchanged, and the legacy payload is not offered to another profile.
+- Test malformed legacy JSON and empty legacy values without data loss or repeated error loops.
+- Convert the current reproducer into a no-leak regression guard; do not keep a test whose expected result is the unsafe behavior.
+- Add a two-profile integration test that verifies content-lock state alongside progress, statistics, streak and other student-owned stores.
+
+### Status and boundary
+
+The reproducer has executed successfully in CI. The production content-lock migration is **not fixed yet**. This policy is the implementation safety contract for the next change; the code change and no-leak regression tests remain pending. No production Pages, Worker, D1, browser storage, licenses, or real student records were changed. PR #141 remains Draft and unmerged.
