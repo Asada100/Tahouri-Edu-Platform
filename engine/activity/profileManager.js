@@ -664,9 +664,8 @@ importProfiles: function (items) {
         const studentId = String(item && item.studentId || "").trim();
         const name = String(item && (item.fullName || item.name) || "").trim();
         const grade = String(item && (item.gradeId || item.grade) || "").trim();
-        const settings = item && item.settings && typeof item.settings === "object" && !Array.isArray(item.settings)
-            ? { ...item.settings }
-            : {};
+        const hasSettings = !!(item && item.settings && typeof item.settings === "object" && !Array.isArray(item.settings));
+        const settings = hasSettings ? { ...item.settings } : {};
 
         if (!studentId || studentId.length > 128 || !/^[A-Za-z0-9_-]+$/.test(studentId)) {
             throw new Error("شناسهٔ یکی از پروفایل‌ها معتبر نیست.");
@@ -683,13 +682,14 @@ importProfiles: function (items) {
             name: name,
             grade: grade,
             settings: settings,
+            hasSettings: hasSettings,
             createdAt: item && item.createdAt ? item.createdAt : null
         };
         const prior = normalized.get(studentId);
         if (prior && (
             prior.name !== name ||
             prior.grade !== grade ||
-            JSON.stringify(prior.settings) !== JSON.stringify(settings)
+            (prior.hasSettings && hasSettings && JSON.stringify(prior.settings) !== JSON.stringify(settings))
         )) {
             throw new Error("یک شناسه در فایل با اطلاعات متفاوت تکرار شده است.");
         }
@@ -714,7 +714,7 @@ importProfiles: function (items) {
             if (
                 String(existing.name || "").trim() !== candidate.name ||
                 String(existing.grade || "") !== candidate.grade ||
-                JSON.stringify(existingSettings) !== JSON.stringify(incomingSettings)
+                (candidate.hasSettings && JSON.stringify(existingSettings) !== JSON.stringify(incomingSettings))
             ) {
                 throw new Error("این شناسه روی دستگاه با نام، پایه یا تنظیمات متفاوتی وجود دارد: " + candidate.studentId);
             }
