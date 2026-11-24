@@ -411,7 +411,7 @@ const ProfileScreen = {
             const canMigrateLegacy = !!(result && result.status === "renewal_required" &&
                 /تکمیل مهاجرت مجوز قدیمی/.test(result.reason || "") &&
                 window.TahouriDeviceIdentity && window.TahouriLicenseClient &&
-                typeof window.TahouriLicenseClient.claimLegacyMigration === "function");
+                typeof window.TahouriLicenseClient.claimLegacyMigrationCode === "function");
             if (migrationPanel) {
                 migrationPanel.hidden = !canMigrateLegacy;
                 if (canMigrateLegacy) {
