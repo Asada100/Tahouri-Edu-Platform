@@ -328,6 +328,13 @@ const ActivitySessionManager = {
         }
     },
 
+    activateRestoredActivity(activity) {
+        ActivityManager.currentActivity = activity;
+        ActivityState.set("started");
+        ActivityState.set("playing");
+        document.body.classList.add("activity-playing");
+    },
+
     async restoreEngine(activity, session) {
         const data = session && session.engineState;
         const engineName = (session && session.activityType) || this.type(activity);
@@ -335,12 +342,8 @@ const ActivitySessionManager = {
 
         if (!engine || !data) return false;
 
-        // Restore never calls engine.start(). The engine must receive the
-        // saved state directly; calling start() would reset progress to zero.
-        ActivityManager.currentActivity = activity;
-        ActivityState.set("started");
-        ActivityState.set("playing");
-
+        // Restore never calls engine.start(). Do not publish global activity
+        // state until the engine has accepted its saved snapshot.
         if (data.kind === "dictation" && (engineName === "DictationEngine" || engineName === "dictation")) {
             if (!data.state || typeof engine.restoreSession !== "function") return false;
 
@@ -357,10 +360,7 @@ const ActivitySessionManager = {
 
             if (!engine.restoreSession(data.state)) return false;
 
-            ActivityManager.currentActivity = activity;
-            ActivityState.set("started");
-            ActivityState.set("playing");
-            document.body.classList.add("activity-playing");
+            this.activateRestoredActivity(activity);
 
             if (typeof DictationScreen !== "undefined" && typeof DictationScreen.render === "function") {
                 DictationScreen.render(engine.getState());
@@ -377,10 +377,7 @@ const ActivitySessionManager = {
         if (data.kind === "wordPuzzle" && (engineName === "WordPuzzleEngine" || engineName === "wordPuzzle")) {
             if (typeof engine.restoreSession !== "function") return false;
             if (!engine.restoreSession(data)) return false;
-            ActivityManager.currentActivity = activity;
-            ActivityState.set("started");
-            ActivityState.set("playing");
-            document.body.classList.add("activity-playing");
+            this.activateRestoredActivity(activity);
             return true;
         }
 
@@ -396,6 +393,7 @@ const ActivitySessionManager = {
                 ScoreManager.wrong = Number(data.wrong || 0);
             }
 
+            this.activateRestoredActivity(activity);
             const question = typeof engine.getQuestion === "function" ? engine.getQuestion() : null;
             if (question && typeof QuizScreen !== "undefined" && typeof QuizScreen.show === "function") {
                 QuizScreen.reset();
@@ -427,6 +425,7 @@ const ActivitySessionManager = {
                 ScoreManager.wrong = Number(data.wrong || 0);
             }
 
+            this.activateRestoredActivity(activity);
             if (typeof MemoryScreen !== "undefined" && typeof MemoryScreen.show === "function") {
                 MemoryScreen.show({ title: activity.title || "بازی حافظه", cards: engine.cards });
             }
@@ -454,6 +453,7 @@ const ActivitySessionManager = {
             engine.userAnswer = data.userAnswer;
             engine.moves = Number(data.moves || 0);
 
+            this.activateRestoredActivity(activity);
             // Rebuild the in-memory Jigsaw core from the restored PuzzleEngine state
             // before rendering. Without this, the board is visible but move/reset
             // operations have no Jigsaw core state to operate on.
@@ -479,14 +479,13 @@ const ActivitySessionManager = {
 
             if (!fullActivity || !fullActivity.classification) return false;
 
-            ActivityManager.currentActivity = fullActivity;
-            engine.activityData = fullActivity;
-
             // ClassificationEngine.restoreSession() is the only operation
             // that reconstructs the saved classification state. Do not call
             // ClassificationEngine.start() on this path.
             if (!engine.restoreSession(data)) return false;
 
+            engine.activityData = fullActivity;
+            this.activateRestoredActivity(fullActivity);
             if (typeof ClassificationScreen !== "undefined" && typeof ClassificationScreen.show === "function") {
                 ClassificationScreen.currentActivity = fullActivity;
                 ClassificationScreen.currentState = engine.getState();
