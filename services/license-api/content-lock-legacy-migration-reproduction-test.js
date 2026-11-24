@@ -127,7 +127,7 @@ async function testMalformedLegacyIsPreservedAndNotAssigned() {
     assert.deepEqual(JSON.parse(harness.values.get(STATE_KEY)), {
         version: 1,
         status: "invalid_legacy_data",
-        reason: "legacy_payload_must_be_an_object"
+        reason: "legacy_payload_is_not_valid_json"
     }, "Malformed legacy data must be explicitly rejected.");
     assert.equal(harness.values.has("Tahouri_ContentLocks:student-A"), false,
         "Malformed data must not be written to the active profile.");
