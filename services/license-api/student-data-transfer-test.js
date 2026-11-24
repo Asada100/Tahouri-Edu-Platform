@@ -6,6 +6,9 @@ const path = require("node:path");
 const vm = require("node:vm");
 
 const transferSource = fs.readFileSync(path.join(__dirname, "../../engine/core/studentDataTransfer.js"), "utf8");
+const profileManagerSource = fs.readFileSync(path.join(__dirname, "../../engine/activity/profileManager.js"), "utf8");
+const profileScreenSource = fs.readFileSync(path.join(__dirname, "../../engine/ui/profileScreen.js"), "utf8");
+const indexSource = fs.readFileSync(path.join(__dirname, "../../index.html"), "utf8");
 
 function makeHarness(seed, profiles, activeId) {
     const values = new Map(Object.entries(seed || {}));
@@ -182,7 +185,63 @@ function testInvalidEnvelopeAndOversizeAreRejected() {
     assert.equal(target.values.size, 0);
 }
 
+function testProfileManagerPreservesSettingsAndKeepsIdentityOnlyImportCompatible() {
+    const values = new Map();
+    const localStorage = {
+        getItem(key) { return values.has(key) ? values.get(key) : null; },
+        setItem(key, value) { values.set(key, String(value)); },
+        removeItem(key) { values.delete(key); }
+    };
+    const existing = {
+        studentId: "student-existing",
+        name: "دانش‌آموز موجود",
+        grade: "grade6",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        settings: settingsA
+    };
+    values.set("Tahouri_Profiles", JSON.stringify([existing]));
+    values.set("Tahouri_Active_Profile", "student-existing");
+    const window = {};
+    const context = { window, localStorage, console, Date, Math, JSON, Object, Array, Map, String, Number };
+    vm.runInNewContext(profileManagerSource, context);
+    const manager = window.ProfileManager;
+
+    const identityOnly = manager.importProfiles([{
+        studentId: "student-existing",
+        fullName: "دانش‌آموز موجود",
+        gradeId: "grade6"
+    }]);
+    assert.equal(identityOnly.alreadyPresent, 1);
+    assert.deepEqual(JSON.parse(JSON.stringify(manager.getAll()[0].settings)), settingsA,
+        "Identity-only import must not overwrite or conflict with existing personal settings.");
+
+    const fullImport = manager.importProfiles([{
+        studentId: "student-new",
+        fullName: "دانش‌آموز تازه",
+        gradeId: "grade5",
+        settings: settingsB,
+        createdAt: "2026-02-02T00:00:00.000Z"
+    }]);
+    assert.equal(fullImport.imported, 1);
+    const added = manager.getAll().find(p => p.studentId === "student-new");
+    assert.deepEqual(JSON.parse(JSON.stringify(added.settings)), settingsB,
+        "New profiles must retain settings from the full learning backup.");
+    assert.equal(added.createdAt, "2026-02-02T00:00:00.000Z");
+}
+
+function testProfileScreenWiresFullBackupControls() {
+    assert.match(indexSource, /engine\/core\/studentDataTransfer\.js/,
+        "The transfer module must load before the profile screen.");
+    assert.match(profileScreenSource, /id="studentDataExportBtn"/);
+    assert.match(profileScreenSource, /id="studentDataImportFile"/);
+    assert.match(profileScreenSource, /exportStudentLearningData: function/);
+    assert.match(profileScreenSource, /importStudentLearningDataFromFile: async function/);
+    assert.match(profileScreenSource, /مجوز و شناسهٔ دستگاه منتقل نمی‌شوند/);
+}
+
 function main() {
+    testProfileManagerPreservesSettingsAndKeepsIdentityOnlyImportCompatible();
+    testProfileScreenWiresFullBackupControls();
     testExportCapturesAllStudentOwnedLearningStores();
     testImportRestoresEveryProfileAndIsIdempotent();
     testExistingEmptyDefaultsCanBeRestoredWithoutOverwritingRealData();
