@@ -30,13 +30,22 @@ Target: the SMS should normally arrive within about 5–10 seconds, but delivery
 - Never ask a student or parent to visit the admin panel or copy technical challenge data.
 - Do not remove device cryptography. OTP proves control of the previously verified account phone; the new device still creates and retains its own non-extractable private key and proves possession before binding.
 
-### 2. Phone number ownership
+### 2. Account identity, registration, and contact methods
 
-- Each student/license account must have a verified Iranian mobile number, either the student's number or a parent/guardian's number.
-- Store a normalized phone number and verification metadata, not a plaintext OTP.
-- A phone number must not be silently changed during device transfer.
-- If an existing account has no verified phone number, it needs a separate supervised phone-enrollment/recovery process. Do not pretend SMS transfer can work before this prerequisite exists.
-- Account/guardian relationship and phone-number change policy must be decided before enabling production activation for all accounts.
+- Keep the login/guardian account separate from student profiles. One guardian account may own or manage multiple student profiles.
+- Email address and mobile number are account-level contact methods, not student-profile fields. Do not add duplicate contact fields to every student row.
+- Registration requires at least one of email or mobile number. The user may enter email only, mobile only, or both. Entering both is allowed but neither is individually mandatory.
+- The registration form must state this rule explicitly: **"ایمیل یا شماره تلفن (حداقل یکی الزامی است؛ وارد کردن هر دو نیز امکان‌پذیر است)."**
+- On submit, if both contact fields are empty, block registration and show: **"لطفاً حداقل یکی از دو روش ایمیل یا شماره تلفن را وارد کنید."** Enforce the same validation on the server; client-side validation alone is insufficient.
+- Full name and educational grade are also required registration fields and must be visibly marked with an asterisk (*). Missing values must block registration with clear Persian validation messages.
+- Other profile details are optional. They must not be marked required and must not block account creation; the user may add them later in a separate profile-completion step.
+- Verify ownership of the selected contact method with a one-time code before treating it as verified. If both email and mobile are supplied, record both, but clearly track verification independently for each. The initial registration can proceed with one verified method; the second method remains optional until verified.
+- Provide a shared OTP service with separate replaceable email and SMS delivery adapters. Email OTP must work without a phone number, and SMS OTP must work without an email address.
+- Store normalized contact values and verification metadata at account level. Do not store OTP plaintext. A phone number may be shared by a guardian across multiple student profiles; do not impose uniqueness per student.
+- Define account-level uniqueness/lookup rules carefully: one verified email must not ambiguously identify multiple guardian accounts. A shared guardian phone may resolve to one guardian account with multiple linked students, followed by student selection. Avoid account enumeration in all public responses.
+- A contact method must not be silently changed during device transfer. Adding or changing email/phone requires ownership verification; loss of access to the old method uses a controlled recovery path.
+- Existing accounts with no verified email or phone must have a secure enrollment/recovery path. Do not assume every legacy user already has a mobile number.
+- Keep account identity independent from student ID, license ID, grade, and academic year. Resolve student/license context from server-side records after authentication or activation-code redemption.
 
 ### 3. OTP lifecycle
 
@@ -68,6 +77,37 @@ Initial policy for implementation and tests:
 - Implement a mock provider for CI and isolated tests first.
 - Select an Iranian provider only after confirming API access, delivery reports, OTP/verification template support, sender-line requirements, pricing, and delivery to users whose phones filter promotional messages.
 - Do not select a vendor or buy a line by assumption. The provider adapter must be replaceable without changing client flows or OTP business logic.
+
+
+### Registration form contract — approved 2026-11-24
+
+The registration screen has one clear required-information section and a separate optional profile-completion section. The minimum required fields are:
+
+| Field | Required | Rule |
+|---|---:|---|
+| Email | One of the two contact methods | Valid format; ownership verified by email OTP |
+| Mobile number | One of the two contact methods | Valid normalized number; ownership verified by SMS OTP |
+| Full name | Yes (*) | Non-empty |
+| Educational grade | Yes (*) | Must be one of the supported grades |
+| Any other profile details | No | Optional; may be completed later |
+
+Contact-method validation is an **OR rule**, not an AND rule:
+- Email only: accepted.
+- Mobile only: accepted.
+- Both email and mobile: accepted.
+- Neither: registration is rejected with the exact message **"لطفاً حداقل یکی از دو روش ایمیل یا شماره تلفن را وارد کنید."**
+
+The form must explain the rule next to the two fields, rather than relying on the asterisk alone. Mark Full name and Grade with (*). If either is missing, prevent submission and show a field-specific Persian message. Repeat all validation on the Worker/API before creating the account.
+
+Do not make optional details mandatory, do not add extra mandatory fields, and do not force the user to complete optional details before using the account. The optional profile-completion step can be skipped and revisited later.
+
+### Parent account and student-profile relationship
+
+- Create or authenticate one stable guardian/user account using its verified contact method(s).
+- Link one or more student profiles to that account; each student keeps an independent student ID, name, grade, academic year, learning history, and license relationship.
+- A guardian's shared phone number belongs to the guardian account and can serve multiple linked children. It is not a unique student identifier.
+- During first activation, redeem the activation code once; the server resolves the associated student/license/grade/year. Do not ask the user to type internal IDs.
+- After account authentication, show the linked student profiles for selection where more than one exists. Do not merge student learning records merely because they share a guardian contact.
 
 ## User-facing states
 
