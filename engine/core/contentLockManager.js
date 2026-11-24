@@ -222,7 +222,21 @@ const ContentLockManager = {
             );
         }
         catch (error) {
-            // Preserve source and archive; do not let another profile claim it.
+            // Invalid JSON is a terminal global decision too; otherwise a later
+            // profile could repeatedly retry and accidentally claim the source.
+            try {
+                localStorage.setItem(
+                    this.LEGACY_MIGRATION_STATE_KEY,
+                    JSON.stringify({
+                        version: 1,
+                        status: "invalid_legacy_data",
+                        reason: "legacy_payload_is_not_valid_json"
+                    })
+                );
+            }
+            catch (stateError) {
+                console.error("Legacy Content Locks Migration State Error", stateError);
+            }
             console.error("Legacy Content Locks Migration Error", error);
         }
     },
