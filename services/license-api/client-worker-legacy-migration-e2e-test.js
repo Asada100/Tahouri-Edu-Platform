@@ -198,7 +198,7 @@ async function main() {
 
     const beforeLicense = { ...db.prepare("SELECT student_id, grade_id, academic_year, valid_from, valid_until, status FROM licenses WHERE license_id=?").get(licenseId) };
     const beforeStudent = { ...db.prepare("SELECT status, grade_id, activation_status FROM student_accounts WHERE student_id=?").get(studentId) };
-    const result = await window.TahouriLicenseClient.claimLegacyMigration(challenge);
+    const result = await window.TahouriLicenseClient.claimLegacyMigrationCode(challenge.transferCode);
 
     assert.equal(result.status, "migrated");
     assert.equal(result.entitlementStored, true, "The real client must verify and store the Worker-signed entitlement.");
@@ -225,7 +225,7 @@ async function main() {
     assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM legacy_device_migration_challenges WHERE challenge_id=? AND consumed_at IS NOT NULL").get(challenge.challengeId).count), 1);
     assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type='device.legacy_migrated' AND license_id=?").get(licenseId).count), 1);
 
-    const replay = await window.TahouriLicenseClient.claimLegacyMigration(challenge).then(
+    const replay = await window.TahouriLicenseClient.claimLegacyMigrationCode(challenge.transferCode).then(
         () => ({ status: 200 }),
         error => ({ status: 409, message: error.message })
     );
