@@ -664,6 +664,9 @@ importProfiles: function (items) {
         const studentId = String(item && item.studentId || "").trim();
         const name = String(item && (item.fullName || item.name) || "").trim();
         const grade = String(item && (item.gradeId || item.grade) || "").trim();
+        const settings = item && item.settings && typeof item.settings === "object" && !Array.isArray(item.settings)
+            ? { ...item.settings }
+            : {};
 
         if (!studentId || studentId.length > 128 || !/^[A-Za-z0-9_-]+$/.test(studentId)) {
             throw new Error("شناسهٔ یکی از پروفایل‌ها معتبر نیست.");
@@ -675,9 +678,19 @@ importProfiles: function (items) {
             throw new Error("پایهٔ یکی از پروفایل‌ها معتبر نیست.");
         }
 
-        const candidate = { studentId: studentId, name: name, grade: grade };
+        const candidate = {
+            studentId: studentId,
+            name: name,
+            grade: grade,
+            settings: settings,
+            createdAt: item && item.createdAt ? item.createdAt : null
+        };
         const prior = normalized.get(studentId);
-        if (prior && (prior.name !== name || prior.grade !== grade)) {
+        if (prior && (
+            prior.name !== name ||
+            prior.grade !== grade ||
+            JSON.stringify(prior.settings) !== JSON.stringify(settings)
+        )) {
             throw new Error("یک شناسه در فایل با اطلاعات متفاوت تکرار شده است.");
         }
         normalized.set(studentId, candidate);
@@ -690,8 +703,20 @@ importProfiles: function (items) {
             return String(profile.studentId) === candidate.studentId;
         });
         if (existing) {
-            if (String(existing.name || "").trim() !== candidate.name || String(existing.grade || "") !== candidate.grade) {
-                throw new Error("این شناسه روی دستگاه با نام یا پایهٔ متفاوتی وجود دارد: " + candidate.studentId);
+            const existingSettings = {
+                ...this.getDefaultSettings(),
+                ...(existing.settings || {})
+            };
+            const incomingSettings = {
+                ...this.getDefaultSettings(),
+                ...candidate.settings
+            };
+            if (
+                String(existing.name || "").trim() !== candidate.name ||
+                String(existing.grade || "") !== candidate.grade ||
+                JSON.stringify(existingSettings) !== JSON.stringify(incomingSettings)
+            ) {
+                throw new Error("این شناسه روی دستگاه با نام، پایه یا تنظیمات متفاوتی وجود دارد: " + candidate.studentId);
             }
             alreadyPresent++;
             continue;
@@ -699,14 +724,23 @@ importProfiles: function (items) {
         additions.push(this.buildProfile({
             studentId: candidate.studentId,
             name: candidate.name,
-            grade: candidate.grade
+            grade: candidate.grade,
+            settings: candidate.settings,
+            createdAt: candidate.createdAt
         }));
     }
 
     if (additions.length) {
         this.profiles.push(...additions);
         if (!this.activeProfileId) this.activeProfileId = additions[0].studentId;
-        this.save();
+        if (!this.save()) {
+            this.profiles = this.profiles.filter(function (profile) {
+                return !additions.some(function (added) {
+                    return added.studentId === profile.studentId;
+                });
+            });
+            throw new Error("ذخیرهٔ پروفایل‌های واردشده انجام نشد.");
+        }
     }
 
     return {
@@ -714,6 +748,7 @@ importProfiles: function (items) {
         alreadyPresent: alreadyPresent,
         total: normalized.size
     };
+
 },
 
 
