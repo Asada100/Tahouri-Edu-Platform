@@ -1364,7 +1364,9 @@ async function adminRoute(request, env, url, headers) {
     ]);
     if (Number(results?.[0]?.meta?.changes || 0) !== 1 || Number(results?.[1]?.meta?.changes || 0) !== 1)
       return error("صدور چالش مهاجرت ممکن نشد؛ وضعیت داده‌ها تغییر کرده است.", 409, headers);
-    return json({ ok: true, transferCode: nonce, expiresAt }, 201, headers);
+    return json({ ok: true, transferCode: nonce, challengeId, nonce, expiresAt, licenseId, studentId,
+      gradeId, academicYear, deviceType, installationId,
+      purpose: "tahouri-legacy-device-migration-v1" }, 201, headers);
   }
 
   if (path === "/api/admin/device-slots/recover" && request.method === "POST") {
