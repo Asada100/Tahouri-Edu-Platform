@@ -142,3 +142,18 @@ A normal user can tap **Transfer device**, receive a six-digit SMS OTP, enter/au
 - How to enroll parent/guardian phone numbers for current accounts.
 - Which Iranian SMS provider meets service-message delivery requirements and what sender line/template approval is needed.
 - Whether legacy device transfer and first-time license activation should share one OTP service while retaining separate authorization policies.
+
+
+## Phase 0 findings — 2026-11-24
+
+Reviewed the current PR #141 head after the roadmap commit (`3c53ad24cf591a456fa9f90bd833c69c1f16196d`):
+
+- `engine/ui/profileScreen.js` currently exposes the legacy migration panel with instructions to give an installation ID to a school administrator, receive a one-time JSON challenge, paste it into a textarea, and press a button. This is the exact customer-facing complexity that must be removed from the normal transfer experience.
+- `engine/core/tahouriLicenseClient.js` exposes `claimLegacyMigration(challenge)`, which requires a challenge object and submits it to `/licenses/legacy-migration/claim`. No SMS/OTP request or verification client method was found in this file.
+- `services/license-api/worker.js` routes the legacy claim endpoint and admin functions. The reviewed student-account read/write paths use student ID, full name, grade, status, and activation status; no phone/SMS/OTP handling was found in the reviewed Worker paths.
+- `engine/activity/profileManager.js` stores/imports local profile identity (student ID, name, grade); no phone-number ownership or verification flow was found in the reviewed profile manager.
+- The current PR is still open, Draft, and unmerged. The roadmap commit is the current PR head. No production environment was changed.
+
+Phase 0 is **partially complete**. This is not yet proof that no phone column exists anywhere in every historical database migration or admin import path. The next required inspection is the complete `student_accounts` schema and all profile-import/enrollment paths before designing the phone-enrollment migration.
+
+Immediate next task: finish the schema/data-model audit, then write the phone ownership and guardian-number policy before changing application code.
