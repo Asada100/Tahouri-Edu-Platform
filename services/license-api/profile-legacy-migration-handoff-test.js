@@ -12,6 +12,8 @@ assert.doesNotMatch(source, /JSON\.parse\(String\(input && input\.value/,
     "Student UI must not parse administrator JSON.");
 assert.match(source, /claimLegacyMigrationCode/,
     "The profile screen must use the one-time transfer-code client method.");
+assert.match(source, /result\.requiresLegacyDeviceMigration === true/,
+    "Migration UI must use a structured status flag, not localized reason text.");
 assert.match(source, /typeof window\.TahouriLicenseClient\.claimLegacyMigrationCode === "function"/,
     "The migration panel must be gated on the transfer-code client method.");
 
@@ -30,7 +32,7 @@ const challengeInput = element("legacyMigrationChallengeInput");
 const claimButton = element("claimLegacyMigrationBtn");
 
 let currentProfile = { studentId: "profile-student-1", grade: "grade6" };
-let licenseStatus = { status: "renewal_required", reason: "تکمیل مهاجرت مجوز قدیمی لازم است" };
+let licenseStatus = { status: "renewal_required", reason: "تکمیل مهاجرت مجوز قدیمی لازم است", requiresLegacyDeviceMigration: true };
 let identityCalls = 0;
 let claimCalls = [];
 let refreshCalls = 0;
@@ -73,11 +75,11 @@ async function main() {
     assert.equal(installationId.textContent, "synthetic-installation-123");
     assert.equal(identityCalls, 1);
 
-    licenseStatus = { status: "renewal_required", reason: "تمدید عادی مجوز" };
+    licenseStatus = { status: "renewal_required", reason: "تمدید عادی مجوز", requiresLegacyDeviceMigration: false };
     await ProfileScreen.refreshProfileLicenseStatus(currentProfile);
     assert.equal(migrationPanel.hidden, true, "Ordinary renewal must not expose migration UI.");
 
-    licenseStatus = { status: "renewal_required", reason: "تکمیل مهاجرت مجوز قدیمی لازم است" };
+    licenseStatus = { status: "renewal_required", reason: "متن راهنمای قابل تغییر", requiresLegacyDeviceMigration: true };
     await ProfileScreen.refreshProfileLicenseStatus(currentProfile);
     assert.equal(migrationPanel.hidden, false);
 
