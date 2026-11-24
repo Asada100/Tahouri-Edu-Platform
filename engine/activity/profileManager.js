@@ -693,6 +693,9 @@ importProfiles: function (items) {
         )) {
             throw new Error("یک شناسه در فایل با اطلاعات متفاوت تکرار شده است.");
         }
+        if (prior && prior.hasSettings && !hasSettings) {
+            continue;
+        }
         normalized.set(studentId, candidate);
     }
 
