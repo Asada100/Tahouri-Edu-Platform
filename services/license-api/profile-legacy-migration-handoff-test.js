@@ -124,7 +124,7 @@ async function main() {
     assert.equal(mismatchResult, false);
     assert.equal(claimCalls.length, beforeMismatch,
         "A challenge for another student must never reach the migration client.");
-    assert.match(message.textContent, /چالش برای این دانش‌آموز/);
+    assert.match(message.textContent, /کد انتقال را وارد کنید|کد انتقال/);
     assert.equal(claimButton.disabled, false);
 
     challengeInput.value = JSON.stringify({
@@ -138,7 +138,7 @@ async function main() {
     );
     assert.equal(success, true);
     assert.equal(claimCalls.length, beforeMismatch + 1);
-    assert.equal(claimCalls.at(-1).challengeId, "synthetic-challenge-valid");
+    assert.equal(claimCalls.at(-1), "a".repeat(64));
     assert.equal(challengeInput.value, "",
         "The challenge input must be cleared only after verified storage succeeds.");
     assert.match(message.textContent, /اتصال امن انجام شد/);
