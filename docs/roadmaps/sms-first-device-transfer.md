@@ -622,3 +622,14 @@ The student-facing legacy migration handoff no longer requires pasting administr
 - Verify malformed/incorrect, expired, consumed, and replayed transfer codes fail without changing slots or licenses.
 - Complete the dedicated physical phone + Windows acceptance test on the isolated PR Preview and isolated D1.
 - Production remains untouched; PR #141 remains Draft and unmerged.
+
+### Single-code handoff CI verification
+
+At commit `40cf96e3f0597f9b76d6114cf4e143d1626c5c63`, License API CI run [45481341108](https://github.com/Asada100/Tahouri-Edu-Platform/actions/runs/45481341108) completed successfully (28/28 steps). This includes:
+- Worker admin migration challenge and transfer-code resolution checks.
+- Rejection of malformed, unknown, expired, cross-Origin and consumed/replayed transfer codes.
+- Client-to-Worker migration E2E with RSA proof, signed entitlement verification/storage, and preservation of the complementary device slot.
+- Profile UI handoff test confirming one text input, no JSON parsing, profile-state gating, and clearing the code only after verified entitlement storage.
+- Content-lock ownership-safety regression and the existing license/profile safety suites.
+
+The physical phone + Windows acceptance test against the isolated Preview/D1 is still outstanding. CI success is not a substitute for that real-device test. PR #141 remains Draft and unmerged.
