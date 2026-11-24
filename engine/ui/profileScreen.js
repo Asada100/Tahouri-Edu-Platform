@@ -440,7 +440,7 @@ const ProfileScreen = {
 
             const migrationPanel = document.getElementById("legacyDeviceMigrationPanel");
             const canMigrateLegacy = !!(result && result.status === "renewal_required" &&
-                /تکمیل مهاجرت مجوز قدیمی/.test(result.reason || "") &&
+                result.requiresLegacyDeviceMigration === true &&
                 window.TahouriDeviceIdentity && window.TahouriLicenseClient &&
                 typeof window.TahouriLicenseClient.claimLegacyMigrationCode === "function");
             if (migrationPanel) {
