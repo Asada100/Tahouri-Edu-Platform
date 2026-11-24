@@ -217,7 +217,7 @@ async function main() {
             }
             if (String(url).endsWith("/api/admin/legacy-device-migration/challenge")) {
                 return { ok: true, status: 201, json: async () => ({
-                    ok: true, challengeId: "mig-ui-test", nonce: "n".repeat(64),
+                    ok: true, transferCode: "a".repeat(64), challengeId: "mig-ui-test", nonce: "n".repeat(64),
                     expiresAt: new Date(Date.now() + 120000).toISOString(),
                     licenseId: "lic-ui-test", studentId: "ui-student", gradeId: "grade6",
                     academicYear: "1405", deviceType: "phone", installationId: "inst-ui-test",
