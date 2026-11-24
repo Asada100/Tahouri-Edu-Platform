@@ -290,7 +290,17 @@ async function main() {
     assert.equal(migrationUiBody.adminPassword, env.ADMIN_PASSWORD);
     assert.equal(migrationUiBody.licenseId, "lic-ui-test");
     assert.equal(migrationUiBody.installationId, "inst-ui-test");
-    assert.match(getUiElement("legacyMigrationChallengeOutput").value, /mig-ui-test/);
+    const issuedTransferCode = getUiElement("legacyMigrationChallengeOutput").value;
+    assert.match(issuedTransferCode, /^[a-f0-9]{64}$/i,
+        "The admin UI must expose one opaque transfer code, not a JSON challenge.");
+    const preparedMigration = await request(worker, env,
+        "/api/licenses/legacy-migration/prepare", "POST",
+        { transferCode: issuedTransferCode });
+    assert.equal(preparedMigration.status, 200,
+        "The one-time code must resolve to its server-held challenge.");
+    const preparedMigrationBody = await preparedMigration.json();
+    assert.equal(preparedMigrationBody.installationId, "inst-ui-test");
+    assert.equal(preparedMigrationBody.studentId, "ui-student");
     assert.equal(getUiElement("migrationAdminPassword").value, "",
         "The admin migration UI must clear the step-up password after challenge issuance.");
 
