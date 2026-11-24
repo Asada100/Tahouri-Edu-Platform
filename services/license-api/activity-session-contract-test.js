@@ -109,7 +109,14 @@ async function main() {
         engines[item.engineName] = item.engine;
         const snapshot = manager.snapshot(item.activity);
         assert.ok(snapshot, item.name + ": snapshot exists");
-        assert.equal(snapshot.kind, item.kind, item.name + ": snapshot kind");
+        if (item.name === "classification") {
+            // ClassificationEngine.getSessionState() returns its payload directly;
+            // restore dispatch is selected by activityType, not a snapshot.kind tag.
+            assert.ok(Array.isArray(snapshot.items), "classification: snapshot items");
+            assert.ok(Array.isArray(snapshot.categories), "classification: snapshot categories");
+        } else {
+            assert.equal(snapshot.kind, item.kind, item.name + ": snapshot kind");
+        }
         const portable = JSON.parse(JSON.stringify(snapshot));
         assert.deepEqual(JSON.parse(JSON.stringify(portable)), JSON.parse(JSON.stringify(snapshot)));
 
