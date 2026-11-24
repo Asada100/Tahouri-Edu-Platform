@@ -131,6 +131,8 @@ const ContentLockManager = {
     migrateLegacyLocks: function (profileKey) {
         if (!profileKey) return;
 
+        // This is a single global decision: once the original installation's
+        // legacy data is assigned, no later profile can claim it.
         const state = localStorage.getItem(this.LEGACY_MIGRATION_STATE_KEY);
         if (state) return;
 
@@ -140,9 +142,7 @@ const ContentLockManager = {
         try {
             const archived = localStorage.getItem(this.LEGACY_ARCHIVE_KEY);
 
-            // Preserve the original payload before recording the one-time
-            // decision. If the browser stops between these writes, retrying
-            // is safe because the archive is never overwritten.
+            // Keep an untouched copy before attempting the one-time transfer.
             if (archived === null) {
                 localStorage.setItem(this.LEGACY_ARCHIVE_KEY, legacy);
             }
@@ -158,31 +158,74 @@ const ContentLockManager = {
                 return;
             }
 
-            // The old key has no trustworthy student owner. Quarantine it
-            // once instead of assigning it to whichever profile is active.
-            // Keep both the source and archive recoverable for supervised
-            // ownership resolution; never copy this data to another profile.
+            const legacyLocks = JSON.parse(legacy);
+            if (
+                !legacyLocks ||
+                typeof legacyLocks !== "object" ||
+                Array.isArray(legacyLocks)
+            ) {
+                localStorage.setItem(
+                    this.LEGACY_MIGRATION_STATE_KEY,
+                    JSON.stringify({
+                        version: 1,
+                        status: "invalid_legacy_data",
+                        reason: "legacy_payload_must_be_an_object"
+                    })
+                );
+                return;
+            }
+
+            const existingRaw = localStorage.getItem(profileKey);
+            let existingLocks = {};
+            if (existingRaw !== null) {
+                existingLocks = JSON.parse(existingRaw);
+                if (
+                    !existingLocks ||
+                    typeof existingLocks !== "object" ||
+                    Array.isArray(existingLocks)
+                ) {
+                    localStorage.setItem(
+                        this.LEGACY_MIGRATION_STATE_KEY,
+                        JSON.stringify({
+                            version: 1,
+                            status: "profile_data_conflict",
+                            ownerProfileKey: profileKey,
+                            reason: "existing_profile_payload_is_not_an_object"
+                        })
+                    );
+                    return;
+                }
+            }
+
+            // Existing profile values win on duplicate IDs. Legacy-only IDs
+            // are added, so no current profile value is overwritten.
+            const mergedLocks = {
+                ...legacyLocks,
+                ...existingLocks
+            };
+
+            // Write target first. If the browser stops before the global state
+            // marker is stored, retrying this merge is safe and idempotent.
+            localStorage.setItem(profileKey, JSON.stringify(mergedLocks));
             localStorage.setItem(
                 this.LEGACY_MIGRATION_STATE_KEY,
                 JSON.stringify({
                     version: 1,
-                    status: "quarantined",
-                    reason: "legacy_owner_unverified"
+                    status: "migrated",
+                    ownerProfileKey: profileKey
                 })
             );
 
-            console.warn(
-                "Legacy Content Locks Quarantined: student ownership is unverified."
+            console.log(
+                "Legacy Content Locks Migrated to owner profile:",
+                profileKey
             );
         }
         catch (error) {
-            console.error(
-                "Legacy Content Locks Quarantine Error",
-                error
-            );
+            // Preserve source and archive; do not let another profile claim it.
+            console.error("Legacy Content Locks Migration Error", error);
         }
     },
-
     applyProfileLocks: function () {
         const key = this.getStorageKey();
 
