@@ -158,6 +158,7 @@ const MemoryScreen = {
 
 
         this.bindCards();
+        return true;
 
     },
 
