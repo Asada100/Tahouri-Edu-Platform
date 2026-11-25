@@ -41,7 +41,7 @@ const context = {
     },
     ScoreManager: { score: 7, correct: 2, wrong: 1 },
     DictationScreen: { render() {} }, QuizScreen: { reset() {}, show() {} },
-    MemoryScreen: { show() { return true; } }, PuzzleScreen: { show() {} },
+    MemoryScreen: { show() { return true; } }, PuzzleScreen: { show() { appContainer.innerHTML = "<div class=\"screen puzzleScreen\">restored puzzle</div>"; } },
     ClassificationScreen: { show() {} },
     App: { resolveActivityById(id) { return { id, title: id, classification: {} }; } },
     JSON, Date, Number, Array, Object, Set, Map
@@ -426,6 +426,85 @@ async function main() {
     assert.equal(engines.ClassificationEngine.handler, priorClassificationFields.handler, "failed classification restore rolls back handler");
     assert.equal(engines.ClassificationEngine.state, priorClassificationFields.state, "failed classification restore preserves engine state");
     assert.equal(activityState, priorState, "failed classification restore preserves ActivityState");
+
+    // Puzzle restore must roll back engine and Jigsaw core state when rendering fails.
+    const puzzleActivity = { id: "failed-puzzle-render", title: "پازل", engine: "PuzzleEngine" };
+    const puzzleEngine = {
+        activity: { id: "prior-puzzle" }, state: { started: true, prior: true },
+        puzzle: { type: "grid", prior: true }, questions: [{ id: "prior-question" }],
+        currentQuestion: 2, items: ["prior-item"], userAnswer: "prior-answer", moves: 6,
+        transitioning: true, checking: true, finishAcceptedThisCheck: true,
+        startRequestId: 11, transitionRequestId: 12,
+        getState() { return { type: this.puzzle.type, moves: this.moves }; }
+    };
+    engines.PuzzleEngine = puzzleEngine;
+    const puzzleFields = [
+        "activity", "state", "puzzle", "questions", "currentQuestion", "items",
+        "userAnswer", "moves", "transitioning", "checking", "finishAcceptedThisCheck",
+        "startRequestId", "transitionRequestId"
+    ];
+    const priorPuzzleState = {};
+    puzzleFields.forEach(key => { priorPuzzleState[key] = puzzleEngine[key]; });
+    const priorPuzzleScore = { score: context.ScoreManager.score, correct: context.ScoreManager.correct, wrong: context.ScoreManager.wrong };
+    appContainer.innerHTML = "<main>prior puzzle screen</main>";
+    context.PuzzleScreen = {
+        show() {
+            appContainer.innerHTML = "<main class='puzzleScreen'>partial puzzle render</main>";
+            throw new Error("synthetic puzzle render failure");
+        }
+    };
+    await assert.rejects(
+        manager.restoreEngine(puzzleActivity, {
+            activityType: "PuzzleEngine",
+            engineState: {
+                kind: "puzzle", activity: puzzleActivity,
+                state: { started: true }, puzzle: { type: "grid", rows: 2, cols: 2 },
+                items: ["a", "b"], userAnswer: "new-answer", moves: 3
+            }
+        }),
+        /synthetic puzzle render failure/
+    );
+    puzzleFields.forEach(key => assert.equal(puzzleEngine[key], priorPuzzleState[key], "failed puzzle render rolls back " + key));
+    assert.deepEqual(
+        { score: context.ScoreManager.score, correct: context.ScoreManager.correct, wrong: context.ScoreManager.wrong },
+        priorPuzzleScore,
+        "failed puzzle render preserves score counters"
+    );
+    assert.equal(appContainer.innerHTML, "<main>prior puzzle screen</main>", "failed puzzle render restores prior markup");
+    assert.equal(context.ActivityManager.currentActivity, priorActivity, "failed puzzle render does not publish activity");
+    assert.equal(activityState, priorState, "failed puzzle render preserves ActivityState");
+
+    const priorFacadeState = { id: "prior-facade" };
+    const priorImageCoreState = { id: "prior-image-core" };
+    context.JigsawPuzzle = {
+        state: priorFacadeState,
+        restoreFromEngine() {
+            this.state = { id: "partial-facade" };
+            context.JigsawImagePuzzle.state = { id: "partial-image-core" };
+            return true;
+        }
+    };
+    context.JigsawImagePuzzle = { state: priorImageCoreState };
+    context.JigsawWordPuzzle = { state: null };
+    context.PuzzleScreen = {
+        show() { return false; }
+    };
+    appContainer.innerHTML = "<main>prior jigsaw screen</main>";
+    const jigsawActivity = { id: "failed-jigsaw-render", title: "جورچین", engine: "PuzzleEngine" };
+    assert.equal(await manager.restoreEngine(jigsawActivity, {
+        activityType: "PuzzleEngine",
+        engineState: {
+            kind: "puzzle", activity: jigsawActivity,
+            state: { started: true },
+            puzzle: { type: "jigsaw", mode: "image", image: "/image.jpg", rows: 2, cols: 2, pieceCount: 4 },
+            items: ["piece-1", "piece-0", "piece-2", "piece-3"], userAnswer: null, moves: 4
+        }
+    }), false, "jigsaw false render is rejected");
+    assert.equal(context.JigsawPuzzle.state, priorFacadeState, "failed jigsaw render restores facade state");
+    assert.equal(context.JigsawImagePuzzle.state, priorImageCoreState, "failed jigsaw render restores image core state");
+    assert.equal(puzzleEngine.puzzle.type, "grid", "failed jigsaw render restores prior engine puzzle");
+    assert.equal(appContainer.innerHTML, "<main>prior jigsaw screen</main>", "failed jigsaw render restores prior markup");
+    assert.equal(context.ActivityManager.currentActivity, priorActivity, "failed jigsaw render does not publish activity");
 
     const transferSource = read("engine/core/studentDataTransfer.js");
     assert.equal(transferSource.includes('key: "Tahouri_ActivitySession:'), false);
