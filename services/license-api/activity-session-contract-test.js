@@ -41,7 +41,7 @@ const context = {
     },
     ScoreManager: { score: 7, correct: 2, wrong: 1 },
     DictationScreen: { render() {} }, QuizScreen: { reset() {}, show() {} },
-    MemoryScreen: { show() {} }, PuzzleScreen: { show() {} },
+    MemoryScreen: { show() { return true; } }, PuzzleScreen: { show() {} },
     ClassificationScreen: { show() {} },
     App: { resolveActivityById(id) { return { id, title: id, classification: {} }; } },
     JSON, Date, Number, Array, Object, Set, Map
@@ -269,6 +269,73 @@ async function main() {
     assert.equal(engines.DictationEngine.finishAuthorized, priorDictationFields.finishAuthorized, "failed dictation restore rolls back finish authorization");
     assert.equal(context.ActivityManager.currentActivity, priorActivity, "failed dictation restore preserves current activity");
     assert.equal(activityState, priorState, "failed dictation restore preserves ActivityState");
+
+    // Memory rendering must succeed before publishing the restored activity.
+    const memoryActivity = { id: "failed-memory-render", title: "حافظه", engine: "MemoryEngine" };
+    const memoryCards = [
+        { id: "m1", value: "A", pairId: "A", flipped: false, matched: false },
+        { id: "m2", value: "A", pairId: "A", flipped: false, matched: false }
+    ];
+    const memoryEngine = {
+        activity: { id: "prior-memory" },
+        cards: [{ id: "prior-card" }],
+        firstCard: { id: "prior-first" },
+        secondCard: { id: "prior-second" },
+        lockBoard: true,
+        matchedPairs: 2,
+        moves: 8,
+        totalPairs: 4,
+        finished: true
+    };
+    engines.MemoryEngine = memoryEngine;
+    const memoryFields = [
+        "activity", "cards", "firstCard", "secondCard", "lockBoard",
+        "matchedPairs", "moves", "totalPairs", "finished"
+    ];
+    const priorMemoryState = {};
+    memoryFields.forEach(key => { priorMemoryState[key] = memoryEngine[key]; });
+    const priorMemoryScore = { score: context.ScoreManager.score, correct: context.ScoreManager.correct, wrong: context.ScoreManager.wrong };
+    const memoryMarkup = { innerHTML: "<main>prior memory</main>" };
+    context.document.getElementById = id => id === "app" ? memoryMarkup : null;
+    context.MemoryScreen = {
+        show() {
+            memoryMarkup.innerHTML = "<main>partial memory render</main>";
+            throw new Error("synthetic memory render failure");
+        }
+    };
+    await assert.rejects(
+        manager.restoreEngine(memoryActivity, {
+            activityType: "MemoryEngine",
+            engineState: {
+                kind: "memory", activity: memoryActivity, cards: memoryCards,
+                matchedPairs: 1, moves: 3, totalPairs: 1, score: 40, correct: 1, wrong: 2
+            }
+        }),
+        /synthetic memory render failure/
+    );
+    memoryFields.forEach(key => assert.equal(memoryEngine[key], priorMemoryState[key], "failed memory render rolls back " + key));
+    assert.deepEqual(
+        { score: context.ScoreManager.score, correct: context.ScoreManager.correct, wrong: context.ScoreManager.wrong },
+        priorMemoryScore,
+        "failed memory render rolls back score counters"
+    );
+    assert.equal(memoryMarkup.innerHTML, "<main>prior memory</main>", "failed memory render restores prior markup");
+    assert.equal(context.ActivityManager.currentActivity, priorActivity, "failed memory render does not publish new activity");
+    assert.equal(activityState, priorState, "failed memory render preserves ActivityState");
+    assert.equal(manager.currentSession, priorSession, "failed memory render preserves current session");
+    assert.equal(manager.gameplayActive, true, "failed memory render preserves gameplay flag");
+
+    context.MemoryScreen = { show() { return false; } };
+    assert.equal(await manager.restoreEngine(memoryActivity, {
+        activityType: "MemoryEngine",
+        engineState: {
+            kind: "memory", activity: memoryActivity, cards: memoryCards,
+            matchedPairs: 0, moves: 0, totalPairs: 1
+        }
+    }), false, "memory screen false render is rejected");
+    memoryFields.forEach(key => assert.equal(memoryEngine[key], priorMemoryState[key], "false memory render rolls back " + key));
+    assert.equal(context.ActivityManager.currentActivity, priorActivity, "false memory render does not publish new activity");
+    assert.equal(activityState, priorState, "false memory render preserves ActivityState");
 
     // A quiz screen failure must roll back engine state, score, and partial markup
     // before the restored activity is published globally.
