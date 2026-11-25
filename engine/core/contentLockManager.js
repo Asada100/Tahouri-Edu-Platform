@@ -128,25 +128,20 @@ const ContentLockManager = {
         }
     },
 
-    migrateLegacyLocks: function (profileKey) {
-        if (!profileKey) return;
-
-        // This is a single global decision: once the original installation's
-        // legacy data is assigned, no later profile can claim it.
-        const state = localStorage.getItem(this.LEGACY_MIGRATION_STATE_KEY);
-        if (state) return;
+    migrateLegacyLocks: function () {
+        // An unscoped legacy payload has no reliable student owner. Never
+        // attach it to whichever profile happens to be active at startup.
+        // Preserve it for an authenticated recovery decision instead.
+        if (localStorage.getItem(this.LEGACY_MIGRATION_STATE_KEY)) return;
 
         const legacy = localStorage.getItem(this.BASE_STORAGE_KEY);
         if (legacy === null) return;
 
         try {
             const archived = localStorage.getItem(this.LEGACY_ARCHIVE_KEY);
-
-            // Keep an untouched copy before attempting the one-time transfer.
             if (archived === null) {
                 localStorage.setItem(this.LEGACY_ARCHIVE_KEY, legacy);
-            }
-            else if (archived !== legacy) {
+            } else if (archived !== legacy) {
                 localStorage.setItem(
                     this.LEGACY_MIGRATION_STATE_KEY,
                     JSON.stringify({
@@ -158,101 +153,29 @@ const ContentLockManager = {
                 return;
             }
 
-            const legacyLocks = JSON.parse(legacy);
-            if (
-                !legacyLocks ||
-                typeof legacyLocks !== "object" ||
-                Array.isArray(legacyLocks)
-            ) {
-                localStorage.setItem(
-                    this.LEGACY_MIGRATION_STATE_KEY,
-                    JSON.stringify({
-                        version: 1,
-                        status: "invalid_legacy_data",
-                        reason: "legacy_payload_must_be_an_object"
-                    })
-                );
-                return;
+            let status = "quarantined";
+            let reason = "legacy_owner_unverified";
+            try {
+                const legacyLocks = JSON.parse(legacy);
+                if (!legacyLocks || typeof legacyLocks !== "object" || Array.isArray(legacyLocks)) {
+                    status = "invalid_legacy_data";
+                    reason = "legacy_payload_must_be_an_object";
+                }
+            } catch (_) {
+                status = "invalid_legacy_data";
+                reason = "legacy_payload_is_not_valid_json";
             }
 
-            const existingRaw = localStorage.getItem(profileKey);
-            let existingLocks = {};
-            if (existingRaw !== null) {
-                try {
-                    existingLocks = JSON.parse(existingRaw);
-                }
-                catch (profileParseError) {
-                    localStorage.setItem(
-                        this.LEGACY_MIGRATION_STATE_KEY,
-                        JSON.stringify({
-                            version: 1,
-                            status: "profile_data_conflict",
-                            ownerProfileKey: profileKey,
-                            reason: "existing_profile_payload_is_not_valid_json"
-                        })
-                    );
-                    return;
-                }
-
-                if (
-                    !existingLocks ||
-                    typeof existingLocks !== "object" ||
-                    Array.isArray(existingLocks)
-                ) {
-                    localStorage.setItem(
-                        this.LEGACY_MIGRATION_STATE_KEY,
-                        JSON.stringify({
-                            version: 1,
-                            status: "profile_data_conflict",
-                            ownerProfileKey: profileKey,
-                            reason: "existing_profile_payload_is_not_an_object"
-                        })
-                    );
-                    return;
-                }
-            }
-
-            // Existing profile values win on duplicate IDs. Legacy-only IDs
-            // are added, so no current profile value is overwritten.
-            const mergedLocks = {
-                ...legacyLocks,
-                ...existingLocks
-            };
-
-            // Write target first. If the browser stops before the global state
-            // marker is stored, retrying this merge is safe and idempotent.
-            localStorage.setItem(profileKey, JSON.stringify(mergedLocks));
+            // The source and archive remain untouched. A later profile must
+            // not consume this payload until ownership is explicitly proven.
             localStorage.setItem(
                 this.LEGACY_MIGRATION_STATE_KEY,
-                JSON.stringify({
-                    version: 1,
-                    status: "migrated",
-                    ownerProfileKey: profileKey
-                })
+                JSON.stringify({ version: 1, status: status, reason: reason })
             );
-
-            console.log(
-                "Legacy Content Locks Migrated to owner profile:",
-                profileKey
-            );
-        }
-        catch (error) {
-            // Invalid JSON is a terminal global decision too; otherwise a later
-            // profile could repeatedly retry and accidentally claim the source.
-            try {
-                localStorage.setItem(
-                    this.LEGACY_MIGRATION_STATE_KEY,
-                    JSON.stringify({
-                        version: 1,
-                        status: "invalid_legacy_data",
-                        reason: "legacy_payload_is_not_valid_json"
-                    })
-                );
-            }
-            catch (stateError) {
-                console.error("Legacy Content Locks Migration State Error", stateError);
-            }
-            console.error("Legacy Content Locks Migration Error", error);
+        } catch (error) {
+            // If archival/decision persistence fails, leave the source intact
+            // and retry on a later initialization; never guess an owner.
+            console.error("Legacy Content Locks Quarantine Error", error);
         }
     },
     applyProfileLocks: function () {
