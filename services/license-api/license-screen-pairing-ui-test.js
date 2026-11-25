@@ -93,6 +93,7 @@ async function runPairingUiInteractionTests() {
     };
     const windowStub = {
         TahouriLicenseClient: client,
+        LicenseManager: null,
         TahouriEntitlementVerifier: {
             async verifyEnvelope(value) {
                 return value === entitlement
@@ -111,13 +112,14 @@ async function runPairingUiInteractionTests() {
         prompt() { return "pairing-ui-1"; },
         alert(message) { alerts.push(message); }
     };
+    windowStub.LicenseManager = { async initializeRemoteEntitlement() { initialized += 1; } };
     const dependencies = {
         getActiveProfile: () => profile,
         document: { getElementById: id => elements[id] || null },
         window: windowStub,
         navigator: { userAgent: "Android Mobile" },
         TahouriLicenseClient: client,
-        LicenseManager: { async initializeRemoteEntitlement() { initialized += 1; } },
+        LicenseManager: windowStub.LicenseManager,
         showManagementError: message => messages.push({ message, success: false }),
         pairingMessage: (message, success) => messages.push({ message, success }),
         renderList() {},
