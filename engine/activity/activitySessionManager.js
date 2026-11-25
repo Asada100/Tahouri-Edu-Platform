@@ -479,12 +479,29 @@ const ActivitySessionManager = {
 
             if (!fullActivity || !fullActivity.classification) return false;
 
-            // ClassificationEngine.restoreSession() is the only operation
-            // that reconstructs the saved classification state. Do not call
-            // ClassificationEngine.start() on this path.
-            if (!engine.restoreSession(data)) return false;
-
+            // ClassificationEngine.restoreSession() requires activityData
+            // before it can rebuild its content. Preserve its previous engine
+            // fields if validation rejects the snapshot or restoration throws.
+            const previousEngineState = {
+                activityData: engine.activityData,
+                content: engine.content,
+                handler: engine.handler,
+                state: engine.state
+            };
             engine.activityData = fullActivity;
+            let classificationRestored = false;
+            try {
+                classificationRestored = engine.restoreSession(data) === true;
+            } catch (error) {
+                Object.assign(engine, previousEngineState);
+                throw error;
+            }
+            if (!classificationRestored) {
+                Object.assign(engine, previousEngineState);
+                return false;
+            }
+
+            // Do not call ClassificationEngine.start() on this path.
             this.activateRestoredActivity(fullActivity);
             if (typeof ClassificationScreen !== "undefined" && typeof ClassificationScreen.show === "function") {
                 ClassificationScreen.currentActivity = fullActivity;
