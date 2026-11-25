@@ -11,7 +11,7 @@ import crypto from "node:crypto";
 const root = dirname(fileURLToPath(import.meta.url));
 const db = new DatabaseSync(":memory:");
 const migrationsDir = join(root, "migrations");
-for (const file of readdirSync(migrationsDir).filter(name => /^\\d+_.*\\.sql$/.test(name)).sort()) {
+for (const file of readdirSync(migrationsDir).filter(name => /^\d+_.*\.sql$/.test(name)).sort()) {
   db.exec(readFileSync(join(migrationsDir, file), "utf8"));
 }
 
