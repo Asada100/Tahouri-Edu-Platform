@@ -99,7 +99,12 @@ const cases = [
         activity: { id: "classification-1", engine: "ClassificationEngine", classification: {} },
         engine: {
             getSessionState() { return { items: [{ id: "i1" }], categories: [{ id: "c1" }], placed: { i1: "c1" } }; },
-            restoreSession(data) { this.restored = data; return true; },
+            activityData: null, content: null, handler: null,
+            restoreSession(data) {
+                if (!this.activityData) return false;
+                this.restored = data;
+                return true;
+            },
             getState() { return { placed: { i1: "c1" } }; }
         }
     }
@@ -194,15 +199,34 @@ async function main() {
     assert.equal(context.ActivityManager.currentActivity, priorActivity, "throwing restore preserves current activity");
     assert.equal(activityState, priorState, "throwing restore preserves ActivityState");
 
-    engines.ClassificationEngine = { restoreSession() { return false; } };
-    const priorActivityData = { id: "prior-engine-data" };
-    engines.ClassificationEngine.activityData = priorActivityData;
+    engines.ClassificationEngine = {
+        activityData: { id: "prior-engine-data" },
+        content: { prior: true },
+        handler: { prior: true },
+        state: { prior: true },
+        restoreSession() {
+            assert.ok(this.activityData && this.activityData.id === "failed-classification");
+            this.content = { partiallyPrepared: true };
+            this.handler = { partiallyPrepared: true };
+            return false;
+        }
+    };
+    const priorClassificationFields = {
+        activityData: engines.ClassificationEngine.activityData,
+        content: engines.ClassificationEngine.content,
+        handler: engines.ClassificationEngine.handler,
+        state: engines.ClassificationEngine.state
+    };
+    const priorActivityData = priorClassificationFields.activityData;
     assert.equal(await manager.restoreEngine(
         { id: "failed-classification", engine: "ClassificationEngine", classification: {} },
         { activityType: "ClassificationEngine", engineState: { items: [{ id: "i" }], categories: [{ id: "c" }] } }
     ), false, "classification false restore is rejected");
     assert.equal(context.ActivityManager.currentActivity, priorActivity, "failed classification restore preserves current activity");
     assert.equal(engines.ClassificationEngine.activityData, priorActivityData, "failed classification restore preserves engine activity data");
+    assert.equal(engines.ClassificationEngine.content, priorClassificationFields.content, "failed classification restore rolls back prepared content");
+    assert.equal(engines.ClassificationEngine.handler, priorClassificationFields.handler, "failed classification restore rolls back handler");
+    assert.equal(engines.ClassificationEngine.state, priorClassificationFields.state, "failed classification restore preserves engine state");
     assert.equal(activityState, priorState, "failed classification restore preserves ActivityState");
 
     const transferSource = read("engine/core/studentDataTransfer.js");
