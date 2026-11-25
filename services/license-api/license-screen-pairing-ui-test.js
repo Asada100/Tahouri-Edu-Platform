@@ -371,7 +371,59 @@ async function runPairingUiInteractionTests() {
     }
     verificationValid = true;
     recoveryResponse = { status: "approved", entitlement };
+
+    const networkFailureUi = factory(
+        dependencies.getActiveProfile, dependencies.document, dependencies.window,
+        dependencies.navigator, dependencies.TahouriLicenseClient, dependencies.LicenseManager,
+        dependencies.showManagementError, dependencies.pairingMessage, dependencies.renderList,
+        dependencies.getActiveSignedLicenseClaims, dependencies.loadPendingPairings
+    );
+    await networkFailureUi.begin();
+    const pendingBeforeNetworkFailure = networkFailureUi.getPending();
+    const writesBeforeNetworkFailure = storeWriteCalls;
+    const initializationsBeforeNetworkFailure = initialized;
+    const messagesBeforeNetworkFailure = messages.length;
+    recoveryResponse = Promise.reject(new Error("temporary network failure"));
+    elements.tahouriPairingRecoverButton.disabled = false;
+    await networkFailureUi.recover();
+    assert.equal(storeWriteCalls, writesBeforeNetworkFailure,
+        "a recovery transport failure must not write to secure storage");
+    assert.equal(initialized, initializationsBeforeNetworkFailure,
+        "a recovery transport failure must not initialize the entitlement");
+    assert.equal(messages.length, messagesBeforeNetworkFailure + 1);
+    assert.equal(messages.at(-1).success, false);
+    assert.equal(elements.tahouriPairingRecoverButton.disabled, false);
+    assert.deepEqual(networkFailureUi.getPending(), pendingBeforeNetworkFailure,
+        "a recovery transport failure must preserve the pending pairing request");
+
+    const recoveryStoreFailureUi = factory(
+        dependencies.getActiveProfile, dependencies.document, dependencies.window,
+        dependencies.navigator, dependencies.TahouriLicenseClient, dependencies.LicenseManager,
+        dependencies.showManagementError, dependencies.pairingMessage, dependencies.renderList,
+        dependencies.getActiveSignedLicenseClaims, dependencies.loadPendingPairings
+    );
+    await recoveryStoreFailureUi.begin();
+    const pendingBeforeStoreFailure = recoveryStoreFailureUi.getPending();
+    const initializationsBeforeStoreFailure = initialized;
+    const writesBeforeStoreFailure = storeWriteCalls;
+    recoveryResponse = { status: "approved", entitlement };
+    storeAccepts = false;
+    elements.tahouriPairingRecoverButton.disabled = false;
+    await recoveryStoreFailureUi.recover();
+    assert.equal(storeWriteCalls, writesBeforeStoreFailure + 1,
+        "recovery must attempt the secure-store write for a verified entitlement");
+    assert.equal(storedEntitlement, null,
+        "a failed recovery secure-store write must not leave an entitlement stored");
+    assert.equal(initialized, initializationsBeforeStoreFailure,
+        "a failed recovery secure-store write must not initialize the entitlement");
+    assert.equal(messages.at(-1).success, false);
+    assert.equal(elements.tahouriPairingRecoverButton.disabled, false);
+    assert.deepEqual(recoveryStoreFailureUi.getPending(), pendingBeforeStoreFailure,
+        "a failed recovery secure-store write must preserve the pending pairing request");
+    storeAccepts = true;
+
     console.log("PASS: recovery rejects invalid signatures, non-approved status, and missing entitlements without storage, initialization, or losing pending requests");
+    console.log("PASS: recovery transport and secure-store failures preserve pending requests and never initialize an unstored entitlement");
     console.log("PASS: recovery rejects another installation or device type before storage and initialization");
     console.log("PASS: entitlements bound to another installation or device type are rejected before secure storage");
     console.log("PASS: rejected and expired requests terminate; invalid entitlements and failed secure-store writes are never accepted");
