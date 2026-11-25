@@ -269,6 +269,66 @@ async function main() {
     assert.equal(context.ActivityManager.currentActivity, priorActivity, "failed dictation restore preserves current activity");
     assert.equal(activityState, priorState, "failed dictation restore preserves ActivityState");
 
+    // A quiz screen failure must roll back engine state, score, and partial markup
+    // before the restored activity is published globally.
+    const quizActivity = { id: "failed-quiz-render", title: "آزمون", engine: "QuizEngine" };
+    const quizEngine = {
+        activity: { id: "prior-quiz" },
+        questions: [{ text: "prior question" }],
+        currentQuestion: 0,
+        state: { started: true, prior: true },
+        getQuestion() { return this.questions[this.currentQuestion] || null; }
+    };
+    engines.QuizEngine = quizEngine;
+    const priorQuizFields = {
+        activity: quizEngine.activity,
+        questions: quizEngine.questions,
+        currentQuestion: quizEngine.currentQuestion,
+        state: quizEngine.state
+    };
+    const priorQuizScore = { score: context.ScoreManager.score, correct: context.ScoreManager.correct, wrong: context.ScoreManager.wrong };
+    const appMarkup = { innerHTML: "<main>prior screen</main>" };
+    context.document.getElementById = id => id === "app" ? appMarkup : null;
+    context.QuizScreen = {
+        isLocked: true,
+        reset() { this.isLocked = false; },
+        show() {
+            appMarkup.innerHTML = "<main>partially rendered</main>";
+            throw new Error("synthetic quiz render failure");
+        }
+    };
+    await assert.rejects(
+        manager.restoreEngine(quizActivity, {
+            activityType: "QuizEngine",
+            engineState: {
+                kind: "quiz",
+                activity: quizActivity,
+                state: { started: true },
+                questions: [{ text: "restored question", options: ["A", "B"] }],
+                currentQuestion: 0,
+                score: 99,
+                correct: 9,
+                wrong: 2
+            }
+        }),
+        /synthetic quiz render failure/
+    );
+    assert.equal(quizEngine.activity, priorQuizFields.activity, "failed quiz render rolls back activity");
+    assert.equal(quizEngine.questions, priorQuizFields.questions, "failed quiz render rolls back questions");
+    assert.equal(quizEngine.currentQuestion, priorQuizFields.currentQuestion, "failed quiz render rolls back question index");
+    assert.equal(quizEngine.state, priorQuizFields.state, "failed quiz render rolls back engine state");
+    assert.deepEqual(
+        { score: context.ScoreManager.score, correct: context.ScoreManager.correct, wrong: context.ScoreManager.wrong },
+        priorQuizScore,
+        "failed quiz render rolls back score counters"
+    );
+    assert.equal(context.QuizScreen.isLocked, true, "failed quiz render restores screen lock");
+    assert.equal(appMarkup.innerHTML, "<main>prior screen</main>", "failed quiz render restores prior screen markup");
+    assert.equal(context.ActivityManager.currentActivity, priorActivity, "failed quiz render does not publish new activity");
+    assert.equal(activityState, priorState, "failed quiz render preserves ActivityState");
+    assert.equal(manager.currentSession, priorSession, "failed quiz render preserves current session");
+    assert.equal(manager.gameplayActive, true, "failed quiz render preserves gameplay flag");
+
     engines.ClassificationEngine = {
         activityData: { id: "prior-engine-data" },
         content: { prior: true },
