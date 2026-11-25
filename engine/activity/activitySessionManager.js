@@ -417,29 +417,60 @@ const ActivitySessionManager = {
         }
 
         if (data.kind === "quiz" && (engineName === "QuizEngine" || engineName === "quiz")) {
-            engine.activity = data.activity || activity;
-            engine.questions = Array.isArray(data.questions) ? JSON.parse(JSON.stringify(data.questions)) : [];
-            engine.currentQuestion = Number(data.currentQuestion || 0);
-            engine.state = { ...(data.state || {}), started: true, isFinished: false };
+            if (typeof QuizScreen === "undefined" || typeof QuizScreen.show !== "function") return false;
+            const app = typeof document !== "undefined" && document.getElementById("app");
+            if (!app) return false;
 
-            if (typeof ScoreManager !== "undefined") {
-                ScoreManager.score = Number(data.score || 0);
-                ScoreManager.correct = Number(data.correct || 0);
-                ScoreManager.wrong = Number(data.wrong || 0);
-            }
+            const previousEngineState = {
+                activity: engine.activity,
+                questions: engine.questions,
+                currentQuestion: engine.currentQuestion,
+                state: engine.state
+            };
+            const previousScore = typeof ScoreManager !== "undefined"
+                ? { score: ScoreManager.score, correct: ScoreManager.correct, wrong: ScoreManager.wrong }
+                : null;
+            const previousScreenLock = QuizScreen.isLocked;
+            const previousMarkup = app.innerHTML;
+            const rollback = () => {
+                Object.assign(engine, previousEngineState);
+                if (previousScore) Object.assign(ScoreManager, previousScore);
+                if (previousScreenLock !== undefined) QuizScreen.isLocked = previousScreenLock;
+                app.innerHTML = previousMarkup;
+            };
 
-            this.activateRestoredActivity(activity);
-            const question = typeof engine.getQuestion === "function" ? engine.getQuestion() : null;
-            if (question && typeof QuizScreen !== "undefined" && typeof QuizScreen.show === "function") {
+            try {
+                engine.activity = data.activity || activity;
+                engine.questions = Array.isArray(data.questions) ? JSON.parse(JSON.stringify(data.questions)) : [];
+                engine.currentQuestion = Number(data.currentQuestion || 0);
+                engine.state = { ...(data.state || {}), started: true, isFinished: false };
+
+                const question = typeof engine.getQuestion === "function" ? engine.getQuestion() : null;
+                if (!question) {
+                    rollback();
+                    return false;
+                }
+
+                if (typeof ScoreManager !== "undefined") {
+                    ScoreManager.score = Number(data.score || 0);
+                    ScoreManager.correct = Number(data.correct || 0);
+                    ScoreManager.wrong = Number(data.wrong || 0);
+                }
+
                 QuizScreen.reset();
                 QuizScreen.show({
                     title: activity.title,
-                    score: ScoreManager.score,
+                    score: typeof ScoreManager !== "undefined" ? ScoreManager.score : Number(data.score || 0),
                     currentQuestion: engine.currentQuestion + 1,
                     totalQuestions: engine.questions.length,
                     question
                 });
+            } catch (error) {
+                rollback();
+                throw error;
             }
+
+            this.activateRestoredActivity(activity);
             return true;
         }
 
