@@ -96,7 +96,7 @@ async function main() {
   const claimBody = {
     challengeId: challengeData.challengeId,
     nonce: challengeData.nonce,
-    devicePublicKeyPem,
+    devicePublicKeyPem: publicKeyPem,
     deviceSignature: signature
   };
 
