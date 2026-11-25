@@ -74,8 +74,8 @@ try {
   const base = "http://127.0.0.1:" + address.port;
 
   const healthResponse = await fetch(base + "/api/health");
-  assert.equal(healthResponse.status, 200, "HTTP health route must return 200.");
   const health = await healthResponse.json();
+  assert.equal(healthResponse.status, 200, "HTTP health route must return 200: " + JSON.stringify(health));
   assert.equal(health.ok, true);
   assert.equal(health.database, "connected");
   assert.equal(health.schemaVersion, 13);
