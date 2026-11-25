@@ -1852,17 +1852,40 @@
             return "";
         }
     }
-    async function getOrCreateRemoteInstallationId() {
+    async function getRemoteDeviceIdentity() {
         if (window.TahouriDeviceIdentity && typeof window.TahouriDeviceIdentity.getOrCreate === "function") {
             const identity = await window.TahouriDeviceIdentity.getOrCreate();
             const installationId = String(identity && identity.installationId || "").trim();
-            if (!installationId) throw new Error("شناسه هویت رمزنگاری‌شده دستگاه معتبر نیست.");
-            return installationId;
+            if (!installationId || (isRemoteProductionMode() && !identity.publicKey)) {
+                throw new Error("هویت رمزنگاری‌شده دستگاه کامل نیست.");
+            }
+            return { ...identity, installationId };
         }
         if (isRemoteProductionMode()) {
             throw new Error("هویت رمزنگاری‌شده دستگاه در این نسخه بارگذاری نشده است.");
         }
-        return getOrCreateInstallationId();
+        return { installationId: getOrCreateInstallationId(), publicKey: "" };
+    }
+
+    async function getOrCreateRemoteInstallationId() {
+        const identity = await getRemoteDeviceIdentity();
+        return identity.installationId;
+    }
+
+    async function getDevicePublicKeyFingerprint(publicKeyPem) {
+        if (!publicKeyPem || !window.crypto || !window.crypto.subtle ||
+            typeof window.crypto.subtle.digest !== "function") {
+            throw new Error("اثر انگشت کلید عمومی دستگاه قابل محاسبه نیست.");
+        }
+        const base64 = String(publicKeyPem)
+            .replace(/-----BEGIN PUBLIC KEY-----/g, "")
+            .replace(/-----END PUBLIC KEY-----/g, "")
+            .replace(/\\s+/g, "");
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const digest = await window.crypto.subtle.digest("SHA-256", bytes);
+        return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
     }
     function getRemoteEntitlement() {
         try {
@@ -1893,7 +1916,11 @@
             const all = typeof window.TahouriEntitlementStore.readAll === "function"
                 ? window.TahouriEntitlementStore.readAll()
                 : [window.TahouriEntitlementStore.read()].filter(Boolean);
-            const installationId = await getOrCreateRemoteInstallationId();
+            const deviceIdentity = await getRemoteDeviceIdentity();
+            const installationId = deviceIdentity.installationId;
+            const localDeviceKeyFingerprint = deviceIdentity.publicKey
+                ? await getDevicePublicKeyFingerprint(deviceIdentity.publicKey)
+                : "";
 
             for (const storedEnvelope of all) {
                 let envelope = storedEnvelope;
@@ -1941,6 +1968,12 @@
 
                 if (!result || !result.valid || !result.claims) continue;
                 claims = result.claims;
+
+                // A signed offline lease is usable only with the same local
+                // cryptographic key that the Worker bound to this device slot.
+                if (claims.offlineLeaseExpiresAt !== undefined &&
+                    (!localDeviceKeyFingerprint ||
+                     claims.deviceKeyFingerprint !== localDeviceKeyFingerprint)) continue;
 
                 const binding = claims.installationBinding;
                 if (binding && binding !== installationId &&
