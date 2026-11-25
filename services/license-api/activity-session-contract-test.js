@@ -176,11 +176,27 @@ async function main() {
     classes.add("pre-existing-class");
     const storageBeforeFailure = new Map(storage);
 
-    engines.WordPuzzleEngine = { restoreSession() { return false; } };
+    const priorWordPuzzleFields = {
+        activity: { id: "prior-word" },
+        state: { prior: true },
+        round: { prior: true }
+    };
+    engines.WordPuzzleEngine = {
+        ...priorWordPuzzleFields,
+        restoreSession() {
+            this.activity = { id: "partially-restored" };
+            this.state = { partial: true };
+            this.round = { partial: true };
+            return false;
+        }
+    };
     assert.equal(await manager.restoreEngine(
         { id: "failed-word", engine: "WordPuzzleEngine" },
         { activityType: "WordPuzzleEngine", engineState: { kind: "wordPuzzle" } }
     ), false, "wordPuzzle false restore is rejected");
+    assert.equal(engines.WordPuzzleEngine.activity, priorWordPuzzleFields.activity, "failed wordPuzzle restore rolls back activity");
+    assert.equal(engines.WordPuzzleEngine.state, priorWordPuzzleFields.state, "failed wordPuzzle restore rolls back state");
+    assert.equal(engines.WordPuzzleEngine.round, priorWordPuzzleFields.round, "failed wordPuzzle restore rolls back round");
     assert.equal(context.ActivityManager.currentActivity, priorActivity, "failed wordPuzzle restore preserves current activity");
     assert.equal(activityState, priorState, "failed wordPuzzle restore preserves ActivityState");
     assert.equal(manager.currentSession, priorSession, "failed wordPuzzle restore preserves current session");
@@ -188,7 +204,15 @@ async function main() {
     assert.deepEqual([...classes], ["pre-existing-class"], "failed wordPuzzle restore preserves body classes");
     assert.deepEqual([...storage], [...storageBeforeFailure], "failed wordPuzzle restore preserves stored session");
 
-    engines.WordPuzzleEngine = { restoreSession() { throw new Error("synthetic restore failure"); } };
+    engines.WordPuzzleEngine = {
+        ...priorWordPuzzleFields,
+        restoreSession() {
+            this.activity = { id: "partially-restored-before-throw" };
+            this.state = { partial: true };
+            this.round = { partial: true };
+            throw new Error("synthetic restore failure");
+        }
+    };
     await assert.rejects(
         manager.restoreEngine(
             { id: "throwing-word", engine: "WordPuzzleEngine" },
@@ -196,6 +220,9 @@ async function main() {
         ),
         /synthetic restore failure/
     );
+    assert.equal(engines.WordPuzzleEngine.activity, priorWordPuzzleFields.activity, "throwing wordPuzzle restore rolls back activity");
+    assert.equal(engines.WordPuzzleEngine.state, priorWordPuzzleFields.state, "throwing wordPuzzle restore rolls back state");
+    assert.equal(engines.WordPuzzleEngine.round, priorWordPuzzleFields.round, "throwing wordPuzzle restore rolls back round");
     assert.equal(context.ActivityManager.currentActivity, priorActivity, "throwing restore preserves current activity");
     assert.equal(activityState, priorState, "throwing restore preserves ActivityState");
 
