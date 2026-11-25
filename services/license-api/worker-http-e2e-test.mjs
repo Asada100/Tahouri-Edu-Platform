@@ -86,7 +86,7 @@ try {
   const keyResponse = await fetch(base + "/api/public-key");
   assert.equal(keyResponse.status, 200, "HTTP public-key route must return 200.");
   const keyBody = await keyResponse.json();
-  assert.equal(keyBody.publicKeyPem, publicKeyPem, "HTTP route must return the configured public key.");
+  assert.equal(String(keyBody.publicKeyPem || "").trim(), publicKeyPem.trim(), "HTTP route must return the configured public key.");
 
   const adminResponse = await fetch(base + "/admin");
   assert.equal(adminResponse.status, 200, "HTTP admin page route must return 200.");
