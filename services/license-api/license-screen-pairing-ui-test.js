@@ -58,6 +58,7 @@ async function runPairingUiInteractionTests() {
     const messages = [];
     const alerts = [];
     let storedEntitlement = null;
+    let storeWriteCalls = 0;
     let initialized = 0;
     let statusResponse = null;
     let statusCalls = 0;
@@ -112,7 +113,7 @@ async function runPairingUiInteractionTests() {
         },
         TahouriDeviceIdentity: { async getOrCreate() { return identity; } },
         TahouriEntitlementStore: {
-            write(value) { if (!storeAccepts) return false; storedEntitlement = value; return true; }
+            write(value) { storeWriteCalls += 1; if (!storeAccepts) return false; storedEntitlement = value; return true; }
         },
         confirm() { return true; },
         prompt() { return "pairing-ui-1"; },
@@ -275,13 +276,19 @@ async function runPairingUiInteractionTests() {
         );
         await mismatchUi.begin();
         storedEntitlement = null;
+        const writesBeforeMismatch = storeWriteCalls;
+        const initializationsBeforeMismatch = initialized;
         claimBindingOverride = mismatch.binding;
         claimDeviceType = mismatch.deviceType;
         await mismatchUi.poll();
         assert.equal(storedEntitlement, null,
             "entitlement bound to a " + mismatch.label + " must not be stored");
+        assert.equal(storeWriteCalls, writesBeforeMismatch,
+            "identity mismatch must be rejected before the secure store is called");
+        assert.equal(initialized, initializationsBeforeMismatch,
+            "identity mismatch must never initialize the remote entitlement");
         assert(mismatchUi.getPending(),
-            "identity mismatch must leave the request available for safe investigation or retry");
+            "identity mismatch must leave the request available for safe retry");
     }
     claimBindingOverride = null;
     claimDeviceType = "phone";
