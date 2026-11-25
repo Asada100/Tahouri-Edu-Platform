@@ -347,18 +347,36 @@ const ActivitySessionManager = {
         if (data.kind === "dictation" && (engineName === "DictationEngine" || engineName === "dictation")) {
             if (!data.state || typeof engine.restoreSession !== "function") return false;
 
-            engine.activity = data.activity || activity;
-            engine.content = data.content
-                ? JSON.parse(JSON.stringify(data.content))
-                : (typeof DictationProvider !== "undefined" && typeof DictationProvider.getContent === "function"
-                    ? DictationProvider.getContent(engine.activity)
-                    : null);
+            const previousEngineState = {
+                activity: engine.activity,
+                content: engine.content,
+                state: engine.state,
+                runToken: engine.runToken,
+                finishAuthorized: engine.finishAuthorized
+            };
+            const rollbackEngineState = () => Object.assign(engine, previousEngineState);
 
-            if (!engine.content || !Array.isArray(engine.content.questions) || !engine.content.questions.length) {
-                return false;
+            try {
+                engine.activity = data.activity || activity;
+                engine.content = data.content
+                    ? JSON.parse(JSON.stringify(data.content))
+                    : (typeof DictationProvider !== "undefined" && typeof DictationProvider.getContent === "function"
+                        ? DictationProvider.getContent(engine.activity)
+                        : null);
+
+                if (!engine.content || !Array.isArray(engine.content.questions) || !engine.content.questions.length) {
+                    rollbackEngineState();
+                    return false;
+                }
+
+                if (!engine.restoreSession(data.state)) {
+                    rollbackEngineState();
+                    return false;
+                }
+            } catch (error) {
+                rollbackEngineState();
+                throw error;
             }
-
-            if (!engine.restoreSession(data.state)) return false;
 
             this.activateRestoredActivity(activity);
 
