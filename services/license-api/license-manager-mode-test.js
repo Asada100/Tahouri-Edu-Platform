@@ -499,6 +499,8 @@ async function main() {
         window: restartedWindow,
         Date: ClockDate,
         localStorage: storage,
+        atob: globalThis.atob,
+        Uint8Array,
         console: { log() {}, warn() {}, error() {} }
     };
     vm.runInNewContext(source, restartedContext);
@@ -518,6 +520,8 @@ async function main() {
         window: recoveredWindow,
         Date: ClockDate,
         localStorage: storage,
+        atob: globalThis.atob,
+        Uint8Array,
         console: { log() {}, warn() {}, error() {} }
     };
     vm.runInNewContext(source, recoveredContext);
@@ -537,6 +541,8 @@ async function main() {
         window: tamperedWindow,
         Date: ClockDate,
         localStorage: storage,
+        atob: globalThis.atob,
+        Uint8Array,
         console: { log() {}, warn() {}, error() {} }
     };
     vm.runInNewContext(source, tamperedContext);
