@@ -446,6 +446,7 @@ async function main() {
     const priorPuzzleState = {};
     puzzleFields.forEach(key => { priorPuzzleState[key] = puzzleEngine[key]; });
     const priorPuzzleScore = { score: context.ScoreManager.score, correct: context.ScoreManager.correct, wrong: context.ScoreManager.wrong };
+    context.document.getElementById = id => id === "app" ? appContainer : null;
     appContainer.innerHTML = "<main>prior puzzle screen</main>";
     assert.equal(context.document.getElementById("app").innerHTML, "<main>prior puzzle screen</main>", "puzzle rollback target starts with prior markup");
     context.PuzzleScreen = {
