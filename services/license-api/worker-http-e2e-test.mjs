@@ -15,11 +15,13 @@ for (const file of readdirSync(migrationsDir).filter(name => /^\\d+_.*\\.sql$/.t
   db.exec(readFileSync(join(migrationsDir, file), "utf8"));
 }
 
+let databaseError = null;
 const envDb = {
   prepare(sql) {
     return {
       async first() {
-        return db.prepare(sql).get() || null;
+        try { return db.prepare(sql).get() || null; }
+        catch (error) { databaseError = error.message; throw error; }
       }
     };
   }
@@ -75,7 +77,7 @@ try {
 
   const healthResponse = await fetch(base + "/api/health");
   const health = await healthResponse.json();
-  assert.equal(healthResponse.status, 200, "HTTP health route must return 200: " + JSON.stringify(health));
+  assert.equal(healthResponse.status, 200, "HTTP health route must return 200: " + JSON.stringify({ health, databaseError }));
   assert.equal(health.ok, true);
   assert.equal(health.database, "connected");
   assert.equal(health.schemaVersion, 13);
