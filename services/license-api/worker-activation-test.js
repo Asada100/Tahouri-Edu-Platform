@@ -1264,6 +1264,31 @@ async function main() {
     assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type='device.admin_recovered' AND license_id=?").get(stored.license_id).count), 1,
       "Admin recovery must write an audit event.");
 
+    // Once the administrator has explicitly revoked the lost phone key, a
+    // fresh phone may request approval using the existing activation code.
+    // The replacement is not bound until the still-active computer approves it.
+    pairingDevicePair = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
+    const postRecoveryPairing = await request(worker, env, "/api/licenses/pairing/request", "POST", {
+      code, gradeId: "grade6", studentId: "student-1",
+      installationId: "install-phone-after-admin-recovery", deviceType: "phone"
+    });
+    assert.equal(postRecoveryPairing.status, 201,
+      "A new phone must be able to request approval after the exact lost phone slot is administratively recovered.");
+    const postRecoveryPairingBody = await postRecoveryPairing.json();
+    const postRecoveryPairingRow = db.prepare("SELECT requester_device_type, requester_installation_id, decision, consumed_at FROM device_pairing_requests WHERE pairing_id = ?")
+      .get(postRecoveryPairingBody.pairingId);
+    assert.equal(postRecoveryPairingRow.requester_device_type, "phone");
+    assert.equal(postRecoveryPairingRow.requester_installation_id, "install-phone-after-admin-recovery");
+    assert.equal(postRecoveryPairingRow.decision, null,
+      "Administrative recovery must not silently approve or bind the replacement phone.");
+    assert.equal(postRecoveryPairingRow.consumed_at, null);
+    assert.equal(db.prepare("SELECT installation_id FROM license_device_slots WHERE license_id=? AND device_type='computer' AND revoked_at IS NULL")
+      .get(stored.license_id).installation_id, "install-computer-admin-recovery",
+      "The complementary computer must remain active while the replacement phone awaits approval.");
+    assert.equal(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id=? AND device_type='phone' AND revoked_at IS NULL")
+      .get(stored.license_id).count, 0,
+      "A replacement phone must not become active before approval.");
+
     // A pre-device-identity legacy slot has no public key or fingerprint.
     // Admin recovery must not treat a caller-supplied fingerprint as a wildcard or legacy-ID proof.
     const legacyInstallationId = "legacy-installation-without-key";
