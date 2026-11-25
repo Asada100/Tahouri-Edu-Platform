@@ -1371,6 +1371,13 @@ async function main() {
       .get(stored.license_id).count), 2,
       "The final state must contain exactly one active phone and one active computer slot.");
 
+    // Isolate the legacy-slot recovery fixture after validating the complete replacement flow.
+    db.prepare("UPDATE license_device_slots SET revoked_at=? WHERE license_id=? AND device_type='phone' AND installation_id='install-phone-after-admin-recovery' AND revoked_at IS NULL")
+      .run(new Date().toISOString(), stored.license_id);
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id=? AND revoked_at IS NULL")
+      .get(stored.license_id).count), 1,
+      "The replacement-phone scenario must be closed before seeding a legacy phone slot.");
+
     // A pre-device-identity legacy slot has no public key or fingerprint.
     // Admin recovery must not treat a caller-supplied fingerprint as a wildcard or legacy-ID proof.
     const legacyInstallationId = "legacy-installation-without-key";
