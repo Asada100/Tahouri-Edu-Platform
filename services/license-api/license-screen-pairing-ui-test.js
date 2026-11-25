@@ -62,6 +62,8 @@ async function runPairingUiInteractionTests() {
     let statusResponse = null;
     let statusCalls = 0;
     let pairingSequence = 0;
+    let verificationValid = true;
+    let storeAccepts = true;
     const profile = { studentId: "student-ui", grade: "grade6" };
     const identity = { installationId: "install-ui-phone" };
     const entitlement = { payload: "signed-entitlement-for-ui-phone" };
@@ -75,7 +77,7 @@ async function runPairingUiInteractionTests() {
         },
         async pairingStatus(pairingId, token) {
             statusCalls += 1;
-            assert.equal(pairingId, "pairing-ui-1");
+            assert.match(pairingId, /^pairing-ui-/);
             assert.equal(token, "opaque-ui-token");
             return statusResponse;
         },
@@ -98,7 +100,7 @@ async function runPairingUiInteractionTests() {
         LicenseManager: null,
         TahouriEntitlementVerifier: {
             async verifyEnvelope(value) {
-                return value === entitlement
+                return value === entitlement && verificationValid
                     ? { valid: true, claims: {
                         installationBinding: identity.installationId,
                         deviceType: "phone"
@@ -108,7 +110,7 @@ async function runPairingUiInteractionTests() {
         },
         TahouriDeviceIdentity: { async getOrCreate() { return identity; } },
         TahouriEntitlementStore: {
-            write(value) { storedEntitlement = value; return true; }
+            write(value) { if (!storeAccepts) return false; storedEntitlement = value; return true; }
         },
         confirm() { return true; },
         prompt() { return "pairing-ui-1"; },
@@ -210,6 +212,55 @@ async function runPairingUiInteractionTests() {
     assert.notEqual(afterReload.getPending().pairingId, pendingBeforeReload.pairingId,
         "the user can create a fresh pairing request after reload");
     console.log("PASS: reload drops the in-memory pairing secret, performs no unauthenticated poll, and permits a fresh request");
+
+    for (const terminalStatus of ["rejected", "expired"]) {
+        const terminalUi = factory(
+            dependencies.getActiveProfile, dependencies.document, dependencies.window,
+            dependencies.navigator, dependencies.TahouriLicenseClient, dependencies.LicenseManager,
+            dependencies.showManagementError, dependencies.pairingMessage, dependencies.renderList,
+            dependencies.getActiveSignedLicenseClaims, dependencies.loadPendingPairings
+        );
+        await terminalUi.begin();
+        statusResponse = { status: terminalStatus };
+        await terminalUi.poll();
+        assert.equal(terminalUi.getPending(), null,
+            terminalStatus + " pairing must clear the unusable pending request");
+        assert.equal(messages.at(-1).success, false,
+            terminalStatus + " pairing must show a failure message");
+    }
+
+    const invalidUi = factory(
+        dependencies.getActiveProfile, dependencies.document, dependencies.window,
+        dependencies.navigator, dependencies.TahouriLicenseClient, dependencies.LicenseManager,
+        dependencies.showManagementError, dependencies.pairingMessage, dependencies.renderList,
+        dependencies.getActiveSignedLicenseClaims, dependencies.loadPendingPairings
+    );
+    await invalidUi.begin();
+    storedEntitlement = null;
+    verificationValid = false;
+    statusResponse = { status: "approved", entitlement };
+    await invalidUi.poll();
+    assert.equal(storedEntitlement, null,
+        "an entitlement that fails signature verification must never be stored");
+    assert(invalidUi.getPending(),
+        "a verification failure must leave the request available for a safe retry");
+    verificationValid = true;
+
+    const storeFailureUi = factory(
+        dependencies.getActiveProfile, dependencies.document, dependencies.window,
+        dependencies.navigator, dependencies.TahouriLicenseClient, dependencies.LicenseManager,
+        dependencies.showManagementError, dependencies.pairingMessage, dependencies.renderList,
+        dependencies.getActiveSignedLicenseClaims, dependencies.loadPendingPairings
+    );
+    await storeFailureUi.begin();
+    storeAccepts = false;
+    await storeFailureUi.poll();
+    assert.equal(storedEntitlement, null,
+        "a failed secure-store write must not report a saved entitlement");
+    assert(storeFailureUi.getPending(),
+        "a failed secure-store write must retain the request for retry");
+    storeAccepts = true;
+    console.log("PASS: rejected and expired requests terminate; invalid entitlements and failed secure-store writes are never accepted");
 }
 
 runPairingUiInteractionTests().catch(error => {
