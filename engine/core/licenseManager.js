@@ -1880,7 +1880,7 @@
         const base64 = String(publicKeyPem)
             .replace(/-----BEGIN PUBLIC KEY-----/g, "")
             .replace(/-----END PUBLIC KEY-----/g, "")
-            .replace(/\\s+/g, "");
+            .replace(/\s+/g, "");
         const binary = atob(base64);
         const bytes = new Uint8Array(binary.length);
         for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
