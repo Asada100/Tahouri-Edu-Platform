@@ -75,17 +75,11 @@ async function main() {
   });
   assert.equal(challenge.response.status, 201,
     "Admin challenge issuance must succeed: " + JSON.stringify(challenge.data));
-  const issued = challenge.data;
-  for (const key of ["challengeId", "nonce", "transferCode", "expiresAt"]) {
-    assert(issued[key], "Challenge response is missing " + key + ".");
+  const challengeData = challenge.data;
+  for (const key of ["challengeId", "nonce", "licenseId", "studentId", "gradeId",
+    "academicYear", "deviceType", "installationId", "expiresAt"]) {
+    assert(challengeData[key], "Challenge response is missing " + key + ".");
   }
-
-  const prepared = await request("/api/licenses/legacy-migration/prepare", {
-    method: "POST", body: { transferCode: issued.transferCode }
-  });
-  assert.equal(prepared.response.status, 200,
-    "Transfer-code preparation must succeed: " + JSON.stringify(prepared.data));
-  const challengeData = prepared.data;
 
   const pair = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
   const publicKeyPem = pair.publicKey.export({ type: "spki", format: "pem" });
@@ -133,13 +127,13 @@ async function main() {
   assert(entitlement.claims.offlineLeaseExpiresAt, "Signed entitlement must include an offline lease.");
   assert(entitlement.signature, "Signed entitlement must include a signature.");
 
-  const replay = await request("/api/licenses/legacy-migration/prepare", {
-    method: "POST", body: { transferCode: issued.transferCode }
+  const replay = await request("/api/licenses/legacy-migration/claim", {
+    method: "POST", body: claimBody
   });
-  assert.equal(replay.response.status, 409, "Consumed transfer code must be rejected on replay.");
+  assert.equal(replay.response.status, 409, "Consumed migration challenge must be rejected on replay.");
 
   console.log("PASS: dedicated Worker HTTP health and public-key endpoints");
-  console.log("PASS: authenticated admin challenge issuance and transfer-code preparation");
+  console.log("PASS: authenticated admin challenge issuance and synthetic identity attestation");
   console.log("PASS: RSA proof-of-possession and signed offline entitlement");
   console.log("PASS: exactly one concurrent claim succeeded; replay rejected");
   console.log("RESULT: live HTTP migration flow passed.");
