@@ -1226,9 +1226,13 @@ async function main() {
     
 
 
-    // Rebind a test complementary computer after the earlier signed-revocation scenario.
-    db.prepare("INSERT INTO license_device_slots (license_id,device_type,installation_id,bound_at,public_key_pem,key_fingerprint) VALUES (?,'computer','install-computer-admin-recovery',?,'recovery-public-key','recovery-computer-fingerprint')")
-      .run(stored.license_id, new Date().toISOString());
+    // Rebind a test complementary computer with a real key pair after the earlier signed-revocation scenario.
+    const recoveryComputerPair = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
+    const recoveryComputerPublicPem = recoveryComputerPair.publicKey.export({ type: "spki", format: "pem" }).trim();
+    const recoveryComputerFingerprint = crypto.createHash("sha256")
+      .update(recoveryComputerPair.publicKey.export({ type: "spki", format: "der" })).digest("hex");
+    db.prepare("INSERT INTO license_device_slots (license_id,device_type,installation_id,bound_at,public_key_pem,key_fingerprint) VALUES (?,'computer','install-computer-admin-recovery',?,?,?)")
+      .run(stored.license_id, new Date().toISOString(), recoveryComputerPublicPem, recoveryComputerFingerprint);
     // Administrator recovery requires a live admin session, trusted Origin and password re-entry.
     const recoveryTarget = db.prepare("SELECT installation_id, key_fingerprint FROM license_device_slots WHERE license_id = ? AND device_type = 'phone' AND revoked_at IS NULL").get(stored.license_id);
     assert(recoveryTarget?.key_fingerprint, "The phone slot must have a fingerprint before admin recovery.");
@@ -1264,9 +1268,7 @@ async function main() {
     assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type='device.admin_recovered' AND license_id=?").get(stored.license_id).count), 1,
       "Admin recovery must write an audit event.");
 
-    // Once the administrator has explicitly revoked the lost phone key, a
-    // fresh phone may request approval using the existing activation code.
-    // The replacement is not bound until the still-active computer approves it.
+    // A fresh phone requests replacement; the still-bound computer must approve it cryptographically.
     pairingDevicePair = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
     const postRecoveryPairing = await request(worker, env, "/api/licenses/pairing/request", "POST", {
       code, gradeId: "grade6", studentId: "student-1",
@@ -1275,7 +1277,7 @@ async function main() {
     assert.equal(postRecoveryPairing.status, 201,
       "A new phone must be able to request approval after the exact lost phone slot is administratively recovered.");
     const postRecoveryPairingBody = await postRecoveryPairing.json();
-    const postRecoveryPairingRow = db.prepare("SELECT requester_device_type, requester_installation_id, decision, consumed_at FROM device_pairing_requests WHERE pairing_id = ?")
+    const postRecoveryPairingRow = db.prepare("SELECT requester_device_type, requester_installation_id, requester_key_fingerprint, decision, consumed_at FROM device_pairing_requests WHERE pairing_id = ?")
       .get(postRecoveryPairingBody.pairingId);
     assert.equal(postRecoveryPairingRow.requester_device_type, "phone");
     assert.equal(postRecoveryPairingRow.requester_installation_id, "install-phone-after-admin-recovery");
@@ -1288,6 +1290,86 @@ async function main() {
     assert.equal(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id=? AND device_type='phone' AND revoked_at IS NULL")
       .get(stored.license_id).count, 0,
       "A replacement phone must not become active before approval.");
+
+    const replacementChallengeProof = {
+      purpose: "tahouri-device-pairing-challenge-request-v1",
+      pairingId: postRecoveryPairingBody.pairingId, licenseId: stored.license_id,
+      approverDeviceType: "computer", approverInstallationId: "install-computer-admin-recovery",
+      approverKeyFingerprint: recoveryComputerFingerprint
+    };
+    const replacementChallengeResponse = await request(worker, env, "/api/licenses/pairing/challenge", "POST", {
+      pairingId: postRecoveryPairingBody.pairingId,
+      approverDeviceType: "computer", approverInstallationId: "install-computer-admin-recovery",
+      approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(replacementChallengeProof)),
+        recoveryComputerPair.privateKey).toString("base64")
+    });
+    assert.equal(replacementChallengeResponse.status, 200,
+      "Only the still-bound complementary computer may issue the replacement approval challenge.");
+    const replacementChallenge = await replacementChallengeResponse.json();
+    const replacementDecisionProof = {
+      purpose: "tahouri-device-pairing-decision-v1",
+      pairingId: postRecoveryPairingBody.pairingId, licenseId: stored.license_id,
+      challengeId: replacementChallenge.challengeId, nonce: replacementChallenge.nonce,
+      decision: "approved", requesterDeviceType: "phone",
+      requesterInstallationId: "install-phone-after-admin-recovery",
+      requesterKeyFingerprint: postRecoveryPairingRow.requester_key_fingerprint,
+      approverDeviceType: "computer", approverInstallationId: "install-computer-admin-recovery",
+      approverKeyFingerprint: recoveryComputerFingerprint,
+      challengeExpiresAt: replacementChallenge.expiresAt
+    };
+    const replacementApproval = await request(worker, env, "/api/licenses/pairing/approve", "POST", {
+      pairingId: postRecoveryPairingBody.pairingId,
+      challengeId: replacementChallenge.challengeId, nonce: replacementChallenge.nonce,
+      approverDeviceType: "computer", approverInstallationId: "install-computer-admin-recovery",
+      approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(replacementDecisionProof)),
+        recoveryComputerPair.privateKey).toString("base64")
+    });
+    assert.equal(replacementApproval.status, 200,
+      "The complementary computer's valid signature must approve and bind the replacement phone.");
+    const replacementApprovalBody = await replacementApproval.json();
+    assert.equal(replacementApprovalBody.status, "approved");
+    assert.equal(replacementApprovalBody.entitlement.claims.installationBinding, "install-phone-after-admin-recovery");
+    assert.equal(replacementApprovalBody.entitlement.claims.deviceType, "phone");
+    assert.equal(replacementApprovalBody.entitlement.claims.deviceKeyFingerprint,
+      postRecoveryPairingRow.requester_key_fingerprint);
+    assert.equal(db.prepare("SELECT installation_id FROM license_device_slots WHERE license_id=? AND device_type='phone' AND revoked_at IS NULL")
+      .get(stored.license_id).installation_id, "install-phone-after-admin-recovery",
+      "The replacement phone slot must be bound only after cryptographic approval.");
+    assert.equal(db.prepare("SELECT installation_id FROM license_device_slots WHERE license_id=? AND device_type='computer' AND revoked_at IS NULL")
+      .get(stored.license_id).installation_id, "install-computer-admin-recovery",
+      "The complementary computer slot must remain active after approval.");
+
+    // The newly paired phone can recover only the entitlement signed for its own key.
+    const replacementRecoveryProof = {
+      purpose: "tahouri-device-pairing-recovery-v1",
+      deviceType: "phone", installationId: "install-phone-after-admin-recovery",
+      keyFingerprint: postRecoveryPairingRow.requester_key_fingerprint
+    };
+    const forgedReplacementRecovery = await request(worker, env, "/api/licenses/pairing/recover", "POST", {
+      deviceType: "phone", installationId: "install-phone-after-admin-recovery",
+      keyFingerprint: postRecoveryPairingRow.requester_key_fingerprint,
+      deviceSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(replacementRecoveryProof)),
+        recoveryComputerPair.privateKey).toString("base64")
+    });
+    assert.equal(forgedReplacementRecovery.status, 401,
+      "The complementary computer's private key must not recover the replacement phone entitlement.");
+    const replacementRecovery = await request(worker, env, "/api/licenses/pairing/recover", "POST", {
+      deviceType: "phone", installationId: "install-phone-after-admin-recovery",
+      keyFingerprint: postRecoveryPairingRow.requester_key_fingerprint,
+      deviceSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(replacementRecoveryProof)),
+        pairingDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(replacementRecovery.status, 200,
+      "The replacement phone must recover its approved entitlement using its own private-key proof.");
+    const replacementRecoveryBody = await replacementRecovery.json();
+    assert.deepEqual(replacementRecoveryBody.entitlement, replacementApprovalBody.entitlement,
+      "Recovery must return the exact signed entitlement approved for the replacement phone.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type='device.pairing.entitlement_recovered' AND license_id=?")
+      .get(stored.license_id).count), 1,
+      "Replacement phone entitlement recovery must be audited.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id=? AND revoked_at IS NULL")
+      .get(stored.license_id).count), 2,
+      "The final state must contain exactly one active phone and one active computer slot.");
 
     // A pre-device-identity legacy slot has no public key or fingerprint.
     // Admin recovery must not treat a caller-supplied fingerprint as a wildcard or legacy-ID proof.
