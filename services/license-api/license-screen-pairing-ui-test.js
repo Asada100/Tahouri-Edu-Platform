@@ -63,6 +63,8 @@ async function runPairingUiInteractionTests() {
     let statusCalls = 0;
     let pairingSequence = 0;
     let verificationValid = true;
+    let claimBindingOverride = null;
+    let claimDeviceType = "phone";
     let storeAccepts = true;
     const profile = { studentId: "student-ui", grade: "grade6" };
     const identity = { installationId: "install-ui-phone" };
@@ -102,8 +104,8 @@ async function runPairingUiInteractionTests() {
             async verifyEnvelope(value) {
                 return value === entitlement && verificationValid
                     ? { valid: true, claims: {
-                        installationBinding: identity.installationId,
-                        deviceType: "phone"
+                        installationBinding: claimBindingOverride || identity.installationId,
+                        deviceType: claimDeviceType
                     } }
                     : { valid: false, claims: null };
             }
@@ -260,6 +262,30 @@ async function runPairingUiInteractionTests() {
     assert(storeFailureUi.getPending(),
         "a failed secure-store write must retain the request for retry");
     storeAccepts = true;
+
+    for (const mismatch of [
+        { binding: "install-another-device", deviceType: "phone", label: "different installation" },
+        { binding: identity.installationId, deviceType: "computer", label: "different device type" }
+    ]) {
+        const mismatchUi = factory(
+            dependencies.getActiveProfile, dependencies.document, dependencies.window,
+            dependencies.navigator, dependencies.TahouriLicenseClient, dependencies.LicenseManager,
+            dependencies.showManagementError, dependencies.pairingMessage, dependencies.renderList,
+            dependencies.getActiveSignedLicenseClaims, dependencies.loadPendingPairings
+        );
+        await mismatchUi.begin();
+        storedEntitlement = null;
+        claimBindingOverride = mismatch.binding;
+        claimDeviceType = mismatch.deviceType;
+        await mismatchUi.poll();
+        assert.equal(storedEntitlement, null,
+            "entitlement bound to a " + mismatch.label + " must not be stored");
+        assert(mismatchUi.getPending(),
+            "identity mismatch must leave the request available for safe investigation or retry");
+    }
+    claimBindingOverride = null;
+    claimDeviceType = "phone";
+    console.log("PASS: entitlements bound to another installation or device type are rejected before secure storage");
     console.log("PASS: rejected and expired requests terminate; invalid entitlements and failed secure-store writes are never accepted");
 }
 
