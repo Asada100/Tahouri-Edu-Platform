@@ -76,7 +76,7 @@ This section clarifies the required behavior for installations created before de
 
 ## Current verification status (2026-11-22)
 
-- The isolated PR Preview physical phone + Windows acceptance test has passed. There is no third physical device; third-device contention is covered only by synthetic fixtures against mock D1 and must not be described as a third-device physical test.
+- Physical phone + Windows acceptance on the isolated PR Preview has not yet been evidenced in the PR verification record and remains outstanding. There is no third physical device; third-device contention is covered only by synthetic fixtures against mock D1 and must not be described as a third-device physical test.
 - Automated coverage now includes concurrent pairing requests, concurrent approval/revocation conflict handling, pending-pairing behavior after revocation, legacy offline lease enforcement, and rejection of fake proof for an unbound legacy slot. The latest reviewed CI commit for the legacy lease test clarification passed all five PR workflows.
 - These results apply only to the isolated PR branch/Preview and mock test environment. They do not authorize or imply a production Worker deployment, production D1 mutation, or production release.
 - Remaining release gates include implementing and testing the independently authenticated online migration flow for legacy no-lease installations, plus any outstanding lifecycle/adversarial checks. Do not mark the production release gate complete until those are satisfied.
