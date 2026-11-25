@@ -1,9 +1,19 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
+
+const deviceKeyPair = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
+const replacementDeviceKeyPair = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
+const devicePublicKeyPem = deviceKeyPair.publicKey.export({ type: "spki", format: "pem" });
+const replacementDevicePublicKeyPem = replacementDeviceKeyPair.publicKey.export({ type: "spki", format: "pem" });
+const deviceKeyFingerprint = crypto.createHash("sha256")
+    .update(deviceKeyPair.publicKey.export({ type: "spki", format: "der" }))
+    .digest("hex");
+let currentDevicePublicKeyPem = devicePublicKeyPem;
 
 const source = fs.readFileSync(
     path.resolve(__dirname, "../../engine/core/licenseManager.js"),
@@ -28,8 +38,12 @@ const window = {
     TahouriServiceConfig: { mode: "test" },
     crypto: { randomUUID: () => "install-test-profile-status" },
     TahouriDeviceIdentity: {
-        getOrCreate: async () => ({ installationId: "install-test-profile-status" })
+        getOrCreate: async () => ({
+            installationId: "install-test-profile-status",
+            publicKey: currentDevicePublicKeyPem
+        })
     },
+    crypto: { randomUUID: () => "install-test-profile-status", subtle: crypto.webcrypto.subtle },
     localStorage: storage,
     performance: { now: () => monotonicClock }
 };
@@ -37,6 +51,8 @@ const context = {
     window,
     Date: ClockDate,
     localStorage: storage,
+    atob: globalThis.atob,
+    Uint8Array,
     console: { log() {}, warn() {}, error() {} }
 };
 vm.runInNewContext(source, context);
@@ -69,6 +85,7 @@ async function main() {
             validFrom: new Date(Date.now() - 60000).toISOString(),
             validUntil: new Date(Date.now() + 30 * 86400000).toISOString(),
             installationBinding: undefined,
+            deviceKeyFingerprint,
             deviceSlotId: "a".repeat(64),
             revocationEpoch: Date.now() - 1000,
             offlineLeaseExpiresAt: new Date(Date.now() + 7 * 86400000).toISOString(),
@@ -97,11 +114,20 @@ async function main() {
     }
 
     assert.equal(await manager.initializeRemoteEntitlement(), true,
-        "A verifier-approved entitlement matching the active profile must initialize.");
+        "A verifier-approved entitlement matching the active profile and local device key must initialize.");
     assert.equal(manager.isGradeActivated("grade6", profile.studentId), true,
         "A verified remote entitlement must authorize its bound grade.");
     assert.equal(manager.isGradeActivated("grade5", profile.studentId), false,
         "A verified entitlement must not authorize a different grade.");
+
+    currentDevicePublicKeyPem = replacementDevicePublicKeyPem;
+    assert.equal(await manager.initializeRemoteEntitlement(), false,
+        "A copied signed offline lease must be rejected when the local device key changes, even if its installation ID is copied.");
+    assert.equal(manager.isGradeActivated("grade6", profile.studentId), false,
+        "A mismatched local device key must not authorize the profile offline.");
+    currentDevicePublicKeyPem = devicePublicKeyPem;
+    assert.equal(await manager.initializeRemoteEntitlement(), true,
+        "Restoring the exact bound device key must restore eligibility of the unexpired signed lease.");
     const originalLeaseExpiry = claims.offlineLeaseExpiresAt;
     claims.offlineLeaseExpiresAt = new Date(Date.now() - 1000).toISOString();
     assert.equal(manager.isGradeActivated("grade6", profile.studentId), false,
