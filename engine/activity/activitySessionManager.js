@@ -394,7 +394,24 @@ const ActivitySessionManager = {
 
         if (data.kind === "wordPuzzle" && (engineName === "WordPuzzleEngine" || engineName === "wordPuzzle")) {
             if (typeof engine.restoreSession !== "function") return false;
-            if (!engine.restoreSession(data)) return false;
+
+            const previousEngineState = {
+                activity: engine.activity,
+                state: engine.state,
+                round: engine.round
+            };
+            const rollbackEngineState = () => Object.assign(engine, previousEngineState);
+
+            try {
+                if (!engine.restoreSession(data)) {
+                    rollbackEngineState();
+                    return false;
+                }
+            } catch (error) {
+                rollbackEngineState();
+                throw error;
+            }
+
             this.activateRestoredActivity(activity);
             return true;
         }
