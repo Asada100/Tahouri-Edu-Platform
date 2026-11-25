@@ -232,8 +232,39 @@ async function main() {
     assert.equal(replay.status, 409, "A second client claim must be rejected after the one-use challenge is consumed.");
     assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type='device.legacy_migrated' AND license_id=?").get(licenseId).count), 1);
 
+    const expiredChallengeId = "synthetic-expired-legacy-migration-challenge";
+    const expiredTransferCode = nodeCrypto.randomBytes(32).toString("hex");
+    const expiredNonceHash = nodeCrypto.createHash("sha256").update(expiredTransferCode).digest("hex");
+    db.prepare(`INSERT INTO legacy_device_migration_challenges
+        (challenge_id, license_id, student_id, grade_id, academic_year, device_type,
+         installation_id, nonce_hash, expires_at, created_by_admin, verification_reason, created_at)
+        VALUES (?, ?, ?, 'grade6', ?, 'phone', ?, ?, ?, 'admin', 'Synthetic expiry regression test', ?)`)
+        .run(expiredChallengeId, licenseId, studentId, academicYear, oldInstallationId,
+            expiredNonceHash, new Date(Date.now() - 60_000).toISOString(), now.toISOString());
+
+    const expiredPrepare = await workerRequest("https://api.example.test/api/licenses/legacy-migration/prepare", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ transferCode: expiredTransferCode })
+    });
+    assert.equal(expiredPrepare.status, 409, "Prepare must reject an expired migration challenge.");
+
+    const expiredClaim = await workerRequest("https://api.example.test/api/licenses/legacy-migration/claim", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+            challengeId: expiredChallengeId,
+            nonce: expiredTransferCode,
+            deviceSignature: "AA==",
+            devicePublicKeyPem: devicePublicPem
+        })
+    });
+    assert.equal(expiredClaim.status, 409, "Claim must reject an expired migration challenge before accepting a device proof.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM legacy_device_migration_challenges WHERE challenge_id=? AND consumed_at IS NOT NULL").get(expiredChallengeId).count), 0);
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type='device.legacy_migrated' AND license_id=?").get(licenseId).count), 1);
+
     console.log("PASS: actual TahouriLicenseClient -> Worker migration route -> RSA entitlement verifier -> entitlement store");
-    console.log("PASS: synthetic RSA proof, one-time challenge, signed lease, exact slot binding, complementary slot preservation, unchanged license/student records, and audit");
+    console.log("PASS: synthetic RSA proof, one-time challenge, expired prepare/claim rejection, signed lease, exact slot binding, complementary slot preservation, unchanged license/student records, and audit");
     db.close();
 }
 
