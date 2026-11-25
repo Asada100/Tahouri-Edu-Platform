@@ -149,6 +149,48 @@ function testImportRestoresEveryProfileAndIsIdempotent() {
     assert.deepEqual(Object.fromEntries(target.values.entries()), snapshot);
 }
 
+function testFullBrowserStorageLossCanRestoreLearningBackupWithoutRestoringDeviceSecrets() {
+    const sourceSeed = new Map();
+    seedProfile(sourceSeed, "student-A", dataA);
+    seedProfile(sourceSeed, "student-B", dataB);
+    sourceSeed.set("Tahouri_Signed_Entitlement_v1", JSON.stringify([{ claims: { licenseId: "device-bound-license" } }]));
+    sourceSeed.set("Tahouri_Installation_Id_v1", "legacy-installation-secret");
+    sourceSeed.set("Tahouri_Offline_Clock_High_Water_v1", "1790000000000");
+    sourceSeed.set("tahouri_push_subscription:student-A", JSON.stringify({ endpoint: "private-device-endpoint" }));
+
+    const beforeWipe = makeHarness(Object.fromEntries(sourceSeed), makeProfiles(), "student-A");
+    const backup = beforeWipe.transfer.exportAll();
+    const serializedBackup = JSON.stringify(backup);
+
+    assert.equal(serializedBackup.includes("device-bound-license"), false);
+    assert.equal(serializedBackup.includes("legacy-installation-secret"), false);
+    assert.equal(serializedBackup.includes("private-device-endpoint"), false);
+
+    // Clearing all site storage removes the browser's local profile/data and
+    // cached device entitlement. A separately saved learning backup is then
+    // imported into a fresh page context.
+    const wipedStorage = new Map();
+    const afterWipe = makeHarness(Object.fromEntries(wipedStorage), [], null);
+    const restored = afterWipe.transfer.importAll(backup, serializedBackup.length);
+
+    assert.equal(restored.profiles, 2);
+    assert.equal(restored.newProfiles, 2);
+    assert.deepEqual(JSON.parse(afterWipe.values.get("Tahouri_Progress:student-A")), dataA.progress);
+    assert.deepEqual(JSON.parse(afterWipe.values.get("Tahouri_Statistics:student-A")), dataA.statistics);
+    assert.deepEqual(JSON.parse(afterWipe.values.get("Tahouri_ContentLocks:student-A")), dataA.contentLocks);
+    assert.deepEqual(JSON.parse(afterWipe.values.get("tahouri_daily_learning_streak:student-A")), dataA.dailyStreak);
+    assert.deepEqual(JSON.parse(afterWipe.values.get("Tahouri_Spelling_Performance:student-A")), dataA.spellingPerformance);
+    assert.deepEqual(JSON.parse(afterWipe.values.get("Tahouri_QuestionPerformance:student-A")), dataA.questionPerformance);
+    assert.equal(afterWipe.values.has("Tahouri_Signed_Entitlement_v1"), false,
+        "A learning backup must never recreate a device-bound signed license.");
+    assert.equal(afterWipe.values.has("Tahouri_Installation_Id_v1"), false,
+        "A learning backup must never recreate a legacy installation identity.");
+    assert.equal(afterWipe.values.has("Tahouri_Offline_Clock_High_Water_v1"), false,
+        "A learning backup must not reset or forge the device's offline clock state.");
+    assert.equal(afterWipe.values.has("tahouri_push_subscription:student-A"), false,
+        "A learning backup must not copy device push credentials.");
+}
+
 function testExistingEmptyDefaultsCanBeRestoredWithoutOverwritingRealData() {
     const targetSeed = {
         "Tahouri_Progress:student-A": "{}",
@@ -278,6 +320,7 @@ function main() {
     testProfileScreenWiresFullBackupControls();
     testExportCapturesAllStudentOwnedLearningStores();
     testImportRestoresEveryProfileAndIsIdempotent();
+    testFullBrowserStorageLossCanRestoreLearningBackupWithoutRestoringDeviceSecrets();
     testExistingEmptyDefaultsCanBeRestoredWithoutOverwritingRealData();
     testConflictRejectsWholeImportWithoutPartialWrites();
     testStorageFailureRollsBackAllStagedData();
