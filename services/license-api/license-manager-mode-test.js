@@ -57,6 +57,14 @@ const context = {
 };
 vm.runInNewContext(source, context);
 
+async function waitForCondition(predicate, message) {
+    for (let attempt = 0; attempt < 50; attempt++) {
+        if (predicate()) return;
+        await new Promise(resolve => setTimeout(resolve, 0));
+    }
+    assert.fail(message);
+}
+
 async function main() {
     const manager = window.LicenseManager;
     assert(manager, "LicenseManager must initialize.");
@@ -258,11 +266,13 @@ async function main() {
         else if (item.claims.studentId === studentB.studentId) resolveB = resolve;
     });
     const staleSelection = manager.initializeRemoteEntitlement();
-    await new Promise(resolve => setTimeout(resolve, 0));
+    await waitForCondition(() => typeof resolveA === "function",
+        "The first profile verification must reach its asynchronous verifier.");
     profile.studentId = studentB.studentId;
     window.TahouriEntitlementStore.readAll = () => [envelope(claimsB)];
     const currentSelection = manager.initializeRemoteEntitlement();
-    await new Promise(resolve => setTimeout(resolve, 0));
+    await waitForCondition(() => typeof resolveB === "function",
+        "The second profile verification must reach its asynchronous verifier.");
     assert.equal(typeof resolveA, "function", "The first profile verification must be pending.");
     assert.equal(typeof resolveB, "function", "The second profile verification must be pending.");
     resolveB({ valid: true, claims: claimsB });
