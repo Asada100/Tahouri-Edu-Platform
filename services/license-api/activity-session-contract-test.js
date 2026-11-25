@@ -199,6 +199,49 @@ async function main() {
     assert.equal(context.ActivityManager.currentActivity, priorActivity, "throwing restore preserves current activity");
     assert.equal(activityState, priorState, "throwing restore preserves ActivityState");
 
+    engines.DictationEngine = {
+        activity: { id: "prior-dictation" },
+        content: { questions: [{ prompt: "prior" }] },
+        state: { prior: true },
+        runToken: 4,
+        finishAuthorized: true,
+        restoreSession() {
+            // Match DictationEngine.reset() after a malformed saved state.
+            this.runToken += 1;
+            this.finishAuthorized = false;
+            this.activity = null;
+            this.content = null;
+            this.state = null;
+            return false;
+        }
+    };
+    const priorDictationFields = {
+        activity: engines.DictationEngine.activity,
+        content: engines.DictationEngine.content,
+        state: engines.DictationEngine.state,
+        runToken: engines.DictationEngine.runToken,
+        finishAuthorized: engines.DictationEngine.finishAuthorized
+    };
+    assert.equal(await manager.restoreEngine(
+        { id: "failed-dictation", engine: "DictationEngine" },
+        {
+            activityType: "DictationEngine",
+            engineState: {
+                kind: "dictation",
+                activity: { id: "failed-dictation" },
+                content: { questions: [{ prompt: "new" }] },
+                state: { malformed: true }
+            }
+        }
+    ), false, "dictation false restore is rejected");
+    assert.equal(engines.DictationEngine.activity, priorDictationFields.activity, "failed dictation restore rolls back activity");
+    assert.equal(engines.DictationEngine.content, priorDictationFields.content, "failed dictation restore rolls back content");
+    assert.equal(engines.DictationEngine.state, priorDictationFields.state, "failed dictation restore rolls back state");
+    assert.equal(engines.DictationEngine.runToken, priorDictationFields.runToken, "failed dictation restore rolls back run token");
+    assert.equal(engines.DictationEngine.finishAuthorized, priorDictationFields.finishAuthorized, "failed dictation restore rolls back finish authorization");
+    assert.equal(context.ActivityManager.currentActivity, priorActivity, "failed dictation restore preserves current activity");
+    assert.equal(activityState, priorState, "failed dictation restore preserves ActivityState");
+
     engines.ClassificationEngine = {
         activityData: { id: "prior-engine-data" },
         content: { prior: true },
