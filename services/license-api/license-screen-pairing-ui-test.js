@@ -191,7 +191,7 @@ async function runPairingUiInteractionTests() {
     const pendingBeforeReload = beforeReload.getPending();
     assert(pendingBeforeReload && pendingBeforeReload.token,
         "the active page must retain the opaque pairing token in runtime memory");
-    assert.doesNotMatch(begin + poll, /\\b(?:localStorage|sessionStorage)\\b/,
+    assert.doesNotMatch(begin + poll, /\b(?:localStorage|sessionStorage)\b/,
         "pairing bearer tokens must not be persisted in browser storage");
 
     const statusCallsBeforeReload = statusCalls;
