@@ -447,6 +447,7 @@ async function main() {
     puzzleFields.forEach(key => { priorPuzzleState[key] = puzzleEngine[key]; });
     const priorPuzzleScore = { score: context.ScoreManager.score, correct: context.ScoreManager.correct, wrong: context.ScoreManager.wrong };
     appContainer.innerHTML = "<main>prior puzzle screen</main>";
+    assert.equal(context.document.getElementById("app"), appContainer, "puzzle rollback uses the same app container as the renderer");
     context.PuzzleScreen = {
         show() {
             appContainer.innerHTML = "<main class='puzzleScreen'>partial puzzle render</main>";
