@@ -64,6 +64,7 @@ async function runPairingUiInteractionTests() {
     let statusCalls = 0;
     let pairingSequence = 0;
     let verificationValid = true;
+    let recoveryResponse = { status: "approved", entitlement };
     let claimBindingOverride = null;
     let claimDeviceType = "phone";
     let storeAccepts = true;
@@ -85,7 +86,7 @@ async function runPairingUiInteractionTests() {
             return statusResponse;
         },
         async recoverApprovedPairingEntitlement() {
-            return { status: "approved", entitlement };
+            return recoveryResponse;
         },
         async requestPairingChallenge(pairingId, licenseId) {
             assert.equal(pairingId, "pairing-ui-1");
@@ -317,6 +318,60 @@ async function runPairingUiInteractionTests() {
     }
     claimBindingOverride = null;
     claimDeviceType = "phone";
+
+    for (const failure of [
+        {
+            label: "invalid signature",
+            response: { status: "approved", entitlement },
+            validSignature: false
+        },
+        {
+            label: "not-yet-approved status",
+            response: { status: "pending", entitlement },
+            validSignature: true
+        },
+        {
+            label: "approved status without an entitlement",
+            response: { status: "approved", entitlement: null },
+            validSignature: true
+        }
+    ]) {
+        const failedRecoveryUi = factory(
+            dependencies.getActiveProfile, dependencies.document, dependencies.window,
+            dependencies.navigator, dependencies.TahouriLicenseClient, dependencies.LicenseManager,
+            dependencies.showManagementError, dependencies.pairingMessage, dependencies.renderList,
+            dependencies.getActiveSignedLicenseClaims, dependencies.loadPendingPairings
+        );
+        await failedRecoveryUi.begin();
+        const pendingBeforeFailure = failedRecoveryUi.getPending();
+        storedEntitlement = null;
+        recoveryResponse = failure.response;
+        verificationValid = failure.validSignature;
+        const writesBeforeFailure = storeWriteCalls;
+        const initializationsBeforeFailure = initialized;
+        const messageCountBeforeFailure = messages.length;
+        elements.tahouriPairingRecoverButton.disabled = false;
+
+        await failedRecoveryUi.recover();
+
+        assert.equal(storedEntitlement, null,
+            failure.label + " must never store an entitlement");
+        assert.equal(storeWriteCalls, writesBeforeFailure,
+            failure.label + " must be rejected before secure-store write");
+        assert.equal(initialized, initializationsBeforeFailure,
+            failure.label + " must never initialize the remote entitlement");
+        assert.equal(messages.length, messageCountBeforeFailure + 1,
+            failure.label + " must display a failure message");
+        assert.equal(messages.at(-1).success, false,
+            failure.label + " must report recovery failure");
+        assert.equal(elements.tahouriPairingRecoverButton.disabled, false,
+            failure.label + " must re-enable the recovery control");
+        assert.deepEqual(failedRecoveryUi.getPending(), pendingBeforeFailure,
+            failure.label + " must preserve the existing pending pairing request");
+    }
+    verificationValid = true;
+    recoveryResponse = { status: "approved", entitlement };
+    console.log("PASS: recovery rejects invalid signatures, non-approved status, and missing entitlements without storage, initialization, or losing pending requests");
     console.log("PASS: recovery rejects another installation or device type before storage and initialization");
     console.log("PASS: entitlements bound to another installation or device type are rejected before secure storage");
     console.log("PASS: rejected and expired requests terminate; invalid entitlements and failed secure-store writes are never accepted");
