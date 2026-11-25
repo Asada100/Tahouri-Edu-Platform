@@ -290,8 +290,34 @@ async function runPairingUiInteractionTests() {
         assert(mismatchUi.getPending(),
             "identity mismatch must leave the request available for safe retry");
     }
+    for (const mismatch of [
+        { binding: "install-another-device", deviceType: "phone", label: "different installation" },
+        { binding: identity.installationId, deviceType: "computer", label: "different device type" }
+    ]) {
+        const recoveryUi = factory(
+            dependencies.getActiveProfile, dependencies.document, dependencies.window,
+            dependencies.navigator, dependencies.TahouriLicenseClient, dependencies.LicenseManager,
+            dependencies.showManagementError, dependencies.pairingMessage, dependencies.renderList,
+            dependencies.getActiveSignedLicenseClaims, dependencies.loadPendingPairings
+        );
+        storedEntitlement = null;
+        const writesBeforeRecovery = storeWriteCalls;
+        const initializationsBeforeRecovery = initialized;
+        claimBindingOverride = mismatch.binding;
+        claimDeviceType = mismatch.deviceType;
+        await recoveryUi.recover();
+        assert.equal(storedEntitlement, null,
+            "recovery must reject an entitlement bound to a " + mismatch.label);
+        assert.equal(storeWriteCalls, writesBeforeRecovery,
+            "recovery identity mismatch must be rejected before secure storage");
+        assert.equal(initialized, initializationsBeforeRecovery,
+            "recovery identity mismatch must not initialize the remote entitlement");
+        assert.equal(elements.tahouriPairingRecoverButton.disabled, false,
+            "recovery control must be re-enabled after identity mismatch");
+    }
     claimBindingOverride = null;
     claimDeviceType = "phone";
+    console.log("PASS: recovery rejects another installation or device type before storage and initialization");
     console.log("PASS: entitlements bound to another installation or device type are rejected before secure storage");
     console.log("PASS: rejected and expired requests terminate; invalid entitlements and failed secure-store writes are never accepted");
 }
