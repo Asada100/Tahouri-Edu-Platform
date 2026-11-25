@@ -1365,8 +1365,8 @@ async function main() {
     assert.deepEqual(replacementRecoveryBody.entitlement, replacementApprovalBody.entitlement,
       "Recovery must return the exact signed entitlement approved for the replacement phone.");
     assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type='device.pairing.entitlement_recovered' AND license_id=?")
-      .get(stored.license_id).count), 1,
-      "Replacement phone entitlement recovery must be audited.");
+      .get(stored.license_id).count), 2,
+      "Both the earlier computer recovery and replacement phone recovery must be audited.");
     assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id=? AND revoked_at IS NULL")
       .get(stored.license_id).count), 2,
       "The final state must contain exactly one active phone and one active computer slot.");
