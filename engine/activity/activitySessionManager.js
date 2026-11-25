@@ -475,26 +475,61 @@ const ActivitySessionManager = {
         }
 
         if (data.kind === "memory" && (engineName === "MemoryEngine" || engineName === "memory")) {
-            engine.activity = data.activity || activity;
-            engine.cards = Array.isArray(data.cards) ? JSON.parse(JSON.stringify(data.cards)) : [];
-            engine.firstCard = null;
-            engine.secondCard = null;
-            engine.lockBoard = false;
-            engine.matchedPairs = Number(data.matchedPairs || 0);
-            engine.moves = Number(data.moves || 0);
-            engine.totalPairs = Number(data.totalPairs || 0);
-            engine.finished = false;
+            if (
+                typeof MemoryScreen === "undefined" ||
+                typeof MemoryScreen.show !== "function" ||
+                typeof document === "undefined"
+            ) return false;
+            const app = document.getElementById("app");
+            if (!app || !Array.isArray(data.cards) || data.cards.length === 0) return false;
 
-            if (typeof ScoreManager !== "undefined") {
-                ScoreManager.score = Number(data.score || 0);
-                ScoreManager.correct = Number(data.correct || 0);
-                ScoreManager.wrong = Number(data.wrong || 0);
+            const engineFields = [
+                "activity", "cards", "firstCard", "secondCard", "lockBoard",
+                "matchedPairs", "moves", "totalPairs", "finished"
+            ];
+            const previousEngineState = {};
+            engineFields.forEach(key => { previousEngineState[key] = engine[key]; });
+            const previousScore = typeof ScoreManager !== "undefined"
+                ? { score: ScoreManager.score, correct: ScoreManager.correct, wrong: ScoreManager.wrong }
+                : null;
+            const previousMarkup = app.innerHTML;
+            const rollback = () => {
+                Object.assign(engine, previousEngineState);
+                if (previousScore) Object.assign(ScoreManager, previousScore);
+                app.innerHTML = previousMarkup;
+            };
+
+            try {
+                engine.activity = data.activity || activity;
+                engine.cards = JSON.parse(JSON.stringify(data.cards));
+                engine.firstCard = null;
+                engine.secondCard = null;
+                engine.lockBoard = false;
+                engine.matchedPairs = Number(data.matchedPairs || 0);
+                engine.moves = Number(data.moves || 0);
+                engine.totalPairs = Number(data.totalPairs || 0);
+                engine.finished = false;
+
+                if (typeof ScoreManager !== "undefined") {
+                    ScoreManager.score = Number(data.score || 0);
+                    ScoreManager.correct = Number(data.correct || 0);
+                    ScoreManager.wrong = Number(data.wrong || 0);
+                }
+
+                const rendered = MemoryScreen.show({
+                    title: activity.title || "بازی حافظه",
+                    cards: engine.cards
+                });
+                if (rendered !== true) {
+                    rollback();
+                    return false;
+                }
+            } catch (error) {
+                rollback();
+                throw error;
             }
 
             this.activateRestoredActivity(activity);
-            if (typeof MemoryScreen !== "undefined" && typeof MemoryScreen.show === "function") {
-                MemoryScreen.show({ title: activity.title || "بازی حافظه", cards: engine.cards });
-            }
             return true;
         }
 
