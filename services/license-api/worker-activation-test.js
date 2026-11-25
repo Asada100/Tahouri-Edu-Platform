@@ -1316,6 +1316,26 @@ async function main() {
       identityVerified: true, verificationReason: "پرونده رسمی دانش‌آموز با حضور مدیر تطبیق داده شد"
     };
     const migrationChallengeCount = Number(db.prepare("SELECT COUNT(*) AS count FROM legacy_device_migration_challenges").get().count);
+    const unauthenticatedMigrationChallenge = await worker.fetch(new Request("https://api.example.test/api/admin/legacy-device-migration/challenge", {
+      method: "POST", headers: { "content-type": "application/json", origin: env.ADMIN_ORIGIN },
+      body: JSON.stringify({ ...migrationAdminPayload, adminPassword: env.ADMIN_PASSWORD })
+    }), env);
+    assert.equal(unauthenticatedMigrationChallenge.status, 401,
+      "Legacy migration challenge issuance must require an authenticated admin session before step-up.");
+    const crossOriginMigrationChallenge = await worker.fetch(new Request("https://api.example.test/api/admin/legacy-device-migration/challenge", {
+      method: "POST", headers: { "content-type": "application/json", origin: "https://attacker.example", cookie: adminCookie },
+      body: JSON.stringify({ ...migrationAdminPayload, adminPassword: env.ADMIN_PASSWORD })
+    }), env);
+    assert.equal(crossOriginMigrationChallenge.status, 403,
+      "Legacy migration challenge issuance must reject an untrusted Origin even with a valid admin session.");
+    const simpleContentTypeMigrationChallenge = await worker.fetch(new Request("https://api.example.test/api/admin/legacy-device-migration/challenge", {
+      method: "POST", headers: { "content-type": "text/plain", origin: env.ADMIN_ORIGIN, cookie: adminCookie },
+      body: JSON.stringify({ ...migrationAdminPayload, adminPassword: env.ADMIN_PASSWORD })
+    }), env);
+    assert.equal(simpleContentTypeMigrationChallenge.status, 415,
+      "Legacy migration challenge issuance must reject simple content types.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM legacy_device_migration_challenges").get().count), migrationChallengeCount,
+      "Unauthenticated, cross-origin, and simple-content-type requests must not create migration challenges.");
     const deniedMigrationChallenge = await worker.fetch(new Request("https://api.example.test/api/admin/legacy-device-migration/challenge", {
       method: "POST", headers: { "content-type": "application/json", origin: env.ADMIN_ORIGIN, cookie: adminCookie },
       body: JSON.stringify({ ...migrationAdminPayload, adminPassword: "wrong-password" })
