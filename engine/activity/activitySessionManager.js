@@ -534,37 +534,87 @@ const ActivitySessionManager = {
         }
 
         if (data.kind === "puzzle" && (engineName === "PuzzleEngine" || engineName === "puzzle")) {
-            engine.activity = data.activity || activity;
-            engine.state = { ...(data.state || {}), started: true, isFinished: false };
-            engine.puzzle = data.puzzle ? JSON.parse(JSON.stringify(data.puzzle)) : null;
-            // Reconcile persisted Jigsaw state with the current activity definition.
-            // Older sessions may contain the old nested { content: { image, rows, cols } }
-            // shape, so the saved session must not override the current asset definition.
-            if (engine.puzzle && engine.puzzle.type === "jigsaw" && activity.puzzle) {
-                const currentPuzzle = activity.puzzle;
-                const currentContent = currentPuzzle.content || {};
-                const currentImage = currentPuzzle.image || currentContent.image;
-                const currentRows = currentPuzzle.rows || currentContent.rows;
-                const currentCols = currentPuzzle.cols || currentContent.cols;
-                if (currentImage) engine.puzzle.image = currentImage;
-                if (currentRows) engine.puzzle.rows = currentRows;
-                if (currentCols) engine.puzzle.cols = currentCols;
+            if (
+                !data.state || typeof data.state !== "object" || Array.isArray(data.state) ||
+                !data.puzzle || typeof data.puzzle !== "object" || Array.isArray(data.puzzle) ||
+                !Array.isArray(data.items) || !Number.isFinite(Number(data.moves)) ||
+                typeof document === "undefined" ||
+                typeof PuzzleScreen === "undefined" || typeof PuzzleScreen.show !== "function"
+            ) return false;
+            const app = document.getElementById("app");
+            if (!app) return false;
+
+            const engineFields = [
+                "activity", "state", "puzzle", "questions", "currentQuestion", "items",
+                "userAnswer", "moves", "transitioning", "checking", "finishAcceptedThisCheck",
+                "startRequestId", "transitionRequestId"
+            ];
+            const previousEngineState = {};
+            engineFields.forEach(key => { previousEngineState[key] = engine[key]; });
+            const previousScore = typeof ScoreManager !== "undefined"
+                ? { score: ScoreManager.score, correct: ScoreManager.correct, wrong: ScoreManager.wrong }
+                : null;
+            const previousMarkup = app.innerHTML;
+            const previousJigsawStates = {
+                facade: typeof JigsawPuzzle !== "undefined" ? JigsawPuzzle.state : undefined,
+                image: typeof JigsawImagePuzzle !== "undefined" ? JigsawImagePuzzle.state : undefined,
+                words: typeof JigsawWordPuzzle !== "undefined" ? JigsawWordPuzzle.state : undefined
+            };
+            const isJigsaw = data.puzzle.type === "jigsaw";
+            const rollback = () => {
+                Object.assign(engine, previousEngineState);
+                if (previousScore) Object.assign(ScoreManager, previousScore);
+                if (typeof JigsawPuzzle !== "undefined") JigsawPuzzle.state = previousJigsawStates.facade;
+                if (typeof JigsawImagePuzzle !== "undefined") JigsawImagePuzzle.state = previousJigsawStates.image;
+                if (typeof JigsawWordPuzzle !== "undefined") JigsawWordPuzzle.state = previousJigsawStates.words;
+                app.innerHTML = previousMarkup;
+            };
+
+            try {
+                engine.activity = data.activity || activity;
+                engine.state = { ...data.state, started: true, isFinished: false };
+                engine.puzzle = JSON.parse(JSON.stringify(data.puzzle));
+                // Reconcile persisted Jigsaw state with the current activity definition.
+                // Older sessions may contain the old nested { content: { image, rows, cols } }
+                // shape, so the saved session must not override the current asset definition.
+                if (isJigsaw && activity.puzzle) {
+                    const currentPuzzle = activity.puzzle;
+                    const currentContent = currentPuzzle.content || {};
+                    const currentImage = currentPuzzle.image || currentContent.image;
+                    const currentRows = currentPuzzle.rows || currentContent.rows;
+                    const currentCols = currentPuzzle.cols || currentContent.cols;
+                    if (currentImage) engine.puzzle.image = currentImage;
+                    if (currentRows) engine.puzzle.rows = currentRows;
+                    if (currentCols) engine.puzzle.cols = currentCols;
+                }
+                engine.items = JSON.parse(JSON.stringify(data.items));
+                engine.userAnswer = data.userAnswer;
+                engine.moves = Number(data.moves);
+
+                if (isJigsaw) {
+                    if (
+                        typeof JigsawPuzzle === "undefined" ||
+                        typeof JigsawPuzzle.restoreFromEngine !== "function" ||
+                        JigsawPuzzle.restoreFromEngine() !== true
+                    ) {
+                        rollback();
+                        return false;
+                    }
+                }
+
+                const rendered = PuzzleScreen.show(engine.getState());
+                if (rendered === false || !app.innerHTML ||
+                    !app.innerHTML.includes("puzzleScreen") ||
+                    (isJigsaw && !app.innerHTML.includes("jigsawScreen"))) {
+                    rollback();
+                    return false;
+                }
+            } catch (error) {
+                rollback();
+                throw error;
             }
-            engine.items = Array.isArray(data.items) ? JSON.parse(JSON.stringify(data.items)) : [];
-            engine.userAnswer = data.userAnswer;
-            engine.moves = Number(data.moves || 0);
 
             this.activateRestoredActivity(activity);
-            // Rebuild the in-memory Jigsaw core from the restored PuzzleEngine state
-            // before rendering. Without this, the board is visible but move/reset
-            // operations have no Jigsaw core state to operate on.
-            if (engine.puzzle && engine.puzzle.type === "jigsaw" && typeof JigsawPuzzle !== "undefined" && typeof JigsawPuzzle.restoreFromEngine === "function") {
-                JigsawPuzzle.restoreFromEngine();
-            }
-
-            if (typeof PuzzleScreen !== "undefined" && typeof PuzzleScreen.show === "function") {
-                PuzzleScreen.show(engine.getState());
-            }
             return true;
         }
 
