@@ -64,13 +64,13 @@ async function runPairingUiInteractionTests() {
     let statusCalls = 0;
     let pairingSequence = 0;
     let verificationValid = true;
-    let recoveryResponse = { status: "approved", entitlement };
     let claimBindingOverride = null;
     let claimDeviceType = "phone";
     let storeAccepts = true;
     const profile = { studentId: "student-ui", grade: "grade6" };
     const identity = { installationId: "install-ui-phone" };
     const entitlement = { payload: "signed-entitlement-for-ui-phone" };
+    let recoveryResponse = { status: "approved", entitlement };
     const client = {
         async requestPairing(input) {
             assert.deepEqual(input, {
