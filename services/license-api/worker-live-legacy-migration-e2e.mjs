@@ -51,11 +51,24 @@ async function main() {
   assert(cookieMatch, "Admin login did not return the session cookie.");
   const cookie = cookieMatch[0];
 
+  const attestation = await request("/api/admin/legacy-device-migration/attestation", {
+    method: "POST", cookie,
+    body: {
+      ...FIXTURE,
+      verificationReason: "Synthetic PR141 acceptance fixture; no real student data.",
+      adminPassword: password
+    }
+  });
+  assert.equal(attestation.response.status, 200,
+    "Synthetic identity attestation must succeed: " + JSON.stringify(attestation.data));
+  assert(attestation.data.identityAttestation,
+    "Worker did not return a synthetic identity attestation.");
+
   const challenge = await request("/api/admin/legacy-device-migration/challenge", {
     method: "POST", cookie,
     body: {
       ...FIXTURE,
-      identityVerified: true,
+      identityAttestation: attestation.data.identityAttestation,
       verificationReason: "Synthetic PR141 acceptance fixture; no real student data.",
       adminPassword: password
     }
