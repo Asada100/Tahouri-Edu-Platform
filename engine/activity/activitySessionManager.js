@@ -562,12 +562,16 @@ const ActivitySessionManager = {
             };
             const isJigsaw = data.puzzle.type === "jigsaw";
             const rollback = () => {
-                Object.assign(engine, previousEngineState);
-                if (previousScore) Object.assign(ScoreManager, previousScore);
-                if (typeof JigsawPuzzle !== "undefined") JigsawPuzzle.state = previousJigsawStates.facade;
-                if (typeof JigsawImagePuzzle !== "undefined") JigsawImagePuzzle.state = previousJigsawStates.image;
-                if (typeof JigsawWordPuzzle !== "undefined") JigsawWordPuzzle.state = previousJigsawStates.words;
-                app.innerHTML = previousMarkup;
+                // Restore the visible UI even if a core-state rollback itself throws.
+                try {
+                    Object.assign(engine, previousEngineState);
+                    if (previousScore) Object.assign(ScoreManager, previousScore);
+                    if (typeof JigsawPuzzle !== "undefined") JigsawPuzzle.state = previousJigsawStates.facade;
+                    if (typeof JigsawImagePuzzle !== "undefined") JigsawImagePuzzle.state = previousJigsawStates.image;
+                    if (typeof JigsawWordPuzzle !== "undefined") JigsawWordPuzzle.state = previousJigsawStates.words;
+                } finally {
+                    app.innerHTML = previousMarkup;
+                }
             };
 
             try {
