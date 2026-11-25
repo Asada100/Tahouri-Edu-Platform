@@ -12,11 +12,12 @@ const read = relative => fs.readFileSync(path.join(__dirname, "../..", relative)
 const source = read("engine/activity/activitySessionManager.js");
 const classes = new Set();
 const storage = new Map();
+const appContainer = { innerHTML: "" };
 const document = {
     visibilityState: "visible",
     body: { classList: { add: value => classes.add(value), remove: value => classes.delete(value) }, appendChild() {} },
     addEventListener() {},
-    getElementById() { return null; },
+    getElementById(id) { return id === "app" ? appContainer : null; },
     createElement() { return { setAttribute() {}, appendChild() {}, remove() {} }; }
 };
 const window = { addEventListener() {} };
