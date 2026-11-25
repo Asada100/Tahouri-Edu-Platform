@@ -60,6 +60,7 @@ async function runPairingUiInteractionTests() {
     let storedEntitlement = null;
     let initialized = 0;
     let statusResponse = null;
+    let statusCalls = 0;
     let pairingSequence = 0;
     const profile = { studentId: "student-ui", grade: "grade6" };
     const identity = { installationId: "install-ui-phone" };
@@ -73,6 +74,7 @@ async function runPairingUiInteractionTests() {
             return { pairingId: "pairing-ui-" + pairingSequence, token: "opaque-ui-token" };
         },
         async pairingStatus(pairingId, token) {
+            statusCalls += 1;
             assert.equal(pairingId, "pairing-ui-1");
             assert.equal(token, "opaque-ui-token");
             return statusResponse;
@@ -178,6 +180,36 @@ async function runPairingUiInteractionTests() {
         "the primary device must report the approval result to the user");
 
     console.log("PASS: pairing request, approved polling, entitlement recovery, and primary-device approval interactions");
+
+    const beforeReload = factory(
+        dependencies.getActiveProfile, dependencies.document, dependencies.window,
+        dependencies.navigator, dependencies.TahouriLicenseClient, dependencies.LicenseManager,
+        dependencies.showManagementError, dependencies.pairingMessage, dependencies.renderList,
+        dependencies.getActiveSignedLicenseClaims, dependencies.loadPendingPairings
+    );
+    await beforeReload.begin();
+    const pendingBeforeReload = beforeReload.getPending();
+    assert(pendingBeforeReload && pendingBeforeReload.token,
+        "the active page must retain the opaque pairing token in runtime memory");
+    assert.doesNotMatch(begin + poll, /\\b(?:localStorage|sessionStorage)\\b/,
+        "pairing bearer tokens must not be persisted in browser storage");
+
+    const statusCallsBeforeReload = statusCalls;
+    const afterReload = factory(
+        dependencies.getActiveProfile, dependencies.document, dependencies.window,
+        dependencies.navigator, dependencies.TahouriLicenseClient, dependencies.LicenseManager,
+        dependencies.showManagementError, dependencies.pairingMessage, dependencies.renderList,
+        dependencies.getActiveSignedLicenseClaims, dependencies.loadPendingPairings
+    );
+    assert.equal(afterReload.getPending(), null,
+        "a fresh page context must not inherit the previous page's in-memory pairing token");
+    await afterReload.poll();
+    assert.equal(statusCalls, statusCallsBeforeReload,
+        "the reloaded page must not poll using a missing or reconstructed bearer token");
+    await afterReload.begin();
+    assert.notEqual(afterReload.getPending().pairingId, pendingBeforeReload.pairingId,
+        "the user can create a fresh pairing request after reload");
+    console.log("PASS: reload drops the in-memory pairing secret, performs no unauthenticated poll, and permits a fresh request");
 }
 
 runPairingUiInteractionTests().catch(error => {
