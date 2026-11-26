@@ -226,7 +226,9 @@
         for (let attempt = 0; attempt < 2; attempt++) {
             const merged = mergeDatasets(base, local, current.datasets || {});
             if (same(merged, current.datasets || {})) {
-                window.StudentDataTransfer.applyProfileData(context.studentId, merged);
+                if (!same(local, merged)) {
+                    window.StudentDataTransfer.applyProfileData(context.studentId, merged);
+                }
                 writeBase(context.studentId, Number(current.revision) || 0, merged);
                 return { revision: Number(current.revision) || 0, changed: false };
             }
@@ -277,10 +279,13 @@
             return result;
         }).catch(error => {
             setStatus("pending", error && error.message ? error.message : "همگام‌سازی انجام نشد؛ اطلاعات محلی حفظ شده‌اند.");
-            const retryable = !error || !Number.isFinite(Number(error.status)) ||
-                Number(error.status) >= 500 || Number(error.status) === 408 ||
-                Number(error.status) === 429 ||
-                String(error.message || "").includes("هم‌زمانی تغییرات");
+            const statusCode = Number(error && error.status);
+            const networkFailure = !!error &&
+                (error.name === "TypeError" || error.name === "AbortError");
+            const retryable = networkFailure ||
+                (Number.isFinite(statusCode) &&
+                    (statusCode >= 500 || statusCode === 408 || statusCode === 429)) ||
+                String(error && error.message || "").includes("هم‌زمانی تغییرات");
             if (retryable && (!window.navigator || window.navigator.onLine !== false)) schedule(30000);
             throw error;
         }).finally(() => {
@@ -310,6 +315,9 @@
         }
         window.addEventListener("online", () => schedule(1000));
         window.addEventListener("focus", () => schedule(2500));
+        window.setInterval(() => {
+            if (!window.navigator || window.navigator.onLine !== false) schedule(0);
+        }, 60000);
         if (window.ActivationGate && window.ActivationGate.ready &&
             typeof window.ActivationGate.ready.then === "function") {
             window.ActivationGate.ready.then(() => schedule(5000)).catch(() => {});
