@@ -1212,6 +1212,33 @@ async function main() {
     assert.deepEqual(learningPullBody.datasets, learningDatasets,
         "An authenticated device must retrieve the exact student-scoped snapshot.");
 
+    const computerLearningPullProof = {
+        purpose: "tahouri-learning-data-sync-v1", action: "pull",
+        licenseId: stored.license_id, studentId: "student-1", deviceType: "computer",
+        installationId: "install-computer-1",
+        keyFingerprint: storedPairing.requester_key_fingerprint,
+        expectedRevision: 0, payloadHash: ""
+    };
+    const computerLearningPull = await request(worker, env, "/api/learning-data/sync", "POST", {
+        ...computerLearningPullProof,
+        deviceSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(computerLearningPullProof)),
+            pairingDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(computerLearningPull.status, 200,
+        "The paired computer must retrieve the same student snapshot as the phone.");
+    const computerLearningPullBody = await computerLearningPull.json();
+    assert.equal(computerLearningPullBody.revision, 1);
+    assert.deepEqual(computerLearningPullBody.datasets, learningDatasets);
+
+    const crossStudentProof = { ...learningPullProof, studentId: "student-2" };
+    const crossStudentRead = await request(worker, env, "/api/learning-data/sync", "POST", {
+        ...crossStudentProof,
+        deviceSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(crossStudentProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(crossStudentRead.status, 403,
+        "A device must not read another student's learning data even with a valid device signature.");
+
     const staleLearningDatasets = { ...learningDatasets, contentLocks: { math_chapter2: false } };
     const staleLearningHash = await sha256(JSON.stringify(staleLearningDatasets));
     const staleLearningProof = { ...learningPushProof, payloadHash: staleLearningHash };
