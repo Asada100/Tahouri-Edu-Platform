@@ -108,7 +108,7 @@ assert(
 // Student learning-data sync must be loaded only after the verified license gate
 // and must use the registered device signature rather than a bearer token.
 assert(
-    index.includes('studentLearningSync.js?v=1.2') &&
+    index.includes('studentLearningSync.js?v=1.3') &&
     index.indexOf("activationGate.js") < index.indexOf("studentLearningSync.js") &&
     studentDataTransfer.includes("function exportProfileData(studentId)") &&
     studentDataTransfer.includes("function applyProfileData(studentId, incomingData)") &&
@@ -117,6 +117,8 @@ assert(
     licenseClient.includes("deviceSignature: signed.signature") &&
     learningSync.includes("hasValidRemoteEntitlement(profile.grade)") &&
     learningSync.includes("getVerifiedRemoteEntitlementClaims") &&
+    learningSync.includes("window.setInterval") &&
+    learningSync.includes("}, 60000)") &&
     learningSync.includes('window.addEventListener("online"') &&
     learningSync.includes('window.EventManager.on("profileChanged"') &&
     learningSync.includes("mergeThreeWay") &&
