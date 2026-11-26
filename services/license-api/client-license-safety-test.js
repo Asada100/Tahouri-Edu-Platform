@@ -39,7 +39,7 @@ assert(
     indexHtml.includes("tahouriServiceConfig.js?v=1.3") &&
     indexHtml.includes("tahouriEntitlementVerifier.js?v=1.5") &&
     indexHtml.includes("tahouriDeviceIdentity.js?v=1.0") &&
-    indexHtml.includes("tahouriLicenseClient.js?v=2.1") &&
+    indexHtml.includes("tahouriLicenseClient.js?v=2.2") &&
     indexHtml.indexOf("tahouriDeviceIdentity.js") < indexHtml.indexOf("tahouriLicenseClient.js") &&
     indexHtml.includes("profileScreen.js?v=5.2") &&
     indexHtml.includes("licenseScreen.js?v=pr141-recovery-1") &&
