@@ -70,7 +70,7 @@
         if (datasetId === "dailyStreak" && path.endsWith(".lastCompletedDate")) {
             return String(local) > String(remote) ? local : remote;
         }
-        return clone(remote);
+        throw new Error("تعارض دادهٔ همگام‌سازی در " + datasetId + " (" + path + "). برای جلوگیری از حذف اطلاعات، هیچ نسخه‌ای جایگزین نشد.");
     }
 
     function mergeThreeWay(base, local, remote, path, datasetId) {
@@ -150,6 +150,9 @@
                 : mergeTwoWay(null, local[id], remote[id], id, id);
         });
         merged.statistics = normalizeStatistics(merged.statistics);
+        merged.notifications = merged.notifications.slice(-50);
+        merged.spellingPerformance.answers = merged.spellingPerformance.answers.slice(-2000);
+        merged.spellingPerformance.targetAnswers = merged.spellingPerformance.targetAnswers.slice(-2000);
         if (merged.dailyStreak && merged.dailyStreak.days) {
             merged.dailyStreak.bestStreak = Math.max(
                 Number(merged.dailyStreak.bestStreak) || 0,
@@ -270,6 +273,11 @@
             return result;
         }).catch(error => {
             setStatus("pending", error && error.message ? error.message : "همگام‌سازی انجام نشد؛ اطلاعات محلی حفظ شده‌اند.");
+            const retryable = !error || !Number.isFinite(Number(error.status)) ||
+                Number(error.status) >= 500 || Number(error.status) === 408 ||
+                Number(error.status) === 429 ||
+                String(error.message || "").includes("هم‌زمانی تغییرات");
+            if (retryable && (!window.navigator || window.navigator.onLine !== false)) schedule(30000);
             throw error;
         }).finally(() => {
             activeRun = null;
@@ -297,6 +305,7 @@
             window.EventManager.on("activityFinished", () => schedule(2500));
         }
         window.addEventListener("online", () => schedule(1000));
+        window.addEventListener("focus", () => schedule(2500));
         if (window.ActivationGate && window.ActivationGate.ready &&
             typeof window.ActivationGate.ready.then === "function") {
             window.ActivationGate.ready.then(() => schedule(5000)).catch(() => {});
