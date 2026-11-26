@@ -74,6 +74,10 @@
     }
 
     function mergeThreeWay(base, local, remote, path, datasetId) {
+        if (datasetId === "contentLocks" &&
+            typeof local === "boolean" && typeof remote === "boolean") {
+            return local && remote;
+        }
         if (same(local, remote)) return clone(local);
         if (same(local, base)) return clone(remote);
         if (same(remote, base)) return clone(local);
