@@ -430,7 +430,12 @@ const StatisticsManager = {
 
     save: function () {
         if (!this.ensureProfileContext()) return false;
-        return SaveManager.save(this.currentStorageKey, this.statistics);
+        const saved = SaveManager.save(this.currentStorageKey, this.statistics);
+        if (saved && window.StudentLearningSync &&
+            typeof window.StudentLearningSync.schedule === "function") {
+            window.StudentLearningSync.schedule(2500);
+        }
+        return saved;
     },
 
     load: function () {
