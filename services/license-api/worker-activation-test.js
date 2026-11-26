@@ -833,6 +833,101 @@ async function main() {
     assert(Date.parse(approvalBody.entitlement.claims.offlineLeaseExpiresAt) > Date.now(),
         "Approved pairing must receive a bounded offline lease.");
 
+    // Student learning-data sync is bound to the active license and the exact registered device key.
+    const learningDatasets = {
+        progress: { math: { chapter1: { score: 40, stars: 2 } } },
+        statistics: { overall: { totalActivities: 1, totalScore: 40 }, subjects: {}, chapters: {}, activities: {} },
+        contentLocks: { math_chapter2: true },
+        parityProgression: { unlocked: ["evenOdd"] },
+        dailyStreak: { days: {}, currentStreak: 1, bestStreak: 1 },
+        notifications: [],
+        spellingPerformance: { answers: [], targetAnswers: [] },
+        questionPerformance: {}
+    };
+    const learningPayloadHash = await sha256(JSON.stringify(learningDatasets));
+    const learningPushProof = {
+        purpose: "tahouri-learning-data-sync-v1", action: "push",
+        licenseId: stored.license_id, studentId: "student-1", deviceType: "phone",
+        installationId: "install-1", keyFingerprint: approverFingerprint,
+        expectedRevision: 0, payloadHash: learningPayloadHash
+    };
+    const learningPush = await request(worker, env, "/api/learning-data/sync", "POST", {
+        ...learningPushProof, datasets: learningDatasets,
+        deviceSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(learningPushProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(learningPush.status, 200, "A bound device must be able to create the first student learning-data snapshot.");
+    assert.equal((await learningPush.json()).revision, 1);
+    const storedLearning = db.prepare("SELECT revision, payload_json, checksum_sha256 FROM student_learning_data_snapshots WHERE student_id = ?").get("student-1");
+    assert.equal(Number(storedLearning.revision), 1);
+    assert.equal(storedLearning.payload_json, JSON.stringify(learningDatasets));
+    assert.equal(storedLearning.checksum_sha256, learningPayloadHash);
+
+    const learningPullProof = {
+        purpose: "tahouri-learning-data-sync-v1", action: "pull",
+        licenseId: stored.license_id, studentId: "student-1", deviceType: "phone",
+        installationId: "install-1", keyFingerprint: approverFingerprint,
+        expectedRevision: 1, payloadHash: ""
+    };
+    const learningPull = await request(worker, env, "/api/learning-data/sync", "POST", {
+        ...learningPullProof,
+        deviceSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(learningPullProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(learningPull.status, 200);
+    const learningPullBody = await learningPull.json();
+    assert.equal(learningPullBody.revision, 1);
+    assert.deepEqual(learningPullBody.datasets, learningDatasets,
+        "An authenticated device must retrieve the exact student-scoped snapshot.");
+
+    const computerLearningPullProof = {
+        purpose: "tahouri-learning-data-sync-v1", action: "pull",
+        licenseId: stored.license_id, studentId: "student-1", deviceType: "computer",
+        installationId: "install-computer-1",
+        keyFingerprint: storedPairing.requester_key_fingerprint,
+        expectedRevision: 0, payloadHash: ""
+    };
+    const computerLearningPull = await request(worker, env, "/api/learning-data/sync", "POST", {
+        ...computerLearningPullProof,
+        deviceSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(computerLearningPullProof)),
+            pairingDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(computerLearningPull.status, 200,
+        "The paired computer must retrieve the same student snapshot as the phone.");
+    const computerLearningPullBody = await computerLearningPull.json();
+    assert.equal(computerLearningPullBody.revision, 1);
+    assert.deepEqual(computerLearningPullBody.datasets, learningDatasets);
+
+    const crossStudentProof = { ...learningPullProof, studentId: "student-2" };
+    const crossStudentRead = await request(worker, env, "/api/learning-data/sync", "POST", {
+        ...crossStudentProof,
+        deviceSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(crossStudentProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(crossStudentRead.status, 403,
+        "A device must not read another student's learning data even with a valid device signature.");
+
+    const staleLearningDatasets = { ...learningDatasets, contentLocks: { math_chapter2: false } };
+    const staleLearningHash = await sha256(JSON.stringify(staleLearningDatasets));
+    const staleLearningProof = { ...learningPushProof, payloadHash: staleLearningHash };
+    const staleLearningPush = await request(worker, env, "/api/learning-data/sync", "POST", {
+        ...staleLearningProof, datasets: staleLearningDatasets,
+        deviceSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(staleLearningProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(staleLearningPush.status, 409,
+        "A stale device revision must be rejected instead of overwriting newer learning data.");
+    assert.equal((await staleLearningPush.json()).code, "revision_conflict");
+    assert.equal(db.prepare("SELECT revision, payload_json FROM student_learning_data_snapshots WHERE student_id = ?").get("student-1").payload_json,
+        JSON.stringify(learningDatasets), "A rejected stale write must leave the server snapshot unchanged.");
+
+    const forgedLearningProof = { ...learningPullProof };
+    const forgedLearningPull = await request(worker, env, "/api/learning-data/sync", "POST", {
+        ...forgedLearningProof, deviceSignature: "A".repeat(344)
+    });
+    assert.equal(forgedLearningPull.status, 401,
+        "A forged device signature must not read student learning data.");
+
     // A fully occupied license must reject any third installation without mutating either active slot.
     const thirdPhoneAttempt = await request(worker, env, "/api/licenses/pairing/request", "POST", {
         code, gradeId: "grade6", studentId: "student-1",
@@ -1164,101 +1259,6 @@ async function main() {
     assert.equal(refreshedLeaseVerifier.verify(pair.publicKey,
         Buffer.from(activePhoneStatusBody.entitlement.signature, "base64")), true,
         "The refreshed offline lease must be signed by the Worker entitlement key.");
-
-    // Student learning-data sync is bound to the active license and the exact registered device key.
-    const learningDatasets = {
-        progress: { math: { chapter1: { score: 40, stars: 2 } } },
-        statistics: { overall: { totalActivities: 1, totalScore: 40 }, subjects: {}, chapters: {}, activities: {} },
-        contentLocks: { math_chapter2: true },
-        parityProgression: { unlocked: ["evenOdd"] },
-        dailyStreak: { days: {}, currentStreak: 1, bestStreak: 1 },
-        notifications: [],
-        spellingPerformance: { answers: [], targetAnswers: [] },
-        questionPerformance: {}
-    };
-    const learningPayloadHash = await sha256(JSON.stringify(learningDatasets));
-    const learningPushProof = {
-        purpose: "tahouri-learning-data-sync-v1", action: "push",
-        licenseId: stored.license_id, studentId: "student-1", deviceType: "phone",
-        installationId: "install-1", keyFingerprint: approverFingerprint,
-        expectedRevision: 0, payloadHash: learningPayloadHash
-    };
-    const learningPush = await request(worker, env, "/api/learning-data/sync", "POST", {
-        ...learningPushProof, datasets: learningDatasets,
-        deviceSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(learningPushProof)),
-            activationDevicePair.privateKey).toString("base64")
-    });
-    assert.equal(learningPush.status, 200, "A bound device must be able to create the first student learning-data snapshot.");
-    assert.equal((await learningPush.json()).revision, 1);
-    const storedLearning = db.prepare("SELECT revision, payload_json, checksum_sha256 FROM student_learning_data_snapshots WHERE student_id = ?").get("student-1");
-    assert.equal(Number(storedLearning.revision), 1);
-    assert.equal(storedLearning.payload_json, JSON.stringify(learningDatasets));
-    assert.equal(storedLearning.checksum_sha256, learningPayloadHash);
-
-    const learningPullProof = {
-        purpose: "tahouri-learning-data-sync-v1", action: "pull",
-        licenseId: stored.license_id, studentId: "student-1", deviceType: "phone",
-        installationId: "install-1", keyFingerprint: approverFingerprint,
-        expectedRevision: 1, payloadHash: ""
-    };
-    const learningPull = await request(worker, env, "/api/learning-data/sync", "POST", {
-        ...learningPullProof,
-        deviceSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(learningPullProof)),
-            activationDevicePair.privateKey).toString("base64")
-    });
-    assert.equal(learningPull.status, 200);
-    const learningPullBody = await learningPull.json();
-    assert.equal(learningPullBody.revision, 1);
-    assert.deepEqual(learningPullBody.datasets, learningDatasets,
-        "An authenticated device must retrieve the exact student-scoped snapshot.");
-
-    const computerLearningPullProof = {
-        purpose: "tahouri-learning-data-sync-v1", action: "pull",
-        licenseId: stored.license_id, studentId: "student-1", deviceType: "computer",
-        installationId: "install-computer-1",
-        keyFingerprint: storedPairing.requester_key_fingerprint,
-        expectedRevision: 0, payloadHash: ""
-    };
-    const computerLearningPull = await request(worker, env, "/api/learning-data/sync", "POST", {
-        ...computerLearningPullProof,
-        deviceSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(computerLearningPullProof)),
-            pairingDevicePair.privateKey).toString("base64")
-    });
-    assert.equal(computerLearningPull.status, 200,
-        "The paired computer must retrieve the same student snapshot as the phone.");
-    const computerLearningPullBody = await computerLearningPull.json();
-    assert.equal(computerLearningPullBody.revision, 1);
-    assert.deepEqual(computerLearningPullBody.datasets, learningDatasets);
-
-    const crossStudentProof = { ...learningPullProof, studentId: "student-2" };
-    const crossStudentRead = await request(worker, env, "/api/learning-data/sync", "POST", {
-        ...crossStudentProof,
-        deviceSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(crossStudentProof)),
-            activationDevicePair.privateKey).toString("base64")
-    });
-    assert.equal(crossStudentRead.status, 403,
-        "A device must not read another student's learning data even with a valid device signature.");
-
-    const staleLearningDatasets = { ...learningDatasets, contentLocks: { math_chapter2: false } };
-    const staleLearningHash = await sha256(JSON.stringify(staleLearningDatasets));
-    const staleLearningProof = { ...learningPushProof, payloadHash: staleLearningHash };
-    const staleLearningPush = await request(worker, env, "/api/learning-data/sync", "POST", {
-        ...staleLearningProof, datasets: staleLearningDatasets,
-        deviceSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(staleLearningProof)),
-            activationDevicePair.privateKey).toString("base64")
-    });
-    assert.equal(staleLearningPush.status, 409,
-        "A stale device revision must be rejected instead of overwriting newer learning data.");
-    assert.equal((await staleLearningPush.json()).code, "revision_conflict");
-    assert.equal(db.prepare("SELECT revision, payload_json FROM student_learning_data_snapshots WHERE student_id = ?").get("student-1").payload_json,
-        JSON.stringify(learningDatasets), "A rejected stale write must leave the server snapshot unchanged.");
-
-    const forgedLearningProof = { ...learningPullProof };
-    const forgedLearningPull = await request(worker, env, "/api/learning-data/sync", "POST", {
-        ...forgedLearningProof, deviceSignature: "A".repeat(344)
-    });
-    assert.equal(forgedLearningPull.status, 401,
-        "A forged device signature must not read student learning data.");
 
     const revokedComputerStatus = await request(worker, env, "/api/licenses/device-status", "POST", {
         licenseId: stored.license_id, deviceType: "computer",
