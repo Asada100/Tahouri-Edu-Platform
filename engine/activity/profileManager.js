@@ -903,6 +903,9 @@ switchProfile: function (
         profile
     );
 
+    if (window.EventManager && typeof window.EventManager.emit === "function") {
+        window.EventManager.emit("profileChanged", { studentId: studentId, profile: { ...profile } });
+    }
 
     return true;
 
