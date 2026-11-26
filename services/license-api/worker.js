@@ -66,7 +66,7 @@ function randomHex(bytes = 16) {
   const data = crypto.getRandomValues(new Uint8Array(bytes));
   return [...data].map(x => x.toString(16).padStart(2, "0")).join("");
 }
-async function bodyJson(request) {
+async function bodyJson(request, maxBytes = MAX_BODY_BYTES) {
   const reader = request.body?.getReader();
   if (!reader) return {};
 
@@ -76,7 +76,7 @@ async function bodyJson(request) {
     const { done, value } = await reader.read();
     if (done) break;
     totalBytes += value.byteLength;
-    if (totalBytes > MAX_BODY_BYTES) {
+    if (totalBytes > maxBytes) {
       await reader.cancel();
       throw Object.assign(new Error("حجم درخواست بیش از حد مجاز است."), { status: 413 });
     }
@@ -1180,6 +1180,152 @@ async function deviceBoundLicenseStatus(request, env, headers) {
   return json({ ok: true, valid: true, entitlement }, 200, headers);
 }
 
+async function syncStudentLearningData(request, env, headers) {
+  if (!request.headers.get("Origin") || !allowedOrigin(request, env)) {
+    return error("مبدأ درخواست مجاز نیست.", 403, headers);
+  }
+  if (String(request.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase() !== "application/json") {
+    return error("نوع محتوا باید application/json باشد.", 415, headers);
+  }
+
+  const body = await bodyJson(request, 256 * 1024);
+  const action = String(body.action || "").trim().toLowerCase();
+  const licenseId = bounded(body.licenseId, 128, "licenseId");
+  const studentId = validIdentifier(body.studentId, "studentId");
+  const deviceType = String(body.deviceType || "").trim().toLowerCase();
+  const installationId = validIdentifier(body.installationId, "installationId");
+  const keyFingerprint = bounded(body.keyFingerprint, 128, "keyFingerprint");
+  const expectedRevision = Number(body.expectedRevision);
+  if (!["pull", "push"].includes(action) ||
+      !["phone", "computer"].includes(deviceType) ||
+      !/^[a-f0-9]{64}$/.test(keyFingerprint) ||
+      !Number.isSafeInteger(expectedRevision) || expectedRevision < 0) {
+    return error("مشخصات همگام‌سازی معتبر نیست.", 400, headers);
+  }
+
+  let datasets = null;
+  let serialized = "";
+  let payloadHash = "";
+  if (action === "push") {
+    const allowedDatasets = [
+      "progress", "statistics", "contentLocks", "parityProgression",
+      "dailyStreak", "notifications", "spellingPerformance", "questionPerformance"
+    ];
+    if (!body.datasets || typeof body.datasets !== "object" || Array.isArray(body.datasets) ||
+        Object.keys(body.datasets).length !== allowedDatasets.length ||
+        allowedDatasets.some(key => !Object.prototype.hasOwnProperty.call(body.datasets, key))) {
+      return error("بستهٔ دادهٔ آموزشی کامل یا معتبر نیست.", 400, headers);
+    }
+    for (const key of allowedDatasets) {
+      const value = body.datasets[key];
+      if (!value || typeof value !== "object") return error("ساختار یکی از داده‌های آموزشی معتبر نیست.", 400, headers);
+    }
+    datasets = body.datasets;
+    serialized = JSON.stringify(datasets);
+    if (new TextEncoder().encode(serialized).byteLength > 192 * 1024) {
+      return error("حجم داده‌های آموزشی بیش از حد مجاز است.", 413, headers);
+    }
+    payloadHash = await sha256(serialized);
+  }
+
+  const proof = {
+    purpose: "tahouri-learning-data-sync-v1",
+    action, licenseId, studentId, deviceType, installationId,
+    keyFingerprint, expectedRevision, payloadHash
+  };
+  try {
+    await verifyStoredDeviceSignature(
+      (await env.DB.prepare(`SELECT public_key_pem AS publicKeyPem
+        FROM license_device_slots
+        WHERE license_id = ? AND device_type = ? AND installation_id = ?
+          AND key_fingerprint = ? AND revoked_at IS NULL`)
+        .bind(licenseId, deviceType, installationId, keyFingerprint).first())?.publicKeyPem || "",
+      body.deviceSignature,
+      proof
+    );
+  } catch (proofError) {
+    return error(proofError.message || "اثبات مالکیت دستگاه معتبر نیست.",
+      proofError.status || 401, headers);
+  }
+
+  const license = await env.DB.prepare(`SELECT l.student_id AS studentId, l.grade_id AS gradeId,
+      l.status, l.valid_from AS validFrom, l.valid_until AS validUntil,
+      s.grade_id AS studentGradeId, s.status AS studentStatus
+    FROM licenses l JOIN student_accounts s ON s.student_id = l.student_id
+    WHERE l.license_id = ?`).bind(licenseId).first();
+  const now = Date.now();
+  if (!license || license.studentId !== studentId ||
+      license.gradeId !== license.studentGradeId || license.studentStatus !== "active" ||
+      !["active", "future"].includes(license.status) ||
+      !Number.isFinite(Date.parse(license.validFrom)) ||
+      !Number.isFinite(Date.parse(license.validUntil)) ||
+      Date.parse(license.validFrom) > now || Date.parse(license.validUntil) <= now) {
+    return error("مجوز فعال و منطبق با این پروفایل پیدا نشد.", 403, headers);
+  }
+
+  if (action === "pull") {
+    const row = await env.DB.prepare(`SELECT payload_json AS payloadJson,
+        revision, checksum_sha256 AS checksum, updated_at AS updatedAt
+      FROM student_learning_data_snapshots WHERE student_id = ? AND license_id = ?`)
+      .bind(studentId, licenseId).first();
+    let remoteDatasets = {};
+    if (row) {
+      try { remoteDatasets = JSON.parse(row.payloadJson); }
+      catch { return error("نسخهٔ ذخیره‌شدهٔ داده‌های آموزشی قابل‌خواندن نیست.", 500, headers); }
+    }
+    return json({ ok: true, action, revision: Number(row?.revision || 0),
+      datasets: remoteDatasets, checksum: row?.checksum || null,
+      updatedAt: row?.updatedAt || null }, 200, headers);
+  }
+
+  const nowIsoValue = nowIso();
+  const update = env.DB.prepare(`UPDATE student_learning_data_snapshots
+      SET payload_json = ?, revision = revision + 1, checksum_sha256 = ?,
+          updated_at = ?, updated_by_device_type = ?, updated_by_installation_id = ?
+      WHERE student_id = ? AND license_id = ? AND revision = ?
+        AND EXISTS (SELECT 1 FROM license_device_slots WHERE license_id = ?
+          AND device_type = ? AND installation_id = ? AND key_fingerprint = ? AND revoked_at IS NULL)
+        AND EXISTS (SELECT 1 FROM licenses WHERE license_id = ? AND student_id = ?
+          AND status IN ('active','future') AND valid_from <= ? AND valid_until > ?)`)
+    .bind(serialized, payloadHash, nowIsoValue, deviceType, installationId,
+      studentId, licenseId, expectedRevision, licenseId, deviceType, installationId,
+      keyFingerprint, licenseId, studentId, nowIsoValue, nowIsoValue);
+  const insert = env.DB.prepare(`INSERT INTO student_learning_data_snapshots
+      (student_id, license_id, payload_json, revision, checksum_sha256, updated_at,
+       updated_by_device_type, updated_by_installation_id)
+      SELECT ?, ?, ?, 1, ?, ?, ?, ?
+      WHERE ? = 0 AND NOT EXISTS (SELECT 1 FROM student_learning_data_snapshots WHERE student_id = ?)
+        AND EXISTS (SELECT 1 FROM license_device_slots WHERE license_id = ?
+          AND device_type = ? AND installation_id = ? AND key_fingerprint = ? AND revoked_at IS NULL)
+        AND EXISTS (SELECT 1 FROM licenses WHERE license_id = ? AND student_id = ?
+          AND status IN ('active','future') AND valid_from <= ? AND valid_until > ?)`)
+    .bind(studentId, licenseId, serialized, payloadHash, nowIsoValue, deviceType, installationId,
+      expectedRevision, studentId, licenseId, deviceType, installationId, keyFingerprint,
+      licenseId, studentId, nowIsoValue, nowIsoValue);
+  const results = await env.DB.batch([update, insert]);
+  const changes = Number(results?.[0]?.meta?.changes || 0) +
+    Number(results?.[1]?.meta?.changes || 0);
+  if (changes !== 1) {
+    const current = await env.DB.prepare(`SELECT payload_json AS payloadJson,
+        revision, checksum_sha256 AS checksum, updated_at AS updatedAt
+      FROM student_learning_data_snapshots WHERE student_id = ? AND license_id = ?`)
+      .bind(studentId, licenseId).first();
+    let currentDatasets = {};
+    if (current) {
+      try { currentDatasets = JSON.parse(current.payloadJson); }
+      catch { return error("نسخهٔ ذخیره‌شدهٔ داده‌های آموزشی قابل‌خواندن نیست.", 500, headers); }
+    }
+    return json({ ok: false, code: "revision_conflict",
+      message: "داده‌های دستگاه دیگر جدیدتر است؛ ابتدا نسخهٔ سرور را دریافت و ادغام کنید.",
+      revision: Number(current?.revision || 0), datasets: currentDatasets,
+      checksum: current?.checksum || null, updatedAt: current?.updatedAt || null
+    }, 409, headers);
+  }
+
+  return json({ ok: true, action, revision: expectedRevision + 1,
+    checksum: payloadHash, updatedAt: nowIsoValue }, 200, headers);
+}
+
 async function licenseStatus(request, env, url, headers) {
   const licenseId = String(url.searchParams.get("licenseId") || "").trim();
   if (!licenseId) return json({ ok: false, valid: false, message: "licenseId الزامی است." }, 400, headers);
@@ -1773,6 +1919,8 @@ export default {
         return await claimLegacyDeviceMigration(request, env, headers);
       if (url.pathname === "/api/licenses/device-status" && request.method === "POST")
         return await deviceBoundLicenseStatus(request, env, headers);
+      if (url.pathname === "/api/learning-data/sync" && request.method === "POST")
+        return await syncStudentLearningData(request, env, headers);
       if (url.pathname === "/api/licenses/status" && request.method === "GET")
         return await licenseStatus(request, env, url, headers);
       if (url.pathname.startsWith("/api/admin/") || url.pathname === "/api/metrics" || url.pathname === "/api/metrics/alerts")
