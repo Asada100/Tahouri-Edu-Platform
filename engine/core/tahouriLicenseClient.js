@@ -16,7 +16,7 @@
                 headers: { "Content-Type": "application/json", ...((options && options.headers) || {}) }
             });
             const body = await response.json().catch(() => ({}));
-            if (!response.ok) throw new Error(body.message || "خطا در ارتباط با سرویس مجوز.");
+            if (!response.ok) { const failure = new Error(body.message || "خطا در ارتباط با سرویس مجوز."); failure.status = response.status; failure.code = body.code || null; failure.body = body; throw failure; }
             return body;
         } finally { clearTimeout(timeout); }
     }
