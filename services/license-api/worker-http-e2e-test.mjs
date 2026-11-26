@@ -80,7 +80,8 @@ try {
   assert.equal(healthResponse.status, 200, "HTTP health route must return 200: " + JSON.stringify({ health, databaseError }));
   assert.equal(health.ok, true);
   assert.equal(health.database, "connected");
-  assert.equal(health.schemaVersion, 13);
+  assert.equal(health.schemaVersion, 14);
+  assert.equal(health.capabilities.learningDataSync, true);
   assert.equal(health.capabilities.signedEntitlementExtension, true);
 
   const keyResponse = await fetch(base + "/api/public-key");
