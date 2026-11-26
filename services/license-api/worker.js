@@ -6,7 +6,7 @@
  * license revocation, and admin search. Payment verification and signed
  * entitlement extension remain disabled until separately ported and tested.
  */
-const SERVICE_VERSION = "0.3.0-worker-signed-activation";
+const SERVICE_VERSION = "0.4.0-worker-student-learning-sync";
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 const COOKIE_NAME = "tahouri_admin_session";
 const PRODUCT_ID = "tahouri-edu";
@@ -1233,16 +1233,14 @@ async function syncStudentLearningData(request, env, headers) {
     action, licenseId, studentId, deviceType, installationId,
     keyFingerprint, expectedRevision, payloadHash
   };
+  const boundDevice = await env.DB.prepare(`SELECT public_key_pem AS publicKeyPem
+      FROM license_device_slots
+      WHERE license_id = ? AND device_type = ? AND installation_id = ?
+        AND key_fingerprint = ? AND revoked_at IS NULL`)
+    .bind(licenseId, deviceType, installationId, keyFingerprint).first();
+  if (!boundDevice?.publicKeyPem) return error("این دستگاه در مجوز فعال نیست.", 403, headers);
   try {
-    await verifyStoredDeviceSignature(
-      (await env.DB.prepare(`SELECT public_key_pem AS publicKeyPem
-        FROM license_device_slots
-        WHERE license_id = ? AND device_type = ? AND installation_id = ?
-          AND key_fingerprint = ? AND revoked_at IS NULL`)
-        .bind(licenseId, deviceType, installationId, keyFingerprint).first())?.publicKeyPem || "",
-      body.deviceSignature,
-      proof
-    );
+    await verifyStoredDeviceSignature(boundDevice.publicKeyPem, body.deviceSignature, proof);
   } catch (proofError) {
     return error(proofError.message || "اثبات مالکیت دستگاه معتبر نیست.",
       proofError.status || 401, headers);
@@ -1836,12 +1834,12 @@ async function health(env, headers, requestId) {
     const result = await env.DB.prepare("SELECT MAX(version) AS version FROM schema_migrations").first();
     schemaVersion = Number(result?.version || 0);
     const requiredTables = await env.DB.prepare(
-      "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name IN ('activation_codes','licenses','audit_log','payments','admin_sessions','admin_login_attempts','schema_migrations','student_accounts')"
+      "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name IN ('activation_codes','licenses','audit_log','payments','admin_sessions','admin_login_attempts','schema_migrations','student_accounts','student_learning_data_snapshots')"
     ).first();
     const requiredIndexes = await env.DB.prepare(
       "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'index' AND name IN ('idx_audit_actor_event_created','idx_licenses_code_hash_unique','idx_activation_grade_year_status','idx_student_accounts_grade_status','idx_activation_student_status')"
     ).first();
-    database = schemaVersion >= 5 && Number(requiredTables?.count || 0) === 8 &&
+    database = schemaVersion >= 14 && Number(requiredTables?.count || 0) === 9 &&
       Number(requiredIndexes?.count || 0) === 5
       ? "connected" : "schema_incomplete";
   } catch { database = "unavailable_or_unmigrated"; }
@@ -1857,7 +1855,7 @@ async function health(env, headers, requestId) {
     service: "tahouri-license-api", version: SERVICE_VERSION, runtime: "cloudflare-workers",
     database, schemaVersion, capabilities: { adminApi: true, codeManagement: true,
       licenseActivation: signingReady, licenseVerification: signingReady, paymentVerification: false,
-      signedEntitlementExtension: signingReady }, requestId }, ready ? 200 : 503,
+      signedEntitlementExtension: signingReady, learningDataSync: schemaVersion >= 14 && database === "connected" }, requestId }, ready ? 200 : 503,
     { ...headers, "x-request-id": requestId });
 }
 
