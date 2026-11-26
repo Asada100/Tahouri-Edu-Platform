@@ -12,6 +12,9 @@ on:
       - "engine/core/tahouriServiceConfig.js"
       - "index.html"
       - "engine/core/tahouriDeviceIdentity.js"
+      - "engine/core/studentDataTransfer.js"
+      - "engine/core/statisticsManager.js"
+      - "engine/core/studentLearningSync.js"
       - "engine/core/tahouriDeviceIdentity-test.html"
       - "services/license-api/device-identity-test-server.mjs"
       - ".github/scripts/device-identity-browser-test.js"
@@ -25,6 +28,9 @@ on:
       - "index.html"
       - "engine/core/tahouriEntitlementVerifier.js"
       - "engine/core/tahouriServiceConfig.js"
+      - "engine/core/studentDataTransfer.js"
+      - "engine/core/statisticsManager.js"
+      - "engine/core/studentLearningSync.js"
       - ".github/workflows/license-api-ci.yml"
 
 permissions:
