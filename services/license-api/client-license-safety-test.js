@@ -175,6 +175,18 @@ assert(mergedSnapshot.contentLocks.chapter2 === false,
 assert(mergedSnapshot.parityProgression.unlocked.includes("evenOddSum") &&
     mergedSnapshot.notifications.length === 1,
     "Array-backed learning datasets must be merged without duplicate entries.");
+let rejectedUnsafeMerge = false;
+try {
+    const conflictingLocal = JSON.parse(JSON.stringify(baseSnapshot));
+    const conflictingRemote = JSON.parse(JSON.stringify(baseSnapshot));
+    conflictingLocal.progress.chapter1.label = "تلفن";
+    conflictingRemote.progress.chapter1.label = "رایانه";
+    merge(baseSnapshot, conflictingLocal, conflictingRemote);
+} catch (_) {
+    rejectedUnsafeMerge = true;
+}
+assert(rejectedUnsafeMerge,
+    "Conflicting simultaneous edits must stop the merge instead of silently overwriting either device.");
 
 const futureBlock = manager.match(
     /if \(isFutureRenewal\) \{([\s\S]*?)\n\s*\}/
