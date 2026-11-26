@@ -50,7 +50,8 @@ deltas, unions append-only arrays, preserves unlocked content, and rejects
 ambiguous scalar conflicts instead of silently overwriting either device. A
 local per-student base snapshot supports three-way merges. Sync is scheduled
 after statistics saves, profile changes, startup, focus return, and network
-restoration; local data remains the retry queue while offline.
+restoration, with a 60-second background pull while the page is open; local
+data remains the retry queue while offline.
 
 The implementation is wired into the PR141 preview and automated tests pass.
 A physical phone + Windows round trip remains mandatory before release. The
