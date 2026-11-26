@@ -42,9 +42,11 @@ bounded to 256 KiB and the serialized dataset snapshot to 192 KiB.
 
 ## Current implementation boundary
 
-The Worker endpoint, D1 migration 14, and Worker regression coverage implement
-the authenticated server storage contract. This is the server foundation, not
-the completed student-facing synchronization feature.
+The Worker endpoint, D1 migration 14, Worker regression coverage, and
+`TahouriLicenseClient.syncLearningData` implement the authenticated server
+contract and signed browser request adapter. The adapter is not yet connected
+to the student's local datasets or the UI; this is not the completed
+student-facing synchronization feature.
 
 The next implementation slice must add client-side dataset collection,
 pull-before-push, safe merge/conflict handling, an offline retry queue, and
