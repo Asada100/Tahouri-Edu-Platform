@@ -172,6 +172,14 @@ assert(mergedSnapshot.statistics.activities.math1.totalActivities === 5 &&
     "Three-way statistics merge must add independent post-baseline attempts without dropping either device's progress.");
 assert(mergedSnapshot.contentLocks.chapter2 === false,
     "Content already unlocked on one device must not be relocked by the other device.");
+const remoteRelock = JSON.parse(JSON.stringify(baseSnapshot));
+remoteRelock.contentLocks.chapter2 = false;
+const localUnchangedLock = JSON.parse(JSON.stringify(baseSnapshot));
+localUnchangedLock.contentLocks.chapter2 = false;
+const remoteLockedAgain = JSON.parse(JSON.stringify(baseSnapshot));
+remoteLockedAgain.contentLocks.chapter2 = true;
+assert(merge(baseSnapshot, localUnchangedLock, remoteLockedAgain).contentLocks.chapter2 === false,
+    "A previously unlocked item must remain unlocked even if the other device has stale lock state.");
 assert(mergedSnapshot.parityProgression.unlocked.includes("evenOddSum") &&
     mergedSnapshot.notifications.length === 1,
     "Array-backed learning datasets must be merged without duplicate entries.");
