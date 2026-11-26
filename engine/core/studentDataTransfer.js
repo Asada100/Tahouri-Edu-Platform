@@ -244,11 +244,15 @@
 
         const active = manager.get();
         if (active && String(active.studentId) === id) {
-            if (window.StatisticsManager && typeof window.StatisticsManager.load === "function") {
-                window.StatisticsManager.load();
+            if (window.StatisticsManager && typeof window.StatisticsManager.loadForKey === "function" &&
+                window.ProfileContext && typeof window.ProfileContext.key === "function") {
+                window.StatisticsManager.loadForKey(window.ProfileContext.key("Tahouri_Statistics"));
             }
             if (window.ContentLockManager && typeof window.ContentLockManager.applyProfileLocks === "function") {
                 window.ContentLockManager.applyProfileLocks();
+            }
+            if (window.DailyLearningStreak && typeof window.DailyLearningStreak.load === "function") {
+                window.DailyLearningStreak.load();
             }
             if (window.EventManager && typeof window.EventManager.emit === "function") {
                 window.EventManager.emit("studentLearningDataSynced", { studentId: id });
