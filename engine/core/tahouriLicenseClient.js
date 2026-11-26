@@ -322,6 +322,42 @@
         });
     }
 
+    async function syncLearningData(payload) {
+        const supplied = payload || {};
+        const action = String(supplied.action || "").trim().toLowerCase();
+        const licenseId = String(supplied.licenseId || "").trim();
+        const studentId = String(supplied.studentId || "").trim();
+        const expectedRevision = Number(supplied.expectedRevision);
+        if (!["pull", "push"].includes(action) || !licenseId || !studentId ||
+            !Number.isSafeInteger(expectedRevision) || expectedRevision < 0) {
+            throw new Error("مشخصات همگام‌سازی داده‌های آموزشی معتبر نیست.");
+        }
+        const datasets = action === "push" ? supplied.datasets : null;
+        if (action === "push" && (!datasets || typeof datasets !== "object" || Array.isArray(datasets))) {
+            throw new Error("بستهٔ داده‌های آموزشی برای ارسال معتبر نیست.");
+        }
+        const identity = await window.TahouriDeviceIdentity.getOrCreate();
+        const deviceType = detectDeviceType();
+        const keyFingerprint = await publicKeyFingerprint(identity.publicKey);
+        const payloadHash = action === "push"
+            ? await sha256Hex(JSON.stringify(datasets))
+            : "";
+        const proof = {
+            purpose: "tahouri-learning-data-sync-v1",
+            action, licenseId, studentId, deviceType,
+            installationId: identity.installationId,
+            keyFingerprint, expectedRevision, payloadHash
+        };
+        const signed = await signedPayload(proof);
+        return request("/learning-data/sync", {
+            method: "POST",
+            body: JSON.stringify({
+                ...proof,
+                ...(action === "push" ? { datasets } : {}),
+                deviceSignature: signed.signature
+            })
+        });
+    }
     async function health() { return request("/health", { method: "GET" }); }
     async function status(licenseId) {
         const value = String(licenseId || "").trim();
@@ -348,6 +384,6 @@
             })
         });
     }
-    window.TahouriLicenseClient = { activate, health, status, requestPairing, requestPairingChallenge, decidePairing, pairingStatus, recoverApprovedPairingEntitlement, claimLegacyMigration, claimLegacyMigrationCode, cancelPairing, listPendingPairings, listBoundDeviceSlots, requestDeviceRevocationChallenge, executeDeviceRevocation };
-    console.log("Tahouri License Client v2.0 Ready");
+    window.TahouriLicenseClient = { activate, health, status, syncLearningData, requestPairing, requestPairingChallenge, decidePairing, pairingStatus, recoverApprovedPairingEntitlement, claimLegacyMigration, claimLegacyMigrationCode, cancelPairing, listPendingPairings, listBoundDeviceSlots, requestDeviceRevocationChallenge, executeDeviceRevocation };
+    console.log("Tahouri License Client v2.1 Ready");
 })();
