@@ -182,6 +182,81 @@
         };
     }
 
+    function defaultDataset(id) {
+        if (id === "statistics") return {
+            overall: { totalActivities: 0, totalScore: 0, averageScore: 0, bestScore: 0, totalCorrect: 0, totalWrong: 0 },
+            subjects: {}, chapters: {}, activities: {}
+        };
+        if (id === "parityProgression") return { unlocked: ["evenOdd"] };
+        if (id === "dailyStreak") return { days: {}, currentStreak: 0, bestStreak: 0, lastCompletedDate: null };
+        if (id === "notifications") return [];
+        if (id === "spellingPerformance") return { answers: [], targetAnswers: [] };
+        return {};
+    }
+
+    function exportProfileData(studentId) {
+        const id = String(studentId || "").trim();
+        if (!/^[A-Za-z0-9_-]{1,128}$/.test(id)) throw new Error("شناسهٔ دانش‌آموز برای همگام‌سازی معتبر نیست.");
+        const manager = getProfileManager();
+        const profile = manager.getAll().find(item => String(item.studentId) === id);
+        if (!profile) throw new Error("پروفایل موردنظر برای همگام‌سازی روی این دستگاه پیدا نشد.");
+        const data = {};
+        DATASETS.forEach(dataset => {
+            const raw = localStorage.getItem(dataset.key + id);
+            data[dataset.id] = raw === null
+                ? defaultDataset(dataset.id)
+                : parseStored(raw, dataset.id, dataset.validate);
+        });
+        return data;
+    }
+
+    function applyProfileData(studentId, incomingData) {
+        const id = String(studentId || "").trim();
+        if (!/^[A-Za-z0-9_-]{1,128}$/.test(id) || !isObject(incomingData)) {
+            throw new Error("ساختار دادهٔ دریافتی برای همگام‌سازی معتبر نیست.");
+        }
+        const manager = getProfileManager();
+        if (!manager.getAll().some(item => String(item.studentId) === id)) {
+            throw new Error("پروفایل مقصد برای همگام‌سازی روی این دستگاه وجود ندارد.");
+        }
+        if (Object.keys(incomingData).length !== DATASETS.length) {
+            throw new Error("بستهٔ همگام‌سازی ناقص است؛ هیچ داده‌ای تغییر نکرد.");
+        }
+        const writes = DATASETS.map(dataset => {
+            if (!Object.prototype.hasOwnProperty.call(incomingData, dataset.id) ||
+                !dataset.validate(incomingData[dataset.id])) {
+                throw new Error("ساختار دادهٔ «" + dataset.id + "» معتبر نیست؛ هیچ داده‌ای تغییر نکرد.");
+            }
+            return { key: dataset.key + id, value: JSON.stringify(incomingData[dataset.id]) };
+        });
+        const snapshots = new Map(writes.map(item => [item.key, localStorage.getItem(item.key)]));
+        try {
+            writes.forEach(item => localStorage.setItem(item.key, item.value));
+        } catch (error) {
+            snapshots.forEach((value, key) => {
+                try {
+                    if (value === null) localStorage.removeItem(key);
+                    else localStorage.setItem(key, value);
+                } catch (_) {}
+            });
+            throw error;
+        }
+
+        const active = manager.get();
+        if (active && String(active.studentId) === id) {
+            if (window.StatisticsManager && typeof window.StatisticsManager.load === "function") {
+                window.StatisticsManager.load();
+            }
+            if (window.ContentLockManager && typeof window.ContentLockManager.applyProfileLocks === "function") {
+                window.ContentLockManager.applyProfileLocks();
+            }
+            if (window.EventManager && typeof window.EventManager.emit === "function") {
+                window.EventManager.emit("studentLearningDataSynced", { studentId: id });
+            }
+        }
+        return { studentId: id, datasets: DATASETS.length };
+    }
+
     function validateEnvelope(payload) {
         if (!isObject(payload) || payload.format !== FORMAT || payload.version !== VERSION ||
             !Array.isArray(payload.profiles) || !payload.profiles.length ||
@@ -314,6 +389,8 @@
         datasets: DATASETS.map(item => item.id),
         exportAll,
         importAll,
+        exportProfileData,
+        applyProfileData,
         maxBytes: MAX_BYTES
     };
 })(window);
