@@ -120,7 +120,8 @@ assert(
     learningSync.includes('window.addEventListener("online"') &&
     learningSync.includes('window.EventManager.on("profileChanged"') &&
     learningSync.includes("mergeThreeWay") &&
-    learningSync.includes("revision_conflict") === false,
+    learningSync.includes("Number(error.status) !== 409") &&
+    learningSync.includes("conflict.datasets"),
     "Student learning-data sync must be device-authenticated, profile-scoped, conflict-aware, and loaded after license verification."
 );
 
