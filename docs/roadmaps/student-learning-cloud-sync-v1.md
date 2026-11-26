@@ -42,17 +42,22 @@ bounded to 256 KiB and the serialized dataset snapshot to 192 KiB.
 
 ## Current implementation boundary
 
-The Worker endpoint, D1 migration 14, Worker regression coverage, and
-`TahouriLicenseClient.syncLearningData` implement the authenticated server
-contract and signed browser request adapter. The adapter is not yet connected
-to the student's local datasets or the UI; this is not the completed
-student-facing synchronization feature.
+The Worker endpoint, D1 migration 14, and Worker regression coverage
+implement the authenticated server storage contract. The browser client now
+collects the eight profile-scoped datasets, signs requests with the registered
+device key, pulls before pushing, merges post-baseline numeric statistics
+deltas, unions append-only arrays, preserves unlocked content, and rejects
+ambiguous scalar conflicts instead of silently overwriting either device. A
+local per-student base snapshot supports three-way merges. Sync is scheduled
+after statistics saves, profile changes, startup, focus return, and network
+restoration; local data remains the retry queue while offline.
 
-The next implementation slice must add client-side dataset collection,
-pull-before-push, safe merge/conflict handling, an offline retry queue, and
-triggers after profile selection and learning-result persistence. It must not
-replace the local dataset with a remote snapshot until a validated merge has
-succeeded. A physical phone + Windows round trip remains mandatory.
+The implementation is wired into the PR141 preview and automated tests pass.
+A physical phone + Windows round trip remains mandatory before release. The
+first sync between devices with independent pre-existing histories uses a
+conservative merge (maximum counters per matching activity) because those
+older histories have no common server baseline; future concurrent updates use
+three-way delta merging.
 
 ## Safety and release gates
 
