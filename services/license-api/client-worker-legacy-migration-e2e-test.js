@@ -17,7 +17,8 @@ const migrationFiles = [
     "0007_device_slot_public_keys.sql", "0008_pairing_request_identity.sql",
     "0009_pairing_signed_decisions.sql", "0010_pairing_entitlement_delivery.sql",
     "0011_device_slot_history.sql", "0012_device_revocation_challenges.sql",
-    "0013_legacy_device_migration_challenges.sql"
+    "0013_legacy_device_migration_challenges.sql",
+    "0014_student_learning_data_snapshots.sql"
 ];
 for (const file of migrationFiles) {
     db.exec(fs.readFileSync(path.join(__dirname, "migrations", file), "utf8"));
