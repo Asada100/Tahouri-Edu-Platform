@@ -36,7 +36,7 @@ assert(
     indexHtml.includes("tahouriServiceConfig.js?v=1.3") &&
     indexHtml.includes("tahouriEntitlementVerifier.js?v=1.5") &&
     indexHtml.includes("tahouriDeviceIdentity.js?v=1.0") &&
-    indexHtml.includes("tahouriLicenseClient.js?v=2.0") &&
+    indexHtml.includes("tahouriLicenseClient.js?v=2.1") &&
     indexHtml.indexOf("tahouriDeviceIdentity.js") < indexHtml.indexOf("tahouriLicenseClient.js") &&
     indexHtml.includes("profileScreen.js?v=5.2") &&
     indexHtml.includes("licenseScreen.js?v=pr141-recovery-1") &&
@@ -60,7 +60,7 @@ assert(
     !licenseClient.includes("registerExistingProfiles") &&
     !licenseClient.includes("registerProfile") &&
     !licenseClient.includes("/students/register") &&
-    licenseClient.includes("window.TahouriLicenseClient = { activate, health, status, requestPairing, requestPairingChallenge, decidePairing, pairingStatus, recoverApprovedPairingEntitlement, claimLegacyMigration, claimLegacyMigrationCode, cancelPairing, listPendingPairings, listBoundDeviceSlots, requestDeviceRevocationChallenge, executeDeviceRevocation };") &&
+    licenseClient.includes("window.TahouriLicenseClient = { activate, health, status, syncLearningData, requestPairing, requestPairingChallenge, decidePairing, pairingStatus, recoverApprovedPairingEntitlement, claimLegacyMigration, claimLegacyMigrationCode, cancelPairing, listPendingPairings, listBoundDeviceSlots, requestDeviceRevocationChallenge, executeDeviceRevocation };") &&
     licenseClient.includes("async function listBoundDeviceSlots(licenseId)") &&
     licenseClient.includes("async function cancelPairing(pairingId, token)") &&
     licenseClient.includes("devicePublicKeyPem: identity.publicKey") &&
@@ -69,6 +69,14 @@ assert(
     manager.includes("await getOrCreateRemoteInstallationId()") &&
     manager.includes("claims.installationBinding !== installationId"),
     "The browser client must not auto-register profiles through a public enrollment endpoint."
+);
+
+assert(
+    licenseClient.includes("async function syncLearningData(payload)") &&
+    licenseClient.includes('purpose: "tahouri-learning-data-sync-v1"') &&
+    licenseClient.includes('request("/learning-data/sync"') &&
+    licenseClient.includes("payloadHash"),
+    "Learning sync requests must be device-signed and bound to a hashed snapshot."
 );
 
 assert(
