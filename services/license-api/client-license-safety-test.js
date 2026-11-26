@@ -108,7 +108,7 @@ assert(
 // Student learning-data sync must be loaded only after the verified license gate
 // and must use the registered device signature rather than a bearer token.
 assert(
-    index.includes('studentLearningSync.js?v=1.1') &&
+    index.includes('studentLearningSync.js?v=1.2') &&
     index.indexOf("activationGate.js") < index.indexOf("studentLearningSync.js") &&
     studentDataTransfer.includes("function exportProfileData(studentId)") &&
     studentDataTransfer.includes("function applyProfileData(studentId, incomingData)") &&
