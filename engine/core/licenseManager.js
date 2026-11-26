@@ -2292,6 +2292,11 @@
         getRemoteEntitlement:
             getRemoteEntitlement,
 
+        getVerifiedRemoteEntitlementClaims:
+            function () {
+                return verifiedRemoteEntitlement ? { ...verifiedRemoteEntitlement } : null;
+            },
+
         initializeRemoteEntitlement:
             initializeRemoteEntitlement,
 
