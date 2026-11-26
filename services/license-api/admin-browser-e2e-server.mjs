@@ -11,7 +11,9 @@ for (const name of [
   "0004_student_accounts.sql",
   "0005_student_activation_status.sql",
   "0006_one_phone_one_computer.sql",
-  "0007_device_slot_public_keys.sql", "0008_pairing_request_identity.sql", "0009_pairing_signed_decisions.sql", "0010_pairing_entitlement_delivery.sql", "0011_device_slot_history.sql", "0012_device_revocation_challenges.sql"
+  "0007_device_slot_public_keys.sql", "0008_pairing_request_identity.sql", "0009_pairing_signed_decisions.sql", "0010_pairing_entitlement_delivery.sql", "0011_device_slot_history.sql", "0012_device_revocation_challenges.sql",
+  "0013_legacy_device_migration_challenges.sql",
+  "0014_student_learning_data_snapshots.sql"
 ]) db.exec(await readFile(new URL("./migrations/" + name, import.meta.url), "utf8"));
 
 class TestD1Statement {
