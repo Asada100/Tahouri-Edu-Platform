@@ -8,7 +8,7 @@ const crypto = require("node:crypto");
 const { DatabaseSync } = require("node:sqlite");
 
 const db = new DatabaseSync(":memory:");
-for (const file of ["migrations/0001_initial_schema.sql", "migrations/0002_admin_login_attempts.sql", "migrations/0003_activation_integrity_indexes.sql", "migrations/0004_student_accounts.sql", "migrations/0005_student_activation_status.sql", "migrations/0006_one_phone_one_computer.sql", "migrations/0007_device_slot_public_keys.sql", "migrations/0008_pairing_request_identity.sql", "migrations/0009_pairing_signed_decisions.sql", "migrations/0010_pairing_entitlement_delivery.sql", "migrations/0011_device_slot_history.sql", "migrations/0012_device_revocation_challenges.sql", "migrations/0013_legacy_device_migration_challenges.sql"]) {
+for (const file of ["migrations/0001_initial_schema.sql", "migrations/0002_admin_login_attempts.sql", "migrations/0003_activation_integrity_indexes.sql", "migrations/0004_student_accounts.sql", "migrations/0005_student_activation_status.sql", "migrations/0006_one_phone_one_computer.sql", "migrations/0007_device_slot_public_keys.sql", "migrations/0008_pairing_request_identity.sql", "migrations/0009_pairing_signed_decisions.sql", "migrations/0010_pairing_entitlement_delivery.sql", "migrations/0011_device_slot_history.sql", "migrations/0012_device_revocation_challenges.sql", "migrations/0013_legacy_device_migration_challenges.sql", "migrations/0014_student_learning_data_snapshots.sql"]) {
     db.exec(fs.readFileSync(path.join(__dirname, file), "utf8"));
 }
 
@@ -105,7 +105,11 @@ async function request(worker, env, pathName, method, body, origin = "https://as
 
 async function main() {
     const migrations = db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get();
-    assert.equal(Number(migrations.version), 13, "D1 migrations must create the version-13 legacy device migration challenge schema.");
+    assert.equal(Number(migrations.version), 14, "D1 migrations must create the version-14 student learning data snapshot schema.");
+    const learningColumns = db.prepare("PRAGMA table_info(student_learning_data_snapshots)").all().map(row => row.name);
+    for (const column of ["student_id", "license_id", "payload_json", "revision", "checksum_sha256", "updated_at", "updated_by_device_type", "updated_by_installation_id"]) {
+        assert(learningColumns.includes(column), "Student learning-data snapshot schema is missing " + column + ".");
+    }
     const migrationColumns = db.prepare("PRAGMA table_info(legacy_device_migration_challenges)").all().map(row => row.name);
     for (const column of ["challenge_id", "license_id", "student_id", "grade_id", "academic_year", "device_type", "installation_id", "nonce_hash", "expires_at", "consumed_at", "created_by_admin", "verification_reason"]) {
         assert(migrationColumns.includes(column), "Legacy migration challenge schema is missing " + column + ".");
@@ -1160,6 +1164,74 @@ async function main() {
     assert.equal(refreshedLeaseVerifier.verify(pair.publicKey,
         Buffer.from(activePhoneStatusBody.entitlement.signature, "base64")), true,
         "The refreshed offline lease must be signed by the Worker entitlement key.");
+
+    // Student learning-data sync is bound to the active license and the exact registered device key.
+    const learningDatasets = {
+        progress: { math: { chapter1: { score: 40, stars: 2 } } },
+        statistics: { overall: { totalActivities: 1, totalScore: 40 }, subjects: {}, chapters: {}, activities: {} },
+        contentLocks: { math_chapter2: true },
+        parityProgression: { unlocked: ["evenOdd"] },
+        dailyStreak: { days: {}, currentStreak: 1, bestStreak: 1 },
+        notifications: [],
+        spellingPerformance: { answers: [], targetAnswers: [] },
+        questionPerformance: {}
+    };
+    const learningPayloadHash = await sha256(JSON.stringify(learningDatasets));
+    const learningPushProof = {
+        purpose: "tahouri-learning-data-sync-v1", action: "push",
+        licenseId: stored.license_id, studentId: "student-1", deviceType: "phone",
+        installationId: "install-1", keyFingerprint: approverFingerprint,
+        expectedRevision: 0, payloadHash: learningPayloadHash
+    };
+    const learningPush = await request(worker, env, "/api/learning-data/sync", "POST", {
+        ...learningPushProof, datasets: learningDatasets,
+        deviceSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(learningPushProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(learningPush.status, 200, "A bound device must be able to create the first student learning-data snapshot.");
+    assert.equal((await learningPush.json()).revision, 1);
+    const storedLearning = db.prepare("SELECT revision, payload_json, checksum_sha256 FROM student_learning_data_snapshots WHERE student_id = ?").get("student-1");
+    assert.equal(Number(storedLearning.revision), 1);
+    assert.equal(storedLearning.payload_json, JSON.stringify(learningDatasets));
+    assert.equal(storedLearning.checksum_sha256, learningPayloadHash);
+
+    const learningPullProof = {
+        purpose: "tahouri-learning-data-sync-v1", action: "pull",
+        licenseId: stored.license_id, studentId: "student-1", deviceType: "phone",
+        installationId: "install-1", keyFingerprint: approverFingerprint,
+        expectedRevision: 1, payloadHash: ""
+    };
+    const learningPull = await request(worker, env, "/api/learning-data/sync", "POST", {
+        ...learningPullProof,
+        deviceSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(learningPullProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(learningPull.status, 200);
+    const learningPullBody = await learningPull.json();
+    assert.equal(learningPullBody.revision, 1);
+    assert.deepEqual(learningPullBody.datasets, learningDatasets,
+        "An authenticated device must retrieve the exact student-scoped snapshot.");
+
+    const staleLearningDatasets = { ...learningDatasets, contentLocks: { math_chapter2: false } };
+    const staleLearningHash = await sha256(JSON.stringify(staleLearningDatasets));
+    const staleLearningProof = { ...learningPushProof, payloadHash: staleLearningHash };
+    const staleLearningPush = await request(worker, env, "/api/learning-data/sync", "POST", {
+        ...staleLearningProof, datasets: staleLearningDatasets,
+        deviceSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(staleLearningProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(staleLearningPush.status, 409,
+        "A stale device revision must be rejected instead of overwriting newer learning data.");
+    assert.equal((await staleLearningPush.json()).code, "revision_conflict");
+    assert.equal(db.prepare("SELECT revision, payload_json FROM student_learning_data_snapshots WHERE student_id = ?").get("student-1").payload_json,
+        JSON.stringify(learningDatasets), "A rejected stale write must leave the server snapshot unchanged.");
+
+    const forgedLearningProof = { ...learningPullProof };
+    const forgedLearningPull = await request(worker, env, "/api/learning-data/sync", "POST", {
+        ...forgedLearningProof, deviceSignature: "A".repeat(344)
+    });
+    assert.equal(forgedLearningPull.status, 401,
+        "A forged device signature must not read student learning data.");
 
     const revokedComputerStatus = await request(worker, env, "/api/licenses/device-status", "POST", {
         licenseId: stored.license_id, deviceType: "computer",
