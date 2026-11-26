@@ -1266,8 +1266,8 @@ async function syncStudentLearningData(request, env, headers) {
   if (action === "pull") {
     const row = await env.DB.prepare(`SELECT payload_json AS payloadJson,
         revision, checksum_sha256 AS checksum, updated_at AS updatedAt
-      FROM student_learning_data_snapshots WHERE student_id = ? AND license_id = ?`)
-      .bind(studentId, licenseId).first();
+      FROM student_learning_data_snapshots WHERE student_id = ?`)
+      .bind(studentId).first();
     let remoteDatasets = {};
     if (row) {
       try { remoteDatasets = JSON.parse(row.payloadJson); }
@@ -1280,15 +1280,15 @@ async function syncStudentLearningData(request, env, headers) {
 
   const nowIsoValue = nowIso();
   const update = env.DB.prepare(`UPDATE student_learning_data_snapshots
-      SET payload_json = ?, revision = revision + 1, checksum_sha256 = ?,
+      SET license_id = ?, payload_json = ?, revision = revision + 1, checksum_sha256 = ?,
           updated_at = ?, updated_by_device_type = ?, updated_by_installation_id = ?
-      WHERE student_id = ? AND license_id = ? AND revision = ?
+      WHERE student_id = ? AND revision = ?
         AND EXISTS (SELECT 1 FROM license_device_slots WHERE license_id = ?
           AND device_type = ? AND installation_id = ? AND key_fingerprint = ? AND revoked_at IS NULL)
         AND EXISTS (SELECT 1 FROM licenses WHERE license_id = ? AND student_id = ?
           AND status IN ('active','future') AND valid_from <= ? AND valid_until > ?)`)
-    .bind(serialized, payloadHash, nowIsoValue, deviceType, installationId,
-      studentId, licenseId, expectedRevision, licenseId, deviceType, installationId,
+    .bind(licenseId, serialized, payloadHash, nowIsoValue, deviceType, installationId,
+      studentId, expectedRevision, licenseId, deviceType, installationId,
       keyFingerprint, licenseId, studentId, nowIsoValue, nowIsoValue);
   const insert = env.DB.prepare(`INSERT INTO student_learning_data_snapshots
       (student_id, license_id, payload_json, revision, checksum_sha256, updated_at,
@@ -1308,8 +1308,8 @@ async function syncStudentLearningData(request, env, headers) {
   if (changes !== 1) {
     const current = await env.DB.prepare(`SELECT payload_json AS payloadJson,
         revision, checksum_sha256 AS checksum, updated_at AS updatedAt
-      FROM student_learning_data_snapshots WHERE student_id = ? AND license_id = ?`)
-      .bind(studentId, licenseId).first();
+      FROM student_learning_data_snapshots WHERE student_id = ?`)
+      .bind(studentId).first();
     let currentDatasets = {};
     if (current) {
       try { currentDatasets = JSON.parse(current.payloadJson); }
