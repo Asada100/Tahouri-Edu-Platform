@@ -483,3 +483,74 @@ Additional guarantees tested:
 The prototype also relies on adapter-supplied capture/restore hooks. Its 9/9 tests prove the transaction coordinator's contract under controlled fixtures; they do not yet prove complete capture of every real engine, screen, overlay, timer, event listener, or external side effect.
 
 **Next gate:** design and test the real manager adapter for all six supported engine families, including staged UI publication and complete side-effect inventory. Only after that design is reviewed should active `engine/activity/activitySessionManager.js` be modified. No active runtime, Worker, D1, or production file changed in this step.
+
+
+## 16. Per-engine restore side-effect inventory and prepare/commit boundary — 2026-11-28
+
+This section translates the R4–R9 diagnostics into an implementation boundary. It is a source inventory of the active `engine/activity/activitySessionManager.js` restore branches, not a runtime change.
+
+### Side-effect inventory
+
+| Restore family | Live engine mutations before commit | Other visible/global mutations before commit | Existing local rollback coverage |
+|---|---|---|---|
+| Dictation | `activity`, `content`, `state`, `runToken`, `finishAuthorized`; `restoreSession()` mutates the engine | `activateRestoredActivity()`; `DictationScreen.render()` changes the live screen | Engine fields restored on false/throw; global activity and rendered UI are not rolled back by the branch |
+| WordPuzzle | `activity`, `state`, `round` through `restoreSession()` | `activateRestoredActivity()` | Engine fields restored on false/throw; no staged UI boundary |
+| Quiz | `activity`, `questions`, `currentQuestion`, `state`; ScoreManager counters | `QuizScreen.reset/show()` writes live `#app`; then ActivityManager.currentActivity, ActivityState and body class | Engine, score, screen lock and app markup restored for local false/throw; successful restore followed by save failure is not rolled back |
+| Memory | activity, cards, first/second card, board lock, matched pairs, moves, total pairs, finished; ScoreManager counters | `MemoryScreen.show()` writes live `#app`; then ActivityManager.currentActivity, ActivityState and body class | Engine, score and app markup restored when render rejects/throws; successful restore followed by save failure is not rolled back |
+| Puzzle/Jigsaw | activity, state, puzzle, questions, current question, items, answer, moves, transition/check flags and request IDs | Jigsaw facade states; `PuzzleScreen.show()` writes live `#app`; then ActivityManager.currentActivity, ActivityState and body class | Engine, score, Jigsaw facade and app markup restored for local false/throw; successful restore followed by save failure is not rolled back |
+| Classification | `activityData`, `content`, `handler`, `state` via `restoreSession()` | ActivityManager.currentActivity, ActivityState, body class; ClassificationScreen currentActivity/currentState/lastMessage and rendered screen | Engine fields restored for false/throw; screen/global activity changes are not transactionally reverted after later persistence failure |
+
+### Shared commit-time effects
+
+After `restoreEngine()` returns true, the active manager currently:
+1. changes the candidate session status to `active`;
+2. calls `save(session)` without checking its return value or reading the persisted value back;
+3. sets `gameplayActive` and the body `activity-playing` class;
+4. installs the exit control;
+5. emits `activityResumed`.
+
+The restore branches themselves may already have published engine/UI/activity state before step 1. The exit control and event are therefore too late to define the transaction boundary; all preceding effects must be staged or recoverably isolated.
+
+### Required adapter contract
+
+A future implementation should use an explicit per-engine adapter with these conceptual operations:
+
+- `capture()`: capture the exact pre-restore engine, score, screen, facade and activity-global state needed for rollback.
+- `prepare(snapshot, detachedHost)`: validate and build the candidate engine state and screen output without mutating the live engine, live `#app`, ActivityManager, ActivityState, body classes, exit controls, or emitting events.
+- `commitPrepared(prepared)`: publish the prepared engine and screen only after persistence has been written and read back successfully.
+- `rollback(captured)`: restore all captured state if a commit-stage operation fails; return explicit per-subsystem failures rather than swallowing them.
+- `dispose(prepared)`: release detached DOM/resources when preparation or persistence fails.
+
+A prepared screen must be rendered into a detached host. Existing `QuizScreen.show`, `MemoryScreen.show`, `PuzzleScreen.show`, `DictationScreen.render`, and `ClassificationScreen.show` currently target live UI or global screen state; they cannot be called during preparation unless first adapted to accept an isolated render target and avoid global publication.
+
+Engine preparation must not call a mutating `restoreSession()` on the live engine. Either each engine must expose a pure state builder, or the adapter must restore into an isolated engine instance with all dependencies explicitly bound. A shallow clone is not sufficient evidence of isolation where nested state, singleton providers, timers, event listeners, or closures may be shared.
+
+### Commit ordering
+
+The proposed ordering is:
+
+1. Validate the resumable snapshot and resolve the profile-scoped persistence key.
+2. Capture the currently visible/runtime state and exact persisted raw bytes.
+3. Prepare the engine candidate and detached screen; verify the candidate without publishing it.
+4. Persist the candidate active snapshot and read it back; require exact semantic equality and schema validity.
+5. Publish engine state and prepared screen; publish ActivityManager/ActivityState/body class and gameplay state.
+6. Install exit controls.
+7. Emit `activityResumed` only after all prior commit steps succeed.
+8. If any step after durable persistence fails, restore the exact prior raw bytes and verify the restoration, then roll back all published runtime/UI state. If either rollback cannot be verified, return an explicit `rollback-failed` state and retain recovery evidence; never report a clean resume.
+
+The exact ordering of runtime publication versus durable write remains conditional on a successful staged adapter: no visible game may appear before the persisted active record is verified. The implementation must also prove that the commit publication operations are synchronous/non-throwing or have complete rollback coverage.
+
+### Acceptance matrix for the adapter phase
+
+For each of the six supported families (Quiz, Memory, Puzzle, Dictation, WordPuzzle, Classification), tests must prove:
+- preparation leaves live engine/global/UI state byte-for-byte or semantically unchanged;
+- preparation failure leaves the previous screen and session intact;
+- persistence false, throw, malformed read-back, and read-back mismatch do not publish the prepared screen or active gameplay state;
+- successful verified persistence publishes the expected engine state and screen exactly once;
+- commit failure restores the previous engine, score, DOM, facades, ActivityManager, ActivityState, CSS, exit control and persisted raw snapshot;
+- `activityResumed` is emitted exactly once on success and never on a failed attempt;
+- rollback failure is surfaced with the failing subsystem and preserved recovery data.
+
+MatchingEngine and CompositeActivityEngine remain explicitly unsupported until their manager validation, dispatch, and adapter contracts are independently implemented and tested.
+
+**Implementation gate:** this inventory and contract are design-only. The next code task is to prototype one isolated adapter against one engine family and prove that preparation does not mutate live state. Do not edit the active manager or wire any adapter until the isolated proof and its failure tests pass, and the user explicitly approves runtime integration. No runtime, Worker, D1, or production files were changed.
