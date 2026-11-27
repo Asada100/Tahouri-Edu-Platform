@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Session Resume Transaction Diagnostics</title></head>
+<body><h1>Session Resume Transaction Diagnostics</h1><p id="summary">running</p><ol id="results"></ol>
+<script>
+(function(){
+  const stored={raw:null,failSave:false};
+  window.ProfileContext={key(){return "Tahouri_ActivitySession:TEST_PROFILE";},getStudentId(){return "TEST_PROFILE";}};
+  window.SaveManager={
+    load(){if(stored.raw===null)return null;try{return JSON.parse(stored.raw);}catch(_){return null;}},
+    save(key,value){if(stored.failSave)return false;stored.raw=JSON.stringify(value);return true;},
+    remove(){stored.raw=null;return true;}
+  };
+  window.EventManager={on(){},emit(){}};
+  document.addEventListener=function(){};
+  window.addEventListener=function(){};
+  window.__resumeDiag=stored;
+})();
+</script>
+<script src="../../engine/activity/activitySessionManager.js"></script>
+<script>
+(async function(){
+  const manager=window.ActivitySessionManager, d=window.__resumeDiag, results=[];
+  const activity={id:"resume-diagnostic-activity",engine:"QuizEngine"};
+  const validSession=()=>({version:"1.9",schemaVersion:1,id:"legacy-session-id",profileId:"TEST_PROFILE",activityId:activity.id,activityType:"QuizEngine",status:"resumable",startedAt:1,updatedAt:1,engineState:{kind:"quiz",state:{started:true},questions:[{id:"q1",text:"sample"}],currentQuestion:0,score:4,correct:1,wrong:0}});
+  const sentinel={id:"previous-in-memory-session",status:"active"};
+  function record(name,reproduced,detail){results.push({name,reproduced,detail});}
+  manager.installExitControl=function(){};
+  manager.hideOverlay=function(){};
+  window.App={resolveActivityById(id){return id===activity.id?activity:null;}};
+  try{
+    // A failed restore must not publish the attempted target over existing in-memory state.
+    const failed=validSession(); d.raw=JSON.stringify(failed); manager.currentSession=sentinel;
+    manager.getResumable=()=>failed;
+    manager.restoreEngine=async()=>false;
+    const falseResult=await manager.resume(activity.id);
+    record("R1 false restore must preserve prior currentSession",
+      falseResult===false && manager.currentSession===failed,
+      "resume() returned false but left the failed target published as currentSession instead of restoring the previous reference");
+
+    // A thrown restore must also roll back the attempted target and restore flag.
+    const thrown=validSession(); d.raw=JSON.stringify(thrown); manager.currentSession=sentinel;
+    manager.getResumable=()=>thrown;
+    manager.restoreEngine=async()=>{throw new Error("synthetic restore failure");};
+    let threw=false;try{await manager.resume(activity.id);}catch(_){threw=true;}
+    record("R2 thrown restore must preserve prior currentSession",
+      threw && manager.currentSession===thrown && manager.restoringSession===false,
+      "restore exception propagated and restoringSession reset, but currentSession remained the failed target");
+
+    // Successful in-memory restore is not a committed resume if persistence fails.
+    const success=validSession(); d.raw=JSON.stringify(success); d.failSave=true;
+    manager.currentSession=null; manager.getResumable=()=>success;
+    manager.restoreEngine=async()=>true;
+    const returned=await manager.resume(activity.id);
+    const persisted=JSON.parse(d.raw);
+    record("R3 failed status write must not report committed resume",
+      returned===true && success.status==="active" && persisted.status==="resumable",
+      "resume() reported success and mutated the in-memory status to active although SaveManager.save() failed and persisted status stayed resumable");
+    d.failSave=false;
+  }catch(error){results.push({name:"Harness execution",reproduced:false,detail:error.stack||error.message});}
+  const list=document.querySelector("#results");
+  results.forEach(item=>{const li=document.createElement("li");li.textContent=(item.reproduced?"BLOCKER CONFIRMED — ":"NOT REPRODUCED — ")+item.name+" — "+item.detail;list.appendChild(li);});
+  const reproduced=results.filter(x=>x.reproduced).length;
+  document.querySelector("#summary").textContent=reproduced+"/"+results.length+" resume transaction failure diagnostics reproduced";
+  window.__resumeTransactionDiagnostic={reproduced,total:results.length,results};
+})();
+</script></body></html>
