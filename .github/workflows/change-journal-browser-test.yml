@@ -7,6 +7,7 @@ on:
     paths:
       - 'experiments/change-journal-prototype/**'
       - '.github/scripts/change-journal-browser-test.js'
+      - '.github/scripts/activity-session-identity-browser-test.js'
       - '.github/workflows/change-journal-browser-test.yml'
   pull_request:
     paths:
