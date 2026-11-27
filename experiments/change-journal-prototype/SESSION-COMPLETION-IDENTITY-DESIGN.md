@@ -219,3 +219,31 @@ The current SaveManager.load() parses JSON and returns an object, but it does no
 ### 9.5 Remaining search limitation
 
 The inspected source confirms the above direct call paths and behaviors. It does not complete a repository-wide inventory of every currentSession/session.id consumer, every Tahouri_ActivitySession read/write, or every caller of begin(). GitHub code-search queries returned no indexed matches in this pass, so no claim of exhaustive consumer tracing is made. That inventory remains a prerequisite to runtime changes.
+
+
+## 10. Recommended startup failure policy — pending approval — 2026-11-27
+
+### Recommendation: fail closed when a durable session cannot be established
+
+For the first runtime correction, recommend that a fresh activity must not enter its engine unless all of the following are true:
+
+1. A valid active student profile is available.
+2. A profile-scoped session storage key is available.
+3. A cryptographically secure session UUID has been generated.
+4. The session snapshot has been successfully persisted and read back/validated.
+
+If any condition fails, `ActivitySessionManager.begin()` should clear any partially assigned in-memory session state, leave existing stored bytes untouched, and return `null` with a diagnostic reason. `ActivityManager.start()` already treats a null result from `begin()` as a startup failure: it clears the provisional current activity/history and returns before resolving or starting the engine. This makes fail-closed behavior the smallest compatible correction; no new fallback mode or architecture is required.
+
+Do not silently continue in a non-resumable mode in this first correction. Such a mode would need explicit product behavior, clear UI messaging, and a rule that the resulting activity completion is never eligible for cross-device journal publication. That is a separate design decision.
+
+### Required safeguards before implementing this recommendation
+
+- Preserve an existing raw session snapshot when its schema/profile/version is unsupported; never overwrite it as a side effect of starting another activity.
+- Distinguish an absent key from a present but invalid/unsupported key. The latter must stop automatic fresh-session creation and surface a recoverable diagnostic path.
+- Verify a successful write against the exact profile-scoped key before publishing `currentSession` as active.
+- Ensure a missing profile or key returns `null` before mutating gameplay state.
+- Keep the resume path stable: a successful resumed session keeps its existing ID and is not assigned a new UUID.
+
+### Scope status
+
+This is a recommendation for review, not an approved runtime change. No production/runtime files, storage schema, student records, sync API, Worker, D1, or deployment were modified. Runtime implementation remains gated on approval of this policy and completion of the session consumer/caller inventory.
