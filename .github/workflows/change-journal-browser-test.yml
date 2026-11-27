@@ -48,6 +48,8 @@ jobs:
         run: node experiments/change-journal-prototype/sessionPersistenceGuard.test.js
       - name: Run isolated session resume transaction tests
         run: node experiments/change-journal-prototype/sessionResumeTransaction.test.js
+      - name: Run isolated WordPuzzle restore adapter tests
+        run: node experiments/change-journal-prototype/wordPuzzleRestoreAdapter.test.js
       - name: Run runtime-compatible legacy session validator tests
         run: node experiments/change-journal-prototype/legacySessionValidator.test.js
       - name: Run isolated legacy session migration tests
