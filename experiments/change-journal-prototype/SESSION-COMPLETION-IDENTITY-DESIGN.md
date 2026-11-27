@@ -464,3 +464,22 @@ The next implementation phase may now be designed around a complete supported-en
 5. pass actual-manager browser tests for R1–R9 plus write false/throw, read-back mismatch, restore false/throw, and rollback failure.
 
 **Status:** supported-engine diagnostic coverage complete (6/6 engine families); nine failure scenarios reproduced (9/9); runtime acceptance remains BLOCKED. No active runtime, Worker, D1, or production files were changed.
+
+
+## 15. Resume transaction prototype hardening — 2026-11-27
+
+The isolated `sessionResumeTransaction` prototype was extended and CI run `46070098840` completed successfully: **9/9 prototype tests pass**.
+
+Additional guarantees tested:
+- A successful persistence call is not enough: the prototype requires a read-back function and parses the stored snapshot.
+- The read-back object must exactly match the candidate active session before shared state is published.
+- Missing read-back support, malformed read-back JSON, or a read-back mismatch aborts the commit.
+- On read-back failure, the prototype attempts to restore the exact previous raw snapshot and verifies that restoration by reading it again.
+- A rollback that cannot be verified is reported as `rollback-failed`, never as a clean rollback.
+- The `onCommitted` notification hook is called only after successful persistence verification; failed paths emit no resume notification.
+
+**Important limitation:** this remains an isolated prototype. The active manager's `restoreEngine()` methods can render screens and activate global activity state while restoration is still in progress, before durable persistence is verified. The prototype can restore captured state after a failure, but that does not prevent a transient visible UI change during the preparation phase. Therefore the real integration still needs a prepare/commit boundary: stage engine data and screen output without publishing it, verify durable persistence, then publish ActivityManager/ActivityState/CSS/exit controls and emit `activityResumed`. Existing engine restore functions cannot simply be wrapped and assumed atomic.
+
+The prototype also relies on adapter-supplied capture/restore hooks. Its 9/9 tests prove the transaction coordinator's contract under controlled fixtures; they do not yet prove complete capture of every real engine, screen, overlay, timer, event listener, or external side effect.
+
+**Next gate:** design and test the real manager adapter for all six supported engine families, including staged UI publication and complete side-effect inventory. Only after that design is reviewed should active `engine/activity/activitySessionManager.js` be modified. No active runtime, Worker, D1, or production file changed in this step.
