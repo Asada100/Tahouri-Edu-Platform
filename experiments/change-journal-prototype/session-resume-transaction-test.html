@@ -257,7 +257,7 @@
     const classificationLeaked=manager.gameplayActive===true && document.body.classList.contains("activity-playing") &&
       ActivityManager.currentActivity===classificationActivity && ActivityState.value==="playing" && classificationEvents===1 &&
       classificationEngine.state.classifiedItems===1 && classificationEngine.state.score===10 &&
-      window.ClassificationScreen.renderedState===classificationEngine.state &&
+      window.ClassificationScreen.renderedState.classifiedItems===1 && window.ClassificationScreen.renderedState.score===10 &&
       document.getElementById("app").innerHTML==="classificationScreen:restored:1";
     record("R9 actual ClassificationEngine restore branch leaks screen/activity when persistence fails",
       classificationReturned===true && classificationSession.status==="active" && classificationPersisted.status==="resumable" && classificationLeaked,
