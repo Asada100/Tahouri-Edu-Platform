@@ -23,7 +23,7 @@ const server=http.createServer((req,res)=>{
   await page.waitForFunction(()=>document.querySelector('#summary')?.textContent!=='running');
   const result=await page.evaluate(()=>window.__resumeTransactionDiagnostic);
   result.results.forEach(item=>console.log((item.reproduced?'BLOCKER CONFIRMED — ':'NOT REPRODUCED — ')+item.name+' — '+item.detail));
-  if(result.reproduced!==4||result.total!==4)throw new Error('Expected all 4 resume transaction failure diagnostics to reproduce; got '+result.reproduced+'/'+result.total);
-  console.log('SESSION RESUME TRANSACTION DIAGNOSTICS: PASS (4/4 defects reproduced; runtime acceptance remains BLOCKED)');
+  if(result.reproduced!==5||result.total!==5)throw new Error('Expected all 5 resume transaction failure diagnostics to reproduce; got '+result.reproduced+'/'+result.total);
+  console.log('SESSION RESUME TRANSACTION DIAGNOSTICS: PASS (5/5 defects reproduced; runtime acceptance remains BLOCKED)');
  }finally{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));}
 })().catch(error=>{console.error(error);process.exitCode=1;});
