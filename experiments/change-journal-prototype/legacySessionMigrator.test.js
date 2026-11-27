@@ -6,14 +6,15 @@ function fixture(overrides){const rawStore=new Map();const key="session:student-
  rawStore.set(key,JSON.stringify(legacy));let generated=0,reads=0,writes=0;
  const options={getProfileId:()=>"student-A",getScopedKey:p=>"session:"+p,
  readRaw(k){reads++;return rawStore.has(k)?rawStore.get(k):null;},
- writeRaw(k,v){writes++;rawStore.set(k,v);return true;},createIdentity(){generated++;return "activity-session-uuid-v4";},
+ writeRaw(k,v){writes++;rawStore.set(k,v);return true;},createIdentity(){generated++;return "activity-session-123e4567-e89b-42d3-a456-426614174000";},
  validateLegacy(s,p){return validateLegacySession(s,p);},
- validateCurrent(s,p){return s.schemaVersion===2&&s.identityVersion===2&&s.profileId===p&&s.id==="activity-session-uuid-v4"&&s.legacyId==="activity-session-old";},...overrides};
+ validateCurrent(s,p){return s.schemaVersion===2&&s.identityVersion===2&&s.profileId===p&&s.id==="activity-session-123e4567-e89b-42d3-a456-426614174000"&&s.legacyId==="activity-session-old";},...overrides};
  return {options,store:rawStore,key,legacy,run:()=>createLegacySessionMigrator(options).migrate(),get generated(){return generated;},get reads(){return reads;},get writes(){return writes;}};}
 function test(name,fn){fn();console.log("PASS — "+name);}
-test("valid v1 snapshot migrates and preserves legacy identity",()=>{const f=fixture(),r=f.run();assert.equal(r.ok,true);assert.equal(r.status,"migrated");assert.equal(r.session.legacyId,f.legacy.id);assert.equal(r.session.id,"activity-session-uuid-v4");assert.equal(JSON.parse(f.store.get(f.key)).schemaVersion,2);});
+test("valid v1 snapshot migrates and preserves legacy identity",()=>{const f=fixture(),r=f.run();assert.equal(r.ok,true);assert.equal(r.status,"migrated");assert.equal(r.session.legacyId,f.legacy.id);assert.equal(r.session.id,"activity-session-123e4567-e89b-42d3-a456-426614174000");assert.equal(JSON.parse(f.store.get(f.key)).schemaVersion,2);});
 test("migration is idempotent and does not rotate v2 identity",()=>{const f=fixture();assert.equal(f.run().ok,true);const writes=f.writes,generated=f.generated;const r=f.run();assert.equal(r.status,"already-current");assert.equal(f.writes,writes);assert.equal(f.generated,generated);});
 test("failed identity generation preserves exact original bytes",()=>{const f=fixture({createIdentity:()=>{throw Error("no crypto");}}),raw=f.store.get(f.key);assert.equal(f.run().status,"identity-error");assert.equal(f.store.get(f.key),raw);});
+test("non-UUID and non-v4 identities are rejected without changing legacy bytes",()=>{const f=fixture({createIdentity:()=>"activity-session-not-a-uuid"}),raw=f.store.get(f.key);assert.equal(f.run().status,"identity-error");assert.equal(f.store.get(f.key),raw);});
 test("invalid legacy session remains byte-for-byte unchanged",()=>{const f=fixture({validateLegacy:()=>false}),raw=f.store.get(f.key);assert.equal(f.run().status,"invalid-legacy-session");assert.equal(f.store.get(f.key),raw);});
 test("unsupported schema remains unchanged",()=>{const f=fixture(),raw=JSON.stringify({schemaVersion:77,id:"future",profileId:"student-A"});f.store.set(f.key,raw);assert.equal(f.run().status,"unsupported-schema");assert.equal(f.store.get(f.key),raw);});
 test("malformed JSON remains unchanged",()=>{const f=fixture(),raw="{malformed";f.store.set(f.key,raw);assert.equal(f.run().status,"invalid-json");assert.equal(f.store.get(f.key),raw);});
@@ -25,4 +26,4 @@ test("rollback failure is explicit and does not claim preservation",()=>{let n=0
 test("missing profile blocks before reading or generating identity",()=>{const f=fixture({getProfileId:()=>null});assert.equal(f.run().status,"missing-profile");assert.equal(f.reads,0);assert.equal(f.generated,0);});
 test("missing storage snapshot is not treated as a migration",()=>{const f=fixture();f.store.delete(f.key);assert.equal(f.run().status,"missing");assert.equal(f.generated,0);});
 test("already-current but invalid v2 snapshot is preserved",()=>{const f=fixture(),raw=JSON.stringify({schemaVersion:2,id:"x",profileId:"student-A"});f.store.set(f.key,raw);assert.equal(f.run().status,"unsupported-schema");assert.equal(f.store.get(f.key),raw);});
-console.log("LEGACY SESSION MIGRATION RESULT: PASS (14/14)");
+console.log("LEGACY SESSION MIGRATION RESULT: PASS (15/15)");
