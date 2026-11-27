@@ -37,10 +37,10 @@ function fixture(overrides){
  f=fixture();
  r=await f.tx.resume({id:"target",status:"resumable"});
  assert.equal(r.ok,true);assert.equal(r.session.status,"active");assert.equal(f.state.current.id,"target");assert.equal(JSON.parse(f.state.persisted).status,"active");assert.equal(f.state.gameplay,true);assert.equal(f.state.restoring,false);assert.deepEqual(f.state.events,["activityResumed"]);console.log("PASS — verified persistence precedes publication and resume event");
- f=fixture({readPersistedSnapshot:()=>"{broken"});
+ let reads=0;f=fixture({readPersistedSnapshot:()=>++reads===1?"{broken":f.state.persisted});
  r=await f.tx.resume({id:"target",status:"resumable"});
  assert.equal(r.status,"readback-failed");assert.equal(f.state.persisted,"raw:legacy");assert.equal(f.state.current.id,"prior");assert.deepEqual(f.state.events,[]);console.log("PASS — malformed read-back aborts commit and restores prior snapshot");
- f=fixture({readPersistedSnapshot:()=>JSON.stringify({id:"different",status:"active"})});
+ reads=0;f=fixture({readPersistedSnapshot:()=>++reads===1?JSON.stringify({id:"different",status:"active"}):f.state.persisted});
  r=await f.tx.resume({id:"target",status:"resumable"});
  assert.equal(r.status,"readback-mismatch");assert.equal(f.state.persisted,"raw:legacy");assert.equal(f.state.current.id,"prior");assert.deepEqual(f.state.events,[]);console.log("PASS — mismatched read-back aborts commit and restores prior snapshot");
  f=fixture({readPersistedSnapshot:()=>{assert.equal(f.state.events.length,0);assert.equal(f.state.current.id,"prior");return f.state.persisted;}});
