@@ -283,3 +283,52 @@ SaveManager.load() returns null both when a key is absent and when reading/parsi
 - Verify all failure paths restore prior currentSession, gameplayActive, and CSS state.
 
 **Gate:** no production runtime wiring until these tests pass, all begin() callers and currentSession/session.id consumers are traced on this exact branch, and the user approves the selected startup/recovery policy.
+
+## 11. Repository-wide session reference trace (branch snapshot: 4b34c320)
+
+### Confirmed active implementation and entry path
+
+- Active implementation: engine/activity/activitySessionManager.js. engine/core/activitySessionManager.js is explicitly marked legacy/inactive.
+- Official UI entry: App.startActivity() in engine/core/appController.js -> ActivityManager.load() -> ActivityManager.start(). app.js contains compatibility wrappers that delegate to App.startActivity().
+- Fresh-start session operations are in engine/activity/activityManager.js: load(activityId), optional resume(activityId), clear(), then begin(fullActivity).
+- Completion cleanup is in engine/activity/activityLifecycle.js after completion consumers run: ActivitySessionManager.complete().
+- Resume UI bridge: app.js listens for activityResumed and renders JigsawScreen when the restored PuzzleEngine is a jigsaw.
+
+### Exact direct references found
+
+| File | Reference | Finding |
+|---|---|---|
+| engine/activity/activityManager.js | load(), resume(), clear(), begin(), currentSession read | Only production caller of begin() found in the inspected active runtime files; resume returns currentSession. |
+| engine/activity/activityLifecycle.js | complete() | Clears/completes the active session after progress/statistics consumers. |
+| app.js | activityResumed listener | Receives the whole session object; checks truthiness, does not read session.id. |
+| engine/activity/activitySessionManager.js | internal currentSession, save/load/begin/capture/exit/resume/restore | Owns currentSession and all observed session lifecycle reads/writes. |
+| engine/core/activitySessionManager.js | none | Legacy inactive stub only. |
+
+### Identity-consumer result and scope
+
+On the exact branch snapshot inspected, searches across the active activity, core, UI, question, result, app-controller and word-puzzle files found no external direct read of currentSession.id or session.id. The only external currentSession read found is ActivityManager.start() returning ActivitySessionManager.currentSession after successful resume. The activityResumed listener receives the session but does not consume its id. ActivitySessionManager emits activityExited with the whole session object; no matching external id consumer was found in the inspected files.
+
+This is a bounded source trace, not proof from a successful repository-wide GitHub code-search index: GitHub code search returned no usable indexed matches. The inspected set included the active manager, activity manager/lifecycle, app controller and compatibility shell, profile context, save manager, session manager, activity screens, composite provider/engine, the primary engine implementations, and result/word-puzzle paths. Do not label every file in the 149-file engine tree exhaustively searched.
+
+### Additional concrete findings from active source
+
+1. begin() does not fail closed today. It constructs a session even when ProfileContext returns no studentId; save() then returns false, but begin() ignores that return value, sets gameplayActive and the playing CSS class, and returns the unsaved session. ActivityManager.start() therefore proceeds to engine.start().
+2. begin() also ignores a false SaveManager.save() result when storage is unavailable or quota/write fails. This confirms the storage-failure blocker in the actual implementation, not just the diagnostic harness.
+3. ActivityManager.start() sets currentActivity and ActivityHistory before begin(). If begin() returns null, it clears those two values and returns before resolving/starting the engine. This is a usable existing abort boundary, but the manager must actually return null on every persistence/profile failure.
+4. load() deliberately rejects malformed or unsupported snapshots without deleting them. ActivityManager only calls clear() when load() returned a valid existing session. Thus malformed/unsupported data is preserved by this path; this is a positive safeguard.
+5. A valid old session is explicitly cleared for a fresh start when it is not being resumed. This is current intended restart behavior, but it must remain distinct from the malformed/unsupported snapshot path.
+6. save() mutates version, schemaVersion and updatedAt before attempting storage. A failed save can therefore leave the in-memory object mutated even though persistent storage did not change; tests should assert both persisted bytes and in-memory state.
+7. ActivitySessionManager.resume() sets currentSession/restoringSession before restore. If restore fails, finally resets restoringSession but currentSession remains the attempted session. A later hardening pass should specify rollback semantics for this failure path.
+
+### Acceptance test scope derived from the trace
+
+- No profile: begin() must return null, preserve previous currentSession, leave gameplayActive false, not add activity-playing, and prevent engine.start().
+- Storage setItem throws: same fail-closed assertions; no session should be published in memory.
+- Save returns false or read-back mismatches: begin() must fail before engine startup.
+- Malformed/unsupported stored snapshot: byte-for-byte preservation through ActivityManager.start() attempt.
+- Valid resumable snapshot: explicit resume retains its identity; fresh restart clears only after positive validation of that supported snapshot.
+- Failed engine restore: currentSession and restore flags follow an explicit rollback policy.
+- Completion: lifecycle consumers receive the session identity before complete() clears it.
+- Confirm no newly introduced external session.id consumers before wiring completionId into the event envelope.
+
+**Trace status:** primary lifecycle path and known external references mapped; external direct id consumers were not found in the inspected active files. This is sufficient to design the next focused browser acceptance harness, but not sufficient to authorize runtime wiring or claim a formally exhaustive whole-repository trace.
