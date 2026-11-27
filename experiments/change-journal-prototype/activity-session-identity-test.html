@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Activity Session Identity Diagnostic</title></head>
+<body><h1>Activity Session Identity Diagnostic</h1><div id="summary">running</div><ol id="results"></ol>
+<script>
+(function(){
+  const store = new Map();
+  let activeProfile = "PROFILE_A";
+  window.ProfileContext = {
+    key(base){ return base + ":" + activeProfile; },
+    getStudentId(){ return activeProfile; }
+  };
+  window.SaveManager = {
+    load(key){ return store.has(key) ? JSON.parse(JSON.stringify(store.get(key))) : null; },
+    save(key,value){ store.set(key, JSON.parse(JSON.stringify(value))); return true; },
+    remove(key){ store.delete(key); return true; }
+  };
+  window.EventManager = { on(){}, emit(){} };
+  document.addEventListener = function(){};
+  window.addEventListener = function(){};
+  window.__identityStore = store;
+  window.__setProfile = value => { activeProfile = value; };
+})();
+</script>
+<script src="../../engine/activity/activitySessionManager.js"></script>
+<script>
+(function(){
+  const manager = window.ActivitySessionManager;
+  const results = document.getElementById("results");
+  const checks = [];
+  const originalNow = Date.now;
+  const activity = {id:"identity-audit-activity", engine:"QuizEngine"};
+  function add(name, outcome, detail){ checks.push({name,outcome,detail}); }
+  try {
+    Date.now = () => 1700000000000;
+    manager.currentSession = null;
+    const first = manager.begin(activity);
+    const firstId = first.id;
+    const firstStored = window.__identityStore.get("Tahouri_ActivitySession:PROFILE_A");
+    add("A1 session is persisted before engine start", !!firstStored && firstStored.id === firstId, firstId);
+
+    first.status = "resumable";
+    first.engineState = {kind:"quiz",state:{},questions:[{id:"q1"}],currentQuestion:0};
+    manager.save(first);
+    manager.currentSession = null;
+    const restoredSnapshot = manager.load(activity.id);
+    add("A2 saved resumable session retains its ID on load", !!restoredSnapshot && restoredSnapshot.id === firstId, restoredSnapshot && restoredSnapshot.id);
+
+    manager.clear();
+    const restartedSameTick = manager.begin(activity);
+    add("A3 same-tick restart generates a distinct ID", restartedSameTick.id !== firstId,
+      restartedSameTick.id === firstId ? "KNOWN BLOCKER: timestamp collision reproduced" : "distinct ID");
+
+    manager.clear();
+    window.__setProfile("PROFILE_B");
+    manager.currentSession = null;
+    const profileB = manager.begin(activity);
+    add("A4 same activity/time across profiles has distinct global ID", profileB.id !== restartedSameTick.id,
+      profileB.id === restartedSameTick.id ? "KNOWN BLOCKER: profile-independent ID collision reproduced" : "distinct ID");
+
+    Date.now = () => 1700000000001;
+    manager.clear();
+    const laterAttempt = manager.begin(activity);
+    add("A5 later timestamp produces a different ID", laterAttempt.id !== profileB.id, laterAttempt.id);
+  } catch(error) {
+    add("Harness execution", false, error.stack || error.message);
+  } finally {
+    Date.now = originalNow;
+  }
+  let passed = 0;
+  for (const item of checks) {
+    const li = document.createElement("li");
+    li.textContent = (item.outcome ? "PASS — " : "FAIL — ") + item.name + " — " + item.detail;
+    results.appendChild(li);
+    if (item.outcome) passed++;
+  }
+  document.getElementById("summary").textContent = passed + "/" + checks.length + " diagnostic checks passed";
+  window.__identityDiagnostic = {passed,total:checks.length,checks};
+})();
+</script></body></html>
