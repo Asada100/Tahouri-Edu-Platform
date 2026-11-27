@@ -143,6 +143,8 @@ jobs:
 
       - name: Student learning sync diagnostics regression test
         run: npm run student-learning-sync-diagnostics-test
+      - name: Reports refresh after student sync regression
+        run: node reports-screen-sync-refresh-test.js
 
       - name: Integration test
         run: npm run integration-test
