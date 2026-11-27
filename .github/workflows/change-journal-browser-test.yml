@@ -45,6 +45,8 @@ jobs:
         run: node experiments/change-journal-prototype/sessionIdentity.test.js
       - name: Run isolated session persistence guard tests
         run: node experiments/change-journal-prototype/sessionPersistenceGuard.test.js
+      - name: Run runtime-compatible legacy session validator tests
+        run: node experiments/change-journal-prototype/legacySessionValidator.test.js
       - name: Run isolated legacy session migration tests
         run: node experiments/change-journal-prototype/legacySessionMigrator.test.js
       - name: Run session identity browser tests
