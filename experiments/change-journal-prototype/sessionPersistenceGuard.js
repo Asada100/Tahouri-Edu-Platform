@@ -18,7 +18,7 @@ function createSessionPersistenceGuard(o) {
       if(o.removeRaw(key)===false)throw Error("Rollback returned false");
       return {ok:false,status,rollback:"removed-candidate",error:cause,session:null};
     }catch(e){return {ok:false,status:"rollback-failed",error:cause,rollbackError:e,session:null};}}
-  function begin(activity){const c=ctx();if(c.status)return {ok:false,status:c.status,session:null};
+  function begin(activity){current=null;const c=ctx();if(c.status)return {ok:false,status:c.status,session:null};
     const prior=inspect(c);if(prior.status!=="missing")return {ok:false,status:prior.status,stored:prior,session:null};
     let id;try{id=o.createIdentity&&o.createIdentity();}catch(e){return {ok:false,status:"identity-error",error:e,session:null};}
     if(typeof id!=="string"||!id.trim())return {ok:false,status:"identity-error",session:null};
@@ -33,10 +33,10 @@ function createSessionPersistenceGuard(o) {
     if(!validate(verified)||verified.profileId!==c.profileId||verified.id!==id)
       return rollback(c.key,Error("Read-back validation failed"),"readback-invalid");
     current=clone(verified);return {ok:true,status:"created",session:clone(current)};}
-  function load(){const c=ctx();if(c.status)return {ok:false,status:c.status,session:null};
+  function load(){current=null;const c=ctx();if(c.status)return {ok:false,status:c.status,session:null};
     const r=inspect(c);if(r.status!=="valid")return {ok:false,status:r.status,stored:r,session:null};
     current=clone(r.value);return {ok:true,status:"loaded",session:clone(current)};}
-  function clear(){const c=ctx();if(c.status)return {ok:false,status:c.status};
+  function clear(){current=null;const c=ctx();if(c.status)return {ok:false,status:c.status};
     try{if(o.removeRaw(c.key)===false)return {ok:false,status:"remove-error"};current=null;return {ok:true,status:"cleared"};}
     catch(e){return {ok:false,status:"remove-error",error:e};}}
   return Object.freeze({begin,load,clear,getCurrentSession:()=>current?clone(current):null});
