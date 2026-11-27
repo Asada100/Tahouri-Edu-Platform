@@ -114,3 +114,36 @@ The inspected completion producer set now includes Quiz, Dictation, Puzzle, Memo
 
 Do not add the journal to storage writers yet. First define and test a completion envelope at the shared lifecycle boundary that can preserve the existing session identity and handle both direct and ActivityManager emission paths. In parallel, give Word Puzzle a dedicated duplicate-finish test before changing its runtime behavior. Answer tracking should remain source-specific: Quiz question attempts, Dictation character input/spelling completion, and engine-local puzzle/matching/classification actions are different semantic records.
 
+
+
+## 8. Activity session identity and lifecycle trace
+
+Files inspected: `engine/activity/activitySessionManager.js` and `engine/activity/activityManager.js`.
+
+### 8.1 Existing identity behavior
+
+- `ActivitySessionManager.begin(activity)` persists a session before engine startup. The object includes `id`, `profileId`, `activityId`, `activityType`, timestamps, status and engine snapshot.
+- Current ID format is `activity-session-${activity.id}-${Date.now()}`. The profile ID is stored separately and the storage key is profile-scoped through `ProfileContext.key(...)`.
+- `capture()` updates the existing session object and preserves its ID. `resume()` restores that same session object, changes status back to active and saves it; it does not intentionally create a new attempt.
+- `ActivityManager.start()` treats a normal selection as a new attempt: it clears an existing saved session before calling `begin()`. Explicit resume uses the resume path. This is the correct conceptual distinction for an attempt ID.
+- `ActivityLifecycle` calls completion consumers first and calls `ActivitySessionManager.complete()` afterward; `complete()` clears the session. Therefore the active session identity is available during the synchronous `activityFinished` fan-out, provided the completion envelope is captured before cleanup.
+
+### 8.2 Identity limitations
+
+- The current ID is based on activity ID plus millisecond wall-clock time, not a collision-resistant random identifier. Two devices starting the same activity at the same millisecond can produce the same ID. Clock rollback or repeated start calls within one millisecond also need consideration.
+- The ID does not encode profile identity, although the session object does. A completion ID intended for cross-device deduplication should have an explicit uniqueness contract and must be scoped/validated against `profileId`; relying on the localStorage key namespace alone is insufficient once records leave the device.
+- The manager currently accepts a loaded resumable session in `begin()` if it is invoked directly, while `ActivityManager.start()` clears an old session before a normal fresh start. Callers must use the manager through the ActivityManager lifecycle or the contract must be tightened and tested.
+- Session schema version is currently 1. Adding a durable completion identifier or lifecycle fields requires an explicit schema migration/compatibility decision; do not silently reinterpret existing sessions.
+
+### 8.3 Safe design decision (not yet implemented)
+
+The persisted session is the right *lifecycle anchor* for completion identity because it survives pause/resume and is replaced for an intentional new attempt. The current `id` value is **not yet safe to approve as a globally unique completionId**. Before using it for cross-device journal deduplication, harden ID generation (collision-resistant, with an explicit profile binding), add migration/validation behavior, and test:
+1. same activity started concurrently on two devices;
+2. same activity restarted immediately after completion;
+3. resume after page reload and after device clock change;
+4. profile switch while a resumable session exists;
+5. duplicate finish event delivery before session cleanup;
+6. completion event arriving after the session has been cleared.
+
+No runtime change was made in this trace.
+
