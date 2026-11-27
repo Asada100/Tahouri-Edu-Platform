@@ -127,6 +127,38 @@
       memoryReturned===true && memorySession.status==="active" && memoryPersisted.status==="resumable" && memoryLeaked,
       "observed returned="+memoryReturned+", memoryStatus="+memorySession.status+", persistedStatus="+memoryPersisted.status+", gameplayActive="+manager.gameplayActive+", css="+document.body.classList.contains("activity-playing")+", currentActivity="+(ActivityManager.currentActivity===activity)+", activityState="+ActivityState.value+", events="+memoryEvents+", markup="+document.getElementById("app").innerHTML+", score="+ScoreManager.score+", moves="+memoryEngine.moves+", finished="+memoryEngine.finished);
     d.failSave=false;
+
+    // R6 exercises the real Puzzle restore branch and visible UI on failed persistence.
+    const puzzleEngine={activity:{id:"old-puzzle"},state:{started:false},puzzle:{type:"sequence",items:[]},
+      items:[{id:"old-item"}],userAnswer:"",moves:0,getState(){return {puzzle:this.puzzle,items:this.items,moves:this.moves};}};
+    activity.engine="PuzzleEngine";
+    window.EngineManager={getEngine(name){return name==="PuzzleEngine"?puzzleEngine:null;}};
+    window.ScoreManager={score:5,correct:1,wrong:1};
+    window.PuzzleScreen={show(payload){
+      document.getElementById("app").innerHTML="restored-puzzle:"+payload.items[0].id;
+      return true;
+    }};
+    const puzzleSession=validSession();
+    puzzleSession.activityType="PuzzleEngine";
+    puzzleSession.engineState={kind:"puzzle",activity,state:{started:true},
+      puzzle:{type:"sequence",items:[{id:"puzzle-item-1"}]},
+      items:[{id:"puzzle-item-1"}],userAnswer:"answer",moves:6};
+    d.raw=JSON.stringify(puzzleSession);d.failSave=true;
+    manager.currentSession=null;manager.gameplayActive=false;manager.getResumable=()=>puzzleSession;
+    ActivityManager.currentActivity=null;ActivityState.value="idle";
+    document.body.classList.remove("activity-playing");EventManager.events.length=0;
+    document.getElementById("app").innerHTML="previous-screen";
+    const puzzleReturned=await manager.resume(activity.id);
+    const puzzlePersisted=JSON.parse(d.raw);
+    const puzzleEvents=EventManager.events.filter(event=>event.name==="activityResumed").length;
+    const puzzleLeaked=manager.gameplayActive===true && document.body.classList.contains("activity-playing") &&
+      ActivityManager.currentActivity===activity && ActivityState.value==="playing" && puzzleEvents===1 &&
+      document.getElementById("app").innerHTML==="restored-puzzle:puzzle-item-1" &&
+      puzzleEngine.moves===6 && puzzleEngine.userAnswer==="answer";
+    record("R6 real Puzzle restore branch leaks UI/activity when persistence fails",
+      puzzleReturned===true && puzzleSession.status==="active" && puzzlePersisted.status==="resumable" && puzzleLeaked,
+      "observed returned="+puzzleReturned+", status="+puzzleSession.status+", persisted="+puzzlePersisted.status+", gameplayActive="+manager.gameplayActive+", css="+document.body.classList.contains("activity-playing")+", currentActivity="+(ActivityManager.currentActivity===activity)+", activityState="+ActivityState.value+", events="+puzzleEvents+", markup="+document.getElementById("app").innerHTML+", moves="+puzzleEngine.moves+", answer="+puzzleEngine.userAnswer);
+    d.failSave=false;
   }catch(error){results.push({name:"Harness execution",reproduced:false,detail:error.stack||error.message});}
   const list=document.querySelector("#results");
   results.forEach(item=>{const li=document.createElement("li");li.textContent=(item.reproduced?"BLOCKER CONFIRMED — ":"NOT REPRODUCED — ")+item.name+" — "+item.detail;list.appendChild(li);});
