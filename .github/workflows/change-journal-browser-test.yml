@@ -8,12 +8,14 @@ on:
       - 'experiments/change-journal-prototype/**'
       - '.github/scripts/change-journal-browser-test.js'
       - '.github/scripts/activity-session-identity-browser-test.js'
+      - '.github/scripts/session-identity-browser-test.js'
       - '.github/workflows/change-journal-browser-test.yml'
   pull_request:
     paths:
       - 'experiments/change-journal-prototype/**'
       - '.github/scripts/change-journal-browser-test.js'
       - '.github/scripts/activity-session-identity-browser-test.js'
+      - '.github/scripts/session-identity-browser-test.js'
       - '.github/workflows/change-journal-browser-test.yml'
   workflow_dispatch:
 
@@ -40,3 +42,5 @@ jobs:
         run: node .github/scripts/activity-session-identity-browser-test.js
       - name: Run isolated session identity generator tests
         run: node experiments/change-journal-prototype/sessionIdentity.test.js
+      - name: Run session identity browser tests
+        run: node .github/scripts/session-identity-browser-test.js
