@@ -424,3 +424,43 @@ The diagnostic confirms that the isolated `sessionResumeTransaction` prototype p
 7. Keep MatchingEngine and CompositeActivityEngine explicitly outside the supported-resume claim until manager validation and dispatch tests exist.
 
 **Current gate:** the three runtime resume defects are now reproduced with their full observed side effects. The isolated rollback prototype passes 6/6, but no actual runtime fix or end-to-end transactional restore has been implemented. Runtime, Worker, D1, and production remain unchanged.
+
+
+## 14. Complete supported-engine resume diagnostics — 2026-11-27
+
+CI run `46069739294` completed successfully after the Classification harness assertion was corrected to compare restored state values rather than object identity. The browser diagnostic reports **9/9 expected defects reproduced**. This is a diagnostic pass and an explicit runtime acceptance failure; it is not a runtime fix.
+
+### Confirmed findings
+
+| Case | Actual path exercised | Observed failure |
+|---|---|---|
+| R1 | Active manager, restore returns false | Failed target remains published as `currentSession` instead of restoring the previous reference |
+| R2 | Active manager, restore throws | Exception propagates and `restoringSession` resets, but failed target remains `currentSession` |
+| R3 | Active manager, successful restore + failed save | Returns success, sets in-memory status active, leaves persisted status resumable, publishes gameplay/CSS/activity state and emits `activityResumed` |
+| R4 | Actual Quiz restore branch | Quiz UI and score are rebuilt and activity is activated despite failed persistence |
+| R5 | Actual Memory restore branch | Memory UI, score, moves, activity state and resume event are published despite failed persistence |
+| R6 | Actual Puzzle restore branch | Puzzle screen, engine state, activity state and resume event are published despite failed persistence |
+| R7 | Actual Dictation restore branch | Dictation screen and question progress are restored and activity is published despite failed persistence |
+| R8 | Actual WordPuzzleEngine restore branch | Word-puzzle round, score and activity state are published despite failed persistence |
+| R9 | Actual ClassificationEngine restore branch | Classification state and screen are restored and activity is published despite failed persistence |
+
+The actual supported restore branches are now covered by R4–R9: Quiz, Memory, Puzzle, Dictation, WordPuzzle, and Classification. The browser harness loads the actual engine source for WordPuzzle and Classification; the manager's real restore dispatch is used for all six branches. External providers/configuration and persistence are controlled fixtures, so this is not a production-data or live-storage test.
+
+### Scope and remaining exclusions
+
+- R1–R3 are manager-level transaction diagnostics with controlled restore/persistence outcomes.
+- R4–R9 confirm that the save-failure leak reaches each supported engine's visible/runtime state.
+- MatchingEngine and CompositeActivityEngine remain unsupported by the active manager's restore dispatch and are not counted among the six supported families.
+- These tests do not validate real device storage, real student data, cross-device conflict resolution, or rollback after browser/process termination.
+- The isolated `sessionResumeTransaction` prototype remains separate and is not wired into the active manager.
+
+### Decision gate
+
+The next implementation phase may now be designed around a complete supported-engine failure matrix, but **no runtime patch is authorized by these test results alone**. Before changing active runtime code, the user must explicitly approve the proposed transaction policy and implementation scope. Any approved patch must:
+1. preserve the previous `currentSession`, engine state, visible screen, score, ActivityManager/ActivityState, CSS, overlays and exit controls until commit;
+2. save and read back the active snapshot before publishing active state or emitting `activityResumed`;
+3. defer irreversible events until durable commit;
+4. preserve the exact previous persisted bytes on failure, including explicit handling when rollback itself fails;
+5. pass actual-manager browser tests for R1–R9 plus write false/throw, read-back mismatch, restore false/throw, and rollback failure.
+
+**Status:** supported-engine diagnostic coverage complete (6/6 engine families); nine failure scenarios reproduced (9/9); runtime acceptance remains BLOCKED. No active runtime, Worker, D1, or production files were changed.
