@@ -29,14 +29,13 @@ const server = http.createServer((req, res) => {
     const page = await browser.newPage();
     page.on('pageerror', error => { throw error; });
     await page.goto('http://127.0.0.1:4173/experiments/change-journal-prototype/index.html', { waitUntil: 'load' });
-    await page.waitForFunction(() => window.__testResult && window.__testResult.total === 6);
+    await page.waitForFunction(() => { const node = document.querySelector('#summary'); return node && node.textContent !== 'در حال آماده‌سازی…'; });
     const result = await page.evaluate(() => ({
       summary: document.querySelector('#summary').textContent,
       lines: [...document.querySelectorAll('#results li')].map(item => item.textContent),
-      result: window.__testResult
     }));
     for (const line of result.lines) console.log(line);
-    if (result.result.passed !== result.result.total || result.summary !== '6/6 آزمون موفق') {
+    if (result.lines.length !== 6 || result.summary !== '6/6 آزمون موفق') {
       throw new Error('Browser test failed: ' + result.summary);
     }
     console.log('BROWSER RESULT: PASS (6/6)');
