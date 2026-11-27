@@ -10,6 +10,7 @@
     "use strict";
 
     const REPORTS_KEY = "__TahouriReportsScreen__";
+    let activeScreen = null;
 
     const subjectTitles = {
         math: "ریاضی",
@@ -365,7 +366,7 @@
     }
 
     function createScreen(data) {
-        const statistics = getStatistics(data);
+        let statistics = getStatistics(data);
 
         const old = document.getElementById("reportsModal");
         if (old) old.remove();
@@ -444,6 +445,10 @@
             if (modal._escapeHandler) {
                 document.removeEventListener("keydown", modal._escapeHandler);
             }
+            if (window.EventManager && typeof window.EventManager.off === "function") {
+                window.EventManager.off("studentLearningDataSynced", syncHandler);
+            }
+            if (activeScreen && activeScreen.modal === modal) activeScreen = null;
             console.log("ReportsScreen: Modal Closed");
         }
 
@@ -658,6 +663,48 @@
             });
         }
 
+        function refresh(nextData) {
+            const previous = { ...state };
+            statistics = getStatistics(nextData);
+
+            if (previous.type === "subjects") {
+                renderSubjects();
+            } else if (previous.type === "chapters" && previous.subjectId) {
+                renderChapters(previous.subjectId);
+            } else if (previous.type === "activities" && previous.subjectId) {
+                const chapter = previous.chapterId
+                    ? findChapter(statistics, previous.subjectId, previous.chapterId)
+                    : {};
+                const chapterName = previous.chapterId
+                    ? chapterTitle(previous.chapterId, chapter)
+                    : "فعالیت‌ها";
+                renderChapterActivities(previous.subjectId, previous.chapterId, chapterName);
+            } else if (previous.type === "activity" && previous.activityId) {
+                renderActivity(previous.activityId);
+            } else {
+                renderSummary();
+            }
+        }
+
+        const syncHandler = function (event) {
+            if (document.getElementById("reportsModal") !== modal) return;
+            const profile = window.ProfileManager &&
+                typeof window.ProfileManager.get === "function"
+                ? window.ProfileManager.get()
+                : null;
+            if (!profile || String(profile.studentId) !== String(event && event.studentId)) return;
+            if (window.ReportsController &&
+                typeof window.ReportsController.open === "function") {
+                window.ReportsController.open();
+            }
+        };
+
+        if (window.EventManager && typeof window.EventManager.on === "function") {
+            window.EventManager.on("studentLearningDataSynced", syncHandler);
+        }
+
+        activeScreen = { modal: modal, refresh: refresh };
+
         const closeBtn = header.querySelector("#reportsCloseBtn");
         closeBtn.addEventListener("click", close);
 
@@ -687,6 +734,11 @@
             activityId: null
         },
         show: function (data) {
+            if (activeScreen &&
+                document.getElementById("reportsModal") === activeScreen.modal) {
+                activeScreen.refresh(data);
+                return;
+            }
             createScreen(data);
         }
     };

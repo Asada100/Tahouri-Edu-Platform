@@ -21,7 +21,11 @@ const manager = read("engine/core/licenseManager.js");
 const gate = read("engine/core/activationGate.js");
 const appController = read("engine/core/appController.js");
 const licenseClient = read("engine/core/tahouriLicenseClient.js");
+const learningSync = read("engine/core/studentLearningSync.js");
+const studentDataTransfer = read("engine/core/studentDataTransfer.js");
+const index = read("index.html");
 const profileScreen = read("engine/ui/profileScreen.js");
+const licenseScreen = read("engine/ui/licenseScreen.js");
 
 assert(
     serviceConfig.includes('mode: "production"') &&
@@ -34,8 +38,11 @@ assert(
 assert(
     indexHtml.includes("tahouriServiceConfig.js?v=1.3") &&
     indexHtml.includes("tahouriEntitlementVerifier.js?v=1.5") &&
-    indexHtml.includes("tahouriLicenseClient.js?v=1.2") &&
-    indexHtml.includes("profileScreen.js?v=5.1") &&
+    indexHtml.includes("tahouriDeviceIdentity.js?v=1.0") &&
+    indexHtml.includes("tahouriLicenseClient.js?v=2.2") &&
+    indexHtml.indexOf("tahouriDeviceIdentity.js") < indexHtml.indexOf("tahouriLicenseClient.js") &&
+    indexHtml.includes("profileScreen.js?v=5.3") &&
+    indexHtml.includes("licenseScreen.js?v=pr141-recovery-1") &&
     indexHtml.includes("licenseManager.js?v=2.2") &&
     indexHtml.includes("activationGate.js?v=8.5") &&
     indexHtml.includes("profilePolish.css?v=2.6"),
@@ -43,11 +50,36 @@ assert(
 );
 
 assert(
+    licenseScreen.includes('id="tahouriDeviceSlots"') &&
+    licenseScreen.includes('id="tahouriDeviceSlotsList"') &&
+    licenseScreen.includes("async function loadBoundDeviceSlots()") &&
+    licenseScreen.includes("async function replaceBoundDevice(device,claims,button)") &&
+    licenseScreen.includes("requestDeviceRevocationChallenge") &&
+    licenseScreen.includes("executeDeviceRevocation"),
+    "License UI must expose the authenticated device list and signed replacement flow."
+);
+
+assert(
     !licenseClient.includes("registerExistingProfiles") &&
     !licenseClient.includes("registerProfile") &&
     !licenseClient.includes("/students/register") &&
-    licenseClient.includes("window.TahouriLicenseClient = { activate, health, status };"),
+    licenseClient.includes("window.TahouriLicenseClient = { activate, health, status, syncLearningData, requestPairing, requestPairingChallenge, decidePairing, pairingStatus, recoverApprovedPairingEntitlement, claimLegacyMigration, claimLegacyMigrationCode, cancelPairing, listPendingPairings, listBoundDeviceSlots, requestDeviceRevocationChallenge, executeDeviceRevocation };") &&
+    licenseClient.includes("async function listBoundDeviceSlots(licenseId)") &&
+    licenseClient.includes("async function cancelPairing(pairingId, token)") &&
+    licenseClient.includes("devicePublicKeyPem: identity.publicKey") &&
+    licenseClient.includes("deviceSignature: signed.signature") &&
+    manager.includes("async function getOrCreateRemoteInstallationId()") &&
+    manager.includes("await getOrCreateRemoteInstallationId()") &&
+    manager.includes("claims.installationBinding !== installationId"),
     "The browser client must not auto-register profiles through a public enrollment endpoint."
+);
+
+assert(
+    licenseClient.includes("async function syncLearningData(payload)") &&
+    licenseClient.includes('purpose: "tahouri-learning-data-sync-v1"') &&
+    licenseClient.includes('request("/learning-data/sync"') &&
+    licenseClient.includes("payloadHash"),
+    "Learning sync requests must be device-signed and bound to a hashed snapshot."
 );
 
 assert(
@@ -71,6 +103,111 @@ assert(
     store.includes("all.findIndex"),
     "Multi-entitlement store support is incomplete."
 );
+
+
+// Student learning-data sync must be loaded only after the verified license gate
+// and must use the registered device signature rather than a bearer token.
+assert(
+    index.includes('studentLearningSync.js?v=1.4') &&
+    index.indexOf("activationGate.js") < index.indexOf("studentLearningSync.js") &&
+    studentDataTransfer.includes("function exportProfileData(studentId)") &&
+    studentDataTransfer.includes("function applyProfileData(studentId, incomingData)") &&
+    licenseClient.includes("async function syncLearningData(payload)") &&
+    licenseClient.includes('request("/learning-data/sync"') &&
+    licenseClient.includes("deviceSignature: signed.signature") &&
+    learningSync.includes("hasValidRemoteEntitlement(profile.grade)") &&
+    learningSync.includes("getVerifiedRemoteEntitlementClaims") &&
+    learningSync.includes("window.setInterval") &&
+    learningSync.includes("}, 60000)") &&
+    learningSync.includes('window.addEventListener("online"') &&
+    learningSync.includes('window.EventManager.on("profileChanged"') &&
+    learningSync.includes("mergeThreeWay") &&
+    learningSync.includes("Number(error.status) !== 409") &&
+    learningSync.includes("conflict.datasets") &&
+    learningSync.includes('setStatus("checking"') &&
+    learningSync.includes('setStatus("requesting"') &&
+    learningSync.includes('setStatus("synced"'),
+    "Student learning-data sync must be device-authenticated, profile-scoped, conflict-aware, and loaded after license verification."
+);
+
+assert(
+    profileScreen.includes("bindLearningSyncStatus: function ()") &&
+    profileScreen.includes("profileLearningSyncStatus") &&
+    profileScreen.includes("profileLearningSyncRetry") &&
+    profileScreen.includes("studentLearningSyncStatus"),
+    "The profile screen must expose live sync diagnostics and a retry action."
+);
+
+const vm = require("vm");
+const syncContext = {
+    window: { addEventListener() {} },
+    document: { readyState: "loading", addEventListener() {} },
+    localStorage: { getItem() { return null; }, setItem() {}, removeItem() {} },
+    console: { log() {}, warn() {}, error() {} },
+    setTimeout() { return 1; },
+    clearTimeout() {}
+};
+vm.runInNewContext(learningSync, syncContext, { filename: "studentLearningSync.js" });
+const merge = syncContext.window.StudentLearningSync.mergeDatasets;
+const baseSnapshot = {
+    progress: { chapter1: { score: 10, completed: false } },
+    statistics: {
+        overall: { totalActivities: 2, totalScore: 20, averageScore: 10, bestScore: 10, totalCorrect: 4, totalWrong: 0 },
+        subjects: {}, chapters: {},
+        activities: { math1: { totalActivities: 2, totalScore: 20, averageScore: 10, bestScore: 10, totalCorrect: 4, totalWrong: 0 } }
+    },
+    contentLocks: { chapter2: true },
+    parityProgression: { unlocked: ["evenOdd"] },
+    dailyStreak: { days: { "2026-11-20": true }, currentStreak: 1, bestStreak: 1, lastCompletedDate: "2026-11-20" },
+    notifications: [],
+    spellingPerformance: { answers: [], targetAnswers: [] },
+    questionPerformance: {}
+};
+const localSnapshot = JSON.parse(JSON.stringify(baseSnapshot));
+const remoteSnapshot = JSON.parse(JSON.stringify(baseSnapshot));
+localSnapshot.progress.chapter1.score = 12;
+remoteSnapshot.progress.chapter1.score = 13;
+localSnapshot.statistics.activities.math1.totalActivities = 3;
+localSnapshot.statistics.activities.math1.totalScore = 30;
+localSnapshot.statistics.activities.math1.totalCorrect = 6;
+remoteSnapshot.statistics.activities.math1.totalActivities = 4;
+remoteSnapshot.statistics.activities.math1.totalScore = 40;
+remoteSnapshot.statistics.activities.math1.totalCorrect = 8;
+localSnapshot.contentLocks.chapter2 = false;
+remoteSnapshot.parityProgression.unlocked.push("evenOddSum");
+remoteSnapshot.notifications.push({ id: "n1" });
+const mergedSnapshot = merge(baseSnapshot, localSnapshot, remoteSnapshot);
+assert(mergedSnapshot.progress.chapter1.score === 13,
+    "Progress merge must preserve the highest locally or remotely achieved value.");
+assert(mergedSnapshot.statistics.activities.math1.totalActivities === 5 &&
+    mergedSnapshot.statistics.activities.math1.totalScore === 50 &&
+    mergedSnapshot.statistics.overall.totalActivities === 5,
+    "Three-way statistics merge must add independent post-baseline attempts without dropping either device's progress.");
+assert(mergedSnapshot.contentLocks.chapter2 === false,
+    "Content already unlocked on one device must not be relocked by the other device.");
+const remoteRelock = JSON.parse(JSON.stringify(baseSnapshot));
+remoteRelock.contentLocks.chapter2 = false;
+const localUnchangedLock = JSON.parse(JSON.stringify(baseSnapshot));
+localUnchangedLock.contentLocks.chapter2 = false;
+const remoteLockedAgain = JSON.parse(JSON.stringify(baseSnapshot));
+remoteLockedAgain.contentLocks.chapter2 = true;
+assert(merge(baseSnapshot, localUnchangedLock, remoteLockedAgain).contentLocks.chapter2 === false,
+    "A previously unlocked item must remain unlocked even if the other device has stale lock state.");
+assert(mergedSnapshot.parityProgression.unlocked.includes("evenOddSum") &&
+    mergedSnapshot.notifications.length === 1,
+    "Array-backed learning datasets must be merged without duplicate entries.");
+let rejectedUnsafeMerge = false;
+try {
+    const conflictingLocal = JSON.parse(JSON.stringify(baseSnapshot));
+    const conflictingRemote = JSON.parse(JSON.stringify(baseSnapshot));
+    conflictingLocal.progress.chapter1.label = "تلفن";
+    conflictingRemote.progress.chapter1.label = "رایانه";
+    merge(baseSnapshot, conflictingLocal, conflictingRemote);
+} catch (_) {
+    rejectedUnsafeMerge = true;
+}
+assert(rejectedUnsafeMerge,
+    "Conflicting simultaneous edits must stop the merge instead of silently overwriting either device.");
 
 const futureBlock = manager.match(
     /if \(isFutureRenewal\) \{([\s\S]*?)\n\s*\}/

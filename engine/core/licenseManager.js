@@ -32,6 +32,80 @@
     let entitlementSelectionSequence = 0;
     let remoteStatusSequence = 0;
 
+    const OFFLINE_CLOCK_HIGH_WATER_KEY = "Tahouri_Offline_Clock_High_Water_v1";
+    const OFFLINE_CLOCK_ROLLBACK_TOLERANCE_MS = 2 * 60 * 1000;
+    let offlineClockAnchorWall = null;
+    let offlineClockAnchorMonotonic = null;
+    let offlineClockRollbackDetected = false;
+
+    // This is a conservative rollback detector, not a trusted clock.
+    // localStorage can be modified and browser monotonic time does not survive
+    // a restart; a detected rollback therefore requires online revalidation.
+    function getOfflineClockState() {
+        const wallNow = Date.now();
+        const monotonicNow = window.performance &&
+            typeof window.performance.now === "function"
+            ? Number(window.performance.now())
+            : NaN;
+
+        if (!Number.isFinite(wallNow)) {
+            offlineClockRollbackDetected = true;
+            return { safe: false, now: wallNow };
+        }
+
+        let storedHighWater = 0;
+        try {
+            const stored = Number(window.localStorage &&
+                window.localStorage.getItem(OFFLINE_CLOCK_HIGH_WATER_KEY));
+            if (Number.isFinite(stored) && stored > 0) storedHighWater = stored;
+        } catch (error) {
+            // The in-session monotonic check remains available when storage is blocked.
+        }
+
+        if (offlineClockAnchorWall === null) {
+            if (storedHighWater > 0 &&
+                wallNow + OFFLINE_CLOCK_ROLLBACK_TOLERANCE_MS < storedHighWater) {
+                offlineClockRollbackDetected = true;
+            }
+            offlineClockAnchorWall = wallNow;
+            offlineClockAnchorMonotonic = Number.isFinite(monotonicNow)
+                ? monotonicNow
+                : null;
+        }
+
+        if (storedHighWater > 0 &&
+            wallNow + OFFLINE_CLOCK_ROLLBACK_TOLERANCE_MS < storedHighWater) {
+            offlineClockRollbackDetected = true;
+        }
+
+        let monotonicFloor = offlineClockAnchorWall;
+        if (offlineClockAnchorMonotonic !== null && Number.isFinite(monotonicNow)) {
+            const elapsed = monotonicNow - offlineClockAnchorMonotonic;
+            if (elapsed < 0) {
+                offlineClockRollbackDetected = true;
+            } else {
+                monotonicFloor = offlineClockAnchorWall + elapsed;
+                if (wallNow + OFFLINE_CLOCK_ROLLBACK_TOLERANCE_MS < monotonicFloor) {
+                    offlineClockRollbackDetected = true;
+                }
+            }
+        }
+
+        const highWater = Math.max(storedHighWater, wallNow);
+        try {
+            if (window.localStorage && typeof window.localStorage.setItem === "function") {
+                window.localStorage.setItem(OFFLINE_CLOCK_HIGH_WATER_KEY, String(highWater));
+            }
+        } catch (error) {
+            // Storage is a best-effort signal only; it is not tamper-resistant.
+        }
+
+        return {
+            safe: !offlineClockRollbackDetected,
+            now: Math.max(wallNow, monotonicFloor)
+        };
+    }
+
 
     const GRADES = {
 
@@ -152,7 +226,6 @@
             return { valid: false, reason: "no_remote_entitlement" };
         }
 
-        const licenseId = claims.licenseId;
         if (!window.TahouriLicenseClient ||
             typeof window.TahouriLicenseClient.status !== "function") {
             return { valid: false, reason: "status_client_unavailable" };
@@ -163,26 +236,62 @@
         const studentId = normalizeStudentId(profile && profile.studentId);
         const gradeId = safeText(profile && (profile.grade || profile.gradeId)).trim();
 
-        try {
-            const result = await window.TahouriLicenseClient.status(licenseId);
+        const isStillCurrent = () => {
             const currentProfile = getActiveProfile();
-            const stillCurrent =
-                statusSequence === remoteStatusSequence &&
+            return statusSequence === remoteStatusSequence &&
                 verifiedRemoteEntitlement === selectedEntitlement &&
                 normalizeStudentId(currentProfile && currentProfile.studentId) === studentId &&
                 safeText(currentProfile && (currentProfile.grade || currentProfile.gradeId)).trim() === gradeId &&
                 normalizeStudentId(claims.studentId) === studentId &&
                 claims.gradeScope === gradeId;
+        };
 
-            if (!stillCurrent) {
-                return { valid: false, reason: "stale_status_check" };
-            }
+        try {
+            const result = await window.TahouriLicenseClient.status(claims.licenseId);
+            if (!isStillCurrent()) return { valid: false, reason: "stale_status_check" };
 
             if (!result || !result.valid) {
                 verifiedRemoteEntitlement = null;
+                return result || { valid: false, reason: "invalid_status_response" };
             }
 
-            return result || { valid: false, reason: "invalid_status_response" };
+            if (!result.entitlement || !window.TahouriEntitlementVerifier ||
+                typeof window.TahouriEntitlementVerifier.verifyEnvelope !== "function") {
+                verifiedRemoteEntitlement = null;
+                return { valid: false, reason: "signed_device_lease_missing" };
+            }
+
+            const verification = await window.TahouriEntitlementVerifier.verifyEnvelope(result.entitlement);
+            if (!isStillCurrent()) return { valid: false, reason: "stale_status_check" };
+            if (!verification || !verification.valid || !verification.claims) {
+                verifiedRemoteEntitlement = null;
+                return { valid: false, reason: "invalid_refreshed_device_lease" };
+            }
+
+            const refreshedClaims = verification.claims;
+            const sameBinding =
+                refreshedClaims.licenseId === claims.licenseId &&
+                normalizeStudentId(refreshedClaims.studentId) === studentId &&
+                refreshedClaims.gradeScope === gradeId &&
+                refreshedClaims.installationBinding === claims.installationBinding &&
+                refreshedClaims.deviceType === claims.deviceType &&
+                refreshedClaims.deviceKeyFingerprint === claims.deviceKeyFingerprint &&
+                typeof refreshedClaims.offlineLeaseExpiresAt === "string" &&
+                typeof refreshedClaims.deviceSlotId === "string";
+
+            if (!sameBinding) {
+                verifiedRemoteEntitlement = null;
+                return { valid: false, reason: "refreshed_device_binding_mismatch" };
+            }
+
+            if (!window.TahouriEntitlementStore ||
+                typeof window.TahouriEntitlementStore.write !== "function" ||
+                !window.TahouriEntitlementStore.write(result.entitlement)) {
+                return { valid: false, reason: "refreshed_device_lease_not_saved" };
+            }
+
+            verifiedRemoteEntitlement = refreshedClaims;
+            return { ...result, claims: refreshedClaims, refreshed: true };
         } catch (error) {
             console.warn("License Manager: Remote status check failed.", error);
             return { valid: false, reason: "network_error", error: error.message };
@@ -1636,7 +1745,7 @@
     function isRemoteProductionMode() {
         return Boolean(
             window.TahouriServiceConfig &&
-            window.TahouriServiceConfig.mode === "production"
+            ["production", "pr141-isolated-test"].includes(window.TahouriServiceConfig.mode)
         );
     }
 
@@ -1645,8 +1754,8 @@
     // =====================================
     async function activateRemote(code, gradeId, studentId, renewalMode = "promotion") {
         if (!window.TahouriLicenseClient || !window.TahouriEntitlementVerifier || !window.TahouriEntitlementStore) return null;
-        const installationId = getOrCreateInstallationId();
         try {
+            const installationId = await getOrCreateRemoteInstallationId();
             const normalizedStudentId = String(studentId || getActiveStudentId() || "").trim();
             const response = await window.TahouriLicenseClient.activate({code, gradeId, studentId: normalizedStudentId, installationId, renewalMode});
             if (!response || !response.valid || !response.entitlement) return response || {valid:false,message:"فعال‌سازی آنلاین انجام نشد."};
@@ -1733,6 +1842,51 @@
         try { let id=localStorage.getItem(key); if(!id){ id=(window.crypto&&typeof window.crypto.randomUUID==="function")?window.crypto.randomUUID():"install_"+Date.now()+"_"+Math.random().toString(36).slice(2); localStorage.setItem(key,id);} return id; }
         catch(error){ return "ephemeral_"+Date.now(); }
     }
+    // Read-only compatibility lookup for an entitlement already signed
+    // against this installation's pre-cryptographic LocalStorage ID.
+    // This ID preserves local continuity only; it is never device proof.
+    function getLegacyInstallationId() {
+        try {
+            return String(localStorage.getItem("Tahouri_Installation_Id_v1") || "").trim();
+        } catch (error) {
+            return "";
+        }
+    }
+    async function getRemoteDeviceIdentity() {
+        if (window.TahouriDeviceIdentity && typeof window.TahouriDeviceIdentity.getOrCreate === "function") {
+            const identity = await window.TahouriDeviceIdentity.getOrCreate();
+            const installationId = String(identity && identity.installationId || "").trim();
+            if (!installationId || (isRemoteProductionMode() && !identity.publicKey)) {
+                throw new Error("هویت رمزنگاری‌شده دستگاه کامل نیست.");
+            }
+            return { ...identity, installationId };
+        }
+        if (isRemoteProductionMode()) {
+            throw new Error("هویت رمزنگاری‌شده دستگاه در این نسخه بارگذاری نشده است.");
+        }
+        return { installationId: getOrCreateInstallationId(), publicKey: "" };
+    }
+
+    async function getOrCreateRemoteInstallationId() {
+        const identity = await getRemoteDeviceIdentity();
+        return identity.installationId;
+    }
+
+    async function getDevicePublicKeyFingerprint(publicKeyPem) {
+        if (!publicKeyPem || !window.crypto || !window.crypto.subtle ||
+            typeof window.crypto.subtle.digest !== "function") {
+            throw new Error("اثر انگشت کلید عمومی دستگاه قابل محاسبه نیست.");
+        }
+        const base64 = String(publicKeyPem)
+            .replace(/-----BEGIN PUBLIC KEY-----/g, "")
+            .replace(/-----END PUBLIC KEY-----/g, "")
+            .replace(/\s+/g, "");
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const digest = await window.crypto.subtle.digest("SHA-256", bytes);
+        return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
+    }
     function getRemoteEntitlement() {
         try {
             if (!window.TahouriEntitlementStore) return null;
@@ -1762,16 +1916,68 @@
             const all = typeof window.TahouriEntitlementStore.readAll === "function"
                 ? window.TahouriEntitlementStore.readAll()
                 : [window.TahouriEntitlementStore.read()].filter(Boolean);
-            const installationId = getOrCreateInstallationId();
+            const deviceIdentity = await getRemoteDeviceIdentity();
+            const installationId = deviceIdentity.installationId;
+            const localDeviceKeyFingerprint = deviceIdentity.publicKey
+                ? await getDevicePublicKeyFingerprint(deviceIdentity.publicKey)
+                : "";
 
-            for (const envelope of all) {
-                const result = await window.TahouriEntitlementVerifier.verifyEnvelope(envelope);
+            for (const storedEnvelope of all) {
+                let envelope = storedEnvelope;
+                let claims = envelope && envelope.claims;
+                if (!claims ||
+                    normalizeStudentId(claims.studentId) !== activeStudentId ||
+                    claims.gradeScope !== activeGradeId) continue;
+
+                const legacyInstallationId = getLegacyInstallationId();
+                if (claims.installationBinding && claims.installationBinding !== installationId &&
+                    claims.installationBinding !== legacyInstallationId) continue;
+
+                let result = await window.TahouriEntitlementVerifier.verifyEnvelope(envelope);
                 if (selectionSequence !== entitlementSelectionSequence) return false;
-                if (!result || !result.valid || !result.claims) continue;
 
-                const claims = result.claims;
+                // An expired signed lease can be renewed only by the same bound device
+                // proving possession of its private key to the Worker.
+                if (!result || !result.valid) {
+                    const leaseExpired = String(result && result.reason || "").includes("مهلت آفلاین");
+                    if (!leaseExpired || !window.TahouriLicenseClient ||
+                        typeof window.TahouriLicenseClient.status !== "function") continue;
+
+                    const refreshed = await window.TahouriLicenseClient.status(claims.licenseId);
+                    if (selectionSequence !== entitlementSelectionSequence) return false;
+                    if (!refreshed || !refreshed.valid || !refreshed.entitlement) continue;
+
+                    const refreshedVerification =
+                        await window.TahouriEntitlementVerifier.verifyEnvelope(refreshed.entitlement);
+                    if (!refreshedVerification || !refreshedVerification.valid ||
+                        !refreshedVerification.claims) continue;
+
+                    const refreshedClaims = refreshedVerification.claims;
+                    if (refreshedClaims.licenseId !== claims.licenseId ||
+                        normalizeStudentId(refreshedClaims.studentId) !== activeStudentId ||
+                        refreshedClaims.gradeScope !== activeGradeId ||
+                        refreshedClaims.installationBinding !== claims.installationBinding ||
+                        refreshedClaims.deviceType !== claims.deviceType ||
+                        refreshedClaims.deviceKeyFingerprint !== claims.deviceKeyFingerprint) continue;
+
+                    if (!window.TahouriEntitlementStore.write(refreshed.entitlement)) continue;
+                    envelope = refreshed.entitlement;
+                    result = refreshedVerification;
+                    claims = refreshedClaims;
+                }
+
+                if (!result || !result.valid || !result.claims) continue;
+                claims = result.claims;
+
+                // A signed offline lease is usable only with the same local
+                // cryptographic key that the Worker bound to this device slot.
+                if (claims.offlineLeaseExpiresAt !== undefined &&
+                    (!localDeviceKeyFingerprint ||
+                     claims.deviceKeyFingerprint !== localDeviceKeyFingerprint)) continue;
+
                 const binding = claims.installationBinding;
-                if (binding && binding !== installationId) continue;
+                if (binding && binding !== installationId &&
+                    binding !== legacyInstallationId) continue;
                 if (normalizeStudentId(claims.studentId) !== activeStudentId) continue;
                 if (!claims.gradeScope || claims.gradeScope !== activeGradeId) continue;
 
@@ -1782,8 +1988,36 @@
                     return false;
                 }
 
+                // Never expose a legacy entitlement without a signed offline lease
+                // as active while an online upgrade is pending.
+                const leaseExpiry = Date.parse(claims.offlineLeaseExpiresAt || "");
+                const hasValidOfflineLease =
+                    Number.isFinite(leaseExpiry) &&
+                    leaseExpiry > Date.now() &&
+                    typeof claims.deviceSlotId === "string" &&
+                    /^[a-f0-9]{64}$/.test(claims.deviceSlotId);
+
                 verifiedRemoteEntitlement = claims;
-                return true;
+                if (!hasValidOfflineLease || leaseExpiry - Date.now() < 24 * 60 * 60 * 1000) {
+                    const status = await refreshRemoteLicenseStatus();
+                    if (selectionSequence !== entitlementSelectionSequence) return false;
+
+                    // A valid, unexpired lease may survive a network outage.
+                    // A legacy entitlement without a lease must fail closed.
+                    if (!status || !status.valid) {
+                        const temporaryOfflineFailure = status &&
+                            ["network_error", "status_client_unavailable"].includes(status.reason);
+                        if (!hasValidOfflineLease || !temporaryOfflineFailure) {
+                            verifiedRemoteEntitlement = null;
+                            return false;
+                        }
+                    }
+                }
+
+                return Boolean(
+                    verifiedRemoteEntitlement &&
+                    hasValidRemoteEntitlement(activeGradeId)
+                );
             }
 
             return false;
@@ -1846,12 +2080,13 @@
         let matchingEntitlementFound = false;
         let lastStatus = "inactive";
         let lastReason = "برای این پروفایل هنوز مجوزی ثبت نشده است.";
+        let lastRequiresLegacyDeviceMigration = false;
 
         try {
             const envelopes = typeof store.readAll === "function"
                 ? store.readAll()
                 : [store.read()].filter(Boolean);
-            const installationId = getOrCreateInstallationId();
+            const installationId = await getOrCreateRemoteInstallationId();
 
             for (const envelope of envelopes) {
                 const storedClaims = envelope && envelope.claims;
@@ -1872,11 +2107,32 @@
                 }
 
                 const claims = verification.claims;
-                if (claims.installationBinding !== installationId) {
+                const legacyInstallationId = getLegacyInstallationId();
+                const matchesCurrentInstallation = claims.installationBinding === installationId;
+                const matchesLegacyInstallation = Boolean(
+                    legacyInstallationId &&
+                    claims.installationBinding === legacyInstallationId
+                );
+                if (!matchesCurrentInstallation && !matchesLegacyInstallation) {
                     lastStatus = "invalid";
                     lastReason = "این مجوز به دستگاه دیگری متصل است.";
                     continue;
                 }
+                const leaseExpiry = Date.parse(claims.offlineLeaseExpiresAt || "");
+                const hasDeviceLease =
+                    typeof claims.deviceSlotId === "string" &&
+                    /^[a-f0-9]{64}$/.test(claims.deviceSlotId) &&
+                    Number.isFinite(Number(claims.revocationEpoch)) &&
+                    Number(claims.revocationEpoch) > 0 &&
+                    Number.isFinite(leaseExpiry) &&
+                    leaseExpiry > Date.now();
+                if (!hasDeviceLease) {
+                    lastStatus = "renewal_required";
+                    lastReason = "برای تکمیل مهاجرت مجوز قدیمی، اتصال آنلاین و تأیید هویت دستگاه لازم است.";
+                    lastRequiresLegacyDeviceMigration = true;
+                    continue;
+                }
+
                 if (String(claims.academicYear) !== currentAcademicYear) {
                     lastStatus = "renewal_required";
                     lastReason = "مجوز این پروفایل مربوط به سال تحصیلی دیگری است.";
@@ -1922,7 +2178,8 @@
         return {
             active: false,
             status: matchingEntitlementFound ? lastStatus : "inactive",
-            reason: lastReason
+            reason: lastReason,
+            requiresLegacyDeviceMigration: lastRequiresLegacyDeviceMigration
         };
     }
 
@@ -1936,11 +2193,20 @@
 
         const from = new Date(claims.validFrom);
         const until = new Date(claims.validUntil);
+        const leaseUntil = new Date(claims.offlineLeaseExpiresAt || "");
+        const clock = getOfflineClockState();
         return (
+            clock.safe &&
+            typeof claims.deviceSlotId === "string" &&
+            /^[a-f0-9]{64}$/.test(claims.deviceSlotId) &&
+            Number.isFinite(Number(claims.revocationEpoch)) &&
+            Number(claims.revocationEpoch) > 0 &&
+            !Number.isNaN(leaseUntil.getTime()) &&
             !Number.isNaN(from.getTime()) &&
             !Number.isNaN(until.getTime()) &&
-            Date.now() >= from.getTime() &&
-            Date.now() < until.getTime()
+            clock.now >= from.getTime() &&
+            clock.now < until.getTime() &&
+            clock.now < leaseUntil.getTime()
         );
     }
 
@@ -2025,6 +2291,11 @@
 
         getRemoteEntitlement:
             getRemoteEntitlement,
+
+        getVerifiedRemoteEntitlementClaims:
+            function () {
+                return verifiedRemoteEntitlement ? { ...verifiedRemoteEntitlement } : null;
+            },
 
         initializeRemoteEntitlement:
             initializeRemoteEntitlement,

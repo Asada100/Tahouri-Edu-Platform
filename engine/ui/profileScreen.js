@@ -1,6 +1,6 @@
 // =====================================
 // Tahouri Edu Platform
-// Version 5.1
+// Version 5.2
 // Profile Screen
 // Multi Profile + Personal Settings
 // =====================================
@@ -32,11 +32,34 @@ const ProfileScreen = {
     <button id="createFirstProfileBtn" type="button">
         ➕ ایجاد پروفایل
     </button>
+    <hr>
+    <section class="profile-import-panel">
+        <h2>🗂 پشتیبان کامل اطلاعات یادگیری</h2>
+        <p>پیشرفت، ستاره‌ها، آمار، قفل‌ها، استمرار روزانه، اعلان‌ها، سوابق املا، عملکرد پرسش‌ها و تنظیمات پروفایل‌ها منتقل می‌شوند. مجوز و شناسهٔ دستگاه منتقل نمی‌شوند.</p>
+        <button id="studentDataExportBtn" type="button">دانلود پشتیبان کامل</button>
+        <input id="studentDataImportFile" type="file" accept=".json,application/json">
+        <button id="studentDataImportBtn" type="button">بازیابی پشتیبان کامل</button>
+        <p id="studentDataTransferMessage" aria-live="polite"></p>
+    </section>
+    <h2>ورود فهرست هویتی پروفایل‌ها</h2>
+    <p>این گزینه فقط شناسه، نام و پایه را وارد می‌کند و جایگزین پشتیبان کامل نیست.</p>
+    <input id="profileImportFile" type="file" accept=".json,application/json">
+    <button id="profileImportBtn" type="button">واردکردن فایل پروفایل</button>
+    <p id="profileImportMessage" aria-live="polite"></p>
 </div>
             `;
 
             document.getElementById("createFirstProfileBtn").onclick = function () {
                 ProfileScreen.showCreate();
+            };
+            document.getElementById("profileImportBtn").onclick = function () {
+                ProfileScreen.importProfilesFromFile();
+            };
+            document.getElementById("studentDataExportBtn").onclick = function () {
+                ProfileScreen.exportStudentLearningData();
+            };
+            document.getElementById("studentDataImportBtn").onclick = function () {
+                ProfileScreen.importStudentLearningDataFromFile();
             };
             return;
         }
@@ -69,6 +92,23 @@ const ProfileScreen = {
         <p>مجوز هر دانش‌آموز برای پایه و سال تحصیلی خودش جداگانه بررسی می‌شود.</p>
         <p id="profileLicenseStatus" class="profile-license-status" aria-live="polite">در حال بررسی مجوز این پروفایل...</p>
         <button id="activateCurrentProfileBtn" type="button" hidden>🔐 فعال‌سازی این پروفایل</button>
+    </section>
+
+    <section class="profile-license-panel" aria-labelledby="profileLearningSyncHeading">
+        <h2 id="profileLearningSyncHeading">🔄 همگام‌سازی گوشی و رایانه</h2>
+        <p id="profileLearningSyncStatus" aria-live="polite">در انتظار بررسی وضعیت همگام‌سازی...</p>
+        <p id="profileLearningSyncDetails"></p>
+        <button id="profileLearningSyncRetry" type="button">تلاش دوباره برای همگام‌سازی</button>
+    </section>
+
+    <section id="legacyDeviceMigrationPanel" class="profile-license-panel" hidden aria-labelledby="legacyMigrationHeading">
+        <h2 id="legacyMigrationHeading">🔄 تکمیل اتصال امن مجوز قدیمی</h2>
+        <p>شناسه نصب زیر را به مدیر مدرسه بدهید. مدیر پس از تطبیق پرونده رسمی، یک چالش یک‌بارمصرف صادر می‌کند. کد انتقال یک‌بارمصرف را از مدیر مورد اعتماد دریافت و در کادر وارد کنید.</p>
+        <p>شناسه نصب این دستگاه: <strong id="legacyMigrationInstallationId">در حال آماده‌سازی...</strong></p>
+        <label for="legacyMigrationChallengeInput">کد انتقال یک‌بارمصرف</label>
+        <input id="legacyMigrationChallengeInput" type="text" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="کد انتقال را اینجا وارد کنید">
+        <button id="claimLegacyMigrationBtn" type="button">تکمیل اتصال امن این دستگاه</button>
+        <p id="legacyMigrationMessage" aria-live="polite"></p>
     </section>
 
     <hr>
@@ -146,11 +186,18 @@ const ProfileScreen = {
                 ProfileScreen.activateProfile(profile.studentId, profile.grade, activateButton);
             };
         }
+        const migrationButton = document.getElementById("claimLegacyMigrationBtn");
+        if (migrationButton) {
+            migrationButton.onclick = function () {
+                ProfileScreen.claimLegacyMigrationFromProfile(profile.studentId, profile.grade, migrationButton);
+            };
+        }
 
         this.bindSettings();
         this.refreshProfileLicenseStatus(profile);
+        this.bindLearningSyncStatus();
 
-        console.log("Profile Screen v5.1 Displayed:", profile);
+        console.log("Profile Screen v5.3 Displayed:", profile);
     },
 
     // =====================================
@@ -238,6 +285,21 @@ const ProfileScreen = {
     <p>با انتخاب هر پروفایل، وارد صفحه همان دانش‌آموز می‌شوید. وضعیت مجوز و دکمه فعال‌سازی هم در همان صفحه مشخص است.</p>
     <button id="exportProfilesForAdminBtn" type="button">دانلود فهرست پروفایل‌ها برای پنل مدیریت</button>
     <p id="exportProfilesMessage" aria-live="polite"></p>
+    <section class="profile-import-panel">
+        <h2>🗂 پشتیبان کامل اطلاعات یادگیری</h2>
+        <p>پیشرفت، ستاره‌ها، آمار، قفل‌ها، استمرار روزانه، اعلان‌ها، سوابق املا، عملکرد پرسش‌ها و تنظیمات پروفایل‌ها منتقل می‌شوند. مجوز و شناسهٔ دستگاه منتقل نمی‌شوند.</p>
+        <button id="studentDataExportBtn" type="button">دانلود پشتیبان کامل</button>
+        <input id="studentDataImportFile" type="file" accept=".json,application/json">
+        <button id="studentDataImportBtn" type="button">بازیابی پشتیبان کامل</button>
+        <p id="studentDataTransferMessage" aria-live="polite"></p>
+    </section>
+    <section class="profile-import-panel">
+        <h2>ورود فهرست هویتی پروفایل‌ها</h2>
+        <p>این گزینه فقط شناسه، نام و پایه را وارد می‌کند و جایگزین پشتیبان کامل نیست.</p>
+        <input id="profileImportFile" type="file" accept=".json,application/json">
+        <button id="profileImportBtn" type="button">واردکردن فایل پروفایل</button>
+        <p id="profileImportMessage" aria-live="polite"></p>
+    </section>
     <hr>
     <div class="profiles-list">
         ${profiles.map(function (profile) {
@@ -264,6 +326,21 @@ const ProfileScreen = {
         if (exportButton) {
             exportButton.onclick = function () {
                 ProfileScreen.exportProfilesForAdmin();
+            };
+        }
+        const dataExportButton = document.getElementById("studentDataExportBtn");
+        if (dataExportButton) dataExportButton.onclick = function () {
+            ProfileScreen.exportStudentLearningData();
+        };
+        const dataImportButton = document.getElementById("studentDataImportBtn");
+        if (dataImportButton) dataImportButton.onclick = function () {
+            ProfileScreen.importStudentLearningDataFromFile();
+        };
+
+        const importButton = document.getElementById("profileImportBtn");
+        if (importButton) {
+            importButton.onclick = function () {
+                ProfileScreen.importProfilesFromFile();
             };
         }
 
@@ -346,6 +423,58 @@ const ProfileScreen = {
         return false;
     },
 
+    bindLearningSyncStatus: function () {
+        const statusElement = document.getElementById("profileLearningSyncStatus");
+        const detailsElement = document.getElementById("profileLearningSyncDetails");
+        const retryButton = document.getElementById("profileLearningSyncRetry");
+        if (!statusElement) return;
+
+        const render = function (status) {
+            const value = status || { state: "idle", message: "همگام‌سازی هنوز اجرا نشده است." };
+            const labels = {
+                idle: "هنوز همگام‌سازی اجرا نشده است.",
+                checking: "در حال بررسی مجوز و پروفایل...",
+                preparing: "مجوز تأیید شد؛ داده‌ها آماده می‌شوند.",
+                requesting: "درخواست به سرور ارسال شد؛ منتظر پاسخ...",
+                uploading: "در حال ارسال اطلاعات به سرور...",
+                merging: "در حال تطبیق اطلاعات دو دستگاه...",
+                synced: "✓ همگام‌سازی با موفقیت تأیید شد.",
+                offline: "اتصال اینترنت برقرار نیست؛ اطلاعات محلی حفظ شده‌اند.",
+                error: "همگام‌سازی با خطا متوقف شد؛ اطلاعات محلی حفظ شده‌اند."
+            };
+            statusElement.textContent = value.message || labels[value.state] || "وضعیت همگام‌سازی مشخص نیست.";
+            if (detailsElement) {
+                const details = value.details || {};
+                const parts = [];
+                if (Number.isFinite(Number(details.revision))) parts.push("نسخه سرور: " + Number(details.revision));
+                if (Number.isFinite(Number(details.remoteRevision))) parts.push("نسخه دریافتی: " + Number(details.remoteRevision));
+                if (Number.isFinite(Number(details.httpStatus)) && Number(details.httpStatus) > 0) {
+                    parts.push("کد پاسخ سرور: " + Number(details.httpStatus));
+                }
+                if (value.at) parts.push("آخرین بررسی: " + new Date(value.at).toLocaleTimeString("fa-IR"));
+                detailsElement.textContent = parts.join(" · ");
+            }
+        };
+
+        const sync = window.StudentLearningSync;
+        render(sync && typeof sync.getStatus === "function" ? sync.getStatus() : null);
+        if (window.EventManager && typeof window.EventManager.on === "function") {
+            window.EventManager.on("studentLearningSyncStatus", render);
+        }
+        if (retryButton) {
+            retryButton.onclick = function () {
+                if (!window.StudentLearningSync || typeof window.StudentLearningSync.syncNow !== "function") {
+                    render({ state: "error", message: "ماژول همگام‌سازی در این نسخه بارگذاری نشده است." });
+                    return;
+                }
+                retryButton.disabled = true;
+                window.StudentLearningSync.syncNow().catch(() => {}).finally(() => {
+                    retryButton.disabled = false;
+                });
+            };
+        }
+    },
+
     refreshProfileLicenseStatus: async function (profile) {
         const statusElement = document.getElementById("profileLicenseStatus");
         const activateButton = document.getElementById("activateCurrentProfileBtn");
@@ -368,6 +497,28 @@ const ProfileScreen = {
             statusElement.textContent = this.getLicenseStatusText(result);
             statusElement.className = "profile-license-status " +
                 (result && result.active ? "is-active" : "is-inactive");
+
+            const migrationPanel = document.getElementById("legacyDeviceMigrationPanel");
+            const canMigrateLegacy = !!(result && result.status === "renewal_required" &&
+                result.requiresLegacyDeviceMigration === true &&
+                window.TahouriDeviceIdentity && window.TahouriLicenseClient &&
+                typeof window.TahouriLicenseClient.claimLegacyMigrationCode === "function");
+            if (migrationPanel) {
+                migrationPanel.hidden = !canMigrateLegacy;
+                if (canMigrateLegacy) {
+                    try {
+                        const identity = await window.TahouriDeviceIdentity.getOrCreate();
+                        const current = ProfileManager.get();
+                        if (sequence !== this.licenseStatusSequence || !current ||
+                            current.studentId !== profile.studentId) return;
+                        const identityElement = document.getElementById("legacyMigrationInstallationId");
+                        if (identityElement) identityElement.textContent = identity.installationId;
+                    } catch (identityError) {
+                        const message = document.getElementById("legacyMigrationMessage");
+                        if (message) message.textContent = identityError.message || "آماده‌سازی هویت دستگاه انجام نشد.";
+                    }
+                }
+            }
 
             if (activateButton) {
                 const canActivate = !result || ["inactive", "invalid", "expired", "renewal_required"].includes(result.status);
@@ -444,6 +595,46 @@ const ProfileScreen = {
         return true;
     },
 
+    claimLegacyMigrationFromProfile: async function (studentId, gradeId, button) {
+        const message = document.getElementById("legacyMigrationMessage");
+        const input = document.getElementById("legacyMigrationChallengeInput");
+        const current = ProfileManager.get();
+        if (!current || current.studentId !== studentId || current.grade !== gradeId) {
+            if (message) message.textContent = "پروفایل فعال تغییر کرده است؛ دوباره وضعیت را بررسی کنید.";
+            return false;
+        }
+        if (!window.TahouriLicenseClient ||
+            typeof window.TahouriLicenseClient.claimLegacyMigrationCode !== "function") {
+            if (message) message.textContent = "قابلیت تکمیل مهاجرت در این نسخه در دسترس نیست.";
+            return false;
+        }
+        if (button) {
+            button.disabled = true;
+            button.textContent = "در حال تأیید هویت دستگاه...";
+        }
+        try {
+            const transferCode = String(input && input.value || "").trim();
+            if (!transferCode) throw new Error("کد انتقال را وارد کنید.");
+            const result = await window.TahouriLicenseClient.claimLegacyMigrationCode(transferCode);
+            if (!result || !result.entitlementStored) {
+                throw new Error("اتصال دستگاه انجام شد، اما ذخیره مجوز تأیید نشد.");
+            }
+            if (input) input.value = "";
+            if (message) message.textContent = "اتصال امن انجام شد و مجوز امضاشده روی همین دستگاه ذخیره شد.";
+            await this.refreshSelectedProfileEntitlement();
+            await this.refreshProfileLicenseStatus(ProfileManager.get());
+            return true;
+        } catch (error) {
+            if (message) message.textContent = error.message || "تکمیل مهاجرت انجام نشد.";
+            return false;
+        } finally {
+            if (button) {
+                button.disabled = false;
+                button.textContent = "تکمیل اتصال امن این دستگاه";
+            }
+        }
+    },
+
     activateProfile: async function (studentId, gradeId, button) {
         const sequence = ++this.profileSwitchSequence;
         if (button) {
@@ -477,6 +668,82 @@ const ProfileScreen = {
             ActivationGate.open();
         }
         return false;
+    },
+
+    // Import existing profiles from another device.
+    // The exported identity fields are preserved; progress/settings are not transferred.
+    importProfilesFromFile: async function () {
+        const input = document.getElementById("profileImportFile");
+        const message = document.getElementById("profileImportMessage");
+        try {
+            const file = input && input.files && input.files[0];
+            if (!file) throw new Error("ابتدا فایل خروجی پروفایل‌ها را انتخاب کنید.");
+            const payload = JSON.parse(await file.text());
+            if (payload.format !== "tahouri-student-profiles" || payload.version !== 1 || !Array.isArray(payload.profiles)) {
+                throw new Error("ساختار فایل پروفایل‌های طهوری معتبر نیست.");
+            }
+            const result = ProfileManager.importProfiles(payload.profiles);
+            input.value = "";
+            ProfileScreen.showProfiles();
+            const status = document.getElementById("profileImportMessage");
+            if (status) {
+                status.textContent = "ورود انجام شد؛ پروفایل جدید: " + result.imported +
+                    "، از قبل موجود: " + result.alreadyPresent + "، مجموع: " + result.total + ".";
+            }
+        } catch (error) {
+            if (message) message.textContent = error.message || "واردکردن پروفایل انجام نشد.";
+        }
+    },
+
+    exportStudentLearningData: function () {
+        const message = document.getElementById("studentDataTransferMessage");
+        try {
+            if (!window.StudentDataTransfer) throw new Error("ابزار پشتیبان‌گیری بارگذاری نشده است.");
+            const payload = window.StudentDataTransfer.exportAll();
+            const serialized = JSON.stringify(payload, null, 2);
+            const blob = new Blob([serialized], { type: "application/json;charset=utf-8" });
+            if (blob.size > window.StudentDataTransfer.maxBytes) {
+                throw new Error("حجم پشتیبان بیش از ۲۰ مگابایت است؛ خروجی متوقف شد.");
+            }
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = "tahouri-student-learning-backup-v1.json";
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(function () { URL.revokeObjectURL(url); }, 30000);
+            if (message) message.textContent = "پشتیبان کامل " + payload.profiles.length +
+                " پروفایل آماده شد. اطلاعات یادگیری و تنظیمات در فایل قرار دارند؛ اطلاعات دستگاه و مجوز صادر نشده‌اند.";
+            return true;
+        } catch (error) {
+            if (message) message.textContent = error.message || "تهیهٔ پشتیبان انجام نشد.";
+            return false;
+        }
+    },
+
+    importStudentLearningDataFromFile: async function () {
+        const input = document.getElementById("studentDataImportFile");
+        const message = document.getElementById("studentDataTransferMessage");
+        try {
+            const file = input && input.files && input.files[0];
+            if (!file) throw new Error("ابتدا فایل پشتیبان کامل را انتخاب کنید.");
+            if (file.size > window.StudentDataTransfer.maxBytes) {
+                throw new Error("حجم فایل پشتیبان بیش از ۲۰ مگابایت است.");
+            }
+            const payload = JSON.parse(await file.text());
+            const result = window.StudentDataTransfer.importAll(payload, file.size);
+            if (input) input.value = "";
+            ProfileScreen.showProfiles();
+            const status = document.getElementById("studentDataTransferMessage");
+            if (status) status.textContent = "بازیابی موفق: " + result.profiles +
+                " پروفایل بررسی شد؛ " + result.newProfiles + " پروفایل جدید و " +
+                result.dataItemsRestored + " مجموعه‌داده بازیابی شد. داده‌های موجود بازنویسی نشدند.";
+            return result;
+        } catch (error) {
+            if (message) message.textContent = error.message || "بازیابی پشتیبان انجام نشد.";
+            return false;
+        }
     },
 
     // Export Existing Profiles for License Admin

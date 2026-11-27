@@ -1,0 +1,21 @@
+name: Device Identity Browser Test
+on:
+  pull_request:
+    paths:
+      - 'engine/core/tahouriDeviceIdentity.js'
+      - 'engine/core/tahouriDeviceIdentity-test.html'
+      - '.github/workflows/device-identity-browser-test.yml'
+jobs:
+  browser-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-save playwright
+      - run: npx playwright install --with-deps chromium
+      - name: Run identity browser test
+        run: |
+          node -e "const http=require('http'),fs=require('fs');http.createServer((req,res)=>{let p=req.url==='/test'?'engine/core/tahouriDeviceIdentity-test.html':'engine/core/tahouriDeviceIdentity.js';res.setHeader('Content-Type',p.endsWith('.html')?'text/html':'text/javascript');res.end(fs.readFileSync(p));}).listen(4173)" &
+          node .github/scripts/device-identity-browser-test.js

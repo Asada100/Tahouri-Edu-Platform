@@ -40,9 +40,20 @@ const EventManager = {
 
     },
 
-    off:function(eventName){
+    off:function(eventName,callback){
 
-        delete this.events[eventName];
+        if(!this.events[eventName]) return;
+
+        if(typeof callback !== "function"){
+            delete this.events[eventName];
+            return;
+        }
+
+        this.events[eventName]=this.events[eventName].filter(function(listener){
+            return listener !== callback;
+        });
+
+        if(!this.events[eventName].length) delete this.events[eventName];
 
     },
 
@@ -53,5 +64,9 @@ const EventManager = {
     }
 
 };
+
+if (typeof window !== "undefined") {
+    window.EventManager = EventManager;
+}
 
 console.log("Event Manager Ready");

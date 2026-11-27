@@ -650,6 +650,112 @@ hasProfiles: function () {
 
 
 // =====================================
+ // IMPORT EXISTING PROFILES
+ // Preserves studentId; imports identity only.
+ // =====================================
+
+importProfiles: function (items) {
+    if (!Array.isArray(items) || items.length < 1 || items.length > 100) {
+        throw new Error("فایل باید بین ۱ تا ۱۰۰ پروفایل داشته باشد.");
+    }
+
+    const normalized = new Map();
+    for (const item of items) {
+        const studentId = String(item && item.studentId || "").trim();
+        const name = String(item && (item.fullName || item.name) || "").trim();
+        const grade = String(item && (item.gradeId || item.grade) || "").trim();
+        const hasSettings = !!(item && item.settings && typeof item.settings === "object" && !Array.isArray(item.settings));
+        const settings = hasSettings ? { ...item.settings } : {};
+
+        if (!studentId || studentId.length > 128 || !/^[A-Za-z0-9_-]+$/.test(studentId)) {
+            throw new Error("شناسهٔ یکی از پروفایل‌ها معتبر نیست.");
+        }
+        if (!name || name.length > 160) {
+            throw new Error("نام یکی از پروفایل‌ها معتبر نیست.");
+        }
+        if (!/^grade[1-6]$/.test(grade)) {
+            throw new Error("پایهٔ یکی از پروفایل‌ها معتبر نیست.");
+        }
+
+        const candidate = {
+            studentId: studentId,
+            name: name,
+            grade: grade,
+            settings: settings,
+            hasSettings: hasSettings,
+            createdAt: item && item.createdAt ? item.createdAt : null
+        };
+        const prior = normalized.get(studentId);
+        if (prior && (
+            prior.name !== name ||
+            prior.grade !== grade ||
+            (prior.hasSettings && hasSettings && JSON.stringify(prior.settings) !== JSON.stringify(settings))
+        )) {
+            throw new Error("یک شناسه در فایل با اطلاعات متفاوت تکرار شده است.");
+        }
+        if (prior && prior.hasSettings && !hasSettings) {
+            continue;
+        }
+        normalized.set(studentId, candidate);
+    }
+
+    const additions = [];
+    let alreadyPresent = 0;
+    for (const candidate of normalized.values()) {
+        const existing = this.profiles.find(function (profile) {
+            return String(profile.studentId) === candidate.studentId;
+        });
+        if (existing) {
+            const existingSettings = {
+                ...this.getDefaultSettings(),
+                ...(existing.settings || {})
+            };
+            const incomingSettings = {
+                ...this.getDefaultSettings(),
+                ...candidate.settings
+            };
+            if (
+                String(existing.name || "").trim() !== candidate.name ||
+                String(existing.grade || "") !== candidate.grade ||
+                (candidate.hasSettings && JSON.stringify(existingSettings) !== JSON.stringify(incomingSettings))
+            ) {
+                throw new Error("این شناسه روی دستگاه با نام، پایه یا تنظیمات متفاوتی وجود دارد: " + candidate.studentId);
+            }
+            alreadyPresent++;
+            continue;
+        }
+        additions.push(this.buildProfile({
+            studentId: candidate.studentId,
+            name: candidate.name,
+            grade: candidate.grade,
+            settings: candidate.settings,
+            createdAt: candidate.createdAt
+        }));
+    }
+
+    if (additions.length) {
+        this.profiles.push(...additions);
+        if (!this.activeProfileId) this.activeProfileId = additions[0].studentId;
+        if (!this.save()) {
+            this.profiles = this.profiles.filter(function (profile) {
+                return !additions.some(function (added) {
+                    return added.studentId === profile.studentId;
+                });
+            });
+            throw new Error("ذخیرهٔ پروفایل‌های واردشده انجام نشد.");
+        }
+    }
+
+    return {
+        imported: additions.length,
+        alreadyPresent: alreadyPresent,
+        total: normalized.size
+    };
+
+},
+
+
+// =====================================
 // CREATE PROFILE
 // =====================================
 
@@ -797,6 +903,9 @@ switchProfile: function (
         profile
     );
 
+    if (window.EventManager && typeof window.EventManager.emit === "function") {
+        window.EventManager.emit("profileChanged", { studentId: studentId, profile: { ...profile } });
+    }
 
     return true;
 

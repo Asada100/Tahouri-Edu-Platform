@@ -1,9 +1,19 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
+
+const deviceKeyPair = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
+const replacementDeviceKeyPair = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
+const devicePublicKeyPem = deviceKeyPair.publicKey.export({ type: "spki", format: "pem" });
+const replacementDevicePublicKeyPem = replacementDeviceKeyPair.publicKey.export({ type: "spki", format: "pem" });
+const deviceKeyFingerprint = crypto.createHash("sha256")
+    .update(deviceKeyPair.publicKey.export({ type: "spki", format: "der" }))
+    .digest("hex");
+let currentDevicePublicKeyPem = devicePublicKeyPem;
 
 const source = fs.readFileSync(
     path.resolve(__dirname, "../../engine/core/licenseManager.js"),
@@ -15,19 +25,45 @@ const storage = {
     setItem(key, value) { values.set(key, String(value)); },
     removeItem(key) { values.delete(key); }
 };
+let monotonicClock = 1000;
+let testWallClock = null;
+class ClockDate extends Date {
+    static now() {
+        return testWallClock === null ? super.now() : testWallClock;
+    }
+}
 const profile = { studentId: "license-mode-test-student", grade: "grade6", gradeId: "grade6", name: "آزمون" };
 const window = {
     ProfileManager: { get: () => profile },
     TahouriServiceConfig: { mode: "test" },
     crypto: { randomUUID: () => "install-test-profile-status" },
-    localStorage: storage
+    TahouriDeviceIdentity: {
+        getOrCreate: async () => ({
+            installationId: "install-test-profile-status",
+            publicKey: currentDevicePublicKeyPem
+        })
+    },
+    crypto: { randomUUID: () => "install-test-profile-status", subtle: crypto.webcrypto.subtle },
+    localStorage: storage,
+    performance: { now: () => monotonicClock }
 };
 const context = {
     window,
+    Date: ClockDate,
     localStorage: storage,
+    atob: globalThis.atob,
+    Uint8Array,
     console: { log() {}, warn() {}, error() {} }
 };
 vm.runInNewContext(source, context);
+
+async function waitForCondition(predicate, message) {
+    for (let attempt = 0; attempt < 50; attempt++) {
+        if (predicate()) return;
+        await new Promise(resolve => setTimeout(resolve, 0));
+    }
+    assert.fail(message);
+}
 
 async function main() {
     const manager = window.LicenseManager;
@@ -55,8 +91,12 @@ async function main() {
             gradeScope,
             studentId,
             validFrom: new Date(Date.now() - 60000).toISOString(),
-            validUntil: new Date(Date.now() + 86400000).toISOString(),
+            validUntil: new Date(Date.now() + 30 * 86400000).toISOString(),
             installationBinding: undefined,
+            deviceKeyFingerprint,
+            deviceSlotId: "a".repeat(64),
+            revocationEpoch: Date.now() - 1000,
+            offlineLeaseExpiresAt: new Date(Date.now() + 7 * 86400000).toISOString(),
             entitlementVersion: 1
         };
     }
@@ -67,12 +107,42 @@ async function main() {
         verifyEnvelope: async item => ({ valid: true, claims: item.claims })
     };
 
+    window.TahouriEntitlementStore.write = item => Boolean(item && item.claims);
+    function makeDeviceLeaseStatus(licenseId) {
+        const selected = window.TahouriEntitlementStore.readAll()
+            .find(item => item.claims.licenseId === licenseId);
+        if (!selected) return { valid: false };
+        const leaseClaims = {
+            ...selected.claims,
+            deviceSlotId: "a".repeat(64),
+            revocationEpoch: Date.now() - 1000,
+            offlineLeaseExpiresAt: new Date(Date.now() + 7 * 86400000).toISOString()
+        };
+        return { valid: true, entitlement: envelope(leaseClaims) };
+    }
+
     assert.equal(await manager.initializeRemoteEntitlement(), true,
-        "A verifier-approved entitlement matching the active profile must initialize.");
+        "A verifier-approved entitlement matching the active profile and local device key must initialize.");
     assert.equal(manager.isGradeActivated("grade6", profile.studentId), true,
         "A verified remote entitlement must authorize its bound grade.");
     assert.equal(manager.isGradeActivated("grade5", profile.studentId), false,
         "A verified entitlement must not authorize a different grade.");
+
+    currentDevicePublicKeyPem = replacementDevicePublicKeyPem;
+    assert.equal(await manager.initializeRemoteEntitlement(), false,
+        "A copied signed offline lease must be rejected when the local device key changes, even if its installation ID is copied.");
+    assert.equal(manager.isGradeActivated("grade6", profile.studentId), false,
+        "A mismatched local device key must not authorize the profile offline.");
+    currentDevicePublicKeyPem = devicePublicKeyPem;
+    assert.equal(await manager.initializeRemoteEntitlement(), true,
+        "Restoring the exact bound device key must restore eligibility of the unexpired signed lease.");
+    const originalLeaseExpiry = claims.offlineLeaseExpiresAt;
+    claims.offlineLeaseExpiresAt = new Date(Date.now() - 1000).toISOString();
+    assert.equal(manager.isGradeActivated("grade6", profile.studentId), false,
+        "An entitlement must stop authorizing immediately after its offline lease expires.");
+    claims.offlineLeaseExpiresAt = originalLeaseExpiry;
+    assert.equal(manager.isGradeActivated("grade6", profile.studentId), true,
+        "A restored unexpired device lease must remain eligible for offline authorization.");
     assert.equal(manager.isActivated(profile.studentId), true,
         "Generic activation status must reflect a verified remote entitlement.");
 
@@ -80,7 +150,7 @@ async function main() {
     window.TahouriLicenseClient = {
         status: async licenseId => {
             refreshedLicenseId = licenseId;
-            return { valid: true };
+            return makeDeviceLeaseStatus(licenseId);
         }
     };
     const refreshResult = await manager.refreshRemoteLicenseStatus();
@@ -98,6 +168,24 @@ async function main() {
     assert.equal(manager.isGradeActivated("grade6", profile.studentId), true,
         "A locally verified, unexpired entitlement must continue to authorize offline.");
 
+    // A legacy signed envelope without a bounded device lease must not
+    // authorize offline when its proof-bound online upgrade is unavailable.
+    const legacyWithoutLeaseClaims = { ...claims };
+    delete legacyWithoutLeaseClaims.deviceSlotId;
+    delete legacyWithoutLeaseClaims.revocationEpoch;
+    delete legacyWithoutLeaseClaims.offlineLeaseExpiresAt;
+    window.TahouriEntitlementStore.readAll = () => [envelope(legacyWithoutLeaseClaims)];
+    const legacyOffline = await manager.initializeRemoteEntitlement();
+    assert.equal(legacyOffline, false,
+        "A legacy entitlement without an offline lease must fail closed during a network outage.");
+    assert.equal(manager.isGradeActivated("grade6", profile.studentId), false,
+        "A legacy entitlement without a lease must never authorize offline.");
+
+    window.TahouriEntitlementStore.readAll = () => [envelope(claims)];
+    window.TahouriLicenseClient.status = async licenseId => makeDeviceLeaseStatus(licenseId);
+    assert.equal(await manager.initializeRemoteEntitlement(), true,
+        "A valid device-bound entitlement must remain usable after the legacy offline rejection.");
+
     window.TahouriLicenseClient.status = async () => ({ valid: false });
     const revokedStatus = await manager.refreshRemoteLicenseStatus();
     assert.equal(revokedStatus.valid, false,
@@ -105,7 +193,7 @@ async function main() {
     assert.equal(manager.isGradeActivated("grade6", profile.studentId), false,
         "A revoked or missing server license must not remain authorized.");
 
-    window.TahouriLicenseClient.status = async () => ({ valid: true });
+    window.TahouriLicenseClient.status = async licenseId => makeDeviceLeaseStatus(licenseId);
     assert.equal(await manager.initializeRemoteEntitlement(), true,
         "A still-valid signed local entitlement can be selected again before subsequent profile-switch tests.");
 
@@ -136,7 +224,7 @@ async function main() {
         "A delayed status response for a previous profile must be ignored.");
     assert.equal(manager.isGradeActivated("grade6", studentB.studentId), true,
         "A stale invalid status response must not clear the newly selected profile entitlement.");
-    window.TahouriLicenseClient.status = async () => ({ valid: true });
+    window.TahouriLicenseClient.status = async licenseId => makeDeviceLeaseStatus(licenseId);
 
     profile.studentId = studentB.studentId;
     profile.grade = "grade6";
@@ -178,11 +266,13 @@ async function main() {
         else if (item.claims.studentId === studentB.studentId) resolveB = resolve;
     });
     const staleSelection = manager.initializeRemoteEntitlement();
-    await Promise.resolve();
+    await waitForCondition(() => typeof resolveA === "function",
+        "The first profile verification must reach its asynchronous verifier.");
     profile.studentId = studentB.studentId;
     window.TahouriEntitlementStore.readAll = () => [envelope(claimsB)];
     const currentSelection = manager.initializeRemoteEntitlement();
-    await Promise.resolve();
+    await waitForCondition(() => typeof resolveB === "function",
+        "The second profile verification must reach its asynchronous verifier.");
     assert.equal(typeof resolveA, "function", "The first profile verification must be pending.");
     assert.equal(typeof resolveB, "function", "The second profile verification must be pending.");
     resolveB({ valid: true, claims: claimsB });
@@ -324,6 +414,151 @@ async function main() {
     assert.equal(expiredStatus.active, false);
     assert.equal(expiredStatus.status, "expired",
         "An expired entitlement must be reported as expired.");
+
+    // A previously activated installation may have a signed entitlement
+    // bound to the legacy LocalStorage installation ID and a valid device
+    // offline lease. Preserve that exact entitlement locally during the
+    // transition, without treating the legacy ID as proof for pairing or
+    // device replacement.
+    const legacyInstallationId = "legacy-installation-for-migration-test";
+    storage.setItem("Tahouri_Installation_Id_v1", legacyInstallationId);
+    const legacyMigrationClaims = makeClaims(profile.studentId, "grade6", "lic_legacy_offline");
+    legacyMigrationClaims.academicYear = currentYear;
+    legacyMigrationClaims.installationBinding = legacyInstallationId;
+    legacyMigrationClaims.validFrom = new Date(Date.now() - 60000).toISOString();
+    legacyMigrationClaims.validUntil = new Date(Date.now() + 86400000).toISOString();
+    window.TahouriEntitlementStore.readAll = () => [envelope(legacyMigrationClaims)];
+
+    assert.equal(await manager.initializeRemoteEntitlement(), true,
+        "A matching legacy-bound entitlement with a valid device lease must remain selectable offline.");
+    assert.equal(manager.isGradeActivated("grade6", profile.studentId), true,
+        "A valid legacy-bound entitlement with a device lease must preserve access during the transition.");
+    const legacyStatus = await manager.getProfileEntitlementStatus(profile.studentId, "grade6");
+    assert.equal(legacyStatus.active, true,
+        "A legacy-bound entitlement carrying a valid device lease must remain active.");
+
+    // Model a genuine pre-device-lease signed entitlement: it retains the
+    // original LocalStorage installation binding but has no slot or lease.
+    const legacyWithoutDeviceLease = { ...legacyMigrationClaims };
+    delete legacyWithoutDeviceLease.deviceSlotId;
+    delete legacyWithoutDeviceLease.revocationEpoch;
+    delete legacyWithoutDeviceLease.offlineLeaseExpiresAt;
+    window.TahouriEntitlementStore.readAll = () => [envelope(legacyWithoutDeviceLease)];
+
+    window.TahouriLicenseClient.status = async () => {
+        throw new Error("offline");
+    };
+    assert.equal(await manager.initializeRemoteEntitlement(), false,
+        "A matching legacy-bound entitlement without a device lease must fail closed while offline.");
+    assert.equal(manager.isGradeActivated("grade6", profile.studentId), false,
+        "A copied legacy installation ID must not turn an unleased entitlement into offline access.");
+    const unleasedLegacyStatus = await manager.getProfileEntitlementStatus(profile.studentId, "grade6");
+    assert.equal(unleasedLegacyStatus.active, false,
+        "A legacy entitlement without a device lease must never be displayed as active.");
+    assert.equal(unleasedLegacyStatus.status, "renewal_required",
+        "An unleased legacy entitlement must request online migration.");
+
+    window.TahouriLicenseClient.status = async () => ({ valid: false, reason: "unbound_legacy_slot" });
+    assert.equal(await manager.initializeRemoteEntitlement(), false,
+        "A legacy slot without registered key material must remain inactive when the server cannot issue a device lease.");
+    assert.equal(manager.isGradeActivated("grade6", profile.studentId), false,
+        "A rejected legacy slot must not authorize the profile.");
+
+    const unrelatedLegacyClaims = {
+        ...legacyMigrationClaims,
+        installationBinding: "different-legacy-installation"
+    };
+    window.TahouriEntitlementStore.readAll = () => [envelope(unrelatedLegacyClaims)];
+    assert.equal(await manager.initializeRemoteEntitlement(), false,
+        "A legacy entitlement bound to a different installation must remain rejected.");
+    const unrelatedLegacyStatus = await manager.getProfileEntitlementStatus(profile.studentId, "grade6");
+    assert.equal(unrelatedLegacyStatus.active, false,
+        "A different legacy installation must not inherit the entitlement.");
+
+    // Restore a valid entitlement before simulating a backward wall-clock jump.
+    profile.studentId = "license-mode-test-student";
+    window.TahouriEntitlementStore.readAll = () => [envelope(claims)];
+    assert.equal(await manager.initializeRemoteEntitlement(), true,
+        "The clock rollback test must begin with a valid active device lease.");
+    assert.equal(manager.isGradeActivated("grade6", profile.studentId), true);
+
+    // A backward wall-clock jump during the same browser session must
+    // fail closed even when the signed offline lease has not expired.
+    const rollbackBase = Date.now();
+    testWallClock = rollbackBase - 10 * 60 * 1000;
+    monotonicClock += 60 * 1000;
+    assert.equal(manager.isGradeActivated("grade6", profile.studentId), false,
+        "A wall-clock rollback during a session must not extend an offline lease.");
+    testWallClock = null;
+
+    // Simulate closing the browser and reopening it with a reset monotonic
+    // clock. If the persisted high-water mark survives, rollback is detected.
+    const highWaterKey = "Tahouri_Offline_Clock_High_Water_v1";
+    // Keep the signed entitlement valid at the simulated earlier time so
+    // these assertions isolate rollback detection rather than validFrom.
+    claims.validFrom = new Date(rollbackBase - 30 * 86400000).toISOString();
+    assert(Number(storage.getItem(highWaterKey)) > 0,
+        "The offline clock high-water mark must be persisted.");
+    testWallClock = rollbackBase - 10 * 60 * 1000;
+    const restartedWindow = {
+        ...window,
+        localStorage: storage,
+        performance: { now: () => 500 }
+    };
+    const restartedContext = {
+        window: restartedWindow,
+        Date: ClockDate,
+        localStorage: storage,
+        atob: globalThis.atob,
+        Uint8Array,
+        console: { log() {}, warn() {}, error() {} }
+    };
+    vm.runInNewContext(source, restartedContext);
+    const restartedManager = restartedWindow.LicenseManager;
+    assert.equal(await restartedManager.initializeRemoteEntitlement(), false,
+        "A restart with a persisted high-water mark and rolled-back wall clock must fail closed.");
+
+    // Once the real wall clock is corrected, a fresh browser session can
+    // recover against the preserved high-water mark and valid signed lease.
+    testWallClock = rollbackBase;
+    const recoveredWindow = {
+        ...window,
+        localStorage: storage,
+        performance: { now: () => 500 }
+    };
+    const recoveredContext = {
+        window: recoveredWindow,
+        Date: ClockDate,
+        localStorage: storage,
+        atob: globalThis.atob,
+        Uint8Array,
+        console: { log() {}, warn() {}, error() {} }
+    };
+    vm.runInNewContext(source, recoveredContext);
+    assert.equal(await recoveredWindow.LicenseManager.initializeRemoteEntitlement(), true,
+        "Correcting the wall clock and starting a fresh session must restore valid offline access.");
+
+    // Characterize the unavoidable browser-storage limitation: deleting the
+    // local high-water mark removes the only cross-restart signal available
+    // to this browser-only implementation.
+    storage.removeItem(highWaterKey);
+    const tamperedWindow = {
+        ...window,
+        localStorage: storage,
+        performance: { now: () => 500 }
+    };
+    const tamperedContext = {
+        window: tamperedWindow,
+        Date: ClockDate,
+        localStorage: storage,
+        atob: globalThis.atob,
+        Uint8Array,
+        console: { log() {}, warn() {}, error() {} }
+    };
+    vm.runInNewContext(source, tamperedContext);
+    assert.equal(await tamperedWindow.LicenseManager.initializeRemoteEntitlement(), true,
+        "Removing the browser high-water mark demonstrates that cross-restart rollback cannot be guaranteed.");
+    testWallClock = null;
 
     console.log("License Manager mode and entitlement test: PASS");
 }

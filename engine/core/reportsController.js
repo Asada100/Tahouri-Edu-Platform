@@ -334,7 +334,9 @@ const ReportsController = {
         // never expose the finished activity screen again.
         const reportsModal = document.getElementById("reportsModal");
 
-        if (reportsModal && typeof MutationObserver !== "undefined") {
+        if (reportsModal && typeof MutationObserver !== "undefined" &&
+            !reportsModal._reportsCloseObserverInstalled) {
+            reportsModal._reportsCloseObserverInstalled = true;
             const observer = new MutationObserver(function () {
                 if (!document.getElementById("reportsModal")) {
                     observer.disconnect();

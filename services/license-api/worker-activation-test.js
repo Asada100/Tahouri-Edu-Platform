@@ -8,7 +8,7 @@ const crypto = require("node:crypto");
 const { DatabaseSync } = require("node:sqlite");
 
 const db = new DatabaseSync(":memory:");
-for (const file of ["migrations/0001_initial_schema.sql", "migrations/0002_admin_login_attempts.sql", "migrations/0003_activation_integrity_indexes.sql", "migrations/0004_student_accounts.sql", "migrations/0005_student_activation_status.sql"]) {
+for (const file of ["migrations/0001_initial_schema.sql", "migrations/0002_admin_login_attempts.sql", "migrations/0003_activation_integrity_indexes.sql", "migrations/0004_student_accounts.sql", "migrations/0005_student_activation_status.sql", "migrations/0006_one_phone_one_computer.sql", "migrations/0007_device_slot_public_keys.sql", "migrations/0008_pairing_request_identity.sql", "migrations/0009_pairing_signed_decisions.sql", "migrations/0010_pairing_entitlement_delivery.sql", "migrations/0011_device_slot_history.sql", "migrations/0012_device_revocation_challenges.sql", "migrations/0013_legacy_device_migration_challenges.sql", "migrations/0014_student_learning_data_snapshots.sql"]) {
     db.exec(fs.readFileSync(path.join(__dirname, file), "utf8"));
 }
 
@@ -22,9 +22,11 @@ class D1Statement {
         return { meta: { changes: Number(result.changes || 0) } };
     }
 }
+let beforeNextBatch = null;
 const D1 = {
     prepare(sql) { return new D1Statement(sql); },
     async batch(statements) {
+        if (beforeNextBatch) { const action = beforeNextBatch; beforeNextBatch = null; action(); }
         db.exec("BEGIN");
         try {
             const results = [];
@@ -52,7 +54,46 @@ async function sha256(value) {
     const digest = await crypto.webcrypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
     return Buffer.from(digest).toString("hex");
 }
-async function request(worker, env, pathName, method, body, origin = "https://asada100.github.io", ip = "203.0.113.10", contentType = "application/json") {
+let activationDevicePair = null;
+let pairingDevicePair = null;
+let requestSequence = 0;
+async function request(worker, env, pathName, method, body, origin = "https://asada100.github.io", ip = null, contentType = "application/json") {
+    if (!ip) {
+        requestSequence += 1;
+        ip = "203.0.113." + (100 + (requestSequence % 100));
+    }
+    if (pathName === "/api/licenses/pairing/request" && body && pairingDevicePair) {
+        body = { ...body };
+        const deviceType = body.deviceType || "computer";
+        const codeHash = await sha256(String(body.code || "").trim().toUpperCase());
+        const proof = JSON.stringify({
+            purpose: "tahouri-device-pairing-request-v1",
+            installationId: body.installationId,
+            deviceType,
+            studentId: body.studentId,
+            gradeId: body.gradeId,
+            codeHash
+        });
+        body.deviceType = deviceType;
+        body.devicePublicKeyPem = pairingDevicePair.publicKey.export({ type: "spki", format: "pem" });
+        body.deviceSignature = crypto.sign("RSA-SHA256", Buffer.from(proof), pairingDevicePair.privateKey).toString("base64");
+    }
+    if (pathName === "/api/licenses/activate" && body && activationDevicePair) {
+        body = { ...body };
+        const deviceType = body.deviceType || "computer";
+        const codeHash = await sha256(String(body.code || "").trim().toUpperCase());
+        const proof = JSON.stringify({
+            purpose: "tahouri-device-activation-v1",
+            installationId: body.installationId,
+            deviceType,
+            studentId: body.studentId,
+            gradeId: body.gradeId,
+            codeHash
+        });
+        body.deviceType = deviceType;
+        body.devicePublicKeyPem = body.devicePublicKeyPem || activationDevicePair.publicKey.export({ type: "spki", format: "pem" });
+        body.deviceSignature = body.deviceSignature || crypto.sign("RSA-SHA256", Buffer.from(proof), activationDevicePair.privateKey).toString("base64");
+    }
     const headers = { "content-type": contentType, "cf-connecting-ip": ip };
     if (origin) headers.origin = origin;
     return worker.fetch(new Request("https://api.example.test" + pathName, {
@@ -64,9 +105,33 @@ async function request(worker, env, pathName, method, body, origin = "https://as
 
 async function main() {
     const migrations = db.prepare("SELECT MAX(version) AS version FROM schema_migrations").get();
-    assert.equal(Number(migrations.version), 5, "D1 migrations must create the version-5 student activation-status schema.");
+    assert.equal(Number(migrations.version), 14, "D1 migrations must create the version-14 student learning data snapshot schema.");
+    const learningColumns = db.prepare("PRAGMA table_info(student_learning_data_snapshots)").all().map(row => row.name);
+    for (const column of ["student_id", "license_id", "payload_json", "revision", "checksum_sha256", "updated_at", "updated_by_device_type", "updated_by_installation_id"]) {
+        assert(learningColumns.includes(column), "Student learning-data snapshot schema is missing " + column + ".");
+    }
+    const migrationColumns = db.prepare("PRAGMA table_info(legacy_device_migration_challenges)").all().map(row => row.name);
+    for (const column of ["challenge_id", "license_id", "student_id", "grade_id", "academic_year", "device_type", "installation_id", "nonce_hash", "expires_at", "consumed_at", "created_by_admin", "verification_reason"]) {
+        assert(migrationColumns.includes(column), "Legacy migration challenge schema is missing " + column + ".");
+    }
+    const revocationColumns = db.prepare("PRAGMA table_info(device_revocation_challenges)").all().map(row => row.name);
+    for (const column of ["challenge_id", "license_id", "target_device_type", "target_installation_id", "target_fingerprint", "approver_device_type", "approver_installation_id", "approver_fingerprint", "nonce_hash", "expires_at", "consumed_at"]) {
+        assert(revocationColumns.includes(column), "Device revocation challenge schema is missing " + column + ".");
+    }
+    assert(db.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'idx_device_revocation_challenges_license'").get(), "Revocation challenge expiry index is missing.");
+    assert(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'license_device_slots'").get(), "Migration 6 must create device slots.");
+    assert(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'device_pairing_requests'").get(), "Migration 6 must create pairing requests.");
+    const pairingColumns = db.prepare("PRAGMA table_info(device_pairing_requests)").all().map(row => row.name);
+    for (const column of ["requester_student_id", "requester_grade_id", "requester_public_key_pem", "requester_key_fingerprint", "challenge_id", "challenge_nonce_hash", "challenge_expires_at", "challenge_consumed_at", "decision", "decided_at", "approver_device_type", "approver_installation_id", "approved_entitlement_json"]) {
+        assert(pairingColumns.includes(column), "Pairing requests must persist verified requester field " + column + ".");
+    }
+    const deviceSlotColumns = db.prepare("PRAGMA table_info(license_device_slots)").all().map(row => row.name);
+    assert.equal(deviceSlotColumns.includes("device_type"), true, "Device slots must distinguish phone and computer.");
+    assert.equal(deviceSlotColumns.includes("public_key_pem"), true, "Device slots must persist the verified public key.");
+    assert.equal(deviceSlotColumns.includes("key_fingerprint"), true, "Device slots must persist the public-key fingerprint.");
 
     const pair = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
+    activationDevicePair = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
     const privatePem = pair.privateKey.export({ type: "pkcs8", format: "pem" });
     const publicPem = pair.publicKey.export({ type: "spki", format: "pem" });
     const source = fs.readFileSync(path.join(__dirname, "worker.js"), "utf8");
@@ -75,6 +140,13 @@ async function main() {
     assert.equal((source.match(/onkeydown=/gi) || []).length, 0, "Cloudflare admin HTML must not contain inline keyboard handlers.");
     assert(source.includes("content-security-policy"), "Cloudflare admin route must set a strict CSP.");
     assert(source.includes("document.addEventListener"), "Admin actions must use delegated external JavaScript handlers.");
+    assert.match(source, /async function createDeviceRevocationChallenge/);
+    assert.match(source, /async function executeDeviceRevocation/);
+    assert.match(source, /async function recoverApprovedPairingEntitlement/);
+    assert(source.includes("pairing/recover"), "Worker must expose signed approved-entitlement recovery.");
+    assert(source.includes("device-slots") && source.includes("async function listBoundDeviceSlots"), "Worker must expose authenticated device-slot listing.");
+    assert(source.includes("device-revocation/challenge"), "Worker must route revocation challenge requests.");
+    assert(source.includes("device-revocation/execute"), "Worker must route revocation execution requests.");
     const worker = (await import(moduleUrl)).default;
     const env = {
         DB: D1, LICENSE_PRIVATE_KEY_PEM: privatePem, LICENSE_PUBLIC_KEY_PEM: publicPem,
@@ -92,6 +164,16 @@ async function main() {
         "The authenticated admin UI must expose the profile import action after public registration is disabled.");
     assert.match(adminHtml, /id="studentProfilesFile"/,
         "The admin UI must provide a file input for the exported profile JSON.");
+    assert.match(adminHtml, /id="deviceRecoveryCard"/);
+    assert.match(adminHtml, /id="recoveryLicenseId"/);
+    assert.match(adminHtml, /id="recoveryInstallationId"/);
+    assert.match(adminHtml, /id="recoveryFingerprint"/);
+    assert.match(adminHtml, /id="recoveryAdminPassword"/);
+    assert.match(adminHtml, /data-action="recoverDeviceSlot"/);
+    assert.match(adminHtml, /id="legacyMigrationAdminCard"/);
+    assert.match(adminHtml, /id="migrationIdentityVerified"/);
+    assert.match(adminHtml, /data-action="createLegacyMigrationChallenge"/);
+    assert.match(adminHtml, /id="legacyMigrationChallengeOutput"/);
     assert.match(adminHtml, /data-action="createBulkCodesFromFile"/,
         "The authenticated admin UI must expose the bulk issuance action.");
     assert.match(adminHtml, /id="bulkProfilesFile"/,
@@ -102,6 +184,8 @@ async function main() {
     const adminScriptText = await adminScript.text();
     assert.match(adminScriptText, /document\.addEventListener/);
     assert.match(adminScriptText, /async function importStudentsFile/);
+    assert.match(adminScriptText, /async function createLegacyMigrationChallenge/);
+    assert.match(adminScriptText, /legacy-device-migration\/challenge/);
     assert.match(adminScriptText, /\/api\/admin\/students\/import/);
     assert.match(adminScriptText, /credentials:"include"/,
         "The profile import client must send the authenticated admin session.");
@@ -134,6 +218,15 @@ async function main() {
                     { studentId: "ui-bulk-01", fullName: "دانش‌آموز یک", gradeId: "grade2", code: "THR-GRADE2-1405-TEST001" },
                     { studentId: "ui-bulk-02", fullName: "دانش‌آموز دو", gradeId: "grade4", code: "THR-GRADE4-1405-TEST002" }
                 ] }) };
+            }
+            if (String(url).endsWith("/api/admin/legacy-device-migration/challenge")) {
+                return { ok: true, status: 201, json: async () => ({
+                    ok: true, transferCode: "a".repeat(64), challengeId: "mig-ui-test", nonce: "n".repeat(64),
+                    expiresAt: new Date(Date.now() + 120000).toISOString(),
+                    licenseId: "lic-ui-test", studentId: "ui-student", gradeId: "grade6",
+                    academicYear: "1405", deviceType: "phone", installationId: "inst-ui-test",
+                    purpose: "tahouri-legacy-device-migration-v1"
+                }) };
             }
             if (String(url).endsWith("/api/admin/codes")) {
                 return { ok: true, status: 200, json: async () => ({ ok: true, codes: [] }) };
@@ -181,6 +274,31 @@ async function main() {
     assert.equal(bulkFileInput.value, "", "The UI must clear the bulk file after successful issuance.");
     assert.match(uiAlerts[1] || "", /2 کد ساخته شد/,
         "The UI must confirm the number of generated bulk codes.");
+
+    for (const [id, value] of Object.entries({
+        migrationLicenseId: "lic-ui-test", migrationStudentId: "ui-student",
+        migrationAcademicYear: "1405", migrationInstallationId: "inst-ui-test",
+        migrationVerificationReason: "پرونده رسمی دانش‌آموز بررسی شد",
+        migrationAdminPassword: env.ADMIN_PASSWORD
+    })) getUiElement(id).value = value;
+    getUiElement("migrationGradeId").value = "grade6";
+    getUiElement("migrationDeviceType").value = "phone";
+    getUiElement("migrationIdentityVerified").checked = true;
+    await uiContext.createLegacyMigrationChallenge();
+    const migrationUiCall = uiFetchCalls.find(call => call.url.endsWith("/api/admin/legacy-device-migration/challenge"));
+    assert(migrationUiCall, "The admin migration UI must call the authenticated challenge endpoint.");
+    assert.equal(migrationUiCall.options.method, "POST");
+    assert.equal(migrationUiCall.options.credentials, "include");
+    const migrationUiBody = JSON.parse(migrationUiCall.options.body);
+    assert.equal(migrationUiBody.identityVerified, true);
+    assert.equal(migrationUiBody.adminPassword, env.ADMIN_PASSWORD);
+    assert.equal(migrationUiBody.licenseId, "lic-ui-test");
+    assert.equal(migrationUiBody.installationId, "inst-ui-test");
+    const issuedTransferCode = getUiElement("legacyMigrationChallengeOutput").value;
+    assert.match(issuedTransferCode, /^[a-f0-9]{64}$/i,
+        "The admin UI must expose one opaque transfer code, not a JSON challenge.");
+    assert.equal(getUiElement("migrationAdminPassword").value, "",
+        "The admin migration UI must clear the step-up password after challenge issuance.");
 
     const publicKeyResponse = await request(worker, env, "/api/public-key", "GET");
     assert.equal(publicKeyResponse.status, 200);
@@ -430,7 +548,9 @@ async function main() {
 
     const health = await request(worker, env, "/api/health", "GET");
     assert.equal(health.status, 200, "Health must be ready with D1 schema and signing key.");
-    assert.equal((await health.json()).capabilities.licenseActivation, true);
+    const healthBody = await health.json();
+    assert.equal(healthBody.capabilities.licenseActivation, true);
+    assert.equal(healthBody.capabilities.signedEntitlementExtension, true);
 
     const year = currentIranianYear();
     const code = "THR-GRADE6-" + year + "-ONE-TIME-TEST";
@@ -548,8 +668,16 @@ async function main() {
     assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM licenses WHERE code_hash = ?").get().count), 0,
         "A losing activation race must not create a license.");
 
+    const invalidDeviceProof = await request(worker, env, "/api/licenses/activate", "POST", {
+        code, gradeId: "grade6", studentId: "student-1", installationId: "install-1",
+        deviceType: "phone", deviceSignature: Buffer.alloc(256, 7).toString("base64")
+    }, "https://asada100.github.io", "203.0.113.55");
+    assert.equal(invalidDeviceProof.status, 401, "A correctly sized but forged device signature must be rejected cryptographically.");
+    assert.equal(db.prepare("SELECT status FROM activation_codes WHERE code_hash = ?").get(codeHash).status, "active",
+        "A rejected device proof must not consume the activation code.");
+
     const activated = await request(worker, env, "/api/licenses/activate", "POST", {
-        code, gradeId: "grade6", studentId: "student-1", installationId: "install-1"
+        code, gradeId: "grade6", studentId: "student-1", installationId: "install-1", deviceType: "phone"
     });
     assert.equal(activated.status, 200, "Valid one-time activation must succeed.");
     const activationBody = await activated.json();
@@ -566,6 +694,1037 @@ async function main() {
     assert.equal(stored.status, "used");
     assert.equal(stored.license_id, activationBody.entitlement.claims.licenseId);
     assert.equal(db.prepare("SELECT activation_status FROM student_accounts WHERE student_id = 'student-1'").get().activation_status, "active", "Successful activation must mark the profile active.");
+    const phoneSlot = db.prepare("SELECT device_type, installation_id, revoked_at FROM license_device_slots WHERE license_id = ? AND device_type = 'phone'").get(stored.license_id);
+    assert.equal(phoneSlot?.device_type, "phone");
+    assert.equal(phoneSlot?.installation_id, "install-1");
+    assert.equal(phoneSlot?.revoked_at, null,
+        "The successful initial activation must atomically bind its phone slot.");
+    const storedDeviceIdentity = db.prepare("SELECT public_key_pem, key_fingerprint FROM license_device_slots WHERE license_id = ? AND device_type = 'phone'").get(stored.license_id);
+    assert.equal(storedDeviceIdentity.public_key_pem, activationDevicePair.publicKey.export({ type: "spki", format: "pem" }).trim());
+    const expectedDeviceFingerprint = crypto.createHash("sha256")
+        .update(activationDevicePair.publicKey.export({ type: "spki", format: "der" })).digest("hex");
+    assert.equal(storedDeviceIdentity.key_fingerprint, expectedDeviceFingerprint,
+        "The stored device fingerprint must be SHA-256 of the DER SPKI bytes.");
+    assert.equal(activationBody.entitlement.claims.deviceType, "phone");
+    assert.equal(activationBody.entitlement.claims.deviceKeyFingerprint, storedDeviceIdentity.key_fingerprint);
+    assert.match(activationBody.entitlement.claims.deviceSlotId, /^[a-f0-9]{64}$/,
+        "Initial activation must bind the entitlement to a stable device slot ID.");
+    assert(Number(activationBody.entitlement.claims.revocationEpoch) > 0,
+        "Initial activation must include a positive device binding epoch.");
+    const initialOfflineLeaseExpiry = Date.parse(activationBody.entitlement.claims.offlineLeaseExpiresAt);
+    assert(Number.isFinite(initialOfflineLeaseExpiry) && initialOfflineLeaseExpiry > Date.now() &&
+        initialOfflineLeaseExpiry <= Date.now() + 7 * 24 * 60 * 60 * 1000 + 5000,
+        "Initial activation must include a bounded signed offline lease of at most seven days.");
+
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id = ?").get(stored.license_id).count), 1,
+        "Only one slot should be bound after initial phone activation.");
+
+    pairingDevicePair = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
+    const pairingRequest = await request(worker, env, "/api/licenses/pairing/request", "POST", {
+        code, gradeId: "grade6", studentId: "student-1", installationId: "install-computer-1", deviceType: "computer"
+    });
+    assert.equal(pairingRequest.status, 201, "A second device class must create an approval-gated pairing request instead of binding immediately.");
+    const pairingBody = await pairingRequest.json();
+    assert.equal(pairingBody.ok, true);
+    assert.equal(pairingBody.status, "pending_approval");
+    const storedPairing = db.prepare("SELECT license_id, requester_device_type, requester_installation_id, requester_public_key_pem, requester_key_fingerprint, token_hash, expires_at FROM device_pairing_requests WHERE pairing_id = ?").get(pairingBody.pairingId);
+    assert.equal(storedPairing.license_id, stored.license_id);
+    assert.equal(storedPairing.requester_device_type, "computer");
+    assert.equal(storedPairing.requester_installation_id, "install-computer-1");
+    assert.equal(storedPairing.requester_public_key_pem, pairingDevicePair.publicKey.export({ type: "spki", format: "pem" }).trim());
+    assert.equal(storedPairing.requester_key_fingerprint, crypto.createHash("sha256").update(pairingDevicePair.publicKey.export({ type: "spki", format: "der" })).digest("hex"));
+    assert.equal(storedPairing.token_hash, await sha256(pairingBody.token));
+    assert(Date.parse(storedPairing.expires_at) > Date.now(), "Pairing requests must expire in the future.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id = ? AND device_type = 'computer'").get(stored.license_id).count), 0,
+        "A pairing request must not bind the second device before approval.");
+
+    const approverFingerprint = crypto.createHash("sha256")
+        .update(activationDevicePair.publicKey.export({ type: "spki", format: "der" })).digest("hex");
+    const listPendingProof = {
+        purpose: "tahouri-device-pairing-list-v1",
+        licenseId: stored.license_id, approverDeviceType: "phone",
+        approverInstallationId: "install-1", approverKeyFingerprint: approverFingerprint
+    };
+    const pendingList = await request(worker, env, "/api/licenses/pairing/pending", "POST", {
+        licenseId: stored.license_id, approverDeviceType: "phone",
+        approverInstallationId: "install-1",
+        approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(listPendingProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(pendingList.status, 200, "A registered device may list its pending pairing requests with a valid signature.");
+    const pendingListBody = await pendingList.json();
+    assert.equal(pendingListBody.requests.length, 1);
+    assert.equal(pendingListBody.requests[0].pairingId, pairingBody.pairingId);
+    const forgedPendingList = await request(worker, env, "/api/licenses/pairing/pending", "POST", {
+        licenseId: stored.license_id, approverDeviceType: "phone",
+        approverInstallationId: "install-1", approverSignature: "A".repeat(344)
+    });
+    assert.equal(forgedPendingList.status, 401, "A forged signature must not reveal pending requests.");
+    const challengeRequestProof = {
+        purpose: "tahouri-device-pairing-challenge-request-v1",
+        pairingId: pairingBody.pairingId, licenseId: stored.license_id,
+        approverDeviceType: "phone", approverInstallationId: "install-1",
+        approverKeyFingerprint: approverFingerprint
+    };
+    const challengeResponse = await request(worker, env, "/api/licenses/pairing/challenge", "POST", {
+        pairingId: pairingBody.pairingId, approverDeviceType: "phone",
+        approverInstallationId: "install-1",
+        approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(challengeRequestProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(challengeResponse.status, 200, "Only the bound phone may request an approval challenge.");
+    const challengeBody = await challengeResponse.json();
+    assert.equal(challengeBody.ok, true);
+    assert.equal(challengeBody.pairingId, pairingBody.pairingId);
+    const decisionProof = {
+        purpose: "tahouri-device-pairing-decision-v1",
+        pairingId: pairingBody.pairingId, licenseId: stored.license_id,
+        challengeId: challengeBody.challengeId, nonce: challengeBody.nonce,
+        decision: "approved", requesterDeviceType: "computer",
+        requesterInstallationId: "install-computer-1",
+        requesterKeyFingerprint: storedPairing.requester_key_fingerprint,
+        approverDeviceType: "phone", approverInstallationId: "install-1",
+        approverKeyFingerprint: approverFingerprint,
+        challengeExpiresAt: challengeBody.expiresAt
+    };
+    const invalidDecision = await request(worker, env, "/api/licenses/pairing/approve", "POST", {
+        pairingId: pairingBody.pairingId, challengeId: challengeBody.challengeId,
+        nonce: challengeBody.nonce, approverDeviceType: "phone",
+        approverInstallationId: "install-1", approverSignature: "A".repeat(344)
+    });
+    const invalidDecisionBody = await invalidDecision.json();
+    assert.equal(invalidDecision.status, 401, "A forged approval signature must be rejected: " + JSON.stringify(invalidDecisionBody));
+    const alteredNonce = await request(worker, env, "/api/licenses/pairing/approve", "POST", {
+        pairingId: pairingBody.pairingId, challengeId: challengeBody.challengeId,
+        nonce: challengeBody.nonce.slice(0, -1) + (challengeBody.nonce.endsWith("0") ? "1" : "0"),
+        approverDeviceType: "phone", approverInstallationId: "install-1",
+        approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(decisionProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(alteredNonce.status, 409, "A modified challenge nonce must be rejected.");
+    const concurrentApprovalPayload = {
+        pairingId: pairingBody.pairingId, challengeId: challengeBody.challengeId,
+        nonce: challengeBody.nonce, approverDeviceType: "phone",
+        approverInstallationId: "install-1",
+        approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(decisionProof)),
+            activationDevicePair.privateKey).toString("base64")
+    };
+    const concurrentApprovals = await Promise.all([
+        request(worker, env, "/api/licenses/pairing/approve", "POST", concurrentApprovalPayload),
+        request(worker, env, "/api/licenses/pairing/approve", "POST", concurrentApprovalPayload)
+    ]);
+    const successfulApprovals = concurrentApprovals.filter(response => response.status === 200);
+    const rejectedApprovals = concurrentApprovals.filter(response => response.status === 409);
+    assert.equal(successfulApprovals.length, 1,
+        "Two simultaneous approvals for one challenge must produce exactly one successful approval.");
+    assert.equal(rejectedApprovals.length, 1,
+        "The competing approval must observe the consumed challenge and fail with conflict.");
+    const approval = successfulApprovals[0];
+    assert.equal(approval.status, 200, "A valid signature from the already-bound phone must approve the pairing.");
+    const approvalBody = await approval.json();
+    assert.equal(approvalBody.status, "approved");
+    assert.equal(approvalBody.entitlement.claims.installationBinding, "install-computer-1");
+    assert.equal(approvalBody.entitlement.claims.deviceType, "computer");
+    assert.equal(approvalBody.entitlement.claims.deviceKeyFingerprint, storedPairing.requester_key_fingerprint);
+    assert.match(approvalBody.entitlement.claims.deviceSlotId, /^[a-f0-9]{64}$/,
+        "Approved pairing must receive a unique signed device slot identity.");
+    assert(Number(approvalBody.entitlement.claims.revocationEpoch) > 0,
+        "Approved pairing must include its device binding epoch.");
+    assert(Date.parse(approvalBody.entitlement.claims.offlineLeaseExpiresAt) > Date.now(),
+        "Approved pairing must receive a bounded offline lease.");
+
+    // Student learning-data sync is bound to the active license and the exact registered device key.
+    const learningDatasets = {
+        progress: { math: { chapter1: { score: 40, stars: 2 } } },
+        statistics: { overall: { totalActivities: 1, totalScore: 40 }, subjects: {}, chapters: {}, activities: {} },
+        contentLocks: { math_chapter2: true },
+        parityProgression: { unlocked: ["evenOdd"] },
+        dailyStreak: { days: {}, currentStreak: 1, bestStreak: 1 },
+        notifications: [],
+        spellingPerformance: { answers: [], targetAnswers: [] },
+        questionPerformance: {}
+    };
+    const learningPayloadHash = await sha256(JSON.stringify(learningDatasets));
+    const learningPushProof = {
+        purpose: "tahouri-learning-data-sync-v1", action: "push",
+        licenseId: stored.license_id, studentId: "student-1", deviceType: "phone",
+        installationId: "install-1", keyFingerprint: approverFingerprint,
+        expectedRevision: 0, payloadHash: learningPayloadHash
+    };
+    const learningPush = await request(worker, env, "/api/learning-data/sync", "POST", {
+        ...learningPushProof, datasets: learningDatasets,
+        deviceSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(learningPushProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(learningPush.status, 200, "A bound device must be able to create the first student learning-data snapshot.");
+    assert.equal((await learningPush.json()).revision, 1);
+    const storedLearning = db.prepare("SELECT revision, payload_json, checksum_sha256 FROM student_learning_data_snapshots WHERE student_id = ?").get("student-1");
+    assert.equal(Number(storedLearning.revision), 1);
+    assert.equal(storedLearning.payload_json, JSON.stringify(learningDatasets));
+    assert.equal(storedLearning.checksum_sha256, learningPayloadHash);
+
+    const learningPullProof = {
+        purpose: "tahouri-learning-data-sync-v1", action: "pull",
+        licenseId: stored.license_id, studentId: "student-1", deviceType: "phone",
+        installationId: "install-1", keyFingerprint: approverFingerprint,
+        expectedRevision: 1, payloadHash: ""
+    };
+    const learningPull = await request(worker, env, "/api/learning-data/sync", "POST", {
+        ...learningPullProof,
+        deviceSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(learningPullProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(learningPull.status, 200);
+    const learningPullBody = await learningPull.json();
+    assert.equal(learningPullBody.revision, 1);
+    assert.deepEqual(learningPullBody.datasets, learningDatasets,
+        "An authenticated device must retrieve the exact student-scoped snapshot.");
+
+    const computerLearningPullProof = {
+        purpose: "tahouri-learning-data-sync-v1", action: "pull",
+        licenseId: stored.license_id, studentId: "student-1", deviceType: "computer",
+        installationId: "install-computer-1",
+        keyFingerprint: storedPairing.requester_key_fingerprint,
+        expectedRevision: 0, payloadHash: ""
+    };
+    const computerLearningPull = await request(worker, env, "/api/learning-data/sync", "POST", {
+        ...computerLearningPullProof,
+        deviceSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(computerLearningPullProof)),
+            pairingDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(computerLearningPull.status, 200,
+        "The paired computer must retrieve the same student snapshot as the phone.");
+    const computerLearningPullBody = await computerLearningPull.json();
+    assert.equal(computerLearningPullBody.revision, 1);
+    assert.deepEqual(computerLearningPullBody.datasets, learningDatasets);
+
+    const crossStudentProof = { ...learningPullProof, studentId: "student-2" };
+    const crossStudentRead = await request(worker, env, "/api/learning-data/sync", "POST", {
+        ...crossStudentProof,
+        deviceSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(crossStudentProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(crossStudentRead.status, 403,
+        "A device must not read another student's learning data even with a valid device signature.");
+
+    const staleLearningDatasets = { ...learningDatasets, contentLocks: { math_chapter2: false } };
+    const staleLearningHash = await sha256(JSON.stringify(staleLearningDatasets));
+    const staleLearningProof = { ...learningPushProof, payloadHash: staleLearningHash };
+    const staleLearningPush = await request(worker, env, "/api/learning-data/sync", "POST", {
+        ...staleLearningProof, datasets: staleLearningDatasets,
+        deviceSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(staleLearningProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(staleLearningPush.status, 409,
+        "A stale device revision must be rejected instead of overwriting newer learning data.");
+    assert.equal((await staleLearningPush.json()).code, "revision_conflict");
+    assert.equal(db.prepare("SELECT revision, payload_json FROM student_learning_data_snapshots WHERE student_id = ?").get("student-1").payload_json,
+        JSON.stringify(learningDatasets), "A rejected stale write must leave the server snapshot unchanged.");
+
+    const forgedLearningProof = { ...learningPullProof };
+    const forgedLearningPull = await request(worker, env, "/api/learning-data/sync", "POST", {
+        ...forgedLearningProof, deviceSignature: "A".repeat(344)
+    });
+    assert.equal(forgedLearningPull.status, 401,
+        "A forged device signature must not read student learning data.");
+
+    // A fully occupied license must reject any third installation without mutating either active slot.
+    const thirdPhoneAttempt = await request(worker, env, "/api/licenses/pairing/request", "POST", {
+        code, gradeId: "grade6", studentId: "student-1",
+        installationId: "install-phone-third-device", deviceType: "phone"
+    });
+    assert.equal(thirdPhoneAttempt.status, 409,
+        "A third device must not claim a second phone slot when one phone and one computer are already active.");
+    const thirdComputerAttempt = await request(worker, env, "/api/licenses/pairing/request", "POST", {
+        code, gradeId: "grade6", studentId: "student-1",
+        installationId: "install-computer-third-device", deviceType: "computer"
+    });
+    assert.equal(thirdComputerAttempt.status, 409,
+        "A third device must not claim a second computer slot when one phone and one computer are already active.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM device_pairing_requests WHERE license_id = ? AND requester_installation_id IN ('install-phone-third-device','install-computer-third-device')").get(stored.license_id).count), 0,
+        "Rejected third-device attempts must not create pairing requests.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id = ? AND revoked_at IS NULL").get(stored.license_id).count), 2,
+        "Rejected third-device attempts must preserve exactly the original two active slots.");
+    assert.equal(db.prepare("SELECT installation_id FROM license_device_slots WHERE license_id = ? AND device_type = 'phone' AND revoked_at IS NULL").get(stored.license_id).installation_id, "install-1",
+        "The original phone slot must remain unchanged after third-device rejection.");
+    assert.equal(db.prepare("SELECT installation_id FROM license_device_slots WHERE license_id = ? AND device_type = 'computer' AND revoked_at IS NULL").get(stored.license_id).installation_id, "install-computer-1",
+        "The original computer slot must remain unchanged after third-device rejection.");
+
+    const recoveryProof = {
+        purpose: "tahouri-device-pairing-recovery-v1",
+        deviceType: "computer",
+        installationId: "install-computer-1",
+        keyFingerprint: storedPairing.requester_key_fingerprint
+    };
+    const forgedRecovery = await request(worker, env, "/api/licenses/pairing/recover", "POST", {
+        deviceType: "computer", installationId: "install-computer-1",
+        keyFingerprint: storedPairing.requester_key_fingerprint, deviceSignature: "A".repeat(344)
+    });
+    assert.equal(forgedRecovery.status, 401,
+        "An untrusted device must not recover an approved entitlement.");
+    const pairingRecovered = await request(worker, env, "/api/licenses/pairing/recover", "POST", {
+        deviceType: "computer", installationId: "install-computer-1",
+        keyFingerprint: storedPairing.requester_key_fingerprint,
+        deviceSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(recoveryProof)),
+            pairingDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(pairingRecovered.status, 200, "The approved requester must recover its entitlement using proof of private-key possession.");
+    const pairingRecoveredBody = await pairingRecovered.json();
+    assert.equal(pairingRecoveredBody.status, "approved");
+    assert.deepEqual(pairingRecoveredBody.entitlement, approvalBody.entitlement,
+        "Recovery must return only the exact entitlement originally approved for this installation.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id = ?").get(stored.license_id).count), 2,
+        "Entitlement recovery must not create, replace, or revoke a device slot.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'device.pairing.entitlement_recovered' AND license_id = ?").get(stored.license_id).count), 1,
+        "Successful entitlement recovery must be audited.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id = ? AND device_type = 'computer' AND installation_id = 'install-computer-1'").get(stored.license_id).count), 1,
+        "Approval must bind the exact requester installation to the vacant computer slot.");
+    const consumedReplay = await request(worker, env, "/api/licenses/pairing/approve", "POST", {
+        pairingId: pairingBody.pairingId, challengeId: challengeBody.challengeId,
+        nonce: challengeBody.nonce, approverDeviceType: "phone",
+        approverInstallationId: "install-1",
+        approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(decisionProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(consumedReplay.status, 409, "A consumed challenge must not be replayable.");
+    const pairingStatus = await request(worker, env, "/api/licenses/pairing/status", "POST", {
+        pairingId: pairingBody.pairingId, token: pairingBody.token
+    });
+    assert.equal(pairingStatus.status, 200);
+    const deliveredStatus = await pairingStatus.json();
+    assert.equal(deliveredStatus.status, "approved",
+        "The requester bearer token must read the final decision.");
+    assert.deepEqual(deliveredStatus.entitlement, approvalBody.entitlement,
+        "Requester polling must return the exact server-signed entitlement approved for its installation.");
+    const cancellationPairingId = "pair_cancel_test";
+    const cancellationToken = "requester-cancel-token";
+    const cancellationTokenHash = crypto.createHash("sha256").update(cancellationToken).digest("hex");
+    db.prepare(`INSERT INTO device_pairing_requests
+        (pairing_id, license_id, requester_device_type, requester_installation_id, token_hash, created_at, expires_at)
+        VALUES (?, ?, 'computer', 'install-cancel-test', ?, ?, ?)`)
+        .run(cancellationPairingId, stored.license_id, cancellationTokenHash,
+            new Date().toISOString(), new Date(Date.now() + 600000).toISOString());
+    const cancellation = await request(worker, env, "/api/licenses/pairing/cancel", "POST", {
+        pairingId: cancellationPairingId, token: cancellationToken
+    });
+    assert.equal(cancellation.status, 200, "The requester bearer token must cancel its pending pairing.");
+    assert.equal((await cancellation.json()).status, "cancelled");
+    assert(db.prepare("SELECT cancelled_at FROM device_pairing_requests WHERE pairing_id = ?").get(cancellationPairingId).cancelled_at,
+        "Cancellation must persist atomically.");
+    const cancellationAudit = db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'device.pairing.cancelled' AND license_id = ?").get(stored.license_id);
+    assert.equal(Number(cancellationAudit.count), 1, "A successful cancellation must be audited.");
+
+    const wrongCancellation = await request(worker, env, "/api/licenses/pairing/cancel", "POST", {
+        pairingId: cancellationPairingId, token: "wrong-token"
+    });
+    assert.equal(wrongCancellation.status, 409, "A different bearer token must not cancel a request.");
+    const duplicateCancellation = await request(worker, env, "/api/licenses/pairing/cancel", "POST", {
+        pairingId: cancellationPairingId, token: cancellationToken
+    });
+    assert.equal(duplicateCancellation.status, 409, "A cancelled request must not be cancelled twice.");
+    const cancelledStatus = await request(worker, env, "/api/licenses/pairing/status", "POST", {
+        pairingId: cancellationPairingId, token: cancellationToken
+    });
+    assert.equal((await cancelledStatus.json()).status, "expired",
+        "Requester polling must not report a cancelled request as pending.");
+    const expiredPairingId = "pair_expired_test";
+    const expiredToken = "expired-request-token";
+    const expiredHash = crypto.createHash("sha256").update(expiredToken).digest("hex");
+    db.prepare(`INSERT INTO device_pairing_requests
+        (pairing_id, license_id, requester_device_type, requester_installation_id, token_hash, created_at, expires_at)
+        VALUES (?, ?, 'computer', 'install-expired-test', ?, ?, ?)`)
+        .run(expiredPairingId, stored.license_id, expiredHash,
+            new Date(Date.now() - 700000).toISOString(), new Date(Date.now() - 1000).toISOString());
+    const expiredCancel = await request(worker, env, "/api/licenses/pairing/cancel", "POST", {
+        pairingId: expiredPairingId, token: expiredToken
+    });
+    assert.equal(expiredCancel.status, 409, "Expired pairing requests cannot be cancelled or revived.");
+    const expiredPoll = await request(worker, env, "/api/licenses/pairing/status", "POST", {
+        pairingId: expiredPairingId, token: expiredToken
+    });
+    assert.equal(expiredPoll.status, 200);
+    assert.equal((await expiredPoll.json()).status, "expired",
+        "Expired requests must be reported as expired without cleanup writes.");
+    assert.equal(db.prepare("SELECT cancelled_at FROM device_pairing_requests WHERE pairing_id = ?").get(expiredPairingId).cancelled_at,
+        null, "Polling expired requests must not mutate their row.");
+
+
+
+
+
+    // A bound phone must explicitly authorize revocation of the exact occupied computer slot.
+    const targetFingerprint = storedPairing.requester_key_fingerprint;
+    // Keep a synthetic pending computer pairing with a live approval challenge.
+    // Revoking the computer slot must cancel it and consume its challenge atomically.
+    const pendingRevocationPairingId = "pair_pending_revocation_test";
+    const pendingRevocationNonce = crypto.randomBytes(32).toString("hex");
+    const pendingRevocationChallengeId = "ch_pending_revocation_test";
+    const pendingRevocationNow = new Date().toISOString();
+    const pendingRevocationExpires = new Date(Date.now() + 60000).toISOString();
+    db.prepare("INSERT INTO device_pairing_requests (pairing_id, license_id, requester_device_type, requester_installation_id, token_hash, created_at, expires_at, requester_student_id, requester_grade_id, requester_public_key_pem, requester_key_fingerprint, challenge_id, challenge_nonce_hash, challenge_expires_at, approver_device_type, approver_installation_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        .run(pendingRevocationPairingId, stored.license_id, "computer",
+            "install-computer-pending-revocation",
+            crypto.createHash("sha256").update("pending-revocation-token").digest("hex"),
+            pendingRevocationNow, pendingRevocationExpires, "student-1", "grade6",
+            pairingDevicePair.publicKey.export({ type: "spki", format: "pem" }).trim(),
+            targetFingerprint, pendingRevocationChallengeId,
+            await sha256(pendingRevocationNonce), pendingRevocationExpires, "phone", "install-1");
+    const revocationChallengeProof = {
+        purpose: "tahouri-device-revocation-challenge-v1",
+        licenseId: stored.license_id,
+        targetDeviceType: "computer",
+        targetInstallationId: "install-computer-1",
+        targetKeyFingerprint: targetFingerprint,
+        approverDeviceType: "phone",
+        approverInstallationId: "install-1",
+        approverKeyFingerprint: approverFingerprint
+    };
+    const forgedRevocationChallenge = await request(worker, env, "/api/licenses/device-revocation/challenge", "POST", {
+        licenseId: stored.license_id, targetDeviceType: "computer",
+        targetInstallationId: "install-computer-1", approverDeviceType: "phone",
+        approverInstallationId: "install-1", approverSignature: "A".repeat(344)
+    });
+    assert.equal(forgedRevocationChallenge.status, 401, "A forged complementary-device signature must not issue a revocation challenge.");
+    const unboundApproverProof = {
+        ...revocationChallengeProof,
+        approverInstallationId: "install-unbound-attacker"
+    };
+    const unboundApprover = await request(worker, env, "/api/licenses/device-revocation/challenge", "POST", {
+        licenseId: stored.license_id, targetDeviceType: "computer",
+        targetInstallationId: "install-computer-1", approverDeviceType: "phone",
+        approverInstallationId: "install-unbound-attacker",
+        approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(unboundApproverProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(unboundApprover.status, 409, "An installation not bound to the license must not issue a revocation challenge.");
+    assert.equal(db.prepare("SELECT revoked_at FROM license_device_slots WHERE license_id = ? AND device_type = 'computer' AND installation_id = 'install-computer-1'").get(stored.license_id).revoked_at,
+        null, "An unbound approver must not change the target slot.");
+
+    const revocationChallengeResponse = await request(worker, env, "/api/licenses/device-revocation/challenge", "POST", {
+        licenseId: stored.license_id, targetDeviceType: "computer",
+        targetInstallationId: "install-computer-1", approverDeviceType: "phone",
+        approverInstallationId: "install-1",
+        approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(revocationChallengeProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(revocationChallengeResponse.status, 200, "The complementary phone must be able to issue a revocation challenge.");
+    const revocationChallenge = await revocationChallengeResponse.json();
+    assert.equal(revocationChallenge.targetKeyFingerprint, targetFingerprint);
+    assert(Date.parse(revocationChallenge.expiresAt) > Date.now(), "Revocation challenges must expire in the future.");
+    const expiredChallengeId = "rev_expired_" + crypto.randomUUID();
+    const expiredNonce = crypto.randomBytes(32).toString("hex");
+    const expiredNow = new Date().toISOString();
+    const expiredAt = new Date(Date.now() - 1000).toISOString();
+    const expiredNonceHash = await sha256(expiredNonce);
+    db.prepare(`INSERT INTO device_revocation_challenges
+        (challenge_id,license_id,target_device_type,target_installation_id,target_fingerprint,
+         approver_device_type,approver_installation_id,approver_fingerprint,nonce_hash,expires_at,created_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?)`)
+        .run(expiredChallengeId, stored.license_id, "computer", "install-computer-1", targetFingerprint,
+            "phone", "install-1", approverFingerprint, expiredNonceHash, expiredAt, expiredNow);
+    const expiredProof = {
+        purpose: "tahouri-device-revocation-v1",
+        challengeId: expiredChallengeId, nonce: expiredNonce, licenseId: stored.license_id,
+        targetDeviceType: "computer", targetInstallationId: "install-computer-1",
+        targetKeyFingerprint: targetFingerprint, approverDeviceType: "phone",
+        approverInstallationId: "install-1", approverKeyFingerprint: approverFingerprint,
+        expiresAt: expiredAt
+    };
+    const expiredRevocation = await request(worker, env, "/api/licenses/device-revocation/execute", "POST", {
+        challengeId: expiredChallengeId, nonce: expiredNonce,
+        approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(expiredProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(expiredRevocation.status, 409, "An expired revocation challenge must be rejected even with a valid device signature.");
+    assert.equal(db.prepare("SELECT revoked_at FROM license_device_slots WHERE license_id = ? AND device_type = 'computer' AND installation_id = 'install-computer-1'").get(stored.license_id).revoked_at,
+        null, "An expired challenge must not revoke the target device.");
+    assert.equal(db.prepare("SELECT consumed_at FROM device_revocation_challenges WHERE challenge_id = ?").get(expiredChallengeId).consumed_at,
+        null, "A rejected expired challenge must not be consumed as a successful revocation.");
+
+    const revocationProof = {
+        purpose: "tahouri-device-revocation-v1",
+        challengeId: revocationChallenge.challengeId,
+        nonce: revocationChallenge.nonce,
+        licenseId: stored.license_id,
+        targetDeviceType: "computer",
+        targetInstallationId: "install-computer-1",
+        targetKeyFingerprint: targetFingerprint,
+        approverDeviceType: "phone",
+        approverInstallationId: "install-1",
+        approverKeyFingerprint: approverFingerprint,
+        expiresAt: revocationChallenge.expiresAt
+    };
+    // Simulate the approver being revoked after signature verification but before the atomic D1 batch.
+    beforeNextBatch = () => db.prepare("UPDATE license_device_slots SET revoked_at = ? WHERE license_id = ? AND device_type = 'phone' AND installation_id = 'install-1' AND revoked_at IS NULL")
+        .run(new Date().toISOString(), stored.license_id);
+    const staleApproverRevocation = await request(worker, env, "/api/licenses/device-revocation/execute", "POST", {
+        challengeId: revocationChallenge.challengeId, nonce: revocationChallenge.nonce,
+        approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(revocationProof)), activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(staleApproverRevocation.status, 409, "A complementary device revoked during execution must not authorize revocation with a stale approval.");
+    assert.equal(db.prepare("SELECT revoked_at FROM license_device_slots WHERE license_id = ? AND device_type = 'computer' AND installation_id = 'install-computer-1'").get(stored.license_id).revoked_at, null,
+        "A stale approver must not revoke the target device.");
+    assert.equal(db.prepare("SELECT consumed_at FROM device_revocation_challenges WHERE challenge_id = ?").get(revocationChallenge.challengeId).consumed_at, null,
+        "A failed stale-approver attempt must not consume the challenge.");
+    db.prepare("UPDATE license_device_slots SET revoked_at = NULL WHERE license_id = ? AND device_type = 'phone' AND installation_id = 'install-1'").run(stored.license_id);
+
+    const forgedRevocation = await request(worker, env, "/api/licenses/device-revocation/execute", "POST", {
+        challengeId: revocationChallenge.challengeId, nonce: revocationChallenge.nonce,
+        approverSignature: "A".repeat(344)
+    });
+    assert.equal(forgedRevocation.status, 401, "A forged signature must not revoke a device.");
+    const concurrentRevocationPayload = {
+        challengeId: revocationChallenge.challengeId, nonce: revocationChallenge.nonce,
+        approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(revocationProof)),
+            activationDevicePair.privateKey).toString("base64")
+    };
+    const concurrentRevocations = await Promise.all([
+        request(worker, env, "/api/licenses/device-revocation/execute", "POST", concurrentRevocationPayload),
+        request(worker, env, "/api/licenses/device-revocation/execute", "POST", concurrentRevocationPayload)
+    ]);
+    const successfulRevocations = concurrentRevocations.filter(response => response.status === 200);
+    const rejectedRevocations = concurrentRevocations.filter(response => response.status === 409);
+    assert.equal(successfulRevocations.length, 1,
+        "Two simultaneous revocations of one target slot must produce exactly one success.");
+    assert.equal(rejectedRevocations.length, 1,
+        "The competing revocation must fail after the one-use challenge or target slot is consumed.");
+    const revocation = successfulRevocations[0];
+    assert.equal((await revocation.json()).status, "revoked");
+    const cancelledByRevocation = db.prepare("SELECT cancelled_at, challenge_consumed_at FROM device_pairing_requests WHERE pairing_id = ?")
+        .get(pendingRevocationPairingId);
+    assert(cancelledByRevocation?.cancelled_at,
+        "Signed device revocation must cancel every still-pending pairing request for the revoked device class.");
+    assert(cancelledByRevocation?.challenge_consumed_at,
+        "Signed device revocation must consume the approval challenge of each cancelled pending pairing.");
+    const staleApprovalProof = {
+        purpose: "tahouri-device-pairing-decision-v1",
+        pairingId: pendingRevocationPairingId, licenseId: stored.license_id,
+        challengeId: pendingRevocationChallengeId, nonce: pendingRevocationNonce,
+        decision: "approved", requesterDeviceType: "computer",
+        requesterInstallationId: "install-computer-pending-revocation",
+        requesterKeyFingerprint: targetFingerprint,
+        approverDeviceType: "phone", approverInstallationId: "install-1",
+        approverKeyFingerprint: approverFingerprint,
+        challengeExpiresAt: pendingRevocationExpires
+    };
+    const staleApprovalAfterRevocation = await request(worker, env, "/api/licenses/pairing/approve", "POST", {
+        pairingId: pendingRevocationPairingId, challengeId: pendingRevocationChallengeId,
+        nonce: pendingRevocationNonce, approverDeviceType: "phone",
+        approverInstallationId: "install-1",
+        approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(staleApprovalProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(staleApprovalAfterRevocation.status, 409,
+        "A validly signed approval must not revive a pairing request cancelled by device revocation.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id = ? AND device_type = 'computer' AND installation_id = 'install-computer-pending-revocation' AND revoked_at IS NULL")
+        .get(stored.license_id).count), 0,
+        "A stale approval after revocation must not bind the cancelled requester.");
+    assert(db.prepare("SELECT revoked_at FROM license_device_slots WHERE license_id = ? AND device_type = 'computer' AND installation_id = 'install-computer-1' AND key_fingerprint = ?").get(stored.license_id, targetFingerprint).revoked_at,
+        "The exact target computer slot must be marked revoked.");
+    assert.equal(db.prepare("SELECT revoked_at FROM license_device_slots WHERE license_id = ? AND device_type = 'phone' AND installation_id = 'install-1'").get(stored.license_id).revoked_at,
+        null, "Revoking the computer must preserve the complementary phone.");
+    const revokedComputerLegacyStatus = await request(worker, env,
+        "/api/licenses/status?licenseId=" + encodeURIComponent(stored.license_id), "GET");
+    assert.equal(revokedComputerLegacyStatus.status, 200);
+    assert.deepEqual(await revokedComputerLegacyStatus.json(), { ok: true, valid: true },
+        "Characterization: the legacy license-wide status endpoint still reports valid after one device slot is revoked, because it cannot identify the requesting device.");
+    const phoneStatusProof = {
+        purpose: "tahouri-device-bound-license-status-v1",
+        licenseId: stored.license_id, deviceType: "phone",
+        installationId: "install-1", keyFingerprint: approverFingerprint
+    };
+    const forgedPhoneStatus = await request(worker, env, "/api/licenses/device-status", "POST", {
+        ...phoneStatusProof, deviceSignature: "A".repeat(344)
+    });
+    assert.equal(forgedPhoneStatus.status, 401,
+        "A forged proof must not read the active device status.");
+    const activePhoneStatus = await request(worker, env, "/api/licenses/device-status", "POST", {
+        ...phoneStatusProof,
+        deviceSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(phoneStatusProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(activePhoneStatus.status, 200);
+    const activePhoneStatusBody = await activePhoneStatus.json();
+    assert.equal(activePhoneStatusBody.ok, true);
+    assert.equal(activePhoneStatusBody.valid, true,
+        "The complementary active phone must remain valid after computer revocation.");
+    assert.equal(activePhoneStatusBody.entitlement.claims.deviceSlotId,
+        activationBody.entitlement.claims.deviceSlotId,
+        "Status refresh must preserve the exact active device slot identity.");
+    assert(Date.parse(activePhoneStatusBody.entitlement.claims.offlineLeaseExpiresAt) > Date.now(),
+        "Online device status must refresh the bounded offline lease.");
+    const refreshedLeaseVerifier = crypto.createVerify("RSA-SHA256");
+    refreshedLeaseVerifier.update(JSON.stringify(activePhoneStatusBody.entitlement.claims));
+    refreshedLeaseVerifier.end();
+    assert.equal(refreshedLeaseVerifier.verify(pair.publicKey,
+        Buffer.from(activePhoneStatusBody.entitlement.signature, "base64")), true,
+        "The refreshed offline lease must be signed by the Worker entitlement key.");
+
+    const revokedComputerStatus = await request(worker, env, "/api/licenses/device-status", "POST", {
+        licenseId: stored.license_id, deviceType: "computer",
+        installationId: "install-computer-1", keyFingerprint: targetFingerprint,
+        deviceSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify({
+            purpose: "tahouri-device-bound-license-status-v1",
+            licenseId: stored.license_id, deviceType: "computer",
+            installationId: "install-computer-1", keyFingerprint: targetFingerprint
+        })), pairingDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(revokedComputerStatus.status, 200);
+    assert.deepEqual(await revokedComputerStatus.json(), { ok: true, valid: false },
+        "A revoked computer must fail its device-bound status check while the license remains valid on the phone.");
+
+
+    assert.equal(db.prepare("SELECT consumed_at FROM device_revocation_challenges WHERE challenge_id = ?").get(revocationChallenge.challengeId).consumed_at !== null,
+        true, "A successful revocation must consume its one-use challenge.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type = 'device.revoked' AND license_id = ?").get(stored.license_id).count), 1,
+        "A successful device revocation must be audited.");
+    const revocationReplay = await request(worker, env, "/api/licenses/device-revocation/execute", "POST", {
+        challengeId: revocationChallenge.challengeId, nonce: revocationChallenge.nonce,
+        approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(revocationProof)),
+            activationDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(revocationReplay.status, 409, "A consumed revocation challenge must not be replayable.");
+    const concurrentReplacementPairings = await Promise.all([
+        request(worker, env, "/api/licenses/pairing/request", "POST", {
+            code, gradeId: "grade6", studentId: "student-1",
+            installationId: "install-computer-replacement-a", deviceType: "computer"
+        }),
+        request(worker, env, "/api/licenses/pairing/request", "POST", {
+            code, gradeId: "grade6", studentId: "student-1",
+            installationId: "install-computer-replacement-b", deviceType: "computer"
+        })
+    ]);
+    assert.deepEqual(concurrentReplacementPairings.map(response => response.status).sort(),
+        [201, 409], "Concurrent independent pairing requests must reserve a device-class slot exactly once.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM device_pairing_requests WHERE license_id = ? AND requester_device_type = 'computer' AND decision IS NULL AND consumed_at IS NULL AND cancelled_at IS NULL AND expires_at > ?").get(stored.license_id, new Date().toISOString()).count), 1,
+        "Only one live pending pairing request may reserve the computer slot.");
+    const replacementPairing = concurrentReplacementPairings.find(response => response.status === 201);
+    assert(replacementPairing, "Exactly one replacement pairing request must be accepted.");
+
+    const occupiedPairingSlot = await request(worker, env, "/api/licenses/pairing/request", "POST", {
+        code, gradeId: "grade6", studentId: "student-1", installationId: "install-computer-2", deviceType: "phone"
+    });
+    assert.equal(occupiedPairingSlot.status, 409, "A request must not replace an already occupied device-class slot.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM device_pairing_requests WHERE license_id = ? AND requester_device_type = 'phone' AND requester_installation_id = 'install-computer-2'").get(stored.license_id).count), 0, "Rejected replacement requests must not persist a pairing record.");
+    assert.equal(db.prepare("SELECT installation_id FROM license_device_slots WHERE license_id = ? AND device_type = 'phone' AND revoked_at IS NULL").get(stored.license_id).installation_id, "install-1", "An unauthorized replacement attempt must leave the existing phone binding unchanged.");
+
+    assert.throws(() => db.prepare("INSERT INTO license_device_slots (license_id, device_type, installation_id, bound_at) VALUES (?, 'phone', 'install-phone-2', ?)").run(stored.license_id, new Date().toISOString()),
+        /UNIQUE constraint failed/,
+        "A second phone must not be inserted into the same license slot.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id = ? AND device_type = 'computer'").get(stored.license_id).count), 1,
+        "The approved pairing flow must have created the second device slot.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id = ?").get(stored.license_id).count), 2,
+        "A license must permit one phone and one computer simultaneously.");
+
+    // Migration 11 must permit a revoked device's history and a replacement slot, while retaining the active-slot guard.
+    db.prepare("UPDATE license_device_slots SET revoked_at = ? WHERE license_id = ? AND device_type = 'phone' AND installation_id = 'install-1'").run(new Date().toISOString(), stored.license_id);
+    db.prepare("INSERT INTO license_device_slots (license_id, device_type, installation_id, bound_at, public_key_pem, key_fingerprint) VALUES (?, 'phone', 'install-phone-replacement', ?, ?, ?)").run(stored.license_id, new Date().toISOString(), 'replacement-public-key', 'replacement-fingerprint');
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id = ? AND device_type = 'phone'").get(stored.license_id).count), 2, "Revoked device history must remain alongside a replacement slot.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id = ? AND device_type = 'phone' AND revoked_at IS NULL").get(stored.license_id).count), 1, "Only one phone slot may remain active.");
+    assert.throws(() => db.prepare("INSERT INTO license_device_slots (license_id, device_type, installation_id, bound_at) VALUES (?, 'phone', 'install-phone-overflow', ?)").run(stored.license_id, new Date().toISOString()), /UNIQUE constraint failed/, "Database must prevent two active phones.");
+    
+
+
+    // Rebind a test complementary computer with a real key pair after the earlier signed-revocation scenario.
+    const recoveryComputerPair = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
+    const recoveryComputerPublicPem = recoveryComputerPair.publicKey.export({ type: "spki", format: "pem" }).trim();
+    const recoveryComputerFingerprint = crypto.createHash("sha256")
+      .update(recoveryComputerPair.publicKey.export({ type: "spki", format: "der" })).digest("hex");
+    db.prepare("INSERT INTO license_device_slots (license_id,device_type,installation_id,bound_at,public_key_pem,key_fingerprint) VALUES (?,'computer','install-computer-admin-recovery',?,?,?)")
+      .run(stored.license_id, new Date().toISOString(), recoveryComputerPublicPem, recoveryComputerFingerprint);
+    // Administrator recovery requires a live admin session, trusted Origin and password re-entry.
+    const recoveryTarget = db.prepare("SELECT installation_id, key_fingerprint FROM license_device_slots WHERE license_id = ? AND device_type = 'phone' AND revoked_at IS NULL").get(stored.license_id);
+    assert(recoveryTarget?.key_fingerprint, "The phone slot must have a fingerprint before admin recovery.");
+    const pendingRecoveryPairingId = "pairing-admin-recovery-pending";
+    db.prepare(`INSERT INTO device_pairing_requests
+      (pairing_id,license_id,requester_device_type,requester_installation_id,token_hash,created_at,expires_at)
+      VALUES (?,?,'phone','install-phone-pending',?,?,?)`)
+      .run(pendingRecoveryPairingId, stored.license_id, "admin-recovery-token-hash", new Date().toISOString(), new Date(Date.now()+60000).toISOString());
+    const recoveryPayload = {
+      licenseId: stored.license_id, deviceType: "phone",
+      installationId: recoveryTarget.installation_id, keyFingerprint: recoveryTarget.key_fingerprint,
+      reason: "دستگاه مکمل در دسترس نیست و مالکیت بررسی شد"
+    };
+    const deniedRecovery = await worker.fetch(new Request("https://api.example.test/api/admin/device-slots/recover", {
+      method: "POST", headers: { "content-type": "application/json", origin: env.ADMIN_ORIGIN, cookie: adminCookie },
+      body: JSON.stringify({ ...recoveryPayload, adminPassword: "incorrect-password" })
+    }), env);
+    assert.equal(deniedRecovery.status, 401, "Admin recovery must require password re-authentication.");
+    assert.equal(db.prepare("SELECT revoked_at FROM license_device_slots WHERE license_id=? AND device_type='phone' AND installation_id=?").get(stored.license_id,recoveryTarget.installation_id).revoked_at, null,
+      "A failed step-up check must not revoke a device.");
+    const recovered = await worker.fetch(new Request("https://api.example.test/api/admin/device-slots/recover", {
+      method: "POST", headers: { "content-type": "application/json", origin: env.ADMIN_ORIGIN, cookie: adminCookie },
+      body: JSON.stringify({ ...recoveryPayload, adminPassword: env.ADMIN_PASSWORD })
+    }), env);
+    assert.equal(recovered.status, 200, "An authenticated administrator must be able to recover an unavailable complementary device.");
+    assert.equal((await recovered.json()).status, "revoked");
+    assert(db.prepare("SELECT revoked_at FROM license_device_slots WHERE license_id=? AND device_type='phone' AND installation_id=?").get(stored.license_id,recoveryTarget.installation_id).revoked_at,
+      "Admin recovery must revoke the exact selected device.");
+    assert.equal(db.prepare("SELECT revoked_at FROM license_device_slots WHERE license_id=? AND device_type='computer' AND revoked_at IS NULL").get(stored.license_id).revoked_at, null,
+      "Admin recovery must preserve the complementary computer slot.");
+    assert(db.prepare("SELECT cancelled_at FROM device_pairing_requests WHERE pairing_id=?").get(pendingRecoveryPairingId).cancelled_at,
+      "Admin recovery must cancel pending pairing requests for the revoked device class.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type='device.admin_recovered' AND license_id=?").get(stored.license_id).count), 1,
+      "Admin recovery must write an audit event.");
+
+    // A fresh phone requests replacement; the still-bound computer must approve it cryptographically.
+    pairingDevicePair = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
+    const postRecoveryPairing = await request(worker, env, "/api/licenses/pairing/request", "POST", {
+      code, gradeId: "grade6", studentId: "student-1",
+      installationId: "install-phone-after-admin-recovery", deviceType: "phone"
+    });
+    assert.equal(postRecoveryPairing.status, 201,
+      "A new phone must be able to request approval after the exact lost phone slot is administratively recovered.");
+    const postRecoveryPairingBody = await postRecoveryPairing.json();
+    const postRecoveryPairingRow = db.prepare("SELECT requester_device_type, requester_installation_id, requester_key_fingerprint, decision, consumed_at FROM device_pairing_requests WHERE pairing_id = ?")
+      .get(postRecoveryPairingBody.pairingId);
+    assert.equal(postRecoveryPairingRow.requester_device_type, "phone");
+    assert.equal(postRecoveryPairingRow.requester_installation_id, "install-phone-after-admin-recovery");
+    assert.equal(postRecoveryPairingRow.decision, null,
+      "Administrative recovery must not silently approve or bind the replacement phone.");
+    assert.equal(postRecoveryPairingRow.consumed_at, null);
+    assert.equal(db.prepare("SELECT installation_id FROM license_device_slots WHERE license_id=? AND device_type='computer' AND revoked_at IS NULL")
+      .get(stored.license_id).installation_id, "install-computer-admin-recovery",
+      "The complementary computer must remain active while the replacement phone awaits approval.");
+    assert.equal(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id=? AND device_type='phone' AND revoked_at IS NULL")
+      .get(stored.license_id).count, 0,
+      "A replacement phone must not become active before approval.");
+
+    const replacementChallengeProof = {
+      purpose: "tahouri-device-pairing-challenge-request-v1",
+      pairingId: postRecoveryPairingBody.pairingId, licenseId: stored.license_id,
+      approverDeviceType: "computer", approverInstallationId: "install-computer-admin-recovery",
+      approverKeyFingerprint: recoveryComputerFingerprint
+    };
+    const replacementChallengeResponse = await request(worker, env, "/api/licenses/pairing/challenge", "POST", {
+      pairingId: postRecoveryPairingBody.pairingId,
+      approverDeviceType: "computer", approverInstallationId: "install-computer-admin-recovery",
+      approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(replacementChallengeProof)),
+        recoveryComputerPair.privateKey).toString("base64")
+    });
+    assert.equal(replacementChallengeResponse.status, 200,
+      "Only the still-bound complementary computer may issue the replacement approval challenge.");
+    const replacementChallenge = await replacementChallengeResponse.json();
+    const replacementDecisionProof = {
+      purpose: "tahouri-device-pairing-decision-v1",
+      pairingId: postRecoveryPairingBody.pairingId, licenseId: stored.license_id,
+      challengeId: replacementChallenge.challengeId, nonce: replacementChallenge.nonce,
+      decision: "approved", requesterDeviceType: "phone",
+      requesterInstallationId: "install-phone-after-admin-recovery",
+      requesterKeyFingerprint: postRecoveryPairingRow.requester_key_fingerprint,
+      approverDeviceType: "computer", approverInstallationId: "install-computer-admin-recovery",
+      approverKeyFingerprint: recoveryComputerFingerprint,
+      challengeExpiresAt: replacementChallenge.expiresAt
+    };
+    const replacementApproval = await request(worker, env, "/api/licenses/pairing/approve", "POST", {
+      pairingId: postRecoveryPairingBody.pairingId,
+      challengeId: replacementChallenge.challengeId, nonce: replacementChallenge.nonce,
+      approverDeviceType: "computer", approverInstallationId: "install-computer-admin-recovery",
+      approverSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(replacementDecisionProof)),
+        recoveryComputerPair.privateKey).toString("base64")
+    });
+    assert.equal(replacementApproval.status, 200,
+      "The complementary computer's valid signature must approve and bind the replacement phone.");
+    const replacementApprovalBody = await replacementApproval.json();
+    assert.equal(replacementApprovalBody.status, "approved");
+    assert.equal(replacementApprovalBody.entitlement.claims.installationBinding, "install-phone-after-admin-recovery");
+    assert.equal(replacementApprovalBody.entitlement.claims.deviceType, "phone");
+    assert.equal(replacementApprovalBody.entitlement.claims.deviceKeyFingerprint,
+      postRecoveryPairingRow.requester_key_fingerprint);
+    assert.equal(db.prepare("SELECT installation_id FROM license_device_slots WHERE license_id=? AND device_type='phone' AND revoked_at IS NULL")
+      .get(stored.license_id).installation_id, "install-phone-after-admin-recovery",
+      "The replacement phone slot must be bound only after cryptographic approval.");
+    assert.equal(db.prepare("SELECT installation_id FROM license_device_slots WHERE license_id=? AND device_type='computer' AND revoked_at IS NULL")
+      .get(stored.license_id).installation_id, "install-computer-admin-recovery",
+      "The complementary computer slot must remain active after approval.");
+
+    // The newly paired phone can recover only the entitlement signed for its own key.
+    const replacementRecoveryProof = {
+      purpose: "tahouri-device-pairing-recovery-v1",
+      deviceType: "phone", installationId: "install-phone-after-admin-recovery",
+      keyFingerprint: postRecoveryPairingRow.requester_key_fingerprint
+    };
+    const forgedReplacementRecovery = await request(worker, env, "/api/licenses/pairing/recover", "POST", {
+      deviceType: "phone", installationId: "install-phone-after-admin-recovery",
+      keyFingerprint: postRecoveryPairingRow.requester_key_fingerprint,
+      deviceSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(replacementRecoveryProof)),
+        recoveryComputerPair.privateKey).toString("base64")
+    });
+    assert.equal(forgedReplacementRecovery.status, 401,
+      "The complementary computer's private key must not recover the replacement phone entitlement.");
+    const replacementRecovery = await request(worker, env, "/api/licenses/pairing/recover", "POST", {
+      deviceType: "phone", installationId: "install-phone-after-admin-recovery",
+      keyFingerprint: postRecoveryPairingRow.requester_key_fingerprint,
+      deviceSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(replacementRecoveryProof)),
+        pairingDevicePair.privateKey).toString("base64")
+    });
+    assert.equal(replacementRecovery.status, 200,
+      "The replacement phone must recover its approved entitlement using its own private-key proof.");
+    const replacementRecoveryBody = await replacementRecovery.json();
+    assert.deepEqual(replacementRecoveryBody.entitlement, replacementApprovalBody.entitlement,
+      "Recovery must return the exact signed entitlement approved for the replacement phone.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type='device.pairing.entitlement_recovered' AND license_id=?")
+      .get(stored.license_id).count), 2,
+      "Both the earlier computer recovery and replacement phone recovery must be audited.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id=? AND revoked_at IS NULL")
+      .get(stored.license_id).count), 2,
+      "The final state must contain exactly one active phone and one active computer slot.");
+
+    // Isolate the legacy-slot recovery fixture after validating the complete replacement flow.
+    db.prepare("UPDATE license_device_slots SET revoked_at=? WHERE license_id=? AND device_type='phone' AND installation_id='install-phone-after-admin-recovery' AND revoked_at IS NULL")
+      .run(new Date().toISOString(), stored.license_id);
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id=? AND revoked_at IS NULL")
+      .get(stored.license_id).count), 1,
+      "The replacement-phone scenario must be closed before seeding a legacy phone slot.");
+
+    // A pre-device-identity legacy slot has no public key or fingerprint.
+    // Admin recovery must not treat a caller-supplied fingerprint as a wildcard or legacy-ID proof.
+    const legacyInstallationId = "legacy-installation-without-key";
+    db.prepare("INSERT INTO license_device_slots (license_id,device_type,installation_id,bound_at,public_key_pem,key_fingerprint) VALUES (?,'phone',?,?,NULL,NULL)")
+      .run(stored.license_id, legacyInstallationId, new Date().toISOString());
+    const legacyRecovery = await worker.fetch(new Request("https://api.example.test/api/admin/device-slots/recover", {
+      method: "POST", headers: { "content-type": "application/json", origin: env.ADMIN_ORIGIN, cookie: adminCookie },
+      body: JSON.stringify({
+        licenseId: stored.license_id, deviceType: "phone",
+        installationId: legacyInstallationId, keyFingerprint: "caller-invented-fingerprint",
+        reason: "بررسی عدم بازیابی اتصال قدیمی بدون کلید", adminPassword: env.ADMIN_PASSWORD
+      })
+    }), env);
+    assert.equal(legacyRecovery.status, 404,
+      "Admin recovery must reject a legacy slot with NULL public key and fingerprint.");
+    const unchangedLegacySlot = db.prepare("SELECT revoked_at, public_key_pem, key_fingerprint FROM license_device_slots WHERE license_id=? AND device_type='phone' AND installation_id=?")
+      .get(stored.license_id, legacyInstallationId);
+    assert.equal(unchangedLegacySlot.revoked_at, null,
+      "A rejected legacy recovery attempt must not revoke the legacy slot.");
+    assert.equal(unchangedLegacySlot.public_key_pem, null,
+      "A rejected legacy recovery attempt must not add a public key.");
+    assert.equal(unchangedLegacySlot.key_fingerprint, null,
+      "A rejected legacy recovery attempt must not add a key fingerprint.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE event_type='device.admin_recovered' AND license_id=?").get(stored.license_id).count), 1,
+      "A rejected legacy recovery attempt must not create a successful-recovery audit event.");
+
+    const legacyDeviceStatus = await request(worker, env, "/api/licenses/device-status", "POST", {
+      licenseId: stored.license_id,
+      deviceType: "phone",
+      installationId: legacyInstallationId,
+      keyFingerprint: "a".repeat(64),
+      deviceSignature: "A".repeat(344)
+    });
+    assert.equal(legacyDeviceStatus.status, 200);
+    assert.deepEqual(await legacyDeviceStatus.json(), { ok: true, valid: false },
+      "A legacy slot without a registered public key must not receive a device-bound entitlement or offline lease.");
+    const unchangedLegacyAfterStatus = db.prepare("SELECT revoked_at, public_key_pem, key_fingerprint FROM license_device_slots WHERE license_id=? AND device_type='phone' AND installation_id=?")
+      .get(stored.license_id, legacyInstallationId);
+    assert.deepEqual(unchangedLegacyAfterStatus, unchangedLegacySlot,
+      "A failed legacy device-status check must leave the legacy slot unchanged.");
+
+    // Supervised legacy migration: admin step-up + school-record attestation + fresh device PoP.
+    const legacyLicense = db.prepare("SELECT student_id, grade_id, academic_year, valid_from, valid_until, status FROM licenses WHERE license_id=?").get(stored.license_id);
+    const legacyStudentBefore = db.prepare("SELECT status, grade_id, activation_status FROM student_accounts WHERE student_id=?").get(legacyLicense.student_id);
+    const legacyLicenseBefore = { ...legacyLicense };
+    const migrationAdminPayload = {
+      licenseId: stored.license_id, studentId: legacyLicense.student_id,
+      gradeId: legacyLicense.grade_id, academicYear: legacyLicense.academic_year,
+      deviceType: "phone", installationId: legacyInstallationId,
+      identityVerified: true, verificationReason: "پرونده رسمی دانش‌آموز با حضور مدیر تطبیق داده شد"
+    };
+    const migrationChallengeCount = Number(db.prepare("SELECT COUNT(*) AS count FROM legacy_device_migration_challenges").get().count);
+    const unauthenticatedMigrationChallenge = await worker.fetch(new Request("https://api.example.test/api/admin/legacy-device-migration/challenge", {
+      method: "POST", headers: { "content-type": "application/json", origin: env.ADMIN_ORIGIN },
+      body: JSON.stringify({ ...migrationAdminPayload, adminPassword: env.ADMIN_PASSWORD })
+    }), env);
+    assert.equal(unauthenticatedMigrationChallenge.status, 401,
+      "Legacy migration challenge issuance must require an authenticated admin session before step-up.");
+    const crossOriginMigrationChallenge = await worker.fetch(new Request("https://api.example.test/api/admin/legacy-device-migration/challenge", {
+      method: "POST", headers: { "content-type": "application/json", origin: "https://attacker.example", cookie: adminCookie },
+      body: JSON.stringify({ ...migrationAdminPayload, adminPassword: env.ADMIN_PASSWORD })
+    }), env);
+    assert.equal(crossOriginMigrationChallenge.status, 403,
+      "Legacy migration challenge issuance must reject an untrusted Origin even with a valid admin session.");
+    const simpleContentTypeMigrationChallenge = await worker.fetch(new Request("https://api.example.test/api/admin/legacy-device-migration/challenge", {
+      method: "POST", headers: { "content-type": "text/plain", origin: env.ADMIN_ORIGIN, cookie: adminCookie },
+      body: JSON.stringify({ ...migrationAdminPayload, adminPassword: env.ADMIN_PASSWORD })
+    }), env);
+    assert.equal(simpleContentTypeMigrationChallenge.status, 415,
+      "Legacy migration challenge issuance must reject simple content types.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM legacy_device_migration_challenges").get().count), migrationChallengeCount,
+      "Unauthenticated, cross-origin, and simple-content-type requests must not create migration challenges.");
+    const deniedMigrationChallenge = await worker.fetch(new Request("https://api.example.test/api/admin/legacy-device-migration/challenge", {
+      method: "POST", headers: { "content-type": "application/json", origin: env.ADMIN_ORIGIN, cookie: adminCookie },
+      body: JSON.stringify({ ...migrationAdminPayload, adminPassword: "wrong-password" })
+    }), env);
+    assert.equal(deniedMigrationChallenge.status, 401, "Legacy migration challenge must require admin password step-up.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM legacy_device_migration_challenges").get().count), migrationChallengeCount,
+      "Failed admin step-up must not create a migration challenge.");
+    const missingAttestation = await worker.fetch(new Request("https://api.example.test/api/admin/legacy-device-migration/challenge", {
+      method: "POST", headers: { "content-type": "application/json", origin: env.ADMIN_ORIGIN, cookie: adminCookie },
+      body: JSON.stringify({ ...migrationAdminPayload, identityVerified: false, adminPassword: env.ADMIN_PASSWORD })
+    }), env);
+    assert.equal(missingAttestation.status, 400, "Migration must require an explicit independent school-record verification attestation.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM legacy_device_migration_challenges").get().count), migrationChallengeCount,
+      "Missing identity attestation must not create a migration challenge.");
+
+    async function issueLegacyMigrationChallenge(payload) {
+      return worker.fetch(new Request("https://api.example.test/api/admin/legacy-device-migration/challenge", {
+        method: "POST", headers: { "content-type": "application/json", origin: env.ADMIN_ORIGIN, cookie: adminCookie },
+        body: JSON.stringify({ ...payload, adminPassword: env.ADMIN_PASSWORD })
+      }), env);
+    }
+    const wrongStudentChallenge = await issueLegacyMigrationChallenge({ ...migrationAdminPayload, studentId: "different-student" });
+    assert.equal(wrongStudentChallenge.status, 409, "A challenge must not be issued for a mismatched student.");
+    const wrongGradeChallenge = await issueLegacyMigrationChallenge({ ...migrationAdminPayload, gradeId: "grade5" });
+    assert.equal(wrongGradeChallenge.status, 409, "A challenge must not be issued for a mismatched grade.");
+
+    function makeMigrationProof(challenge, keyPair) {
+      const der = keyPair.publicKey.export({ type: "spki", format: "der" });
+      const fingerprint = crypto.createHash("sha256").update(der).digest("hex");
+      const proof = {
+        purpose: "tahouri-legacy-device-migration-v1",
+        challengeId: challenge.challengeId, nonce: challenge.nonce,
+        licenseId: challenge.licenseId, studentId: challenge.studentId,
+        gradeId: challenge.gradeId, academicYear: challenge.academicYear,
+        deviceType: challenge.deviceType, installationId: challenge.installationId,
+        keyFingerprint: fingerprint, expiresAt: challenge.expiresAt
+      };
+      return {
+        challengeId: challenge.challengeId, nonce: challenge.nonce,
+        devicePublicKeyPem: keyPair.publicKey.export({ type: "spki", format: "pem" }),
+        deviceSignature: crypto.sign("RSA-SHA256", Buffer.from(JSON.stringify(proof)), keyPair.privateKey).toString("base64")
+      };
+    }
+
+    const expiredChallengeResponse = await issueLegacyMigrationChallenge(migrationAdminPayload);
+    assert.equal(expiredChallengeResponse.status, 201, "Admin must issue a short-lived challenge for an exact keyless legacy slot.");
+    const expiredChallenge = await expiredChallengeResponse.json();
+    db.prepare("UPDATE legacy_device_migration_challenges SET expires_at=? WHERE challenge_id=?")
+      .run(new Date(Date.now() - 1000).toISOString(), expiredChallenge.challengeId);
+    const expiredKeyPair = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
+    const expiredClaim = await request(worker, env, "/api/licenses/legacy-migration/claim", "POST",
+      makeMigrationProof({ ...expiredChallenge, expiresAt: expiredChallenge.expiresAt }, expiredKeyPair));
+    assert.equal(expiredClaim.status, 409, "Expired migration challenges must be rejected.");
+
+    const validChallengeResponse = await issueLegacyMigrationChallenge(migrationAdminPayload);
+    assert.equal(validChallengeResponse.status, 201);
+    const validChallenge = await validChallengeResponse.json();
+    const preparedMigration = await request(worker, env,
+      "/api/licenses/legacy-migration/prepare", "POST", { transferCode: validChallenge.transferCode });
+    assert.equal(preparedMigration.status, 200,
+      "The one-time transfer code must resolve to its server-held challenge.");
+    const preparedMigrationBody = await preparedMigration.json();
+    assert.equal(preparedMigrationBody.challengeId, validChallenge.challengeId);
+    assert.equal(preparedMigrationBody.installationId, validChallenge.installationId);
+    assert.equal(preparedMigrationBody.studentId, validChallenge.studentId);
+    const crossOriginPrepare = await request(worker, env,
+      "/api/licenses/legacy-migration/prepare", "POST",
+      { transferCode: validChallenge.transferCode }, "https://attacker.example");
+    assert.equal(crossOriginPrepare.status, 403,
+      "Transfer-code preparation must reject untrusted application Origins.");
+    const invalidTransferCode = await request(worker, env,
+      "/api/licenses/legacy-migration/prepare", "POST", { transferCode: "not-a-valid-code" });
+    assert.equal(invalidTransferCode.status, 400,
+      "Malformed transfer codes must be rejected.");
+    const unknownTransferCode = await request(worker, env,
+      "/api/licenses/legacy-migration/prepare", "POST", { transferCode: "f".repeat(64) });
+    assert.equal(unknownTransferCode.status, 409,
+      "Unknown transfer codes must not disclose challenge details.");
+    const expiredTransferCode = await request(worker, env,
+      "/api/licenses/legacy-migration/prepare", "POST", { transferCode: expiredChallenge.transferCode });
+    assert.equal(expiredTransferCode.status, 409,
+      "Expired transfer codes must be rejected before proof submission.");
+    const migrationKeyPair = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
+    const migrationProof = makeMigrationProof(validChallenge, migrationKeyPair);
+    const forgedKeyPair = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
+    const forgedProof = makeMigrationProof(validChallenge, forgedKeyPair);
+    const invalidProof = await request(worker, env, "/api/licenses/legacy-migration/claim", "POST",
+      { ...migrationProof, deviceSignature: forgedProof.deviceSignature });
+    assert.equal(invalidProof.status, 401, "A signature from a different private key must not claim the legacy slot.");
+    assert.equal(db.prepare("SELECT public_key_pem FROM license_device_slots WHERE license_id=? AND device_type='phone' AND installation_id=?")
+      .get(stored.license_id, legacyInstallationId).public_key_pem, null,
+      "Invalid proof must leave the legacy slot keyless.");
+
+    const legacyMigrationResults = await Promise.all([
+      request(worker, env, "/api/licenses/legacy-migration/claim", "POST", migrationProof),
+      request(worker, env, "/api/licenses/legacy-migration/claim", "POST", migrationProof)
+    ]);
+    const legacyMigrationStatuses = legacyMigrationResults.map(response => response.status).sort((a,b) => a-b);
+    assert.deepEqual(legacyMigrationStatuses, [200, 409],
+      "Concurrent claims against one legacy migration challenge must allow exactly one winner.");
+    const replayedPrepare = await request(worker, env,
+      "/api/licenses/legacy-migration/prepare", "POST",
+      { transferCode: validChallenge.transferCode });
+    assert.equal(replayedPrepare.status, 409,
+      "A consumed transfer code must not resolve to a reusable challenge.");
+    const migratedResponse = legacyMigrationResults.find(response => response.status === 200);
+    const migratedBody = await migratedResponse.json();
+    assert.equal(migratedBody.status, "migrated");
+    assert.equal(migratedBody.entitlement.claims.deviceKeyFingerprint,
+      crypto.createHash("sha256").update(migrationKeyPair.publicKey.export({ type: "spki", format: "der" })).digest("hex"));
+    assert(migratedBody.entitlement.claims.offlineLeaseExpiresAt, "Successful migration must issue a fresh signed offline lease.");
+    const migratedSlot = db.prepare("SELECT public_key_pem, key_fingerprint, revoked_at FROM license_device_slots WHERE license_id=? AND device_type='phone' AND installation_id=?")
+      .get(stored.license_id, legacyInstallationId);
+    assert.equal(migratedSlot.public_key_pem, migrationKeyPair.publicKey.export({ type: "spki", format: "pem" }).trim());
+    assert.equal(migratedSlot.revoked_at, null);
+    assert.equal(db.prepare("SELECT revoked_at FROM license_device_slots WHERE license_id=? AND device_type='computer' AND revoked_at IS NULL")
+      .get(stored.license_id).revoked_at, null, "Migration must preserve the complementary computer slot.");
+    assert.deepEqual(db.prepare("SELECT status, grade_id, activation_status FROM student_accounts WHERE student_id=?")
+      .get(legacyLicense.student_id), legacyStudentBefore, "Migration must not mutate student identity or activation status.");
+    const legacyLicenseAfter = db.prepare("SELECT student_id, grade_id, academic_year, valid_from, valid_until, status FROM licenses WHERE license_id=?")
+      .get(stored.license_id);
+    for (const field of ["student_id", "grade_id", "academic_year", "valid_from", "valid_until", "status"]) {
+      assert.equal(legacyLicenseAfter[field], legacyLicenseBefore[field],
+        "Migration must preserve the existing license field: " + field);
+    }
+    const migrationAudit = db.prepare("SELECT metadata_json FROM audit_log WHERE event_type='device.legacy_migrated' AND license_id=?")
+      .get(stored.license_id);
+    assert(migrationAudit, "Successful migration must write an audit event.");
+    const migrationAuditText = migrationAudit.metadata_json;
+    assert(!migrationAuditText.includes(validChallenge.nonce) && !migrationAuditText.includes(migrationProof.devicePublicKeyPem),
+      "Migration audit must not contain raw nonce or public-key material.");
+    const activeSlotConflict = await issueLegacyMigrationChallenge(migrationAdminPayload);
+    assert.equal(activeSlotConflict.status, 409, "Migration must never overwrite an already key-bound active slot.");
+
+    // The no-existing-slot path is also one-time and concurrency safe.
+    const noSlotStudent = "migration-student-no-slot";
+    const noSlotLicense = "lic_migration_no_slot";
+    const migrationNow = new Date();
+    db.prepare("INSERT INTO student_accounts (student_id, full_name, grade_id, status, created_at, updated_at) VALUES (?, ?, 'grade6', 'active', ?, ?)")
+      .run(noSlotStudent, "دانش‌آموز مهاجرت آزمایشی", migrationNow.toISOString(), migrationNow.toISOString());
+    db.prepare("INSERT INTO licenses (license_id, product_id, student_id, grade_id, academic_year, valid_from, valid_until, installation_binding, status, entitlement_json, created_at) VALUES (?, 'tahouri-edu', ?, 'grade6', ?, ?, ?, ?, 'active', '{}', ?)")
+      .run(noSlotLicense, noSlotStudent, String(year), new Date(Date.now()-60000).toISOString(),
+        new Date(Date.now()+86400000).toISOString(), "legacy-no-slot-install", migrationNow.toISOString());
+    const noSlotPayload = {
+      licenseId: noSlotLicense, studentId: noSlotStudent, gradeId: "grade6",
+      academicYear: String(year), deviceType: "computer",
+      installationId: "migration-new-computer",
+      identityVerified: true, verificationReason: "پرونده رسمی دانش‌آموز با حضور مدیر تطبیق داده شد"
+    };
+    const noSlotChallengeResponse = await issueLegacyMigrationChallenge(noSlotPayload);
+    assert.equal(noSlotChallengeResponse.status, 201, "Admin must be able to issue a challenge when no slot row exists.");
+    const noSlotChallenge = await noSlotChallengeResponse.json();
+    const noSlotKeyPair = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
+    const noSlotProof = makeMigrationProof(noSlotChallenge, noSlotKeyPair);
+    const noSlotClaims = await Promise.all([
+      request(worker, env, "/api/licenses/legacy-migration/claim", "POST", noSlotProof),
+      request(worker, env, "/api/licenses/legacy-migration/claim", "POST", noSlotProof)
+    ]);
+    assert.deepEqual(noSlotClaims.map(response => response.status).sort((a,b) => a-b), [200, 409],
+      "Concurrent no-slot migration claims must create exactly one active device slot.");
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM license_device_slots WHERE license_id=? AND device_type='computer' AND revoked_at IS NULL")
+      .get(noSlotLicense).count), 1);
+    assert.equal(Number(db.prepare("SELECT COUNT(*) AS count FROM legacy_device_migration_challenges WHERE challenge_id=? AND consumed_at IS NOT NULL")
+      .get(noSlotChallenge.challengeId).count), 1, "Successful migration must consume its challenge exactly once.");
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const deniedStepUp = await worker.fetch(new Request("https://api.example.test/api/admin/legacy-device-migration/challenge", {
+        method: "POST", headers: { "content-type": "application/json", origin: env.ADMIN_ORIGIN, cookie: adminCookie },
+        body: JSON.stringify({ ...migrationAdminPayload, identityVerified: true, adminPassword: "incorrect-step-up-" + attempt })
+      }), env);
+      assert.equal(deniedStepUp.status, 401, "Incorrect migration step-up passwords must be rejected.");
+    }
+    const rateLimitedStepUp = await worker.fetch(new Request("https://api.example.test/api/admin/legacy-device-migration/challenge", {
+      method: "POST", headers: { "content-type": "application/json", origin: env.ADMIN_ORIGIN, cookie: adminCookie },
+      body: JSON.stringify({ ...migrationAdminPayload, identityVerified: true, adminPassword: "incorrect-step-up-final" })
+    }), env);
+    assert.equal(rateLimitedStepUp.status, 429, "Repeated failed migration step-up attempts must be rate-limited.");
 
     const status = await request(worker, env, "/api/licenses/status?licenseId=" + encodeURIComponent(stored.license_id), "GET");
     assert.equal(status.status, 200);
@@ -703,7 +1862,7 @@ async function main() {
         "Worker activation endpoint did not enforce its per-IP rate limit.");
 
     db.close();
-    console.log("Cloudflare Worker activation integration test: PASS");
+    console.log("Cloudflare Worker activation + device slot listing + revocation integration test: PASS");
 }
 main().catch(error => {
     console.error("Cloudflare Worker activation integration test: FAIL", error);

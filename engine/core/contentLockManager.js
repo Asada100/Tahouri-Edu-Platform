@@ -16,7 +16,8 @@ const ContentLockManager = {
     defaultLocks: {},
 
     BASE_STORAGE_KEY: "Tahouri_ContentLocks",
-    MIGRATION_KEY_PREFIX: "Tahouri_ContentLocks_ProfileMigration_v1:",
+    LEGACY_ARCHIVE_KEY: "Tahouri_ContentLocks_LegacyArchive_v1",
+    LEGACY_MIGRATION_STATE_KEY: "Tahouri_ContentLocks_LegacyMigrationState_v1",
 
     currentStorageKey: null,
     ready: false,
@@ -31,12 +32,6 @@ const ContentLockManager = {
         }
 
         return ProfileContext.key(this.BASE_STORAGE_KEY);
-    },
-
-    getMigrationKey: function (profileKey) {
-        return profileKey
-            ? this.MIGRATION_KEY_PREFIX + String(profileKey)
-            : null;
     },
 
     init: function () {
@@ -133,44 +128,56 @@ const ContentLockManager = {
         }
     },
 
-    migrateLegacyLocks: function (profileKey) {
-        if (!profileKey) return;
-
-        const migrationKey = this.getMigrationKey(profileKey);
-        if (localStorage.getItem(migrationKey) === "true") return;
+    migrateLegacyLocks: function () {
+        // An unscoped legacy payload has no reliable student owner. Never
+        // attach it to whichever profile happens to be active at startup.
+        // Preserve it for an authenticated recovery decision instead.
+        if (localStorage.getItem(this.LEGACY_MIGRATION_STATE_KEY)) return;
 
         const legacy = localStorage.getItem(this.BASE_STORAGE_KEY);
-        if (!legacy) return;
-
-        if (localStorage.getItem(profileKey) !== null) {
-            localStorage.setItem(migrationKey, "true");
-            return;
-        }
+        if (legacy === null) return;
 
         try {
-            const parsed = JSON.parse(legacy);
-
-            if (
-                parsed &&
-                typeof parsed === "object" &&
-                !Array.isArray(parsed)
-            ) {
-                localStorage.setItem(profileKey, legacy);
-                localStorage.setItem(migrationKey, "true");
-
-                console.log(
-                    "Legacy Content Locks Migrated To Active Profile"
+            const archived = localStorage.getItem(this.LEGACY_ARCHIVE_KEY);
+            if (archived === null) {
+                localStorage.setItem(this.LEGACY_ARCHIVE_KEY, legacy);
+            } else if (archived !== legacy) {
+                localStorage.setItem(
+                    this.LEGACY_MIGRATION_STATE_KEY,
+                    JSON.stringify({
+                        version: 1,
+                        status: "archive_conflict",
+                        reason: "existing_archive_differs_from_legacy_source"
+                    })
                 );
+                return;
             }
-        }
-        catch (error) {
-            console.error(
-                "Legacy Content Locks Migration Error",
-                error
+
+            let status = "quarantined";
+            let reason = "legacy_owner_unverified";
+            try {
+                const legacyLocks = JSON.parse(legacy);
+                if (!legacyLocks || typeof legacyLocks !== "object" || Array.isArray(legacyLocks)) {
+                    status = "invalid_legacy_data";
+                    reason = "legacy_payload_must_be_an_object";
+                }
+            } catch (_) {
+                status = "invalid_legacy_data";
+                reason = "legacy_payload_is_not_valid_json";
+            }
+
+            // The source and archive remain untouched. A later profile must
+            // not consume this payload until ownership is explicitly proven.
+            localStorage.setItem(
+                this.LEGACY_MIGRATION_STATE_KEY,
+                JSON.stringify({ version: 1, status: status, reason: reason })
             );
+        } catch (error) {
+            // If archival/decision persistence fails, leave the source intact
+            // and retry on a later initialization; never guess an owner.
+            console.error("Legacy Content Locks Quarantine Error", error);
         }
     },
-
     applyProfileLocks: function () {
         const key = this.getStorageKey();
 

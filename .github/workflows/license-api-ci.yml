@@ -11,6 +11,13 @@ on:
       - "engine/core/tahouriEntitlementVerifier.js"
       - "engine/core/tahouriServiceConfig.js"
       - "index.html"
+      - "engine/core/tahouriDeviceIdentity.js"
+      - "engine/core/studentDataTransfer.js"
+      - "engine/core/statisticsManager.js"
+      - "engine/core/studentLearningSync.js"
+      - "engine/core/tahouriDeviceIdentity-test.html"
+      - "services/license-api/device-identity-test-server.mjs"
+      - ".github/scripts/device-identity-browser-test.js"
       - ".github/workflows/license-api-ci.yml"
   pull_request:
     paths:
@@ -21,6 +28,9 @@ on:
       - "index.html"
       - "engine/core/tahouriEntitlementVerifier.js"
       - "engine/core/tahouriServiceConfig.js"
+      - "engine/core/studentDataTransfer.js"
+      - "engine/core/statisticsManager.js"
+      - "engine/core/studentLearningSync.js"
       - ".github/workflows/license-api-ci.yml"
 
 permissions:
@@ -55,10 +65,13 @@ jobs:
       - name: Cloudflare Worker student registry and bound activation test
         run: node worker-activation-test.js
 
+      - name: Local HTTP Worker route end-to-end test
+        run: node worker-http-e2e-test.mjs
+
       - name: Install isolated browser test runner
         run: |
           npm install --no-save --package-lock=false --ignore-scripts playwright@1.65.1
-          npx playwright install --with-deps chromium
+          npx playwright install chromium
 
       - name: Admin browser end-to-end import and activation test
         run: |
@@ -73,8 +86,33 @@ jobs:
           done
           node admin-browser-e2e-test.mjs
 
+
+      - name: Device identity cryptographic browser test
+        run: |
+          node device-identity-test-server.mjs > "$RUNNER_TEMP/device-identity-server.log" 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if node -e 'fetch("http://127.0.0.1:4173/test").then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))'; then
+              break
+            fi
+            sleep 1
+          done
+          NODE_PATH="$PWD/node_modules" node ../../.github/scripts/device-identity-browser-test.js
       - name: Client license safety test
         run: node client-license-safety-test.js
+
+      - name: Client legacy migration behavior test
+        run: node client-legacy-migration-test.js
+
+      - name: Content-lock legacy migration ownership-safety regression
+        run: node content-lock-legacy-migration-reproduction-test.js
+
+      - name: Client-to-Worker legacy migration end-to-end test
+        run: npm run client-worker-migration-e2e-test
+
+      - name: Pairing result UI regression test
+        run: node license-screen-pairing-ui-test.js
 
       - name: Production entitlement public-key verification test
         run: npm run client-verifier-test
@@ -93,6 +131,20 @@ jobs:
 
       - name: Client-to-profile activation flow test
         run: npm run client-profile-activation-test
+
+      - name: Profile legacy migration handoff behavior test
+        run: node profile-legacy-migration-handoff-test.js
+
+      - name: Activity session portability contract test
+        run: node activity-session-contract-test.js
+
+      - name: Student learning data portability regression test
+        run: node student-data-transfer-test.js
+
+      - name: Student learning sync diagnostics regression test
+        run: npm run student-learning-sync-diagnostics-test
+      - name: Reports refresh after student sync regression
+        run: node reports-screen-sync-refresh-test.js
 
       - name: Integration test
         run: npm run integration-test

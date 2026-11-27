@@ -24,6 +24,8 @@
     "client-verifier-test": "node client-entitlement-verifier-test.js",
     "client-profile-activation-test": "node client-profile-activation-test.js",
     "production-readiness-smoke": "node production-readiness-smoke-test.mjs",
-    "production-public-key-pin-test": "node production-public-key-pin-test.mjs"
+    "production-public-key-pin-test": "node production-public-key-pin-test.mjs",
+    "client-worker-migration-e2e-test": "node client-worker-legacy-migration-e2e-test.js",
+    "student-learning-sync-diagnostics-test": "node student-learning-sync-diagnostics-test.js"
   }
 }
