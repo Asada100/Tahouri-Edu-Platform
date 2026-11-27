@@ -197,6 +197,7 @@
     // R8 loads the actual WordPuzzleEngine and exercises the real manager restore branch.
     activity.engine="WordPuzzleEngine";
     const wordPuzzleEngine=window.WordPuzzleEngine;
+    window.EngineManager={getEngine(name){return name==="WordPuzzleEngine"?wordPuzzleEngine:null;}};
     wordPuzzleEngine.activity={id:"old-word-puzzle"};
     wordPuzzleEngine.state={started:false,finished:false,round:0,total:1,correct:0,wrong:0,score:0,foundWords:[]};
     wordPuzzleEngine.round={type:"old-round",words:[]};
