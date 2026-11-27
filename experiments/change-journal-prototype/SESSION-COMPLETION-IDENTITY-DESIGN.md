@@ -395,3 +395,32 @@ Required acceptance cases before runtime integration:
 5. Matching snapshot must be tested through manager validation and manager restore dispatch, not only its engine methods.
 
 This is a confirmed source finding, not yet a runtime patch. No runtime, Worker, D1, or production files were changed.
+
+
+
+## 13. Full runtime side-effect diagnostic — 2026-11-27
+
+The updated browser diagnostic was run against the actual active `ActivitySessionManager` source at commit `4eadb4537902c515e45c214fd6f5544f802f5179`. CI run `46066909145` completed successfully. Its meaning is that all three expected defects were reproduced, not that runtime acceptance passed.
+
+The third case now observes the complete externally visible failure after `restoreEngine()` succeeds but `SaveManager.save()` returns false:
+
+- `resume()` still returns true and mutates the in-memory session status to `active`.
+- The persisted snapshot remains `resumable`.
+- `gameplayActive` becomes true and the body receives `activity-playing`.
+- `ActivityManager.currentActivity` is published.
+- `ActivityState` is advanced to `playing`.
+- `activityResumed` is emitted once.
+
+The diagnostic confirms that the isolated `sessionResumeTransaction` prototype passing 6/6 is not yet evidence that the active manager is protected. The prototype is not wired into the manager and its hooks do not automatically reverse every side effect performed inside the real engine restore branches.
+
+### Required integration design before any runtime patch
+
+1. Treat engine restoration, UI rendering, activity activation, exit-control installation, persistence, and event publication as one transaction with explicit prepare/commit boundaries.
+2. Do not emit `activityResumed` or expose a committed active session until the durable snapshot has been saved and read back successfully.
+3. Inventory and capture/restore each engine branch's effects: engine fields, ScoreManager, screen DOM, puzzle/Jigsaw facade state, ActivityManager.currentActivity, ActivityState, body classes, exit controls/overlays, and any other global state touched by activation.
+4. Do not assume an emitted event can be rolled back. Defer irreversible notifications until after durable commit; consumers must not observe a resume that later rolls back.
+5. A failed durable write must leave the previous raw snapshot recoverable. A second write to the same failed storage backend is not a sufficient rollback guarantee; choose a staging/backup/transaction strategy and test failure at each boundary.
+6. Add integration tests using the actual manager and actual restore dispatch for every supported engine family, with narrowly controlled adapters only for external dependencies. Include false restore, thrown restore, save false/throw, read-back mismatch, and failures during rollback.
+7. Keep MatchingEngine and CompositeActivityEngine explicitly outside the supported-resume claim until manager validation and dispatch tests exist.
+
+**Current gate:** the three runtime resume defects are now reproduced with their full observed side effects. The isolated rollback prototype passes 6/6, but no actual runtime fix or end-to-end transactional restore has been implemented. Runtime, Worker, D1, and production remain unchanged.
