@@ -1,21 +1,36 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>Session Persistence and Migration Diagnostics</title></head>
-<body><h1>Session Persistence and Migration Diagnostics</h1><p id="summary">running</p><ol id="results"></ol>
+<html lang="en"><head><meta charset="utf-8"><title>Session Persistence Acceptance Diagnostics</title></head>
+<body><h1>Session Persistence Acceptance Diagnostics</h1><p id="summary">running</p><ol id="results"></ol>
 <script>
 (function () {
   const store = new Map();
   let profileId = "SYNTHETIC_PROFILE_A";
   let failWrites = false;
+  let corruptReadBack = false;
   window.ProfileContext = { key(base) { return profileId ? base + ":" + profileId : null; }, getStudentId() { return profileId; } };
   window.SaveManager = {
-    load(key) { return store.has(key) ? JSON.parse(JSON.stringify(store.get(key))) : null; },
-    save(key, value) { if (failWrites || !key) return false; store.set(key, JSON.parse(JSON.stringify(value))); return true; },
+    load(key) {
+      if (!store.has(key)) return null;
+      const raw = store.get(key);
+      if (corruptReadBack && key === "Tahouri_ActivitySession:SYNTHETIC_PROFILE_A") return null;
+      return typeof raw === "string" ? JSON.parse(raw) : JSON.parse(JSON.stringify(raw));
+    },
+    save(key, value) {
+      if (failWrites || !key) return false;
+      store.set(key, JSON.stringify(value));
+      return true;
+    },
     remove(key) { if (!key) return false; store.delete(key); return true; }
   };
   window.EventManager = { on() {}, emit() {} };
   document.addEventListener = function () {};
   window.addEventListener = function () {};
-  window.__diag = {store, setWriteFailure(value) { failWrites = value; }, setProfile(value) { profileId = value; }};
+  window.__diag = {
+    store,
+    setWriteFailure(value) { failWrites = value; },
+    setReadBackCorruption(value) { corruptReadBack = value; },
+    setProfile(value) { profileId = value; }
+  };
 })();
 </script>
 <script src="../../engine/activity/activitySessionManager.js"></script>
@@ -24,40 +39,65 @@
   const manager = window.ActivitySessionManager;
   const results = [];
   const activity = {id:"persistence-audit-activity",engine:"QuizEngine"};
+  const key = "Tahouri_ActivitySession:SYNTHETIC_PROFILE_A";
   function record(name, reproduced, detail) { results.push({name,reproduced,detail}); }
+  function unsupportedSnapshot() {
+    return {version:"1.9",schemaVersion:99,id:"legacy-unsupported-snapshot",profileId:"SYNTHETIC_PROFILE_A",activityId:activity.id,activityType:"QuizEngine",status:"resumable",engineState:{kind:"quiz",state:{},questions:[{id:"q1"}],currentQuestion:0}};
+  }
   try {
     manager.currentSession = null;
     window.__diag.setWriteFailure(true);
     const unsaved = manager.begin(activity);
-    const keyA = "Tahouri_ActivitySession:SYNTHETIC_PROFILE_A";
-    record("P1 failed storage write must not produce a resumable session", !!unsaved && !window.__diag.store.has(keyA) && manager.currentSession === unsaved,
-      "begin() returned an in-memory session and set currentSession although SaveManager.save returned false");
+    record("P1 storage write failure must reject session creation",
+      !!unsaved && manager.currentSession === unsaved && !window.__diag.store.has(key),
+      "begin() returned and published an in-memory session although SaveManager.save() returned false");
     manager.clear();
     window.__diag.setWriteFailure(false);
 
-    const key = "Tahouri_ActivitySession:SYNTHETIC_PROFILE_A";
-    const unsupported = {version:"1.9",schemaVersion:99,id:"legacy-unsupported-snapshot",profileId:"SYNTHETIC_PROFILE_A",activityId:activity.id,activityType:"QuizEngine",status:"resumable",engineState:{kind:"quiz",state:{},questions:[{id:"q1"}],currentQuestion:0}};
-    window.__diag.store.set(key, unsupported);
-    const rejected = manager.load(activity.id) === null;
-    const preservedAtLoad = window.__diag.store.get(key).id === unsupported.id;
+    const unsupported = unsupportedSnapshot();
+    window.__diag.store.set(key, JSON.stringify(unsupported));
     manager.currentSession = null;
+    const rejected = manager.load(activity.id) === null;
+    const preservedAtLoad = window.__diag.store.get(key) === JSON.stringify(unsupported);
     const fresh = manager.begin(activity);
-    const overwritten = window.__diag.store.get(key)?.id === fresh.id;
-    record("P2 unsupported stored schema must not be overwritten by fresh start", rejected && preservedAtLoad && overwritten,
-      "load() rejected but preserved the key; begin() then replaced the same key with a new session");
-
+    record("P2 unsupported schema must remain untouched on attempted fresh start",
+      rejected && preservedAtLoad && !!fresh && JSON.parse(window.__diag.store.get(key)).id === fresh.id,
+      "load() preserved the unsupported snapshot, but begin() overwrote it with a new session");
     manager.clear();
+
+    const malformedRaw = "{not-valid-json";
+    window.__diag.store.set(key, malformedRaw);
+    manager.currentSession = null;
+    const malformedRejected = manager.load(activity.id) === null;
+    const malformedPreservedAtLoad = window.__diag.store.get(key) === malformedRaw;
+    const afterMalformedBegin = manager.begin(activity);
+    record("P3 malformed JSON must remain untouched on attempted fresh start",
+      malformedRejected && malformedPreservedAtLoad && !!afterMalformedBegin && window.__diag.store.get(key) !== malformedRaw,
+      "load() treated malformed JSON as absent; begin() then replaced the original raw bytes");
+    manager.clear();
+
     window.__diag.setProfile(null);
+    manager.currentSession = null;
     const noProfile = manager.begin(activity);
-    record("P3 missing profile context must not create an in-memory session", !!noProfile && noProfile.profileId === null && !manager.storageKey(),
-      "begin() returned a session with null profileId although no profile-scoped storage key exists");
+    record("P4 missing profile must reject session creation",
+      !!noProfile && noProfile.profileId === null && manager.currentSession === noProfile,
+      "begin() created and published a session with null profileId despite having no scoped storage key");
+    window.__diag.setProfile("SYNTHETIC_PROFILE_A");
+    manager.currentSession = null;
+
+    window.__diag.setReadBackCorruption(true);
+    const readBack = manager.begin(activity);
+    record("P5 read-back failure must reject session creation",
+      !!readBack && manager.currentSession === readBack && window.__diag.store.has(key),
+      "begin() never verifies persisted data by reading it back; it accepted a session despite simulated read-back failure");
+    window.__diag.setReadBackCorruption(false);
   } catch (error) {
     results.push({name:"Harness execution",reproduced:false,detail:error.stack || error.message});
   }
   const list = document.querySelector("#results");
   results.forEach(item => { const li = document.createElement("li"); li.textContent = (item.reproduced ? "BLOCKER CONFIRMED — " : "NOT REPRODUCED — ") + item.name + " — " + item.detail; list.appendChild(li); });
   const reproduced = results.filter(x => x.reproduced).length;
-  document.querySelector("#summary").textContent = reproduced + "/" + results.length + " persistence/migration diagnostics reproduced";
+  document.querySelector("#summary").textContent = reproduced + "/" + results.length + " persistence failure diagnostics reproduced";
   window.__persistenceMigrationDiagnostic = {reproduced,total:results.length,results};
 })();
 </script></body></html>
