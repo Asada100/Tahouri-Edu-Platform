@@ -554,3 +554,25 @@ For each of the six supported families (Quiz, Memory, Puzzle, Dictation, WordPuz
 MatchingEngine and CompositeActivityEngine remain explicitly unsupported until their manager validation, dispatch, and adapter contracts are independently implemented and tested.
 
 **Implementation gate:** this inventory and contract are design-only. The next code task is to prototype one isolated adapter against one engine family and prove that preparation does not mutate live state. Do not edit the active manager or wire any adapter until the isolated proof and its failure tests pass, and the user explicitly approves runtime integration. No runtime, Worker, D1, or production files were changed.
+
+
+## 17. WordPuzzle isolated prepare adapter prototype — 2026-11-28
+
+Added `wordPuzzleRestoreAdapter.js` and `wordPuzzleRestoreAdapter.test.js` on the experiment branch. The test loads the actual `engine/wordPuzzle/wordPuzzleEngine.js` source in a Node VM and invokes its real `restoreSession()` method on a shadow instance.
+
+The adapter:
+- clones the candidate and the previous engine fields;
+- runs the actual restore method on an isolated shadow object;
+- suppresses `emitReady()` on that shadow so preparation emits no global `activityReady`;
+- exposes explicit `commit()` and `rollback()` operations for the live engine's `activity`, `state`, and `round`;
+- rejects invalid snapshots without touching the live engine.
+
+The four test assertions cover:
+1. preparation leaves the live engine unchanged and emits no lifecycle event;
+2. the prepared candidate is detached from subsequent caller mutation;
+3. explicit commit publishes the prepared state, without emitting a lifecycle event;
+4. rollback restores the previous engine fields, and invalid snapshots are rejected.
+
+**Scope limitation:** this is an engine-state adapter proof for WordPuzzle only. It does not stage the visible screen, ActivityManager, ActivityState, body classes, exit controls, storage write/read-back, or the manager's `activityResumed` event. It does not authorize integration into `ActivitySessionManager`. The next adapter must add detached screen preparation and must not use a shallow clone where engine methods share nested state or external dependencies.
+
+The workflow now runs this test as part of the experiment-branch CI. No active runtime, Worker, D1, or production files were changed.
