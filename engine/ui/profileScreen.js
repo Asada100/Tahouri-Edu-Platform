@@ -94,6 +94,13 @@ const ProfileScreen = {
         <button id="activateCurrentProfileBtn" type="button" hidden>🔐 فعال‌سازی این پروفایل</button>
     </section>
 
+    <section class="profile-license-panel" aria-labelledby="profileLearningSyncHeading">
+        <h2 id="profileLearningSyncHeading">🔄 همگام‌سازی گوشی و رایانه</h2>
+        <p id="profileLearningSyncStatus" aria-live="polite">در انتظار بررسی وضعیت همگام‌سازی...</p>
+        <p id="profileLearningSyncDetails"></p>
+        <button id="profileLearningSyncRetry" type="button">تلاش دوباره برای همگام‌سازی</button>
+    </section>
+
     <section id="legacyDeviceMigrationPanel" class="profile-license-panel" hidden aria-labelledby="legacyMigrationHeading">
         <h2 id="legacyMigrationHeading">🔄 تکمیل اتصال امن مجوز قدیمی</h2>
         <p>شناسه نصب زیر را به مدیر مدرسه بدهید. مدیر پس از تطبیق پرونده رسمی، یک چالش یک‌بارمصرف صادر می‌کند. کد انتقال یک‌بارمصرف را از مدیر مورد اعتماد دریافت و در کادر وارد کنید.</p>
@@ -188,8 +195,9 @@ const ProfileScreen = {
 
         this.bindSettings();
         this.refreshProfileLicenseStatus(profile);
+        this.bindLearningSyncStatus();
 
-        console.log("Profile Screen v5.2 Displayed:", profile);
+        console.log("Profile Screen v5.3 Displayed:", profile);
     },
 
     // =====================================
@@ -413,6 +421,58 @@ const ProfileScreen = {
             return manager.initializeRemoteEntitlement();
         }
         return false;
+    },
+
+    bindLearningSyncStatus: function () {
+        const statusElement = document.getElementById("profileLearningSyncStatus");
+        const detailsElement = document.getElementById("profileLearningSyncDetails");
+        const retryButton = document.getElementById("profileLearningSyncRetry");
+        if (!statusElement) return;
+
+        const render = function (status) {
+            const value = status || { state: "idle", message: "همگام‌سازی هنوز اجرا نشده است." };
+            const labels = {
+                idle: "هنوز همگام‌سازی اجرا نشده است.",
+                checking: "در حال بررسی مجوز و پروفایل...",
+                preparing: "مجوز تأیید شد؛ داده‌ها آماده می‌شوند.",
+                requesting: "درخواست به سرور ارسال شد؛ منتظر پاسخ...",
+                uploading: "در حال ارسال اطلاعات به سرور...",
+                merging: "در حال تطبیق اطلاعات دو دستگاه...",
+                synced: "✓ همگام‌سازی با موفقیت تأیید شد.",
+                offline: "اتصال اینترنت برقرار نیست؛ اطلاعات محلی حفظ شده‌اند.",
+                error: "همگام‌سازی با خطا متوقف شد؛ اطلاعات محلی حفظ شده‌اند."
+            };
+            statusElement.textContent = value.message || labels[value.state] || "وضعیت همگام‌سازی مشخص نیست.";
+            if (detailsElement) {
+                const details = value.details || {};
+                const parts = [];
+                if (Number.isFinite(Number(details.revision))) parts.push("نسخه سرور: " + Number(details.revision));
+                if (Number.isFinite(Number(details.remoteRevision))) parts.push("نسخه دریافتی: " + Number(details.remoteRevision));
+                if (Number.isFinite(Number(details.httpStatus)) && Number(details.httpStatus) > 0) {
+                    parts.push("کد پاسخ سرور: " + Number(details.httpStatus));
+                }
+                if (value.at) parts.push("آخرین بررسی: " + new Date(value.at).toLocaleTimeString("fa-IR"));
+                detailsElement.textContent = parts.join(" · ");
+            }
+        };
+
+        const sync = window.StudentLearningSync;
+        render(sync && typeof sync.getStatus === "function" ? sync.getStatus() : null);
+        if (window.EventManager && typeof window.EventManager.on === "function") {
+            window.EventManager.on("studentLearningSyncStatus", render);
+        }
+        if (retryButton) {
+            retryButton.onclick = function () {
+                if (!window.StudentLearningSync || typeof window.StudentLearningSync.syncNow !== "function") {
+                    render({ state: "error", message: "ماژول همگام‌سازی در این نسخه بارگذاری نشده است." });
+                    return;
+                }
+                retryButton.disabled = true;
+                window.StudentLearningSync.syncNow().catch(() => {}).finally(() => {
+                    retryButton.disabled = false;
+                });
+            };
+        }
     },
 
     refreshProfileLicenseStatus: async function (profile) {
