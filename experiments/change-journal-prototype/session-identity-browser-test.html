@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Session Identity Browser Tests</title></head>
+<body>
+<h1>Session Identity Browser Tests</h1>
+<p id="summary">running</p><ol id="results"></ol>
+<script src="./sessionIdentity.js"></script>
+<script>
+(async function () {
+  const lines = [];
+  let passed = 0;
+  function check(name, fn) {
+    try { fn(); passed++; lines.push("PASS — " + name); }
+    catch (error) { lines.push("FAIL — " + name + ": " + error.message); }
+  }
+  const api = window.TahouriExperimentalSessionIdentity;
+  check("real browser Web Crypto generates UUID v4", function () {
+    const id = api.createSessionIdentityGenerator(window.crypto)();
+    if (!/^activity-session-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(id)) throw new Error("invalid UUID: " + id);
+  });
+  check("same-millisecond attempts receive distinct cryptographic IDs", function () {
+    const generate = api.createSessionIdentityGenerator(window.crypto);
+    const ids = new Set(Array.from({length: 1000}, () => generate()));
+    if (ids.size !== 1000) throw new Error("collision among 1000 IDs: " + ids.size);
+  });
+  check("getRandomValues compatibility fallback sets UUID v4 bits", function () {
+    const generate = api.createSessionIdentityGenerator({getRandomValues(bytes) { bytes.fill(0); bytes[0] = 0xab; return bytes; }});
+    if (generate() !== "activity-session-ab000000-0000-4000-8000-000000000000") throw new Error("fallback formatting/bit flags incorrect");
+  });
+  check("absence of secure randomness fails closed", function () {
+    let threw = false;
+    try { api.createSessionIdentityGenerator({})(); } catch (_) { threw = true; }
+    if (!threw) throw new Error("generator accepted missing secure randomness");
+  });
+  check("invalid randomUUID is rejected without insecure fallback", function () {
+    let threw = false;
+    try { api.createSessionIdentityGenerator({randomUUID() { return "bad"; },getRandomValues(bytes) { bytes.fill(1); return bytes; }})(); } catch (_) { threw = true; }
+    if (!threw) throw new Error("invalid randomUUID accepted");
+  });
+  document.querySelector("#results").innerHTML = lines.map(line => "<li></li>").join("");
+  [...document.querySelectorAll("#results li")].forEach((node,index) => node.textContent = lines[index]);
+  document.querySelector("#summary").textContent = passed + "/5 checks passed";
+  window.__sessionIdentityBrowserResult = {passed,total:5,lines};
+})();
+</script>
+</body></html>
