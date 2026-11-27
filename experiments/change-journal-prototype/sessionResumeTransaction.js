@@ -3,48 +3,53 @@
 function createSessionResumeTransaction(options) {
   const o=options||{};
   const clone=value=>JSON.parse(JSON.stringify(value));
+  const restoreRuntime=(snapshot)=>{
+    if(typeof o.restoreRuntimeState==="function")o.restoreRuntimeState(snapshot);
+  };
   async function resume(session) {
     if(!session||typeof session!=="object")return {ok:false,status:"invalid-session"};
     const previous={currentSession:o.getCurrentSession?o.getCurrentSession():null,
       restoringSession:o.getRestoringSession?o.getRestoringSession():false,
       gameplayActive:o.getGameplayActive?o.getGameplayActive():false};
-    let rollbackEngine;
-    try { rollbackEngine=typeof o.captureEngineState==="function"?o.captureEngineState():undefined; }
-    catch(error){return {ok:false,status:"capture-failed",error};}
+    let engineSnapshot,runtimeSnapshot,rawSnapshot;
+    try {
+      engineSnapshot=typeof o.captureEngineState==="function"?o.captureEngineState():undefined;
+      runtimeSnapshot=typeof o.captureRuntimeState==="function"?o.captureRuntimeState():undefined;
+      rawSnapshot=typeof o.capturePersistedSnapshot==="function"?o.capturePersistedSnapshot():undefined;
+    } catch(error){return {ok:false,status:"capture-failed",error};}
     const candidate=clone(session);
+    const rollback=()=>{
+      const failures=[];
+      try{if(o.rollbackEngineState)o.rollbackEngineState(engineSnapshot);}catch(error){failures.push({part:"engine",error});}
+      try{restoreRuntime(runtimeSnapshot);}catch(error){failures.push({part:"runtime",error});}
+      try{if(o.setCurrentSession)o.setCurrentSession(previous.currentSession);}catch(error){failures.push({part:"currentSession",error});}
+      try{if(o.setGameplayActive)o.setGameplayActive(previous.gameplayActive);}catch(error){failures.push({part:"gameplayActive",error});}
+      try{if(typeof o.restorePersistedSnapshot==="function"&&rawSnapshot!==undefined)o.restorePersistedSnapshot(rawSnapshot);}catch(error){failures.push({part:"persistedSnapshot",error});}
+      return failures;
+    };
     try {
       if(o.setRestoringSession)o.setRestoringSession(true);
       const restored=await o.restoreEngine(candidate);
       if(restored!==true) {
-        if(o.rollbackEngineState)o.rollbackEngineState(rollbackEngine);
-        if(o.setCurrentSession)o.setCurrentSession(previous.currentSession);
-        if(o.setGameplayActive)o.setGameplayActive(previous.gameplayActive);
-        return {ok:false,status:"restore-rejected"};
+        const failures=rollback();
+        return {ok:false,status:failures.length?"rollback-failed":"restore-rejected",rollbackFailures:failures};
       }
       candidate.status="active";
       let saved=false;
       try { saved=o.persistSession(candidate)===true; } catch(error) {
-        if(o.rollbackEngineState)o.rollbackEngineState(rollbackEngine);
-        if(o.setCurrentSession)o.setCurrentSession(previous.currentSession);
-        if(o.setGameplayActive)o.setGameplayActive(previous.gameplayActive);
-        return {ok:false,status:"persist-threw",error};
+        const failures=rollback();
+        return {ok:false,status:failures.length?"rollback-failed":"persist-threw",error,rollbackFailures:failures};
       }
       if(!saved) {
-        if(o.rollbackEngineState)o.rollbackEngineState(rollbackEngine);
-        if(o.setCurrentSession)o.setCurrentSession(previous.currentSession);
-        if(o.setGameplayActive)o.setGameplayActive(previous.gameplayActive);
-        return {ok:false,status:"persist-failed"};
+        const failures=rollback();
+        return {ok:false,status:failures.length?"rollback-failed":"persist-failed",rollbackFailures:failures};
       }
       if(o.setCurrentSession)o.setCurrentSession(clone(candidate));
       if(o.setGameplayActive)o.setGameplayActive(true);
       return {ok:true,status:"resumed",session:clone(candidate)};
     } catch(error) {
-      try { if(o.rollbackEngineState)o.rollbackEngineState(rollbackEngine); } catch(rollbackError) {
-        return {ok:false,status:"rollback-failed",error,rollbackError};
-      }
-      if(o.setCurrentSession)o.setCurrentSession(previous.currentSession);
-      if(o.setGameplayActive)o.setGameplayActive(previous.gameplayActive);
-      return {ok:false,status:"restore-threw",error};
+      const failures=rollback();
+      return {ok:false,status:failures.length?"rollback-failed":"restore-threw",error,rollbackFailures:failures};
     } finally {
       if(o.setRestoringSession)o.setRestoringSession(previous.restoringSession);
     }
