@@ -124,7 +124,7 @@
       ScoreManager.score===88 && memoryEngine.moves===4 && memoryEngine.finished===false;
     record("R5 real Memory restore branch leaks UI/score/activity when persistence fails",
       memoryReturned===true && memorySession.status==="active" && memoryPersisted.status==="resumable" && memoryLeaked,
-      "actual restoreEngine() rebuilt memory UI and engine state, changed score, activated activity, then resume() ignored failed durable write and emitted activityResumed");
+      "observed returned="+memoryReturned+", memoryStatus="+memorySession.status+", persistedStatus="+memoryPersisted.status+", gameplayActive="+manager.gameplayActive+", css="+document.body.classList.contains("activity-playing")+", currentActivity="+(ActivityManager.currentActivity===activity)+", activityState="+ActivityState.value+", events="+memoryEvents+", markup="+document.getElementById("app").innerHTML+", score="+ScoreManager.score+", moves="+memoryEngine.moves+", finished="+memoryEngine.finished);
     d.failSave=false;
   }catch(error){results.push({name:"Harness execution",reproduced:false,detail:error.stack||error.message});}
   const list=document.querySelector("#results");
