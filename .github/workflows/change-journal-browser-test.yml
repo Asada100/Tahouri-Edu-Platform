@@ -13,6 +13,7 @@ on:
     paths:
       - 'experiments/change-journal-prototype/**'
       - '.github/scripts/change-journal-browser-test.js'
+      - '.github/scripts/activity-session-identity-browser-test.js'
       - '.github/workflows/change-journal-browser-test.yml'
   workflow_dispatch:
 
@@ -37,3 +38,5 @@ jobs:
         run: node .github/scripts/storage-write-path-browser-test.js
       - name: Run activity session identity diagnostic
         run: node .github/scripts/activity-session-identity-browser-test.js
+      - name: Run isolated session identity generator tests
+        run: node experiments/change-journal-prototype/sessionIdentity.test.js
