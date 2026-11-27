@@ -263,7 +263,7 @@
       classificationReturned===true && classificationSession.status==="active" && classificationPersisted.status==="resumable" && classificationLeaked,
       "observed returned="+classificationReturned+", status="+classificationSession.status+", persisted="+classificationPersisted.status+", gameplayActive="+manager.gameplayActive+", css="+document.body.classList.contains("activity-playing")+", currentActivity="+(ActivityManager.currentActivity===classificationActivity)+", activityState="+ActivityState.value+", resumedEvents="+classificationEvents+", classifiedItems="+classificationEngine.state.classifiedItems+", score="+classificationEngine.state.score+", markup="+document.getElementById("app").innerHTML);
     d.failSave=false;
-  }catch(error){results.push({name:"Harness execution",reproduced:false,detail:error.stack||error.message});},reproduced:false,detail:error.stack||error.message});}
+  }catch(error){results.push({name:"Harness execution",reproduced:false,detail:error.stack||error.message});}
   const list=document.querySelector("#results");
   results.forEach(item=>{const li=document.createElement("li");li.textContent=(item.reproduced?"BLOCKER CONFIRMED — ":"NOT REPRODUCED — ")+item.name+" — "+item.detail;list.appendChild(li);});
   const reproduced=results.filter(x=>x.reproduced).length;
