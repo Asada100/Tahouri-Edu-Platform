@@ -78,11 +78,49 @@ async function testSuccessfulFirstSyncExposesConfirmedRevision() {
         event.name === "studentLearningSyncStatus" && event.value.state === "synced"));
 }
 
+function streakDataset(status, completedAt) {
+    return {
+        progress: {},
+        statistics: { overall: {}, subjects: {}, chapters: {}, activities: {} },
+        contentLocks: {},
+        parityProgression: { unlocked: [] },
+        dailyStreak: {
+            days: {
+                "2026-11-26": {
+                    date: "2026-11-26", subjects: {}, activities: [],
+                    activityCount: 1, totalScore: 60, status, completedAt
+                }
+            },
+            currentStreak: 0, bestStreak: 0, lastCompletedDate: null
+        },
+        notifications: [],
+        spellingPerformance: { answers: [], targetAnswers: [] },
+        questionPerformance: {}
+    };
+}
+
+function testDailyStreakStatusMergesMonotonically() {
+    const harness = createHarness({ validEntitlement: true });
+    const base = streakDataset("empty", null);
+    const local = streakDataset("partial", null);
+    const remote = streakDataset("completed", "2026-11-26T10:15:00.000Z");
+
+    const threeWay = harness.sync.mergeDatasets(base, local, remote);
+    assert.equal(threeWay.dailyStreak.days["2026-11-26"].status, "completed");
+    assert.equal(threeWay.dailyStreak.days["2026-11-26"].completedAt, "2026-11-26T10:15:00.000Z");
+
+    const twoWay = harness.sync.mergeDatasets(null, local, remote);
+    assert.equal(twoWay.dailyStreak.days["2026-11-26"].status, "completed");
+    assert.equal(twoWay.dailyStreak.days["2026-11-26"].completedAt, "2026-11-26T10:15:00.000Z");
+}
+
 (async () => {
     await testMissingVerifiedEntitlementIsVisible();
     await testSuccessfulFirstSyncExposesConfirmedRevision();
+    testDailyStreakStatusMergesMonotonically();
     console.log("PASS: missing verified entitlement is visible to the profile UI");
     console.log("PASS: successful sync exposes only the server-confirmed revision");
+    console.log("PASS: daily streak status and completion timestamp merge in two-way and three-way sync");
     console.log("RESULT: student learning sync diagnostics tests passed.");
 })().catch(error => {
     console.error("FAIL:", error);
