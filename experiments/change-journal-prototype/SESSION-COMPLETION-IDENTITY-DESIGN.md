@@ -38,7 +38,18 @@ Compatibility fallback, only when `randomUUID` is unavailable:
 4. Format the bytes as a UUID v4 string.
 5. Never fall back to `Math.random()`, timestamps, activity IDs, profile IDs, or counters as entropy.
 
-If neither cryptographic API is available, identity generation must fail closed. Do not silently create a timestamp-based ID and mark it as safe for journal publication. The implementation must separately decide whether the activity can continue without resumable-session persistence; that behavior must be established by caller inspection and a regression test before runtime changes.
+If neither cryptographic API is available, identity generation must fail closed. Do not silently create a timestamp-based ID and mark it as safe for journal publication.
+
+### Verified caller behavior and no-crypto decision
+
+A source trace on this branch verified that `ActivityManager.start()` calls `ActivitySessionManager.begin()` before engine startup and aborts the activity start if `begin()` returns a falsy value. Therefore, a fail-closed generator with no alternate path would prevent the student from starting the activity in an environment without a cryptographic random source.
+
+This is a product/runtime decision, not something to hide inside the UUID helper. Before implementation, choose and test one explicit policy:
+
+- **Strict policy:** do not start an activity if a secure session identity cannot be generated or persisted. Show a clear recoverable error rather than silently failing.
+- **Degraded local-only policy:** allow the activity to run without a resumable session, but mark it explicitly non-resumable and non-journal-eligible; verify every lifecycle and completion path handles the absence safely. Never mint a timestamp ID as if it were secure.
+
+Do not choose the degraded policy until all consumers of `currentSession` and all `begin()` callers are traced. The current caller in `ActivityManager.start()` aborts when `begin()` returns null, so degraded behavior would require a deliberate, separately tested caller change.
 
 Suggested shape:
 
@@ -159,3 +170,13 @@ Implementation sequence, only after design approval:
 5. Only later, after engine completion publisher and duplicate-delivery gates pass, design Change Journal integration.
 
 **Acceptance rule:** no insecure fallback; no ID rotation on resume; no profile cross-load; no journal publication without a validated persisted identity.
+
+## 8. Source trace completed — 2026-11-27
+
+Files inspected on the experimental branch:
+
+- `engine/activity/activityManager.js`: fresh activity startup calls `ActivitySessionManager.begin(fullActivity)` before resolving/starting the engine. If `begin()` returns no session, it clears `currentActivity`/history and returns `null`; the engine does not start. Explicit fresh start clears an earlier saved session first. The explicit resume path calls `resume()` and returns the restored session when successful.
+- `engine/activity/activitySessionManager.js`: `activityReady` also calls `begin()`. The active-session guard prevents that second call from minting a new ID. Resume sets `currentSession` to the saved session before engine restoration.
+- `engine/activity/activityLifecycle.js`: on `activityFinished`, completion consumers run synchronously and `ActivitySessionManager.complete()` is called only after streak, progress, unlock, session score, and statistics updates. This is the candidate boundary to capture a completion envelope before cleanup, subject to duplicate-delivery protection.
+
+**Important limitation:** this trace confirms the startup and cleanup boundaries, not every consumer of `currentSession` or every event producer. A repository-wide search for all `session.id` consumers and all `begin()` call sites remains required before implementation.
