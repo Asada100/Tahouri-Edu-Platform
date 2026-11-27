@@ -135,7 +135,7 @@
     window.EngineManager={getEngine(name){return name==="PuzzleEngine"?puzzleEngine:null;}};
     window.ScoreManager={score:5,correct:1,wrong:1};
     window.PuzzleScreen={show(payload){
-      document.getElementById("app").innerHTML="restored-puzzle:"+payload.items[0].id;
+      document.getElementById("app").innerHTML="puzzleScreen:restored-puzzle:"+payload.items[0].id;
       return true;
     }};
     const puzzleSession=validSession();
@@ -153,7 +153,7 @@
     const puzzleEvents=EventManager.events.filter(event=>event.name==="activityResumed").length;
     const puzzleLeaked=manager.gameplayActive===true && document.body.classList.contains("activity-playing") &&
       ActivityManager.currentActivity===activity && ActivityState.value==="playing" && puzzleEvents===1 &&
-      document.getElementById("app").innerHTML==="restored-puzzle:puzzle-item-1" &&
+      document.getElementById("app").innerHTML==="puzzleScreen:restored-puzzle:puzzle-item-1" &&
       puzzleEngine.moves===6 && puzzleEngine.userAnswer==="answer";
     record("R6 real Puzzle restore branch leaks UI/activity when persistence fails",
       puzzleReturned===true && puzzleSession.status==="active" && puzzlePersisted.status==="resumable" && puzzleLeaked,
