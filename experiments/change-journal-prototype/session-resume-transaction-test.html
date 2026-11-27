@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>Session Resume Transaction Diagnostics</title></head>
-<body><h1>Session Resume Transaction Diagnostics</h1><p id="summary">running</p><ol id="results"></ol>
+<body><h1>Session Resume Transaction Diagnostics</h1><p id="summary">running</p><ol id="results"></ol><div id="app">previous-screen</div>
 <script>
 (function(){
   const stored={raw:null,failSave:false};
@@ -22,6 +22,7 @@
 <script>
 (async function(){
   const manager=window.ActivitySessionManager, d=window.__resumeDiag, results=[];
+  const actualRestoreEngine=manager.restoreEngine;
   const activity={id:"resume-diagnostic-activity",engine:"QuizEngine"};
   const validSession=()=>({version:"1.9",schemaVersion:1,id:"legacy-session-id",profileId:"TEST_PROFILE",activityId:activity.id,activityType:"QuizEngine",status:"resumable",startedAt:1,updatedAt:1,engineState:{kind:"quiz",state:{started:true},questions:[{id:"q1",text:"sample"}],currentQuestion:0,score:4,correct:1,wrong:0}});
   const sentinel={id:"previous-in-memory-session",status:"active"};
@@ -62,6 +63,38 @@
     record("R3 failed status write must roll back all published runtime effects",
       returned===true && success.status==="active" && persisted.status==="resumable" && leakedRuntime,
       "resume() returned success, changed memory to active, left persisted status resumable, enabled gameplay/CSS, published ActivityManager and ActivityState, and emitted activityResumed despite SaveManager.save() failure");
+    d.failSave=false;
+
+    // R4 exercises the real Quiz restore branch, not a restoreEngine stub.
+    const quizEngine={
+      activity:{id:"old-activity"},questions:[{id:"old-q",text:"old"}],currentQuestion:0,
+      state:{started:false},getQuestion(){return this.questions[this.currentQuestion]||null;}
+    };
+    window.EngineManager={getEngine(name){return name==="QuizEngine"?quizEngine:null;}};
+    window.ScoreManager={score:2,correct:1,wrong:3};
+    window.QuizScreen={
+      isLocked:false,reset(){this.isLocked=false;},
+      show(payload){document.getElementById("app").innerHTML="restored-quiz:"+payload.question.text;}
+    };
+    manager.restoreEngine=actualRestoreEngine;
+    const actualSession=validSession();
+    actualSession.engineState={kind:"quiz",activity,questions:[{id:"q-real",text:"real-question"}],
+      currentQuestion:0,state:{started:true},score:77,correct:7,wrong:1};
+    d.raw=JSON.stringify(actualSession);d.failSave=true;
+    manager.currentSession=null;manager.gameplayActive=false;manager.getResumable=()=>actualSession;
+    ActivityManager.currentActivity=null;ActivityState.value="idle";
+    document.body.classList.remove("activity-playing");EventManager.events.length=0;
+    document.getElementById("app").innerHTML="previous-screen";
+    const realReturned=await manager.resume(activity.id);
+    const realPersisted=JSON.parse(d.raw);
+    const realEventCount=EventManager.events.filter(event=>event.name==="activityResumed").length;
+    const realLeaked=manager.gameplayActive===true && document.body.classList.contains("activity-playing") &&
+      ActivityManager.currentActivity===activity && ActivityState.value==="playing" && realEventCount===1 &&
+      document.getElementById("app").innerHTML==="restored-quiz:real-question" &&
+      ScoreManager.score===77 && quizEngine.currentQuestion===0;
+    record("R4 real Quiz restore branch leaks UI/score/activity when persistence fails",
+      realReturned===true && actualSession.status==="active" && realPersisted.status==="resumable" && realLeaked,
+      "actual restoreEngine() rebuilt quiz UI and score, activated activity, then resume() ignored failed durable write and emitted activityResumed");
     d.failSave=false;
   }catch(error){results.push({name:"Harness execution",reproduced:false,detail:error.stack||error.message});}
   const list=document.querySelector("#results");
