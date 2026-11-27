@@ -20,6 +20,7 @@
 </script>
 <script src="../../engine/activity/activitySessionManager.js"></script>
 <script src="../../engine/wordPuzzle/wordPuzzleEngine.js"></script>
+<script src="../../engine/activity/classificationEngine.js"></script>
 <script>
 (async function(){
   const manager=window.ActivitySessionManager, d=window.__resumeDiag, results=[];
@@ -222,7 +223,47 @@
       wordPuzzleReturned===true && wordPuzzleSession.status==="active" && wordPuzzlePersisted.status==="resumable" && wordPuzzleLeaked,
       "observed returned="+wordPuzzleReturned+", status="+wordPuzzleSession.status+", persisted="+wordPuzzlePersisted.status+", gameplayActive="+manager.gameplayActive+", css="+document.body.classList.contains("activity-playing")+", currentActivity="+(ActivityManager.currentActivity===activity)+", activityState="+ActivityState.value+", resumedEvents="+wordPuzzleEvents+", round="+wordPuzzleEngine.state.round+", score="+wordPuzzleEngine.state.score+", roundType="+wordPuzzleEngine.round.type);
     d.failSave=false;
-  }catch(error){results.push({name:"Harness execution",reproduced:false,detail:error.stack||error.message});}
+
+    // R9 exercises the actual ClassificationEngine restore branch with deterministic provider/registry fixtures.
+    activity.engine="ClassificationEngine";
+    const classificationEngine=window.ClassificationEngine;
+    const classificationActivity={...activity,classification:{mode:"choice"}};
+    const classificationItems=[{id:"item-a",label:"Item A"},{id:"item-b",label:"Item B"}];
+    const classificationCategories=[{id:"category-a",label:"Category A"},{id:"category-b",label:"Category B"}];
+    ActivityManager.loadActivityConfig=async()=>classificationActivity;
+    window.ClassificationProvider={getContent(){return{mode:"choice",items:classificationItems,categories:classificationCategories};}};
+    window.ClassificationTypeRegistry={has(mode){return mode==="choice";},get(){return{prepare(){return true;}};}};
+    window.ClassificationScreen={currentActivity:null,currentState:null,lastMessage:"",show(state){
+      this.renderedState=state;document.getElementById("app").innerHTML="classificationScreen:restored:"+state.classifiedItems;
+    }};
+    classificationEngine.activityData={id:"old-classification"};
+    classificationEngine.content={mode:"old"};
+    classificationEngine.handler={old:true};
+    classificationEngine.state={items:[],categories:[],classifiedItems:0};
+    const classificationSession=validSession();
+    classificationSession.activityType="ClassificationEngine";
+    classificationSession.engineState={items:classificationItems,categories:classificationCategories,
+      classifications:{"item-a":{correct:true,stage:0}},classifiedItems:1,totalClassifiedItems:1,
+      correctAnswers:1,wrongAnswers:0,moves:1,score:10};
+    d.raw=JSON.stringify(classificationSession);d.failSave=true;
+    manager.currentSession=null;manager.gameplayActive=false;manager.getResumable=()=>classificationSession;
+    window.EngineManager={getEngine(name){return name==="ClassificationEngine"?classificationEngine:null;}};
+    ActivityManager.currentActivity=null;ActivityState.value="idle";
+    document.body.classList.remove("activity-playing");EventManager.events.length=0;
+    document.getElementById("app").innerHTML="previous-screen";
+    const classificationReturned=await manager.resume(activity.id);
+    const classificationPersisted=JSON.parse(d.raw);
+    const classificationEvents=EventManager.events.filter(event=>event.name==="activityResumed").length;
+    const classificationLeaked=manager.gameplayActive===true && document.body.classList.contains("activity-playing") &&
+      ActivityManager.currentActivity===classificationActivity && ActivityState.value==="playing" && classificationEvents===1 &&
+      classificationEngine.state.classifiedItems===1 && classificationEngine.state.score===10 &&
+      window.ClassificationScreen.renderedState===classificationEngine.state &&
+      document.getElementById("app").innerHTML==="classificationScreen:restored:1";
+    record("R9 actual ClassificationEngine restore branch leaks screen/activity when persistence fails",
+      classificationReturned===true && classificationSession.status==="active" && classificationPersisted.status==="resumable" && classificationLeaked,
+      "observed returned="+classificationReturned+", status="+classificationSession.status+", persisted="+classificationPersisted.status+", gameplayActive="+manager.gameplayActive+", css="+document.body.classList.contains("activity-playing")+", currentActivity="+(ActivityManager.currentActivity===classificationActivity)+", activityState="+ActivityState.value+", resumedEvents="+classificationEvents+", classifiedItems="+classificationEngine.state.classifiedItems+", score="+classificationEngine.state.score+", markup="+document.getElementById("app").innerHTML);
+    d.failSave=false;
+  }catch(error){results.push({name:"Harness execution",reproduced:false,detail:error.stack||error.message});},reproduced:false,detail:error.stack||error.message});}
   const list=document.querySelector("#results");
   results.forEach(item=>{const li=document.createElement("li");li.textContent=(item.reproduced?"BLOCKER CONFIRMED — ":"NOT REPRODUCED — ")+item.name+" — "+item.detail;list.appendChild(li);});
   const reproduced=results.filter(x=>x.reproduced).length;
