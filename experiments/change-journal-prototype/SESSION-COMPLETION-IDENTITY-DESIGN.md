@@ -247,3 +247,39 @@ Do not silently continue in a non-resumable mode in this first correction. Such 
 ### Scope status
 
 This is a recommendation for review, not an approved runtime change. No production/runtime files, storage schema, student records, sync API, Worker, D1, or deployment were modified. Runtime implementation remains gated on approval of this policy and completion of the session consumer/caller inventory.
+
+## 10. Recommended persistence policy — proposal for review
+
+Based on the three reproduced diagnostics and the current caller contract, the safest default is **strict fail-closed startup** until an explicit local-only mode is designed and tested. This is a recommendation, not an approved runtime change.
+
+### Required begin() contract
+
+1. Resolve both the active profile ID and profile-scoped storage key before constructing a session. If either is absent or inconsistent, return failure without changing currentSession, gameplayActive, or the document's playing class.
+2. Inspect whether the storage key already exists before creating a new session. Distinguish:
+   - key absent: a fresh session may be created;
+   - valid supported session: follow the explicit resume/restart rules;
+   - malformed, unsupported, or unrecognized stored value: preserve it and refuse automatic replacement;
+   - read/parse/storage error: treat as an error, not as an empty slot.
+3. Generate the secure UUID and build the candidate session without publishing it as current.
+4. Persist the candidate. Only after successful persistence and read-back validation may it become currentSession and allow begin() to return a truthy resumable session.
+5. If persistence or read-back validation fails, preserve the prior in-memory state and return failure. The existing ActivityManager.start() already aborts when begin() returns falsy, so this can enforce strict behavior without introducing a second startup mode.
+6. Do not automatically clear or overwrite unknown snapshots. A future explicit recovery/reset action must be separately designed, clearly explained to the user, and tested against profile isolation.
+
+### Storage API gap
+
+SaveManager.load() returns null both when a key is absent and when reading/parsing fails. SaveManager.exists() can distinguish a present key in normal conditions, but it also returns false on storage exceptions. Before implementing migration, introduce a session-scoped read result that distinguishes missing, valid, invalid-json, unsupported-schema, and storage-error, without exposing raw student data in logs. Do not globally change SaveManager semantics as part of this narrowly scoped work unless a separate compatibility audit justifies it.
+
+### Mandatory acceptance tests before runtime wiring
+
+- begin() with no profile: returns failure and changes no runtime flags.
+- begin() with unavailable storage: returns failure, does not set currentSession, and does not allow engine.start().
+- A successful save followed by a failed read-back: returns failure and does not allow engine.start().
+- Existing malformed JSON: remains byte-for-byte unchanged after attempted fresh start.
+- Existing unsupported schema: remains byte-for-byte unchanged after attempted fresh start.
+- Existing valid v1 session: migration either persists one valid v2 identity before resume, or leaves the original snapshot unchanged on any failure.
+- Explicit fresh restart after a valid old session: only clears/replaces it after the restart path has positively identified and accepted that valid session.
+- Verify ActivityManager.start() does not call the engine when begin() fails.
+- Verify successful begin() persists before engine startup and activityReady reuses the same ID.
+- Verify all failure paths restore prior currentSession, gameplayActive, and CSS state.
+
+**Gate:** no production runtime wiring until these tests pass, all begin() callers and currentSession/session.id consumers are traced on this exact branch, and the user approves the selected startup/recovery policy.
