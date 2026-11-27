@@ -159,6 +159,39 @@
       puzzleReturned===true && puzzleSession.status==="active" && puzzlePersisted.status==="resumable" && puzzleLeaked,
       "observed returned="+puzzleReturned+", status="+puzzleSession.status+", persisted="+puzzlePersisted.status+", gameplayActive="+manager.gameplayActive+", css="+document.body.classList.contains("activity-playing")+", currentActivity="+(ActivityManager.currentActivity===activity)+", activityState="+ActivityState.value+", events="+puzzleEvents+", markup="+document.getElementById("app").innerHTML+", moves="+puzzleEngine.moves+", answer="+puzzleEngine.userAnswer);
     d.failSave=false;
+
+    // R7 exercises the real Dictation restore branch and rendered UI on failed persistence.
+    activity.engine="DictationEngine";
+    const dictationEngine={
+      activity:{id:"old-dictation"},content:{questions:[{id:"old-question"}]},
+      state:{started:false,currentIndex:0,totalQuestions:0},runToken:null,finishAuthorized:false,
+      restoreSession(state){this.state={...state};return true;},
+      getState(){return this.state;}
+    };
+    window.EngineManager={getEngine(name){return name==="DictationEngine"?dictationEngine:null;}};
+    window.DictationScreen={render(state){
+      document.getElementById("app").innerHTML="dictationScreen:restored-dictation:"+state.currentIndex;
+    }};
+    const dictationSession=validSession();
+    dictationSession.activityType="DictationEngine";
+    dictationSession.engineState={kind:"dictation",activity,content:{questions:[{id:"dictation-question-1"}]},
+      state:{started:true,currentIndex:2,totalQuestions:5,correct:2,wrong:0}};
+    d.raw=JSON.stringify(dictationSession);d.failSave=true;
+    manager.currentSession=null;manager.gameplayActive=false;manager.getResumable=()=>dictationSession;
+    ActivityManager.currentActivity=null;ActivityState.value="idle";
+    document.body.classList.remove("activity-playing");EventManager.events.length=0;
+    document.getElementById("app").innerHTML="previous-screen";
+    const dictationReturned=await manager.resume(activity.id);
+    const dictationPersisted=JSON.parse(d.raw);
+    const dictationEvents=EventManager.events.filter(event=>event.name==="activityResumed").length;
+    const dictationLeaked=manager.gameplayActive===true && document.body.classList.contains("activity-playing") &&
+      ActivityManager.currentActivity===activity && ActivityState.value==="playing" && dictationEvents===1 &&
+      document.getElementById("app").innerHTML==="dictationScreen:restored-dictation:2" &&
+      dictationEngine.state.currentIndex===2;
+    record("R7 real Dictation restore branch leaks UI/activity when persistence fails",
+      dictationReturned===true && dictationSession.status==="active" && dictationPersisted.status==="resumable" && dictationLeaked,
+      "observed returned="+dictationReturned+", status="+dictationSession.status+", persisted="+dictationPersisted.status+", gameplayActive="+manager.gameplayActive+", css="+document.body.classList.contains("activity-playing")+", currentActivity="+(ActivityManager.currentActivity===activity)+", activityState="+ActivityState.value+", events="+dictationEvents+", markup="+document.getElementById("app").innerHTML+", currentIndex="+dictationEngine.state.currentIndex);
+    d.failSave=false;
   }catch(error){results.push({name:"Harness execution",reproduced:false,detail:error.stack||error.message});}
   const list=document.querySelector("#results");
   results.forEach(item=>{const li=document.createElement("li");li.textContent=(item.reproduced?"BLOCKER CONFIRMED — ":"NOT REPRODUCED — ")+item.name+" — "+item.detail;list.appendChild(li);});
