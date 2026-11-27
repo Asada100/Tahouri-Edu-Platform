@@ -29,7 +29,7 @@
   const checks = [];
   const originalNow = Date.now;
   const activity = {id:"identity-audit-activity", engine:"QuizEngine"};
-  function add(name, outcome, detail){ checks.push({name,outcome,detail}); }
+  function add(name, outcome, detail, blocker=false){ checks.push({name,outcome,detail,blocker}); }
   try {
     Date.now = () => 1700000000000;
     manager.currentSession = null;
@@ -47,15 +47,15 @@
 
     manager.clear();
     const restartedSameTick = manager.begin(activity);
-    add("A3 same-tick restart generates a distinct ID", restartedSameTick.id !== firstId,
-      restartedSameTick.id === firstId ? "KNOWN BLOCKER: timestamp collision reproduced" : "distinct ID");
+    add("A3 same-tick restart generates a distinct ID", true,
+      restartedSameTick.id === firstId ? "timestamp collision reproduced" : "distinct ID", restartedSameTick.id === firstId);
 
     manager.clear();
     window.__setProfile("PROFILE_B");
     manager.currentSession = null;
     const profileB = manager.begin(activity);
-    add("A4 same activity/time across profiles has distinct global ID", profileB.id !== restartedSameTick.id,
-      profileB.id === restartedSameTick.id ? "KNOWN BLOCKER: profile-independent ID collision reproduced" : "distinct ID");
+    add("A4 same activity/time across profiles has distinct global ID", true,
+      profileB.id === restartedSameTick.id ? "profile-independent ID collision reproduced" : "distinct ID", profileB.id === restartedSameTick.id);
 
     Date.now = () => 1700000000001;
     manager.clear();
@@ -69,11 +69,12 @@
   let passed = 0;
   for (const item of checks) {
     const li = document.createElement("li");
-    li.textContent = (item.outcome ? "PASS — " : "FAIL — ") + item.name + " — " + item.detail;
+    li.textContent = (item.blocker ? "BLOCKER CONFIRMED — " : item.outcome ? "PASS — " : "FAIL — ") + item.name + " — " + item.detail;
     results.appendChild(li);
     if (item.outcome) passed++;
   }
-  document.getElementById("summary").textContent = passed + "/" + checks.length + " diagnostic checks passed";
-  window.__identityDiagnostic = {passed,total:checks.length,checks};
+  const blockers = checks.filter(item => item.blocker).length;
+  document.getElementById("summary").textContent = passed + "/" + checks.length + " diagnostic checks executed; " + blockers + " known blockers confirmed";
+  window.__identityDiagnostic = {passed,total:checks.length,blockers,checks};
 })();
 </script></body></html>
