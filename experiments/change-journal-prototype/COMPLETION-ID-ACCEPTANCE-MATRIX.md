@@ -70,3 +70,31 @@ A green test requires all mandatory cases above to pass. A skipped or unsupporte
 ## F. Implementation gate
 
 Do not connect journal writes to completion consumers until A, B, and C pass. Do not treat this matrix as proof of implementation; it is an acceptance specification only.
+
+## G. Diagnostic evidence — 2026-11-27
+
+GitHub Actions run [46058593385](https://github.com/Asada100/Tahouri-Edu-Platform/actions/runs/46058593385) completed successfully on the experimental branch. Job `browser-test` completed with conclusion `success`.
+
+Observed outputs from the job logs:
+
+- Change Journal localStorage browser suite: **6/6 PASS**.
+- Existing storage writer browser suite: **10/10 PASS**.
+- Activity session identity diagnostic: **5/5 diagnostic checks executed**.
+- A1: session persisted before engine start — PASS.
+- A2: resumed saved session retained its ID — PASS.
+- A3: same-tick restart — **BLOCKER CONFIRMED**; timestamp collision reproduced.
+- A4: same activity/time across profiles — **BLOCKER CONFIRMED**; profile-independent ID collision reproduced.
+- A5: later timestamp produced a different ID — PASS.
+
+**Interpretation:** the diagnostic harness and workflow passed, and successfully reproduced two defects in the current session-ID strategy. This does **not** mean the identity acceptance gate passed. A3/A4 remain blockers; the diagnostic did not implement or validate a collision-resistant ID generator. The broader A6/A7, engine publisher coverage (section B), duplicate/re-entrancy coverage (section C), and dataset fan-out coverage (section D) remain **NOT VERIFIED** by this run.
+
+The diagnostic uses a synthetic browser harness and does not establish correctness with real student profiles, production storage, API, Worker, or D1.
+
+## H. Next required work
+
+1. Propose a collision-resistant session/completion identity strategy (prefer `crypto.randomUUID()` where available, with a carefully specified secure fallback or explicit fail-closed behavior).
+2. Define restart, resume, profile-scope, and legacy-session compatibility semantics before touching runtime code.
+3. Add deterministic tests for same-tick starts and cross-profile uniqueness; retain the current resume-stability assertion.
+4. Only after the proposal and tests are reviewed, request approval before changing runtime identity behavior.
+
+No Change Journal integration into the eight production writers is authorized by this evidence. No production Worker, D1, or deployment was changed by this diagnostic.
