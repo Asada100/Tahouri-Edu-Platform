@@ -147,3 +147,29 @@ The persisted session is the right *lifecycle anchor* for completion identity be
 
 No runtime change was made in this trace.
 
+
+
+## 9. Completion-envelope boundary trace
+
+Files inspected: `engine/core/eventManager.js`, `engine/activity/activityResult.js`, and `engine/activity/activityLifecycle.js`.
+
+- `EventManager.emit()` invokes listeners synchronously in registration order. The lifecycle completion listener therefore runs during the engine's finish call, not in a later queued task.
+- `ActivityResult.create(data)` constructs a fixed object and copies only the known result fields. It currently drops unknown properties such as `completionId`, `sessionId`, and `profileId`. Adding those fields only to an engine's input payload would silently lose them whenever that engine uses `ActivityResult.create()`.
+- `ActivityLifecycle` is the central completion fan-out and calls `ActivitySessionManager.complete()` only after streak, progress, session statistics and activity statistics have been updated. At the start of that listener, the current persisted session is still available.
+- This makes the lifecycle listener the safest common point to *capture* the completion envelope for all direct and ActivityManager-based `activityFinished` paths. The capture must occur before any completion cleanup.
+- The completion payload should not be mutated ad hoc in individual engines. If the final design requires fields on `ActivityResult`, the factory contract must be updated and tested so it preserves them consistently.
+
+### Proposed envelope shape (design only)
+
+```js
+{
+  completionId: "<collision-resistant attempt identity>",
+  profileId: "<validated active profile>",
+  activityId: "<activity catalog ID>",
+  sessionId: "<persisted activity session ID>",
+  result: { /* existing ActivityResult fields */ }
+}
+```
+
+This is a design sketch, not a committed runtime schema. Keep the current event payload shape backward-compatible until all consumers and the sync API are migrated together. In particular, do not replace the existing `activityFinished(result)` contract with a wrapper object in a single client-only change.
+
