@@ -594,3 +594,30 @@ Therefore the current screen cannot be safely invoked during a prepare phase. Pa
 **Required next seam:** extract a render function that accepts an explicit detached root and an explicit engine/action interface, and keep body-class changes, toast publication, and live event subscriptions outside that pure render operation. The existing public `render(state)` can remain a compatibility wrapper that supplies the live root and production action interface. Add browser tests proving that detached preparation leaves `#app`, body classes, global engine state, event counts, and live listeners unchanged; only an explicit commit may replace the visible screen.
 
 This is a verified integration blocker, not a completed refactor. No UI/runtime source file was changed.
+
+
+## 19. WordPuzzle screen isolation dependency audit — 2026-11-28
+
+A line-level scan of the active `engine/ui/wordPuzzleScreen.js` (30,914 characters) found these direct dependencies:
+
+- 20 `document.*` references, including live `#app` lookup/replacement, body-class changes, toast insertion, element construction and SVG creation;
+- 2 `window.*` references: animation-frame scheduling and a persistent global resize listener;
+- 15 direct `WordPuzzleEngine` references across mode selection, hints, answer submission, score/progress reads, and finish;
+- 8 `WordPuzzlePathEngine` references and 7 `WordPuzzleRepository` references;
+- 7 timer calls, including delayed rerenders and tree-family transitions.
+
+The DOM helpers mostly build beneath a supplied element, but the screen is not currently a pure renderer. Its handlers close over global engine singletons; path binding registers a global resize listener; toast and finish paths publish to the live document/body; delayed callbacks can rerender after the preparation phase has ended.
+
+### Decision for the next implementation seam
+
+Do not treat an optional root argument to `render()` as sufficient isolation. A safe detached renderer must receive an explicit dependency bundle (engine actions/state, path engine, repository, document/window scope, timer/scheduler, toast target and navigation callbacks) and must own/dispose every listener and timer it creates. The production wrapper may provide the real globals; a preparation instance must provide isolated dependencies and a detached document/window.
+
+The browser acceptance test must assert, during preparation and after disposal:
+- live `#app` HTML and body classes are unchanged;
+- live engine state and event counts are unchanged;
+- no listener was added to the live window;
+- no timer can later rerender the live screen;
+- detached controls invoke only the isolated engine;
+- commit switches the visible surface exactly once; rollback restores the previous surface.
+
+This audit prevents a superficial root-parameter refactor from being mistaken for isolation. The next candidate is a dedicated isolated browsing context for the full WordPuzzle screen, subject to proving asset loading, dependency binding, event isolation, and safe disposal. No production/runtime files were changed.
