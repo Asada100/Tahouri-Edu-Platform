@@ -23,7 +23,7 @@ const server = http.createServer((req,res)=>{
   await page.waitForFunction(()=>document.querySelector('#summary')?.textContent!=='running');
   const result=await page.evaluate(()=>window.__persistenceMigrationDiagnostic);
   result.results.forEach(item=>console.log((item.reproduced?'BLOCKER CONFIRMED — ':'NOT REPRODUCED — ')+item.name+' — '+item.detail));
-  if(result.reproduced!==3||result.total!==3) throw new Error('Expected all 3 current-code blockers to reproduce; got '+result.reproduced+'/'+result.total);
-  console.log('SESSION PERSISTENCE/MIGRATION DIAGNOSTIC: PASS (3/3 blockers reproduced; runtime acceptance remains BLOCKED)');
+  if(result.reproduced!==5||result.total!==5) throw new Error('Expected all 5 current-code failure diagnostics to reproduce; got '+result.reproduced+'/'+result.total);
+  console.log('SESSION PERSISTENCE FAILURE DIAGNOSTICS: PASS (5/5 defects reproduced; runtime acceptance remains BLOCKED)');
  }finally{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));}
 })().catch(error=>{console.error(error);process.exitCode=1;});
