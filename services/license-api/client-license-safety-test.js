@@ -108,7 +108,7 @@ assert(
 // Student learning-data sync must be loaded only after the verified license gate
 // and must use the registered device signature rather than a bearer token.
 assert(
-    index.includes('studentLearningSync.js?v=1.3') &&
+    index.includes('studentLearningSync.js?v=1.4') &&
     index.indexOf("activationGate.js") < index.indexOf("studentLearningSync.js") &&
     studentDataTransfer.includes("function exportProfileData(studentId)") &&
     studentDataTransfer.includes("function applyProfileData(studentId, incomingData)") &&
@@ -123,8 +123,19 @@ assert(
     learningSync.includes('window.EventManager.on("profileChanged"') &&
     learningSync.includes("mergeThreeWay") &&
     learningSync.includes("Number(error.status) !== 409") &&
-    learningSync.includes("conflict.datasets"),
+    learningSync.includes("conflict.datasets") &&
+    learningSync.includes('setStatus("checking"') &&
+    learningSync.includes('setStatus("requesting"') &&
+    learningSync.includes('setStatus("synced"'),
     "Student learning-data sync must be device-authenticated, profile-scoped, conflict-aware, and loaded after license verification."
+);
+
+assert(
+    profileScreen.includes("bindLearningSyncStatus: function ()") &&
+    profileScreen.includes("profileLearningSyncStatus") &&
+    profileScreen.includes("profileLearningSyncRetry") &&
+    profileScreen.includes("studentLearningSyncStatus"),
+    "The profile screen must expose live sync diagnostics and a retry action."
 );
 
 const vm = require("vm");
