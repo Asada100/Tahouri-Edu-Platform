@@ -180,3 +180,42 @@ Files inspected on the experimental branch:
 - `engine/activity/activityLifecycle.js`: on `activityFinished`, completion consumers run synchronously and `ActivitySessionManager.complete()` is called only after streak, progress, unlock, session score, and statistics updates. This is the candidate boundary to capture a completion envelope before cleanup, subject to duplicate-delivery protection.
 
 **Important limitation:** this trace confirms the startup and cleanup boundaries, not every consumer of `currentSession` or every event producer. A repository-wide search for all `session.id` consumers and all `begin()` call sites remains required before implementation.
+
+
+## 9. Persistence and migration boundary findings — 2026-11-27
+
+A second source inspection of the active ActivitySessionManager, ActivityManager, SaveManager, and ProfileContext found additional implementation blockers. These are observations of current code, not runtime changes.
+
+### 9.1 Session persistence failure is not fail-closed today
+
+- ActivitySessionManager.save(session) returns the boolean result of SaveManager.save(...).
+- ActivitySessionManager.begin(activity) assigns this.currentSession = session, calls this.save(session), but does not check the returned boolean. It then sets gameplayActive = true and returns the in-memory session.
+- ActivityManager.start() only checks whether begin() returned a truthy session. It therefore proceeds to engine startup even if localStorage.setItem failed and the session was never persisted.
+
+**Required correction before runtime acceptance:** begin() must not report a resumable/journal-eligible session unless the profile-scoped snapshot was successfully persisted and can be validated. The failure path must restore a safe in-memory state and return a clear failure result. The product decision about whether gameplay is blocked or allowed in a clearly non-resumable local-only mode remains open; current code does not implement either policy safely for journal publication.
+
+### 9.2 Unsupported/legacy snapshots can be overwritten by a fresh start
+
+- validateSession() accepts only the current manager version and exactly SCHEMA_VERSION (currently 1). An unknown schema is rejected by load(); load() leaves the stored key intact but clears currentSession.
+- On a normal fresh activity start, ActivityManager.start() calls load(). If the snapshot is rejected, existing is null and startup continues toward begin().
+- begin() calls load() again; if it is still rejected, it creates a new session and calls save() using the same profile-scoped Tahouri_ActivitySession key.
+- save() writes through SaveManager.save() to that same key. Thus an unsupported or unrecognized snapshot can be overwritten by a fresh session even though load() itself did not delete it.
+
+**Required correction before migration acceptance:** distinguish “no saved session” from “saved but invalid/unsupported session.” Do not overwrite the latter automatically. A migration must inspect and preserve the original raw stored snapshot, and only replace it after successful validation, secure ID generation, and successful persistence of the migrated value. On failure, the original raw value must remain byte-for-byte unchanged.
+
+### 9.3 Migration order and schema compatibility
+
+The current load() calls validateSession() before assigning currentSession, and the validator rejects schema versions other than the current one. A v1-to-v2 migrator therefore has to run at a carefully defined boundary before the v2-only validator, while still validating the legacy v1 structure and active profile. The migration must not turn arbitrary unsupported schemas into v2 sessions.
+
+The current SaveManager.load() parses JSON and returns an object, but it does not expose the original raw serialized value. A byte-for-byte preservation assertion will need a test adapter around the underlying storage or a deliberately scoped raw-read path; it must not be implemented by weakening the shared SaveManager contract without separate review.
+
+### 9.4 Confirmed profile and storage boundaries
+
+- ProfileContext.key("Tahouri_ActivitySession") appends the active student ID and returns null when no active student profile exists.
+- ActivitySessionManager.storageKey() uses that profile-scoped helper.
+- SaveManager.save() catches storage exceptions and returns false; SaveManager.remove() also returns a boolean.
+- The current ActivitySessionManager.begin() does not verify that profileId is non-empty before constructing the session, so a missing profile context can still create an in-memory session object even though the profile-scoped storage key is unavailable.
+
+### 9.5 Remaining search limitation
+
+The inspected source confirms the above direct call paths and behaviors. It does not complete a repository-wide inventory of every currentSession/session.id consumer, every Tahouri_ActivitySession read/write, or every caller of begin(). GitHub code-search queries returned no indexed matches in this pass, so no claim of exhaustive consumer tracing is made. That inventory remains a prerequisite to runtime changes.
