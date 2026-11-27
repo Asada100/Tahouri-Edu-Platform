@@ -96,6 +96,36 @@
       realReturned===true && actualSession.status==="active" && realPersisted.status==="resumable" && realLeaked,
       "actual restoreEngine() rebuilt quiz UI and score, activated activity, then resume() ignored failed durable write and emitted activityResumed");
     d.failSave=false;
+
+    // R5 exercises the real Memory restore branch and its rendered UI on failed persistence.
+    const memoryEngine={activity:{id:"old-memory"},cards:[{id:"old-card"}],firstCard:null,secondCard:null,
+      lockBoard:true,matchedPairs:0,moves:0,totalPairs:1,finished:true};
+    window.EngineManager={getEngine(name){return name==="MemoryEngine"?memoryEngine:null;}};
+    window.ScoreManager={score:3,correct:1,wrong:2};
+    window.MemoryScreen={show(payload){
+      document.getElementById("app").innerHTML="restored-memory:"+payload.cards[0].id;
+      return true;
+    }};
+    const memorySession=validSession();
+    memorySession.activityType="MemoryEngine";
+    memorySession.engineState={kind:"memory",activity,cards:[{id:"memory-card-1",matched:false}],
+      matchedPairs:0,moves:4,totalPairs:3,score:88,correct:8,wrong:2};
+    d.raw=JSON.stringify(memorySession);d.failSave=true;
+    manager.currentSession=null;manager.gameplayActive=false;manager.getResumable=()=>memorySession;
+    ActivityManager.currentActivity=null;ActivityState.value="idle";
+    document.body.classList.remove("activity-playing");EventManager.events.length=0;
+    document.getElementById("app").innerHTML="previous-screen";
+    const memoryReturned=await manager.resume(activity.id);
+    const memoryPersisted=JSON.parse(d.raw);
+    const memoryEvents=EventManager.events.filter(event=>event.name==="activityResumed").length;
+    const memoryLeaked=manager.gameplayActive===true && document.body.classList.contains("activity-playing") &&
+      ActivityManager.currentActivity===activity && ActivityState.value==="playing" && memoryEvents===1 &&
+      document.getElementById("app").innerHTML==="restored-memory:memory-card-1" &&
+      ScoreManager.score===88 && memoryEngine.moves===4 && memoryEngine.finished===false;
+    record("R5 real Memory restore branch leaks UI/score/activity when persistence fails",
+      memoryReturned===true && memorySession.status==="active" && memoryPersisted.status==="resumable" && memoryLeaked,
+      "actual restoreEngine() rebuilt memory UI and engine state, changed score, activated activity, then resume() ignored failed durable write and emitted activityResumed");
+    d.failSave=false;
   }catch(error){results.push({name:"Harness execution",reproduced:false,detail:error.stack||error.message});}
   const list=document.querySelector("#results");
   results.forEach(item=>{const li=document.createElement("li");li.textContent=(item.reproduced?"BLOCKER CONFIRMED — ":"NOT REPRODUCED — ")+item.name+" — "+item.detail;list.appendChild(li);});
