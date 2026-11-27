@@ -13,7 +13,7 @@
       if (!store.has(key)) return null;
       const raw = store.get(key);
       if (corruptReadBack && key === "Tahouri_ActivitySession:SYNTHETIC_PROFILE_A") return null;
-      return typeof raw === "string" ? JSON.parse(raw) : JSON.parse(JSON.stringify(raw));
+      try { return typeof raw === "string" ? JSON.parse(raw) : JSON.parse(JSON.stringify(raw)); } catch (_) { return null; }
     },
     save(key, value) {
       if (failWrites || !key) return false;
