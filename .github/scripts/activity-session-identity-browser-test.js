@@ -21,11 +21,11 @@ const server = http.createServer((req,res)=>{
   page.on('pageerror',error=>{throw error;});
   await page.goto('http://127.0.0.1:4174/experiments/change-journal-prototype/activity-session-identity-test.html',{waitUntil:'load'});
   await page.waitForFunction(()=>document.querySelector('#summary')?.textContent!=='running');
-  const result=await page.evaluate(()=>({summary:document.querySelector('#summary').textContent,lines:[...document.querySelectorAll('#results li')].map(x=>x.textContent)}));
+  const result=await page.evaluate(()=>({summary:document.querySelector('#summary').textContent,lines:[...document.querySelectorAll('#results li')].map(x=>x.textContent),diagnostic:window.__identityDiagnostic}));
   result.lines.forEach(line=>console.log(line));
-  if(result.lines.length!==5||!result.summary.startsWith('5/5')) throw new Error('Identity diagnostic harness failed: '+result.summary);
-  if(!result.lines.some(x=>x.includes('KNOWN BLOCKER: timestamp collision reproduced'))) throw new Error('Expected timestamp collision was not reproduced; review harness assumptions.');
-  if(!result.lines.some(x=>x.includes('KNOWN BLOCKER: profile-independent ID collision reproduced'))) throw new Error('Expected cross-profile ID collision was not reproduced; review harness assumptions.');
-  console.log('SESSION IDENTITY DIAGNOSTIC: PASS (5/5 checks; 2 known blockers reproduced)');
+  if(result.lines.length!==5||!result.summary.startsWith('5/5')||result.diagnostic?.passed!==5||result.diagnostic?.blockers!==2) throw new Error('Identity diagnostic harness failed: '+result.summary);
+  if(!result.lines.some(x=>x.includes('BLOCKER CONFIRMED')&&x.includes('timestamp collision reproduced'))) throw new Error('Expected timestamp collision was not reproduced; review harness assumptions.');
+  if(!result.lines.some(x=>x.includes('BLOCKER CONFIRMED')&&x.includes('profile-independent ID collision reproduced'))) throw new Error('Expected cross-profile ID collision was not reproduced; review harness assumptions.');
+  console.log('SESSION IDENTITY DIAGNOSTIC: PASS (5/5 diagnostic checks; 2 known blockers confirmed; acceptance gate remains BLOCKED)');
  }finally{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));}
 })().catch(error=>{console.error(error);process.exitCode=1;});
