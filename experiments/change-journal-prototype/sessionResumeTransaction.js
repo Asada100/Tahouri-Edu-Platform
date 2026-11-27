@@ -3,14 +3,16 @@
 function createSessionResumeTransaction(options) {
   const o=options||{};
   const clone=value=>JSON.parse(JSON.stringify(value));
-  const restoreRuntime=(snapshot)=>{
+  const restoreRuntime=snapshot=>{
     if(typeof o.restoreRuntimeState==="function")o.restoreRuntimeState(snapshot);
   };
   async function resume(session) {
     if(!session||typeof session!=="object")return {ok:false,status:"invalid-session"};
-    const previous={currentSession:o.getCurrentSession?o.getCurrentSession():null,
+    const previous={
+      currentSession:o.getCurrentSession?o.getCurrentSession():null,
       restoringSession:o.getRestoringSession?o.getRestoringSession():false,
-      gameplayActive:o.getGameplayActive?o.getGameplayActive():false};
+      gameplayActive:o.getGameplayActive?o.getGameplayActive():false
+    };
     let engineSnapshot,runtimeSnapshot,rawSnapshot;
     try {
       engineSnapshot=typeof o.captureEngineState==="function"?o.captureEngineState():undefined;
@@ -24,7 +26,11 @@ function createSessionResumeTransaction(options) {
       try{restoreRuntime(runtimeSnapshot);}catch(error){failures.push({part:"runtime",error});}
       try{if(o.setCurrentSession)o.setCurrentSession(previous.currentSession);}catch(error){failures.push({part:"currentSession",error});}
       try{if(o.setGameplayActive)o.setGameplayActive(previous.gameplayActive);}catch(error){failures.push({part:"gameplayActive",error});}
-      try{if(typeof o.restorePersistedSnapshot==="function"&&rawSnapshot!==undefined)o.restorePersistedSnapshot(rawSnapshot);}catch(error){failures.push({part:"persistedSnapshot",error});}
+      try{
+        if(typeof o.restorePersistedSnapshot==="function"&&rawSnapshot!==undefined)o.restorePersistedSnapshot(rawSnapshot);
+        if(typeof o.readPersistedSnapshot==="function"&&rawSnapshot!==undefined&&o.readPersistedSnapshot()!==rawSnapshot)
+          throw new Error("Persisted snapshot rollback verification mismatch");
+      }catch(error){failures.push({part:"persistedSnapshot",error});}
       return failures;
     };
     try {
@@ -44,8 +50,26 @@ function createSessionResumeTransaction(options) {
         const failures=rollback();
         return {ok:false,status:failures.length?"rollback-failed":"persist-failed",rollbackFailures:failures};
       }
+      if(typeof o.readPersistedSnapshot!=="function") {
+        const failures=rollback();
+        return {ok:false,status:failures.length?"rollback-failed":"readback-unavailable",rollbackFailures:failures};
+      }
+      let persisted;
+      try {
+        const raw=o.readPersistedSnapshot();
+        persisted=typeof raw==="string"?JSON.parse(raw):raw;
+      } catch(error) {
+        const failures=rollback();
+        return {ok:false,status:failures.length?"rollback-failed":"readback-failed",error,rollbackFailures:failures};
+      }
+      if(!persisted||JSON.stringify(persisted)!==JSON.stringify(candidate)) {
+        const failures=rollback();
+        return {ok:false,status:failures.length?"rollback-failed":"readback-mismatch",rollbackFailures:failures};
+      }
+      // Publish shared state and irreversible notifications only after durable read-back.
       if(o.setCurrentSession)o.setCurrentSession(clone(candidate));
       if(o.setGameplayActive)o.setGameplayActive(true);
+      if(typeof o.onCommitted==="function")o.onCommitted(clone(candidate));
       return {ok:true,status:"resumed",session:clone(candidate)};
     } catch(error) {
       const failures=rollback();
