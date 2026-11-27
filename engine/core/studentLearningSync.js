@@ -70,6 +70,20 @@
         if (datasetId === "dailyStreak" && path.endsWith(".lastCompletedDate")) {
             return String(local) > String(remote) ? local : remote;
         }
+        if (datasetId === "dailyStreak" && path.endsWith(".status")) {
+            const rank = { empty: 0, partial: 1, completed: 2 };
+            if (Object.prototype.hasOwnProperty.call(rank, local) &&
+                Object.prototype.hasOwnProperty.call(rank, remote)) {
+                return rank[local] >= rank[remote] ? local : remote;
+            }
+        }
+        if (datasetId === "dailyStreak" && path.endsWith(".completedAt")) {
+            if (local == null) return clone(remote);
+            if (remote == null) return clone(local);
+            if (typeof local === "string" && typeof remote === "string") {
+                return local >= remote ? local : remote;
+            }
+        }
         throw new Error("تعارض دادهٔ همگام‌سازی در " + datasetId + " (" + path + "). برای جلوگیری از حذف اطلاعات، هیچ نسخه‌ای جایگزین نشد.");
     }
 
@@ -108,6 +122,20 @@
         }
         if (datasetId === "dailyStreak" && path.endsWith(".lastCompletedDate")) {
             return String(local) > String(remote) ? local : remote;
+        }
+        if (datasetId === "dailyStreak" && path.endsWith(".status")) {
+            const rank = { empty: 0, partial: 1, completed: 2 };
+            if (Object.prototype.hasOwnProperty.call(rank, local) &&
+                Object.prototype.hasOwnProperty.call(rank, remote)) {
+                return rank[local] >= rank[remote] ? local : remote;
+            }
+        }
+        if (datasetId === "dailyStreak" && path.endsWith(".completedAt")) {
+            if (local == null) return clone(remote);
+            if (remote == null) return clone(local);
+            if (typeof local === "string" && typeof remote === "string") {
+                return local >= remote ? local : remote;
+            }
         }
         throw new Error("تعارض هم‌زمان و غیرقابل‌ادغام در دادهٔ " + datasetId + " (" + path + "). داده‌ها حفظ شدند و چیزی بازنویسی نشد.");
     }
