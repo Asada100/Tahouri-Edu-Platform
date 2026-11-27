@@ -248,6 +248,7 @@
     }
 
     async function runSync() {
+        setStatus("checking", "در حال بررسی پروفایل و مجوز تأییدشده...");
         const context = getActiveContext();
         if (!window.StudentDataTransfer ||
             typeof window.StudentDataTransfer.exportProfileData !== "function" ||
@@ -256,18 +257,27 @@
             typeof window.TahouriLicenseClient.syncLearningData !== "function") {
             throw new Error("اجزای همگام‌سازی هنوز آماده نیستند.");
         }
+        setStatus("preparing", "مجوز تأیید شد؛ در حال آماده‌سازی داده‌های همین پروفایل.", {
+            studentId: context.studentId,
+            grade: context.gradeId
+        });
         const local = window.StudentDataTransfer.exportProfileData(context.studentId);
         const baseRecord = readBase(context.studentId);
         const base = baseRecord && baseRecord.datasets ? baseRecord.datasets : null;
+        setStatus("requesting", "درخواست دریافت اطلاعات از سرور ارسال شد.");
         const remote = await call("pull", context, 0);
         if (!remote || remote.ok !== true) throw new Error("دریافت نسخهٔ سرور تأیید نشد.");
 
         if (Number(remote.revision) === 0) {
+            setStatus("uploading", "اطلاعات محلی روی سرور ثبت می‌شود.");
             const firstPush = await call("push", context, 0, local);
             writeBase(context.studentId, Number(firstPush.revision), local);
             return { revision: Number(firstPush.revision), direction: "upload", changed: true };
         }
 
+        setStatus("merging", "اطلاعات گوشی/رایانه با نسخهٔ سرور تطبیق داده می‌شود.", {
+            remoteRevision: Number(remote.revision) || 0
+        });
         const result = await pushMerged(context, base, local, remote);
         return { revision: result.revision, direction: result.changed ? "merge" : "download-or-current", changed: result.changed };
     }
@@ -278,7 +288,12 @@
             setStatus("synced", "اطلاعات آموزشی این پروفایل با سرور همگام شد.", result);
             return result;
         }).catch(error => {
-            setStatus("pending", error && error.message ? error.message : "همگام‌سازی انجام نشد؛ اطلاعات محلی حفظ شده‌اند.");
+            const message = error && error.message ? error.message : "همگام‌سازی انجام نشد؛ اطلاعات محلی حفظ شده‌اند.";
+            const offline = !!window.navigator && window.navigator.onLine === false;
+            setStatus(offline ? "offline" : "error", message, {
+                httpStatus: Number(error && error.status) || null,
+                errorName: String(error && error.name || "Error")
+            });
             const statusCode = Number(error && error.status);
             const networkFailure = !!error &&
                 (error.name === "TypeError" || error.name === "AbortError");
