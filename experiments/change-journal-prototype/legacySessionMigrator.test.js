@@ -1,12 +1,13 @@
 "use strict";
 const assert=require("node:assert/strict");
 const {createLegacySessionMigrator}=require("./legacySessionMigrator");
+const {validateLegacySession}=require("./legacySessionValidator");
 function fixture(overrides){const rawStore=new Map();const key="session:student-A";const legacy={version:"1.9",schemaVersion:1,id:"activity-session-old",profileId:"student-A",activityId:"quiz-6",activityType:"quiz",status:"resumable",engineState:{kind:"quiz",state:{},questions:[{id:1}],currentQuestion:0}};
  rawStore.set(key,JSON.stringify(legacy));let generated=0,reads=0,writes=0;
  const options={getProfileId:()=>"student-A",getScopedKey:p=>"session:"+p,
  readRaw(k){reads++;return rawStore.has(k)?rawStore.get(k):null;},
  writeRaw(k,v){writes++;rawStore.set(k,v);return true;},createIdentity(){generated++;return "activity-session-uuid-v4";},
- validateLegacy(s,p){return s.version==="1.9"&&s.activityId==="quiz-6"&&s.profileId===p&&s.status==="resumable"&&!!s.engineState;},
+ validateLegacy(s,p){return validateLegacySession(s,p);},
  validateCurrent(s,p){return s.schemaVersion===2&&s.identityVersion===2&&s.profileId===p&&s.id==="activity-session-uuid-v4"&&s.legacyId==="activity-session-old";},...overrides};
  return {options,store:rawStore,key,legacy,run:()=>createLegacySessionMigrator(options).migrate(),get generated(){return generated;},get reads(){return reads;},get writes(){return writes;}};}
 function test(name,fn){fn();console.log("PASS — "+name);}
