@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Session Persistence and Migration Diagnostics</title></head>
+<body><h1>Session Persistence and Migration Diagnostics</h1><p id="summary">running</p><ol id="results"></ol>
+<script>
+(function () {
+  const store = new Map();
+  let profileId = "SYNTHETIC_PROFILE_A";
+  let failWrites = false;
+  window.ProfileContext = { key(base) { return profileId ? base + ":" + profileId : null; }, getStudentId() { return profileId; } };
+  window.SaveManager = {
+    load(key) { return store.has(key) ? JSON.parse(JSON.stringify(store.get(key))) : null; },
+    save(key, value) { if (failWrites || !key) return false; store.set(key, JSON.parse(JSON.stringify(value))); return true; },
+    remove(key) { if (!key) return false; store.delete(key); return true; }
+  };
+  window.EventManager = { on() {}, emit() {} };
+  document.addEventListener = function () {};
+  window.addEventListener = function () {};
+  window.__diag = {store, setWriteFailure(value) { failWrites = value; }, setProfile(value) { profileId = value; }};
+})();
+</script>
+<script src="../../engine/activity/activitySessionManager.js"></script>
+<script>
+(function () {
+  const manager = window.ActivitySessionManager;
+  const results = [];
+  const activity = {id:"persistence-audit-activity",engine:"QuizEngine"};
+  function record(name, reproduced, detail) { results.push({name,reproduced,detail}); }
+  try {
+    manager.currentSession = null;
+    window.__diag.setWriteFailure(true);
+    const unsaved = manager.begin(activity);
+    const keyA = "Tahouri_ActivitySession:SYNTHETIC_PROFILE_A";
+    record("P1 failed storage write must not produce a resumable session", !!unsaved && !window.__diag.store.has(keyA) && manager.currentSession === unsaved,
+      "begin() returned an in-memory session and set currentSession although SaveManager.save returned false");
+    manager.clear();
+    window.__diag.setWriteFailure(false);
+
+    const key = "Tahouri_ActivitySession:SYNTHETIC_PROFILE_A";
+    const unsupported = {version:"1.9",schemaVersion:99,id:"legacy-unsupported-snapshot",profileId:"SYNTHETIC_PROFILE_A",activityId:activity.id,activityType:"QuizEngine",status:"resumable",engineState:{kind:"quiz",state:{},questions:[{id:"q1"}],currentQuestion:0}};
+    window.__diag.store.set(key, unsupported);
+    const rejected = manager.load(activity.id) === null;
+    const preservedAtLoad = window.__diag.store.get(key).id === unsupported.id;
+    manager.currentSession = null;
+    const fresh = manager.begin(activity);
+    const overwritten = window.__diag.store.get(key)?.id === fresh.id;
+    record("P2 unsupported stored schema must not be overwritten by fresh start", rejected && preservedAtLoad && overwritten,
+      "load() rejected but preserved the key; begin() then replaced the same key with a new session");
+
+    manager.clear();
+    window.__diag.setProfile(null);
+    const noProfile = manager.begin(activity);
+    record("P3 missing profile context must not create an in-memory session", !!noProfile && noProfile.profileId === null && !manager.storageKey(),
+      "begin() returned a session with null profileId although no profile-scoped storage key exists");
+  } catch (error) {
+    results.push({name:"Harness execution",reproduced:false,detail:error.stack || error.message});
+  }
+  const list = document.querySelector("#results");
+  results.forEach(item => { const li = document.createElement("li"); li.textContent = (item.reproduced ? "BLOCKER CONFIRMED — " : "NOT REPRODUCED — ") + item.name + " — " + item.detail; list.appendChild(li); });
+  const reproduced = results.filter(x => x.reproduced).length;
+  document.querySelector("#summary").textContent = reproduced + "/" + results.length + " persistence/migration diagnostics reproduced";
+  window.__persistenceMigrationDiagnostic = {reproduced,total:results.length,results};
+})();
+</script></body></html>
