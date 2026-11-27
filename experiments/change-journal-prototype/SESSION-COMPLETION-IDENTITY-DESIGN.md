@@ -332,3 +332,16 @@ This is a bounded source trace, not proof from a successful repository-wide GitH
 - Confirm no newly introduced external session.id consumers before wiring completionId into the event envelope.
 
 **Trace status:** primary lifecycle path and known external references mapped; external direct id consumers were not found in the inspected active files. This is sufficient to design the next focused browser acceptance harness, but not sufficient to authorize runtime wiring or claim a formally exhaustive whole-repository trace.
+
+## 10. Migration prototype review — compatibility boundary
+
+The isolated migrator test suite is not a runtime-ready migration. Source inspection confirms the active manager currently declares both `VERSION: "1.9"` and `SCHEMA_VERSION: 1`; its validator rejects any non-1 schema. The prototype emits `schemaVersion: 2` while preserving the old `version: "1.9"`. Therefore, the current runtime would reject the migrated record unless a coordinated runtime version/schema change and migration-aware load path are implemented.
+
+Before any runtime wiring:
+- Define the next manager version and schema compatibility policy explicitly.
+- Make the migration's legacy validator match every branch of the real `validateSession()`, including engine-specific state requirements, not merely generic object/profile checks.
+- Test all currently supported session engine types and profile scoping against real v1-shaped fixtures.
+- Verify that the runtime can load the migrated schema and that a failed migration preserves the original raw bytes.
+- Keep the migration prototype isolated until those gates and the user's separate runtime approval are complete.
+
+The current prototype's rollback attempts to rewrite and verify the original raw string after a candidate write/read-back failure. If the storage backend is unavailable for both candidate and rollback operations, preservation cannot be guaranteed; it reports `rollback-failed` rather than claiming success. Production integration must use a safer commit strategy or a storage transaction/backup mechanism that makes the original recoverable without relying on a second successful write.
