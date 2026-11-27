@@ -65,4 +65,8 @@ const EventManager = {
 
 };
 
+if (typeof window !== "undefined") {
+    window.EventManager = EventManager;
+}
+
 console.log("Event Manager Ready");
