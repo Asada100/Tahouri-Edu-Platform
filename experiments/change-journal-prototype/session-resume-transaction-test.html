@@ -107,6 +107,7 @@
       return true;
     }};
     const memorySession=validSession();
+    activity.engine="MemoryEngine";
     memorySession.activityType="MemoryEngine";
     memorySession.engineState={kind:"memory",activity,cards:[{id:"memory-card-1",matched:false}],
       matchedPairs:0,moves:4,totalPairs:3,score:88,correct:8,wrong:2};
