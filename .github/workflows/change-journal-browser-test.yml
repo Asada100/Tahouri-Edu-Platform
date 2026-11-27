@@ -1,0 +1,34 @@
+name: Change Journal Browser Test
+
+on:
+  push:
+    branches:
+      - experiment/local-change-journal-prototype
+    paths:
+      - 'experiments/change-journal-prototype/**'
+      - '.github/scripts/change-journal-browser-test.js'
+      - '.github/workflows/change-journal-browser-test.yml'
+  pull_request:
+    paths:
+      - 'experiments/change-journal-prototype/**'
+      - '.github/scripts/change-journal-browser-test.js'
+      - '.github/workflows/change-journal-browser-test.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Playwright
+        run: npm install --no-save playwright
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run Change Journal browser tests
+        run: node .github/scripts/change-journal-browser-test.js
