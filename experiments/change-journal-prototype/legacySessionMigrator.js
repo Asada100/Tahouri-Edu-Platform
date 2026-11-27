@@ -34,7 +34,7 @@ function createLegacySessionMigrator(options) {
     let newId;
     try { newId=isFn("createIdentity")?o.createIdentity():null; }
     catch(error){return {ok:false,status:"identity-error",error,preserved:true};}
-    if(typeof newId!=="string"||!newId.trim())return {ok:false,status:"identity-error",preserved:true};
+    if(typeof newId!=="string"||!/^activity-session-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(newId))return {ok:false,status:"identity-error",preserved:true};
     const candidate=clone(legacy);
     candidate.legacyId=legacy.id;
     candidate.id=newId;
