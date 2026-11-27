@@ -34,3 +34,5 @@ jobs:
         run: node .github/scripts/change-journal-browser-test.js
       - name: Run real storage write-path tests
         run: node .github/scripts/storage-write-path-browser-test.js
+      - name: Run activity session identity diagnostic
+        run: node .github/scripts/activity-session-identity-browser-test.js
