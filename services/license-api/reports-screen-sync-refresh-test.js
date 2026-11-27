@@ -17,8 +17,9 @@ assert.match(reports, /studentLearningDataSynced/);
 assert.match(reports, /off\("studentLearningDataSynced", syncHandler\)/);
 assert.match(controller, /_reportsCloseObserverInstalled/);
 
-const context = { console };
+const context = { console, window: {} };
 vm.runInNewContext(eventsSource, context, { filename: "eventManager.js" });
+assert.ok(context.window.EventManager, "EventManager must be exposed for the sync path");
 vm.runInNewContext(`
     var listenerCalls = [];
     var keep = function () { listenerCalls.push("keep"); };
