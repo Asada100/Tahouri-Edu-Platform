@@ -359,7 +359,7 @@ The active `ActivitySessionManager.restoreEngine()` dispatch was compared with t
 | MemoryEngine / memory | cards non-empty, totalPairs positive, matchedPairs bounded | Rebuilds cards and counters; clears transient flipped-card references | Requires card-state and score restore test |
 | PuzzleEngine / puzzle | `kind=puzzle`, state, items array, puzzle object | Rebuilds engine and puzzle screen; Jigsaw has extra restore branch | Requires normal + Jigsaw restore test |
 | ClassificationEngine / classification | items and categories arrays non-empty | Loads full activity config, then calls `restoreSession(data)` | Requires actual activity-definition compatibility test |
-| MatchingEngine | No accepted v1 session schema in validator | No matching restore dispatch in active manager | Not resumable through this manager today |
+| MatchingEngine | Engine exposes `getSessionState()` and `restoreSession()`, but manager validator has no matching schema branch | No matching restore dispatch in active manager | Engine-level capability exists; manager integration is missing |
 | CompositeActivityEngine | No accepted v1 session schema in validator | No composite restore dispatch in active manager | Not resumable through this manager today |
 
 ### Important boundary
@@ -376,3 +376,22 @@ The migrator's v1 validator mirrors the manager's generic and engine-specific sh
 6. Keep all runtime wiring blocked until these tests pass and the user separately approves runtime changes.
 
 **Status:** schema validation and migration prototype tests pass; end-to-end engine restore compatibility remains unproven. No runtime, Worker, D1, or production files changed in this step.
+
+
+## 12. Resume transaction finding — active runtime source
+
+A further source-level blocker was confirmed in `ActivitySessionManager.resume()`:
+
+- It publishes the attempted snapshot to `currentSession` before calling `restoreEngine()`.
+- If restore returns false or throws, `finally` clears only `restoringSession`; it does not restore the prior `currentSession`.
+- On successful restore it changes `session.status` to `active`, calls `save(session)`, but ignores a false save result and still reports resume success.
+- Therefore UI/engine restore may succeed while the persisted record remains resumable, or a failed restore may leave a failed target published in memory.
+
+Required acceptance cases before runtime integration:
+1. Restore returns false: prior currentSession and persisted raw snapshot remain unchanged.
+2. Restore throws: same rollback, with restoringSession reset.
+3. Restore succeeds but persistence fails: resume must not report committed success; define and test rollback of engine/UI or a recoverable pending state.
+4. Successful restore + verified save: currentSession and persisted status both become active.
+5. Matching snapshot must be tested through manager validation and manager restore dispatch, not only its engine methods.
+
+This is a confirmed source finding, not yet a runtime patch. No runtime, Worker, D1, or production files were changed.
