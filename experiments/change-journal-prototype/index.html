@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>آزمایش مرورگری Change Journal</title>
+<style>
+body{font-family:Tahoma,Arial,sans-serif;max-width:850px;margin:32px auto;padding:0 16px;line-height:1.8}
+h1{font-size:1.35rem}button{padding:9px 16px;cursor:pointer}#summary{font-weight:bold;margin:16px 0}
+.pass{color:#087443}.fail{color:#b42318}li{padding:4px 0}code{direction:ltr;display:inline-block}
+</style>
+</head>
+<body>
+<h1>آزمایش مستقل Change Journal با localStorage واقعی</h1>
+<p>این صفحه فقط داده‌های آزمایشی با پیشوند <code>Tahouri_ChangeJournal_BrowserTest:</code> را می‌نویسد و به داده‌های دانش‌آموز یا ذخیره‌سازی اصلی طهوری دست نمی‌زند.</p>
+<button id="run">اجرای دوبارهٔ آزمون‌ها</button>
+<div id="summary">در حال آماده‌سازی…</div>
+<ol id="results"></ol>
+<script src="./changeJournal.js"></script>
+<script>
+(function(){
+'use strict';
+const prefix='Tahouri_ChangeJournal_BrowserTest:';
+const results=document.getElementById('results');
+const summary=document.getElementById('summary');
+function assert(ok,message){if(!ok)throw new Error(message||'Assertion failed');}
+function equal(a,b){return JSON.stringify(a)===JSON.stringify(b);}
+function testStorage(namespace,failAt){
+ let writes=0;
+ return {
+  getItem(key){return localStorage.getItem(prefix+namespace+':'+key);},
+  setItem(key,value){writes++;if(failAt===writes)throw new Error('simulated interruption');localStorage.setItem(prefix+namespace+':'+key,String(value));},
+  removeItem(key){localStorage.removeItem(prefix+namespace+':'+key);}
+ };
+}
+function clearNamespace(namespace){
+ const start=prefix+namespace+':';
+ for(let i=localStorage.length-1;i>=0;i--){const k=localStorage.key(i);if(k&&k.startsWith(start))localStorage.removeItem(k);}
+}
+const tests=[
+ ['ذخیرهٔ پایدار در localStorage',()=>{const ns='persist';clearNamespace(ns);let j=createChangeJournal(testStorage(ns),ns);j.enqueue({mutationId:'p1',dataset:'progress',recordKey:'act',operation:'set',value:{done:true}});j=createChangeJournal(testStorage(ns),ns);assert(j.read('progress').act.done===true,'data not persisted across instances');clearNamespace(ns);}],
+ ['بازیابی پس از قطع بین ثبت دفتر و داده',()=>{const ns='recover-a';clearNamespace(ns);let j=createChangeJournal(testStorage(ns,2),ns);try{j.enqueue({mutationId:'r1',dataset:'progress',recordKey:'a',operation:'set',value:1});}catch(e){}j=createChangeJournal(testStorage(ns),ns);j.recover();assert(j.read('progress').a===1,'recovery did not replay');clearNamespace(ns);}],
+ ['بازیابی پس از ثبت داده و پیش از وضعیت نهایی',()=>{const ns='recover-b';clearNamespace(ns);let j=createChangeJournal(testStorage(ns,3),ns);try{j.enqueue({mutationId:'r2',dataset:'stats',recordKey:'m',operation:'set',value:2});}catch(e){}j=createChangeJournal(testStorage(ns),ns);j.recover();assert(j.read('stats').m===2,'recovery failed after partial commit');clearNamespace(ns);}],
+ ['جلوگیری از اجرای دوباره و برخورد شناسه',()=>{const ns='dedupe';clearNamespace(ns);const j=createChangeJournal(testStorage(ns),ns),x={mutationId:'d1',dataset:'p',recordKey:'x',operation:'set',value:1};j.enqueue(x);assert(j.enqueue(x).duplicate===true,'duplicate not detected');let rejected=false;try{j.enqueue({...x,value:9});}catch(e){rejected=true;}assert(rejected,'collision accepted');clearNamespace(ns);}],
+ ['حذف، تأیید و پاک‌سازی',()=>{const ns='delete';clearNamespace(ns);const j=createChangeJournal(testStorage(ns),ns);j.enqueue({mutationId:'x1',dataset:'n',recordKey:'n1',operation:'set',value:1});j.enqueue({mutationId:'x2',dataset:'n',recordKey:'n1',operation:'delete'});j.recover();assert(!('n1' in j.read('n')),'delete replay failed');j.acknowledge(['x1','x2']);assert(j.compact().removed===2,'acknowledged entries not compacted');clearNamespace(ns);}],
+ ['جداسازی فضای دو پروفایل',()=>{const a='profile-a',b='profile-b';clearNamespace(a);clearNamespace(b);createChangeJournal(testStorage(a),a).enqueue({mutationId:'z1',dataset:'p',recordKey:'x',operation:'set',value:7});assert(equal(createChangeJournal(testStorage(b),b).read('p'),{}),'profile data leaked');clearNamespace(a);clearNamespace(b);}]
+];
+function run(){
+ results.innerHTML='';let passed=0;
+ for(const [name,fn] of tests){const li=document.createElement('li');try{fn();li.textContent='موفق — '+name;li.className='pass';passed++;}catch(e){li.textContent='ناموفق — '+name+' — '+e.message;li.className='fail';}results.appendChild(li);}
+ summary.textContent=passed+'/'+tests.length+' آزمون موفق';
+ summary.className=passed===tests.length?'pass':'fail';
+}
+document.getElementById('run').addEventListener('click',run);
+if(typeof createChangeJournal!=='function'){summary.textContent='خطا: فایل changeJournal.js بارگذاری نشد';summary.className='fail';}
+else run();
+})();
+</script>
+</body>
+</html>
