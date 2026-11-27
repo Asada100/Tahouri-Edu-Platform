@@ -141,6 +141,9 @@ jobs:
       - name: Student learning data portability regression test
         run: node student-data-transfer-test.js
 
+      - name: Student learning sync diagnostics regression test
+        run: npm run student-learning-sync-diagnostics-test
+
       - name: Integration test
         run: npm run integration-test
       - name: Migration verification
