@@ -33,4 +33,8 @@ test("storage read error differs from missing",()=>{const f=fixture({readRaw:()=
  assert.equal(f.guard.begin({id:"q"}).status,"storage-error");});
 test("profile-scoped keys isolate sessions",()=>{const f=fixture();assert.equal(f.guard.begin({id:"q"}).ok,true);f.guard.clear();
  f.setProfile("student-B");f.options.createIdentity=()=>"uuid-B";assert.equal(f.guard.begin({id:"q"}).ok,true);assert.ok(f.data.has("session:student-B"));});
-console.log("SESSION PERSISTENCE GUARD RESULT: PASS (14/14)");
+test("failed load clears a previously published session",()=>{const f=fixture();assert.equal(f.guard.begin({id:"q"}).ok,true);
+ f.data.set("session:student-A","{broken");assert.equal(f.guard.load().status,"invalid-json");assert.equal(f.guard.getCurrentSession(),null);});
+test("failed begin after profile switch cannot expose previous profile session",()=>{const f=fixture();assert.equal(f.guard.begin({id:"q"}).ok,true);
+ f.setProfile(null);assert.equal(f.guard.begin({id:"q"}).status,"missing-profile");assert.equal(f.guard.getCurrentSession(),null);});
+console.log("SESSION PERSISTENCE GUARD RESULT: PASS (16/16)");
