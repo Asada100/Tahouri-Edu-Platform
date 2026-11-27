@@ -576,3 +576,21 @@ The four test assertions cover:
 **Scope limitation:** this is an engine-state adapter proof for WordPuzzle only. It does not stage the visible screen, ActivityManager, ActivityState, body classes, exit controls, storage write/read-back, or the manager's `activityResumed` event. It does not authorize integration into `ActivitySessionManager`. The next adapter must add detached screen preparation and must not use a shallow clone where engine methods share nested state or external dependencies.
 
 The workflow now runs this test as part of the experiment-branch CI. No active runtime, Worker, D1, or production files were changed.
+
+
+## 18. WordPuzzle detached-screen feasibility check — 2026-11-28
+
+Inspected the active `engine/ui/wordPuzzleScreen.js` render path after the engine-state adapter passed CI.
+
+The existing `WordPuzzleScreen.render(state)` is not a detached renderer:
+- it obtains the live `#app` element directly from `document`;
+- clears and replaces that live element's contents;
+- toggles `document.body` class `word-puzzle-mode-select`;
+- builds interactive controls whose handlers call the global `WordPuzzleEngine`;
+- `showToast()` appends feedback directly to the live `document.body`.
+
+Therefore the current screen cannot be safely invoked during a prepare phase. Passing a detached root is not currently supported, and simply cloning the DOM after rendering would already have mutated the live page.
+
+**Required next seam:** extract a render function that accepts an explicit detached root and an explicit engine/action interface, and keep body-class changes, toast publication, and live event subscriptions outside that pure render operation. The existing public `render(state)` can remain a compatibility wrapper that supplies the live root and production action interface. Add browser tests proving that detached preparation leaves `#app`, body classes, global engine state, event counts, and live listeners unchanged; only an explicit commit may replace the visible screen.
+
+This is a verified integration blocker, not a completed refactor. No UI/runtime source file was changed.
