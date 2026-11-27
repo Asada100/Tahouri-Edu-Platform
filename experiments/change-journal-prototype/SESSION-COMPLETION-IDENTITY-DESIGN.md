@@ -345,3 +345,34 @@ Before any runtime wiring:
 - Keep the migration prototype isolated until those gates and the user's separate runtime approval are complete.
 
 The current prototype's rollback attempts to rewrite and verify the original raw string after a candidate write/read-back failure. If the storage backend is unavailable for both candidate and rollback operations, preservation cannot be guaranteed; it reports `rollback-failed` rather than claiming success. Production integration must use a safer commit strategy or a storage transaction/backup mechanism that makes the original recoverable without relying on a second successful write.
+
+
+## 11. Runtime restore compatibility matrix — source trace
+
+The active `ActivitySessionManager.restoreEngine()` dispatch was compared with the runtime v1 validator and the isolated migration validator. This is a source-level compatibility trace, not an end-to-end browser restore test.
+
+| Engine family | v1 validation shape | Runtime restore path | Migration gate |
+|---|---|---|---|
+| DictationEngine / dictation | `kind=dictation`, state object, content.questions non-empty | `engine.restoreSession(data.state)`; content is restored/rebuilt first | Requires real snapshots and restore test |
+| WordPuzzleEngine / wordPuzzle | `kind=wordPuzzle`, state object, round object | `engine.restoreSession(data)` | Requires real snapshots and restore test |
+| QuizEngine / quiz | `kind=quiz`, state, questions non-empty, currentQuestion in range | Rebuilds engine fields, ScoreManager and QuizScreen | Requires screen/score rollback test |
+| MemoryEngine / memory | cards non-empty, totalPairs positive, matchedPairs bounded | Rebuilds cards and counters; clears transient flipped-card references | Requires card-state and score restore test |
+| PuzzleEngine / puzzle | `kind=puzzle`, state, items array, puzzle object | Rebuilds engine and puzzle screen; Jigsaw has extra restore branch | Requires normal + Jigsaw restore test |
+| ClassificationEngine / classification | items and categories arrays non-empty | Loads full activity config, then calls `restoreSession(data)` | Requires actual activity-definition compatibility test |
+| MatchingEngine | No accepted v1 session schema in validator | No matching restore dispatch in active manager | Not resumable through this manager today |
+| CompositeActivityEngine | No accepted v1 session schema in validator | No composite restore dispatch in active manager | Not resumable through this manager today |
+
+### Important boundary
+
+The migrator's v1 validator mirrors the manager's generic and engine-specific shape checks, but passing that validator does not prove that `restoreEngine()` can reconstruct the engine. Restore also depends on live activity definitions, screen modules, engine methods, and (for Classification) asynchronous configuration loading. The 21 validator tests and 15 migration tests therefore prove schema-gate behavior only; they do not prove all engine sessions can resume.
+
+### Required next acceptance tests
+
+1. Build sanitized, representative v1 snapshots from each supported engine's actual `getSessionState()` / snapshot output, not hand-written generic examples.
+2. For each supported family, migrate v1 → v2, then load and restore through the real manager in an isolated browser harness.
+3. Assert the same session ID survives migration, reload, and resume; assert engine state and score are preserved.
+4. Assert a failed restore leaves the previous engine state, visible UI, currentSession, and persisted snapshot unchanged.
+5. Explicitly test and document Matching and Composite as unsupported for resumable sessions; do not silently label them covered.
+6. Keep all runtime wiring blocked until these tests pass and the user separately approves runtime changes.
+
+**Status:** schema validation and migration prototype tests pass; end-to-end engine restore compatibility remains unproven. No runtime, Worker, D1, or production files changed in this step.
