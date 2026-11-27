@@ -6,6 +6,7 @@ on:
       - experiment/local-change-journal-prototype
     paths:
       - 'experiments/change-journal-prototype/**'
+      - '.github/scripts/session-resume-transaction-test.js'
       - '.github/scripts/change-journal-browser-test.js'
       - '.github/scripts/activity-session-identity-browser-test.js'
       - '.github/scripts/session-identity-browser-test.js'
@@ -53,3 +54,5 @@ jobs:
         run: node .github/scripts/session-identity-browser-test.js
       - name: Run session persistence and migration diagnostics
         run: node .github/scripts/session-persistence-migration-test.js
+      - name: Run session resume transaction diagnostics
+        run: node .github/scripts/session-resume-transaction-test.js
