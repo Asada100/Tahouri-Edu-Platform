@@ -10,7 +10,9 @@
     save(key,value){if(stored.failSave)return false;stored.raw=JSON.stringify(value);return true;},
     remove(){stored.raw=null;return true;}
   };
-  window.EventManager={on(){},emit(){}};
+  window.EventManager={events:[],on(){},emit(name,payload){this.events.push({name,payload});}};
+  window.ActivityManager={currentActivity:null};
+  window.ActivityState={value:"idle",set(value){this.value=value;}};
   document.addEventListener=function(){};
   window.addEventListener=function(){};
   window.__resumeDiag=stored;
@@ -48,13 +50,18 @@
 
     // Successful in-memory restore is not a committed resume if persistence fails.
     const success=validSession(); d.raw=JSON.stringify(success); d.failSave=true;
-    manager.currentSession=null; manager.getResumable=()=>success;
-    manager.restoreEngine=async()=>true;
+    manager.currentSession=null; manager.gameplayActive=false; manager.getResumable=()=>success;
+    ActivityManager.currentActivity=null; ActivityState.value="idle";
+    document.body.classList.remove("activity-playing"); EventManager.events.length=0;
+    manager.restoreEngine=async()=>{manager.activateRestoredActivity(activity);return true;};
     const returned=await manager.resume(activity.id);
     const persisted=JSON.parse(d.raw);
-    record("R3 failed status write must not report committed resume",
-      returned===true && success.status==="active" && persisted.status==="resumable",
-      "resume() reported success and mutated the in-memory status to active although SaveManager.save() failed and persisted status stayed resumable");
+    const resumedEvents=EventManager.events.filter(event=>event.name==="activityResumed").length;
+    const leakedRuntime=manager.gameplayActive===true && document.body.classList.contains("activity-playing") &&
+      ActivityManager.currentActivity===activity && ActivityState.value==="playing" && resumedEvents===1;
+    record("R3 failed status write must roll back all published runtime effects",
+      returned===true && success.status==="active" && persisted.status==="resumable" && leakedRuntime,
+      "resume() returned success, changed memory to active, left persisted status resumable, enabled gameplay/CSS, published ActivityManager and ActivityState, and emitted activityResumed despite SaveManager.save() failure");
     d.failSave=false;
   }catch(error){results.push({name:"Harness execution",reproduced:false,detail:error.stack||error.message});}
   const list=document.querySelector("#results");
