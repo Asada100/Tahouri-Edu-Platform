@@ -23,17 +23,19 @@ const frameSource=`
 window.__isolatedCalls=[];
 window.__resizeListeners=0;
 window.__scheduledTimers=0;
+window.__scheduledCallbacks=[];
 const nativeAddEventListener=window.addEventListener.bind(window);
 window.addEventListener=function(name,...args){if(name==='resize')window.__resizeListeners++;return nativeAddEventListener(name,...args);};
 const nativeSetTimeout=window.setTimeout.bind(window);
-window.setTimeout=function(...args){window.__scheduledTimers++;return nativeSetTimeout(...args);};
+window.setTimeout=function(callback){window.__scheduledTimers++;window.__scheduledCallbacks.push(callback);return window.__scheduledTimers;};
+window.clearTimeout=function(){};
 window.EventManager={handler:null,on(name,handler){if(name==='activityReady')this.handler=handler;}};
 window.WordPuzzleEngine={
 state:{total:3,score:12,hintPenalty:0,foundWords:[]},
 selectMode(mode){window.__isolatedCalls.push(['selectMode',mode]);},
 submitBuilder(value){window.__isolatedCalls.push(['submitBuilder',value]);return {correct:false,finished:true};},
 submitTreeFamily(green,yellow){window.__isolatedCalls.push(['submitTreeFamily',green,yellow]);return {correct:false};},
-submitFamily(words){window.__isolatedCalls.push(['submitFamily',words]);return {correct:false,finished:true};},
+submitFamily(words){window.__isolatedCalls.push(['submitFamily',words]);return {correct:false,finished:false,state:{score:12,data:{type:'wordFamily',title:'خانواده واژه‌ها',base:'دانش',instruction:'هم‌خانواده‌ها را انتخاب کن',options:['دانشمند','دانایی']}}};},
 hint(){window.__isolatedCalls.push(['hint']);return {type:'cell',value:[0,0]};},
 submitSearch(path){window.__isolatedCalls.push(['submitSearch',path]);return {correct:false};},
 submitL(path){window.__isolatedCalls.push(['submitL',path]);return {correct:false,finished:true};},
@@ -82,7 +84,10 @@ rendered.treeFamily=!!app.querySelector('.wp-tree-card')&&app.querySelectorAll('
 app.querySelector('.wp-tree-leaf')?.click();
 app.querySelector('[data-tree-check]')?.click();
 
-const required=['modeSelect','wordBuilder','wordSearch','wordFamily','treeFamily'];
+const callbacks=window.__scheduledCallbacks.splice(0);
+callbacks.forEach(callback=>callback());
+rendered.delayedRerender=!!app.querySelector('.wp-family-base')&&app.querySelectorAll('.wp-option').length===2;
+const required=['modeSelect','wordBuilder','wordSearch','wordFamily','treeFamily','delayedRerender'];
 const allRendered=required.every(name=>rendered[name]===true);
 const actions=window.__isolatedCalls;
 const actionNames=actions.map(item=>item[0]);
@@ -109,7 +114,7 @@ const after={html:liveRoot.innerHTML,classes:document.body.className};
 record('iframe sandbox blocks access to parent DOM',result.parentAccessBlocked===true,'parent document access '+(result.parentAccessBlocked?'blocked':'not blocked'));
 record('actual WordPuzzleScreen renders mode selection and four gameplay families',result.allRendered===true,result.error||JSON.stringify(result.rendered));
 record('real screen controls call only isolated engine actions',result.actionsIsolated===true,'isolated actions: '+JSON.stringify(result.actions));
-record('resize listeners and timers are scoped to the isolated iframe',result.resizeListeners>0&&result.scheduledTimers>=0,'iframe resize listeners='+result.resizeListeners+', iframe timers='+result.scheduledTimers);
+record('resize listeners and delayed rerender timers are scoped to the isolated iframe',result.resizeListeners>0&&result.scheduledTimers>0,'iframe resize listeners='+result.resizeListeners+', delayed callbacks exercised='+result.scheduledTimers);
 frame.remove();
 record('disposing the prepared iframe leaves parent app and body unchanged',before.html===after.html&&after.html==='PARENT-LIVE-SCREEN-SENTINEL'&&after.classes==='parent-live-body-sentinel','parent app/body sentinel comparison after iframe disposal');
 document.getElementById('results').innerHTML=results.map(x=>'<li>'+(x.pass?'PASS — ':'FAIL — ')+x.name+' — '+x.detail+'</li>').join('');
