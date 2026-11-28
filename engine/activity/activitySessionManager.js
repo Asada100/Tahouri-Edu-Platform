@@ -92,15 +92,59 @@ const ActivitySessionManager = {
 
     save(session) {
         const key = this.storageKey();
-        if (!key || typeof SaveManager === "undefined" || !session) return false;
+        if (!key || typeof SaveManager === "undefined" || !session ||
+            typeof SaveManager.readRaw !== "function" ||
+            typeof SaveManager.writeRaw !== "function" ||
+            typeof SaveManager.restoreRaw !== "function") return false;
 
+        const rawSnapshot = SaveManager.readRaw(key);
+        if (!rawSnapshot || rawSnapshot.ok !== true) return false;
         session.version = this.VERSION;
         session.schemaVersion = this.SCHEMA_VERSION;
         session.updatedAt = Date.now();
+        const serialized = JSON.stringify(session);
+        let writeAttempted = false;
 
-        const ok = SaveManager.save(key, session);
-        if (ok) this.currentSession = session;
-        return ok;
+        const rollback = () => {
+            if (!writeAttempted) return true;
+            try {
+                if (!SaveManager.restoreRaw(key, rawSnapshot)) return false;
+                const verified = SaveManager.readRaw(key);
+                return !!verified && verified.ok === true &&
+                    verified.exists === rawSnapshot.exists &&
+                    verified.value === rawSnapshot.value;
+            } catch (error) {
+                console.error("ActivitySessionManager: Session save rollback failed.", error);
+                return false;
+            }
+        };
+
+        try {
+            writeAttempted = true;
+            if (SaveManager.writeRaw(key, serialized) !== true) {
+                if (!rollback()) console.error("ActivitySessionManager: Session save rollback incomplete.");
+                return false;
+            }
+            const readBack = SaveManager.readRaw(key);
+            if (!readBack || readBack.ok !== true || !readBack.exists || readBack.value !== serialized) {
+                if (!rollback()) console.error("ActivitySessionManager: Session save rollback incomplete.");
+                return false;
+            }
+            const verified = JSON.parse(readBack.value);
+            if (!this.validateSession(verified) || verified.id !== session.id ||
+                verified.profileId !== session.profileId || verified.activityId !== session.activityId ||
+                verified.activityType !== session.activityType || verified.status !== session.status) {
+                if (!rollback()) console.error("ActivitySessionManager: Session save rollback incomplete.");
+                return false;
+            }
+            this.currentSession = session;
+            return true;
+        } catch (error) {
+            if (!rollback()) console.error("ActivitySessionManager: Session save rollback incomplete.");
+            console.error("ActivitySessionManager: Session save failed.", error);
+            return false;
+        }
+    },
     },
 
     clear() {
@@ -333,6 +377,8 @@ const ActivitySessionManager = {
         let session = this.currentSession;
         if (!session || session.activityId !== activity.id) session = this.begin(activity);
         if (!session) return false;
+        try { session = JSON.parse(JSON.stringify(session)); }
+        catch (error) { return false; }
 
         const state = this.snapshot(activity);
         if (!state) return false;
