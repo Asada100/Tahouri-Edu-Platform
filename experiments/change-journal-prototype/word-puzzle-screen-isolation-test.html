@@ -50,8 +50,8 @@ formatDisplay(value){return String(value||'');}
 window.WordPuzzleScore={stars(){return 3;}};
 window.parentAccessBlocked=false;
 try{void window.parent.document.body.className;}catch(_){window.parentAccessBlocked=true;}
-</script>
-<script src="../../engine/ui/wordPuzzleScreen.js"></script>
+<\/script>
+<script src="../../engine/ui/wordPuzzleScreen.js"><\/script>
 <script>
 (function(){
 if(typeof WordPuzzleScreen==='undefined'||!EventManager.handler){
@@ -95,7 +95,7 @@ bodyClass:document.body.className,appText:app.textContent,
 hasScreen:typeof WordPuzzleScreen,hasHandler:typeof EventManager.handler
 },'*');
 })();
-</script></body></html>`;
+<\/script></body></html>`;
 frame.srcdoc=frameSource;
 document.body.appendChild(frame);
 const result=await new Promise(resolve=>{
