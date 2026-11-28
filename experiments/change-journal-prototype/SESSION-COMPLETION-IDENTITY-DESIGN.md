@@ -716,3 +716,51 @@ The persistence stage now calls the real `SaveManager.save()`, `SaveManager.load
 **CI evidence:** run `46171043229`, job `141059297909`; the two-host test reports **12/12 PASS** and the full workflow completed successfully. The SaveManager's expected injected write-failure log appears in the browser console as part of the negative-path test; it is not an unexpected application failure.
 
 **Boundary:** this now exercises the actual SaveManager and browser localStorage APIs, but it remains a harness-level test with an isolated synthetic key and session-shaped fixture. It does not call `ActivitySessionManager.resume()`, does not use the live profile's storage key or a student's real session, and does not wire the transaction prototype into production. The next required proof is a controlled adapter around the actual ActivitySessionManager resume path, with capture/restore of the live engine and host state, durable raw-value rollback, and lifecycle event count assertions. Production remains unchanged.
+
+## 25. Actual resume transaction integration gate — 2026-11-28
+
+The actual ActivitySessionManager.resume() path has now been exercised by the browser diagnostic after loading the production manager, production SaveManager, and production WordPuzzle engine source. The diagnostic reproduces two independent defects. This section records the implementation boundary before any runtime change.
+
+### Confirmed control-flow defects
+
+1. resume() calls getResumable() before it captures any prior publication state. getResumable() calls load(), and load() assigns the candidate to currentSession. Therefore a later rollback cannot recover the previously published session unless the previous state is captured before the load, or loading is changed to a side-effect-free read.
+2. After restoreEngine() succeeds, resume() sets the candidate status to active and calls save(session), but ignores the boolean result. It then marks gameplay active, adds the body class, installs the exit control, and emits activityResumed. SaveManager returns false on localStorage write failure and has no read-back verification.
+3. If restoreEngine() returns false, resume() returns false but the candidate remains in currentSession, because the candidate was published before restore. Its finally only clears restoringSession; it does not restore the prior publication.
+4. restoreEngine() is not a prepare-only operation. Its branches mutate engine state and, in several cases, live ActivityManager/ActivityState, ScoreManager, screen DOM, Jigsaw facades, and body classes before persistence is committed. Dictation, WordPuzzle, Quiz, Memory and Puzzle branches call activateRestoredActivity(); Classification has its own handler/state/screen mutations. Wrapping the current method in a storage transaction alone would not make resume atomic.
+5. SaveManager exposes JSON-level save/load/remove only. load() converts malformed JSON and storage read errors to null, so it cannot distinguish absent data, malformed bytes, and read failure. Transactional rollback must preserve the exact previous raw localStorage string (or exact absence), not serialize an object again and assume byte-equivalence.
+
+### Required integration order
+
+The runtime integration must not be attempted as a single patch to resume(). The required sequence is:
+
+- Read the profile-scoped storage key and exact raw prior value without publishing anything.
+- Resolve and validate the profile, activity identity, session schema, and engine adapter.
+- Capture all currently published manager, engine, score, screen, activity-state, body-class, exit-control, listener/timer and storage state needed for exact rollback.
+- Prepare the restored engine and screen in an isolated candidate host. Preparation must not mutate live singletons, live DOM, global activity state, body classes, exit controls, or lifecycle events.
+- Persist the candidate status using the profile-scoped key, then read the exact raw value back and validate its parsed content and identity.
+- Publish the prepared engine/screen and global activity/session state once, install exit controls once, then emit activityResumed exactly once.
+- On any failure before successful publication, dispose the candidate and restore the exact prior raw storage value (including absence), engine/runtime/UI state and prior session publication. Verify storage rollback by reading raw bytes again. If any rollback cannot be verified, return an explicit rollback-failed result and do not report a clean resume.
+
+### Acceptance matrix before runtime modification
+
+The integration harness must use the production manager, actual SaveManager and real profile-scoped key in a synthetic isolated browser profile. It must assert all of the following:
+
+| Scenario | Required result |
+| --- | --- |
+| Missing profile or key | No candidate engine, storage write, or publication |
+| Missing / malformed / unsupported snapshot | Preserve exact prior raw bytes; no publication |
+| Engine restore returns false | Previous engine, screen, session and storage unchanged |
+| Engine restore throws after partial work | Complete rollback; no resume event |
+| SaveManager returns false / throws | No gameplay publication or resume event |
+| Read-back throws / is malformed / mismatches | Restore exact raw bytes and previous runtime |
+| Raw-value rollback fails | Explicit rollback-failed; never report ordinary failure as clean rollback |
+| Successful resume | Verified storage first; then one publication and exactly one resume event |
+| Duplicate resume request | No duplicate screen publication or lifecycle fan-out |
+| Profile switch during candidate preparation | Candidate cannot publish into the wrong profile |
+| Browser reload after commit | The committed session is recoverable and identity remains stable |
+
+### Engine adapter rollout boundary
+
+The existing engine branches do not yet share a detached prepare/commit/rollback contract. WordPuzzle has the strongest isolated-host proof, but its production screen and ActivityManager publication are not yet integrated. Quiz, Memory, Puzzle/Jigsaw, Dictation and Classification still need per-family adapters and failure-path acceptance tests. Do not enable a partial generic transaction around the current mutating restoreEngine() method and call it atomic.
+
+**Decision:** keep the runtime unchanged until the first production-backed adapter passes the complete acceptance matrix for its family, including exact storage rollback and host publication. Then integrate one family at a time behind an explicit adapter registry. No production runtime, Pages deployment, Worker, D1, or student data was changed by this diagnostic/documentation work.
