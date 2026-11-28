@@ -37,7 +37,7 @@ function reset(){
 function check(ok,name,detail){if(!ok)throw Error("ASSERTION FAILED: "+name+" — "+detail);report.push({name,detail});console.log("PASS — "+name+" — "+detail);}
 try{
  // 1. Successful actual resume: durable write/readback precedes publication and events.
- let stored=seed();reset();const prior={id:"prior-session",status:"active"};manager.currentSession=prior;
+ let reset();stored=seed();reset();const prior={id:"prior-session",status:"active"};manager.currentSession=prior;
  let writeSawUnpublished=false;
  window.SaveManager.writeRaw=(k,v)=>{writeSawUnpublished=manager.currentSession===prior&&window.__events.length===0;return originalWrite.call(window.SaveManager,k,v);};
  let ok=await manager.resume(activity.id);window.SaveManager.writeRaw=originalWrite;
@@ -45,38 +45,38 @@ try{
  check(ok===true&&writeSawUnpublished&&saved1.status==="active"&&manager.currentSession.id===stored.id&&manager.gameplayActive&&window.ActivityManager.currentActivity===activity&&window.ActivityState.current==="playing"&&document.body.classList.contains("activity-playing")&&window.__exitInstallCount===1&&window.__events.filter(x=>x.name==="activityReady").length===1&&window.__events.filter(x=>x.name==="activityResumed").length===1,"successful actual resume commits before publication",JSON.stringify({ok,savedStatus:saved1.status,storedId:stored.id,currentId:manager.currentSession&&manager.currentSession.id,gameplay:manager.gameplayActive,currentActivity:window.ActivityManager.currentActivity===activity,activityState:window.ActivityState.current,body:document.body.classList.contains("activity-playing"),exit:window.__exitInstallCount,events:window.__events.map(x=>x.name),writeSawUnpublished}));
 
  // 2. Storage write failure restores raw bytes and every captured live publication.
- stored=seed();reset();const beforeRaw=window.SaveManager.readRaw(key).value;const prior2={id:"prior-session-2"};manager.currentSession=prior2;
+ reset();stored=seed();reset();const beforeRaw=window.SaveManager.readRaw(key).value;const prior2={id:"prior-session-2"};manager.currentSession=prior2;
  const beforeEngine=JSON.stringify(engine.getSessionState());window.SaveManager.writeRaw=()=>false;
  ok=await manager.resume(activity.id);window.SaveManager.writeRaw=originalWrite;
  check(ok===false&&window.SaveManager.readRaw(key).value===beforeRaw&&manager.currentSession===prior2&&JSON.stringify(engine.getSessionState())===beforeEngine&&!manager.gameplayActive&&window.ActivityManager.currentActivity===null&&window.ActivityState.current==="idle"&&!document.body.classList.contains("activity-playing")&&!document.getElementById(manager.exitControlId)&&window.__events.length===0,"storage write failure rolls back actual resume",JSON.stringify({ok,rawSame:window.SaveManager.readRaw(key).value===beforeRaw,currentSessionSame:manager.currentSession===prior2,engineSame:JSON.stringify(engine.getSessionState())===beforeEngine,gameplay:manager.gameplayActive,currentActivity:window.ActivityManager.currentActivity,activityState:window.ActivityState.current,body:document.body.classList.contains("activity-playing"),exit:!!document.getElementById(manager.exitControlId),events:window.__events.map(x=>x.name)}));
 
  // 3. Read-back mismatch is rejected and the exact prior raw string is restored.
- stored=seed();reset();const beforeMismatch=window.SaveManager.readRaw(key).value;manager.currentSession={id:"prior-mismatch"};
+ reset();stored=seed();reset();const beforeMismatch=window.SaveManager.readRaw(key).value;manager.currentSession={id:"prior-mismatch"};
  let mismatchNext=false;window.SaveManager.writeRaw=(k,v)=>{const result=originalWrite.call(window.SaveManager,k,v);mismatchNext=true;return result;};
  window.SaveManager.readRaw=(k)=>{if(mismatchNext){mismatchNext=false;return {ok:true,exists:true,value:"wrong-readback"};}return originalRead.call(window.SaveManager,k);};
  ok=await manager.resume(activity.id);window.SaveManager.writeRaw=originalWrite;window.SaveManager.readRaw=originalRead;
  check(ok===false&&window.SaveManager.readRaw(key).value===beforeMismatch&&manager.currentSession.id==="prior-mismatch"&&!manager.gameplayActive&&window.__events.length===0,"storage read-back mismatch aborts commit","exact original storage bytes and prior publication survive a mismatched read-back");
 
  // 4. Engine rejection does not leak the loaded candidate into currentSession.
- stored=seed();reset();const prior4={id:"prior-rejected"};manager.currentSession=prior4;engine.restoreSession=()=>false;
+ reset();stored=seed();reset();const prior4={id:"prior-rejected"};manager.currentSession=prior4;engine.restoreSession=()=>false;
  ok=await manager.resume(activity.id);
  check(ok===false&&manager.currentSession===prior4&&window.ActivityManager.currentActivity===null&&window.ActivityState.current==="idle"&&!manager.gameplayActive&&window.__events.length===0,"engine rejection preserves prior session publication","a false restore cannot replace currentSession or publish activity state");
 
  // 5. Partial engine mutation followed by throw is fully rolled back.
- stored=seed();reset();const prior5={id:"prior-thrown"};manager.currentSession=prior5;const beforeThrow=JSON.stringify(engine.getSessionState());
+ reset();stored=seed();reset();const prior5={id:"prior-thrown"};manager.currentSession=prior5;const beforeThrow=JSON.stringify(engine.getSessionState());
  engine.restoreSession=()=>{engine.state={started:true,finished:true,score:999};throw Error("injected partial restore");};
  ok=await manager.resume(activity.id);
  check(ok===false&&manager.currentSession===prior5&&JSON.stringify(engine.getSessionState())===beforeThrow&&window.ActivityManager.currentActivity===null&&window.ActivityState.current==="idle"&&window.__events.length===0,"partial engine exception rolls back live engine","engine snapshot and prior publication are preserved after a thrown restore");
 
  // 6. Publication failure after durable write restores durable and visible state.
- stored=seed();reset();const prior6={id:"prior-publication"};manager.currentSession=prior6;const beforePublishRaw=window.SaveManager.readRaw(key).value;
+ reset();stored=seed();reset();const prior6={id:"prior-publication"};manager.currentSession=prior6;const beforePublishRaw=window.SaveManager.readRaw(key).value;
  const priorExit=document.createElement("button");priorExit.id=manager.exitControlId;const priorExitHandler=()=>{};priorExit.onclick=priorExitHandler;document.body.appendChild(priorExit);
  manager.installExitControl=()=>{manager.removeExitControl();const b=document.createElement("button");b.id=manager.exitControlId;document.body.appendChild(b);throw Error("injected exit-control failure");};
  ok=await manager.resume(activity.id);
  check(ok===false&&window.SaveManager.readRaw(key).value===beforePublishRaw&&manager.currentSession===prior6&&window.ActivityManager.currentActivity===null&&window.ActivityState.current==="idle"&&!manager.gameplayActive&&!document.body.classList.contains("activity-playing")&&document.getElementById(manager.exitControlId)===priorExit&&priorExit.onclick===priorExitHandler&&window.__events.length===0,"partial platform publication rolls back durable session","failed exit-control installation restores exact storage, prior DOM node and handler, ActivityState, ActivityManager, body and session");
 
  // 7. Event delivery is post-commit: failure is logged, not falsely rolled back.
- stored=seed();reset();window.EventManager.on("activityResumed",()=>{throw Error("injected observer failure");});
+ reset();stored=seed();reset();window.EventManager.on("activityResumed",()=>{throw Error("injected observer failure");});
  ok=await manager.resume(activity.id);const committed=JSON.parse(window.SaveManager.readRaw(key).value);
  check(ok===true&&committed.status==="active"&&manager.currentSession.id===stored.id&&manager.gameplayActive&&window.ActivityState.current==="playing","post-commit observer failure does not undo durable resume","the session remains committed even when a downstream activityResumed listener throws");
 
