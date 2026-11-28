@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>WordPuzzle isolated browsing context proof</title></head>
+<body>
+<h1>آزمون محیط مرورگر مستقل WordPuzzle</h1>
+<p id="summary">running</p><ol id="results"></ol>
+<div id="app">PARENT-LIVE-SCREEN-SENTINEL</div>
+<script>
+(async function(){
+'use strict';
+const results=[];
+function record(name,pass,detail){results.push({name,pass,detail});}
+const liveRoot=document.getElementById('app');
+document.body.classList.add('parent-live-body-sentinel');
+const before={html:liveRoot.innerHTML,classes:document.body.className};
+const frame=document.createElement('iframe');
+frame.setAttribute('sandbox','allow-scripts');
+frame.title='Isolated WordPuzzle preparation context';
+const frameSource=`
+<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><base href="${location.href}"></head>
+<body><div id="app">EMPTY-ISOLATED-SCREEN</div>
+<script>
+window.__isolatedCalls=[];
+window.EventManager={handler:null,on(name,handler){if(name==='activityReady')this.handler=handler;}};
+window.WordPuzzleEngine={selectMode(mode){window.__isolatedCalls.push(mode);}};
+window.parentAccessBlocked=false;
+try{void window.parent.document;}catch(_){window.parentAccessBlocked=true;}
+<\/script>
+<script src="../../engine/ui/wordPuzzleScreen.js"><\/script>
+<script>
+(function(){
+if(!window.WordPuzzleScreen||!EventManager.handler){parent.postMessage({kind:'wp-isolation',error:'screen script or event registration missing'},'*');return;}
+EventManager.handler({engineName:'WordPuzzleEngine',result:{score:0,data:{type:'modeSelect',modes:['wordBuilder']}}});
+const app=document.getElementById('app');
+const button=app.querySelector('.wp-mode-card');
+const rendered=!!button && app.textContent.includes('کلمه‌ساز');
+if(button)button.click();
+parent.postMessage({kind:'wp-isolation',rendered,isolatedCalls:window.__isolatedCalls,parentAccessBlocked,bodyClass:document.body.className,appText:app.textContent},'*');
+})();
+<\/script></body></html>`;
+frame.srcdoc=frameSource;
+document.body.appendChild(frame);
+const result=await new Promise(resolve=>{
+const timeout=setTimeout(()=>resolve({error:'iframe proof timed out'}),8000);
+window.addEventListener('message',function handler(event){
+if(event.source!==frame.contentWindow||event.data?.kind!=='wp-isolation')return;
+clearTimeout(timeout);window.removeEventListener('message',handler);resolve(event.data);
+});
+});
+const after={html:liveRoot.innerHTML,classes:document.body.className};
+record('iframe sandbox blocks access to parent DOM',result.parentAccessBlocked===true,'parent document access '+(result.parentAccessBlocked?'blocked':'not blocked'));
+record('actual WordPuzzleScreen renders inside isolated iframe',result.rendered===true,result.error||('isolated screen text: '+(result.appText||'')));
+record('mode-selection action reaches only iframe engine stub',JSON.stringify(result.isolatedCalls)===JSON.stringify(['wordBuilder']),'isolated calls: '+JSON.stringify(result.isolatedCalls));
+record('parent live #app and body classes remain unchanged',before.html===after.html&&after.html==='PARENT-LIVE-SCREEN-SENTINEL'&&after.classes==='parent-live-body-sentinel','parent app/body sentinel comparison');
+document.getElementById('results').innerHTML=results.map(x=>'<li>'+(x.pass?'PASS — ':'FAIL — ')+x.name+' — '+x.detail+'</li>').join('');
+const passed=results.filter(x=>x.pass).length;
+document.getElementById('summary').textContent=passed+'/'+results.length+' checks passed';
+window.__wordPuzzleIsolationProof={total:results.length,passed,results};
+})();
+</script>
+</body></html>
