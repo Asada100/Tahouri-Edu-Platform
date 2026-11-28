@@ -731,7 +731,7 @@ const ActivitySessionManager = {
         // WordPuzzle reads the persisted candidate without publishing it into currentSession.
         const key = this.storageKey();
         if (key && typeof SaveManager !== "undefined" && typeof SaveManager.readRaw === "function") {
-            const raw = SaveManager.readRaw(key);
+            const raw = SaveManager.readRaw(legacyStorageKey);
             if (!raw || raw.ok !== true) return false;
             if (raw.exists && typeof raw.value === "string") {
                 let stored = null;
@@ -779,11 +779,11 @@ const ActivitySessionManager = {
         const activity = App.resolveActivityById(session.activityId);
         if (!activity || activity.id !== session.activityId || this.type(activity) !== session.activityType) return false;
 
-        const key = this.storageKey();
+        const legacyStorageKey = this.storageKey();
         const engine = this.getEngine(session.activityType);
-        if (!key || !engine || typeof SaveManager.readRaw !== "function" ||
+        if (!legacyStorageKey || !engine || typeof SaveManager.readRaw !== "function" ||
             typeof SaveManager.writeRaw !== "function" || typeof SaveManager.restoreRaw !== "function") return false;
-        const rawSnapshot = SaveManager.readRaw(key);
+        const rawSnapshot = SaveManager.readRaw(legacyStorageKey);
         if (!rawSnapshot || rawSnapshot.ok !== true || !rawSnapshot.exists ||
             typeof rawSnapshot.value !== "string") return false;
 
@@ -850,7 +850,7 @@ const ActivitySessionManager = {
             } catch (error) { failures.push("runtime-publication"); }
             if (storageWriteAttempted) {
                 try {
-                    if (!SaveManager.restoreRaw(key, rawSnapshot)) throw new Error("raw restore returned false");
+                    if (!SaveManager.restoreRaw(legacyStorageKey, rawSnapshot)) throw new Error("raw restore returned false");
                     const verified = SaveManager.readRaw(key);
                     if (!verified.ok || verified.exists !== rawSnapshot.exists ||
                         verified.value !== rawSnapshot.value) throw new Error("raw restore verification mismatch");
@@ -871,7 +871,7 @@ const ActivitySessionManager = {
             candidate.updatedAt = Date.now();
             const serialized = JSON.stringify(candidate);
             storageWriteAttempted = true;
-            if (SaveManager.writeRaw(key, serialized) !== true) {
+            if (SaveManager.writeRaw(legacyStorageKey, serialized) !== true) {
                 const failures = rollback();
                 if (failures.length) console.error("Activity resume rollback incomplete", failures);
                 return false;
