@@ -53,6 +53,7 @@
 <script>
 (function () {
   const manager = window.ActivitySessionManager;
+  const originalSnapshot = manager.snapshot;
   const results = [];
   const activity = {id:"persistence-audit-activity",engine:"QuizEngine"};
   const key = "Tahouri_ActivitySession:SYNTHETIC_PROFILE_A";
@@ -118,7 +119,7 @@
       manager.currentSession.status==="resumable"&&captured.status==="resumable"&&
       captured.engineState.questions[0].id==="capture-q",
       "capture() replaces the active session only after a verified resumable snapshot is durable");
-    manager.snapshot=window.__originalSnapshot;
+    manager.snapshot=originalSnapshot;
   } catch (error) {
     results.push({name:"Harness execution",passed:false,detail:error.stack||error.message});
   }
