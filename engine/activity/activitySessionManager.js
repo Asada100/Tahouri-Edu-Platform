@@ -385,7 +385,7 @@ const ActivitySessionManager = {
             if (!data || data.kind !== "dictation") return false;
 
             const preparedEngine = Object.create(engine);
-            preparedEngine.activity = data.activity || activity;
+            preparedEngine.activity = activity;
             preparedEngine.content = data.content
                 ? JSON.parse(JSON.stringify(data.content))
                 : (typeof DictationProvider !== "undefined" && typeof DictationProvider.getContent === "function"
@@ -522,6 +522,7 @@ const ActivitySessionManager = {
                 if (failures.length) console.error("WordPuzzle resume rollback incomplete", failures);
                 return false;
             }
+            preparedEngine.activity = activity;
 
             candidate.status = "active";
             candidate.updatedAt = Date.now();
