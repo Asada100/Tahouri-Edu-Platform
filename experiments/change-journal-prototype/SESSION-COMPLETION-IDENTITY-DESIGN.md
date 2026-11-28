@@ -680,3 +680,21 @@ The browser test:
 **CI evidence:** run `46123102890`, job `140911659127`, actual WordPuzzle engine iframe proof **12/12 PASS**; complete workflow success.
 
 **Boundary:** this proves the actual engine's snapshot/restore behavior and its screen event/render path in an isolated browsing context. It does not yet prove detached preparation against an already-running production engine, transactional storage write/read-back, atomic screen-host publication, rollback of the parent ActivityManager/ActivityState/body classes, exit controls, or exactly-once `activityResumed`. The active runtime remains unchanged and the adapter is not wired into it.
+
+## 23. WordPuzzle two-host restore and publication proof — 2026-11-28
+
+Added an experiment-only Playwright proof using two independent sandboxed browsing contexts, each loading the repository's actual WordPuzzle engine and screen.
+
+The proof exercises this sequence:
+
+1. The active host starts the real WordPuzzle engine, solves one of two words, captures a real mid-session snapshot, then advances to a completed state.
+2. A separate candidate host starts independently. An invalid snapshot is rejected by the actual `restoreSession()` method; the active host remains connected and retains its completed state.
+3. The candidate receives the captured snapshot. The actual engine restores the unfinished one-answer state and the actual screen renders the saved one-of-two progress.
+4. The active host is queried again after candidate preparation to verify its engine state was not mutated.
+5. An injected persistence failure blocks publication and leaves the active host in place.
+6. A successful JSON clone/read-back gate permits the candidate host to be promoted; the previous active iframe is disposed, and the promoted candidate retains the restored state.
+7. The parent application's sentinel DOM remains unchanged throughout.
+
+**CI evidence:** run `46170687130`, job `141058200619`; two-host transaction proof **12/12 PASS**; complete workflow success.
+
+**Boundary:** this is a browser-harness proof, not a production transaction. The persistence gate is a JSON clone/read-back simulation, not the active SaveManager or durable browser storage. The active host is an isolated test host, not the production ActivityManager/ActivityState. It does not yet prove browser-process termination/recovery, storage quota or corruption behavior, atomic publication of the platform's global activity/session state, exactly-once lifecycle fan-out, or integration across the other five restore families. No production runtime code was changed and the adapter remains unwired.
