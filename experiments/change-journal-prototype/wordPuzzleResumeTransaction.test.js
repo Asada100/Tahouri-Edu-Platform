@@ -28,7 +28,7 @@ async function scenario(fault){
    s.activityType==="WordPuzzleEngine"&&s.engineState?.kind==="wordPuzzle",
   prepareHost:async()=>{prepared++;if(fault==="prepare")return null;
    return {commit:async()=>{hostState="partially-committed";
-     if(fault==="host-false")return false;if(fault==="host-throw")throw Error("host-throw");return true;},
+     if(fault==="host-false"||fault==="dispose-fail")return false;if(fault==="host-throw")throw Error("host-throw");return true;},
     dispose:async()=>{disposed++;hostState="old";return fault!=="dispose-fail";}};},
   publication,emitResumed:()=>{events++;if(fault==="event-throw")throw Error("event-throw");}
  });
