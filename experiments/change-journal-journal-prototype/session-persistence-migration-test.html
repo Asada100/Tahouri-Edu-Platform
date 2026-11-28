@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Session Persistence Acceptance Diagnostics</title></head>
+<body><h1>Session Persistence Acceptance Diagnostics</h1><p id="summary">running</p><ol id="results"></ol>
+<script>
+(function () {
+  const store = new Map();
+  let profileId = "SYNTHETIC_PROFILE_A";
+  let failWrites = false;
+  let corruptReadBack = false;
+  window.ProfileContext = { key(base) { return profileId ? base + ":" + profileId : null; }, getStudentId() { return profileId; } };
+  window.SaveManager = {
+    load(key) {
+      if (!store.has(key)) return null;
+      const raw = store.get(key);
+      if (corruptReadBack && key === "Tahouri_ActivitySession:SYNTHETIC_PROFILE_A") return null;
+      try { return typeof raw === "string" ? JSON.parse(raw) : JSON.parse(JSON.stringify(raw)); } catch (_) { return null; }
+    },
+    save(key, value) {
+      if (failWrites || !key) return false;
+      store.set(key, JSON.stringify(value));
+      return true;
+    },
+    readRaw(key) {
+      if (!key) return {ok:false,exists:false,value:null};
+      if (!store.has(key)) return {ok:true,exists:false,value:null};
+      const value=store.get(key);
+      if (corruptReadBack && key === "Tahouri_ActivitySession:SYNTHETIC_PROFILE_A") return {ok:true,exists:true,value:"corrupted-readback"};
+      return {ok:true,exists:true,value:typeof value==="string"?value:JSON.stringify(value)};
+    },
+    writeRaw(key,value) {
+      if (failWrites || !key || typeof value!=="string") return false;
+      store.set(key,value);return true;
+    },
+    restoreRaw(key,snapshot) {
+      if (!key || !snapshot || typeof snapshot.exists!=="boolean") return false;
+      if (snapshot.exists) store.set(key,snapshot.value); else store.delete(key);
+      return true;
+    },
+    remove(key) { if (!key) return false; store.delete(key); return true; }
+  };
+  window.EventManager = { on() {}, emit() {} };
+  document.addEventListener = function () {};
+  window.addEventListener = function () {};
+  window.__diag = {
+    store,
+    setWriteFailure(value) { failWrites = value; },
+    setReadBackCorruption(value) { corruptReadBack = value; },
+    setProfile(value) { profileId = value; }
+  };
+})();
+</script>
+<script src="../../engine/activity/activitySessionManager.js"></script>
+<script>
+(function () {
+  const manager = window.ActivitySessionManager;
+  const originalSnapshot = manager.snapshot;
+  const results = [];
+  const activity = {id:"persistence-audit-activity",engine:"QuizEngine"};
+  const key = "Tahouri_ActivitySession:SYNTHETIC_PROFILE_A";
+  function record(name, passed, detail) { results.push({name,passed,detail}); }
+  function unsupportedSnapshot() {
+    return {version:"1.9",schemaVersion:99,id:"legacy-unsupported-snapshot",profileId:"SYNTHETIC_PROFILE_A",activityId:activity.id,activityType:"QuizEngine",status:"resumable",engineState:{kind:"quiz",state:{},questions:[{id:"q1"}],currentQuestion:0}};
+  }
+  try {
+    manager.currentSession = null;
+    window.__diag.setWriteFailure(true);
+    const unsaved = manager.begin(activity);
+    record("P1 failed storage write rejects creation without publication",
+      unsaved===null&&manager.currentSession===null&&!window.__diag.store.has(key),
+      "no in-memory session or gameplay publication is allowed when the durable write fails");
+    window.__diag.setWriteFailure(false);
+
+    const unsupported = unsupportedSnapshot(), unsupportedRaw=JSON.stringify(unsupported);
+    window.__diag.store.set(key,unsupportedRaw);manager.currentSession=null;
+    const rejected = manager.load(activity.id)===null;
+    const fresh = manager.begin(activity);
+    record("P2 unsupported schema remains byte-for-byte untouched",
+      rejected&&fresh===null&&window.__diag.store.get(key)===unsupportedRaw,
+      "an unsupported snapshot blocks fresh session creation and is preserved for migration");
+
+    const malformedRaw="{not-valid-json";
+    window.__diag.store.set(key,malformedRaw);manager.currentSession=null;
+    const malformedRejected=manager.load(activity.id)===null;
+    const afterMalformedBegin=manager.begin(activity);
+    record("P3 malformed JSON remains byte-for-byte untouched",
+      malformedRejected&&afterMalformedBegin===null&&window.__diag.store.get(key)===malformedRaw,
+      "malformed persisted bytes are never treated as an empty slot and overwritten");
+
+    window.__diag.store.delete(key);window.__diag.setProfile(null);manager.currentSession=null;
+    const noProfile=manager.begin(activity);
+    record("P4 missing profile rejects session creation",
+      noProfile===null&&manager.currentSession===null&&!window.__diag.store.has(key),
+      "a session cannot be created without a valid profile-scoped storage key and profile ID");
+    window.__diag.setProfile("SYNTHETIC_PROFILE_A");
+
+    window.__diag.setReadBackCorruption(true);manager.currentSession=null;
+    const readBack=manager.begin(activity);
+    record("P5 read-back corruption rolls back exact storage and publication",
+      readBack===null&&manager.currentSession===null&&!window.__diag.store.has(key),
+      "a mismatched read-back causes rollback to the original absent-key snapshot");
+    window.__diag.setReadBackCorruption(false);
+
+    window.__diag.store.delete(key);manager.currentSession=null;
+    window.__diagActivity=activity;
+    const active=manager.begin(activity);
+    manager.snapshot=()=>({kind:"quiz",state:{started:true},questions:[{id:"capture-q"}],currentQuestion:0});
+    const beforeCaptureRaw=window.__diag.store.get(key);
+    window.__diag.setWriteFailure(true);
+    const failedCapture=manager.capture("resumable");
+    record("P6 failed capture write preserves prior session object and raw bytes",
+      failedCapture===false&&manager.currentSession===active&&active.status==="active"&&
+      window.__diag.store.get(key)===beforeCaptureRaw,
+      "capture() cannot mutate/publish a resumable snapshot when its exact raw write fails");
+    window.__diag.setWriteFailure(false);
+    const successfulCapture=manager.capture("resumable");
+    const captured=JSON.parse(window.__diag.store.get(key));
+    record("P7 successful capture publishes only after exact read-back",
+      successfulCapture===true&&manager.currentSession!==active&&
+      manager.currentSession.status==="resumable"&&captured.status==="resumable"&&
+      captured.engineState.questions[0].id==="capture-q",
+      JSON.stringify({successfulCapture,activeStillCurrent:manager.currentSession===active,currentStatus:manager.currentSession&&manager.currentSession.status,rawStatus:captured.status,rawQuestion:captured.engineState&&captured.engineState.questions&&captured.engineState.questions[0]&&captured.engineState.questions[0].id,raw:window.__diag.store.get(key)}));
+    manager.snapshot=originalSnapshot;
+  } catch (error) {
+    results.push({name:"Harness execution",passed:false,detail:error.stack||error.message});
+  }
+  const list=document.querySelector("#results");
+  results.forEach(item=>{const li=document.createElement("li");li.textContent=(item.passed?"PASS — ":"FAIL — ")+item.name+" — "+item.detail;list.appendChild(li);});
+  const passed=results.filter(x=>x.passed).length;
+  document.querySelector("#summary").textContent=passed+"/"+results.length+" session creation acceptance checks";
+  window.__persistenceMigrationDiagnostic={passed,total:results.length,results};
+})();
+</script></body></html>
