@@ -314,6 +314,155 @@ const ActivitySessionManager = {
         return session;
     },
 
+    async resumeQuizTransactional(activity, session, rawSnapshot) {
+        const key = this.storageKey();
+        const engine = this.getEngine("QuizEngine");
+        if (!key || !engine || typeof engine.getQuestion !== "function" ||
+            typeof QuizScreen === "undefined" || typeof QuizScreen.show !== "function" ||
+            typeof ScoreManager === "undefined" ||
+            !rawSnapshot || rawSnapshot.ok !== true || rawSnapshot.exists !== true ||
+            typeof rawSnapshot.value !== "string") return false;
+        const app = document.getElementById("app");
+        if (!app) return false;
+
+        const previous = {
+            currentSession: this.currentSession,
+            gameplayActive: this.gameplayActive,
+            activity: engine.activity,
+            questions: engine.questions,
+            currentQuestion: engine.currentQuestion,
+            state: engine.state,
+            score: ScoreManager.score,
+            correct: ScoreManager.correct,
+            wrong: ScoreManager.wrong,
+            screenLock: QuizScreen.isLocked,
+            appMarkup: app.innerHTML,
+            currentActivity: ActivityManager.currentActivity,
+            activityState: ActivityState.current,
+            bodyPlaying: document.body.classList.contains("activity-playing"),
+            exitNode: document.getElementById(this.exitControlId)
+        };
+        const exitParent = previous.exitNode ? previous.exitNode.parentNode : null;
+        const exitNext = previous.exitNode ? previous.exitNode.nextSibling : null;
+        const candidate = JSON.parse(JSON.stringify(session));
+        let storageWriteAttempted = false;
+
+        const rollback = () => {
+            const failures = [];
+            try {
+                engine.activity = previous.activity;
+                engine.questions = previous.questions;
+                engine.currentQuestion = previous.currentQuestion;
+                engine.state = previous.state;
+                ScoreManager.score = previous.score;
+                ScoreManager.correct = previous.correct;
+                ScoreManager.wrong = previous.wrong;
+                if (previous.screenLock !== undefined) QuizScreen.isLocked = previous.screenLock;
+                app.innerHTML = previous.appMarkup;
+            } catch (error) { failures.push("engine-score-screen"); }
+            try {
+                ActivityManager.currentActivity = previous.currentActivity;
+                ActivityState.current = previous.activityState;
+                this.currentSession = previous.currentSession;
+                this.gameplayActive = previous.gameplayActive;
+                document.body.classList.toggle("activity-playing", previous.bodyPlaying);
+                const currentExit = document.getElementById(this.exitControlId);
+                if (currentExit) currentExit.remove();
+                if (previous.exitNode && exitParent) {
+                    exitParent.insertBefore(previous.exitNode,
+                        exitNext && exitNext.parentNode === exitParent ? exitNext : null);
+                }
+            } catch (error) { failures.push("runtime-publication"); }
+            if (storageWriteAttempted) {
+                try {
+                    if (!SaveManager.restoreRaw(key, rawSnapshot)) throw new Error("raw restore returned false");
+                    const verified = SaveManager.readRaw(key);
+                    if (!verified.ok || verified.exists !== rawSnapshot.exists ||
+                        verified.value !== rawSnapshot.value) throw new Error("raw restore verification mismatch");
+                } catch (error) { failures.push("persisted-session"); }
+            }
+            return failures;
+        };
+
+        this.restoringSession = true;
+        try {
+            const data = candidate.engineState;
+            if (!data || data.kind !== "quiz" || !Array.isArray(data.questions) ||
+                !data.questions.length || !Number.isInteger(data.currentQuestion) ||
+                data.currentQuestion < 0 || data.currentQuestion >= data.questions.length) return false;
+
+            const preparedEngine = Object.create(engine);
+            preparedEngine.activity = activity;
+            preparedEngine.questions = JSON.parse(JSON.stringify(data.questions));
+            preparedEngine.currentQuestion = data.currentQuestion;
+            preparedEngine.state = { ...(data.state || {}), started: true, isFinished: false };
+            const question = preparedEngine.getQuestion();
+            if (!question) return false;
+
+            candidate.status = "active";
+            candidate.updatedAt = Date.now();
+            const serialized = JSON.stringify(candidate);
+            storageWriteAttempted = true;
+            if (SaveManager.writeRaw(key, serialized) !== true) {
+                const failures = rollback();
+                if (failures.length) console.error("Quiz resume rollback incomplete", failures);
+                return false;
+            }
+            const readBack = SaveManager.readRaw(key);
+            if (!readBack.ok || !readBack.exists || readBack.value !== serialized) {
+                const failures = rollback();
+                if (failures.length) console.error("Quiz resume rollback incomplete", failures);
+                return false;
+            }
+            const verified = JSON.parse(readBack.value);
+            if (!this.validateSession(verified) || verified.id !== candidate.id ||
+                verified.status !== "active" || verified.activityType !== candidate.activityType) {
+                const failures = rollback();
+                if (failures.length) console.error("Quiz resume rollback incomplete", failures);
+                return false;
+            }
+
+            engine.activity = preparedEngine.activity;
+            engine.questions = preparedEngine.questions;
+            engine.currentQuestion = preparedEngine.currentQuestion;
+            engine.state = preparedEngine.state;
+            ScoreManager.score = Number(data.score || 0);
+            ScoreManager.correct = Number(data.correct || 0);
+            ScoreManager.wrong = Number(data.wrong || 0);
+
+            this.activateRestoredActivity(activity);
+            this.currentSession = candidate;
+            this.gameplayActive = true;
+            QuizScreen.reset();
+            QuizScreen.show({
+                title: activity.title,
+                activityId: activity.id,
+                activityGroup: activity.group,
+                score: ScoreManager.score,
+                currentQuestion: engine.currentQuestion + 1,
+                totalQuestions: engine.questions.filter(item => !item.optional).length,
+                question
+            });
+            if (!app.querySelector(".quizScreen")) throw new Error("Quiz screen was not rendered");
+            this.installExitControl();
+            if (!document.getElementById(this.exitControlId)) throw new Error("Quiz exit control was not published");
+
+            try { EventManager.emit("activityResumed", candidate); }
+            catch (error) { console.error("Quiz activityResumed delivery failed after commit", error); }
+            console.log("ActivitySessionManager: Quiz session transaction committed", {
+                activityId: candidate.activityId,
+                sessionId: candidate.id
+            });
+            return true;
+        } catch (error) {
+            const failures = rollback();
+            console.error("Quiz resume transaction failed", error, failures);
+            return false;
+        } finally {
+            this.restoringSession = false;
+        }
+    },
+
     async resumeDictationTransactional(activity, session, rawSnapshot) {
         const key = this.storageKey();
         const engine = this.getEngine("DictationEngine");
@@ -590,6 +739,15 @@ const ActivitySessionManager = {
             if (raw.exists && typeof raw.value === "string") {
                 let stored = null;
                 try { stored = JSON.parse(raw.value); } catch (_) { return false; }
+                if (this.validateSession(stored) && stored.status === "resumable" &&
+                    (!activityId || stored.activityId === activityId) &&
+                    (stored.activityType === "QuizEngine" || stored.activityType === "quiz")) {
+                    if (typeof App === "undefined" || typeof App.resolveActivityById !== "function") return false;
+                    const quizActivity = App.resolveActivityById(stored.activityId);
+                    if (!quizActivity || quizActivity.id !== stored.activityId ||
+                        this.type(quizActivity) !== stored.activityType) return false;
+                    return this.resumeQuizTransactional(quizActivity, stored, raw);
+                }
                 if (this.validateSession(stored) && stored.status === "resumable" &&
                     (!activityId || stored.activityId === activityId) &&
                     (stored.activityType === "DictationEngine" || stored.activityType === "dictation")) {
