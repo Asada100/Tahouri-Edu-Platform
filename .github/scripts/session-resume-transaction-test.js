@@ -23,10 +23,8 @@ const server=http.createServer((req,res)=>{
   await page.waitForFunction(()=>document.querySelector('#summary')?.textContent!=='running');
   const result=await page.evaluate(()=>window.__resumeTransactionDiagnostic);
   result.results.forEach(item=>console.log((item.reproduced?'BLOCKER CONFIRMED — ':'NOT REPRODUCED — ')+item.name+' — '+item.detail));
-  const fixedWordPuzzle=result.results.find(item=>item.name.startsWith('R8 '));
-  const knownNonReproduction=result.results.find(item=>item.name.startsWith('R6 '));
-  if(result.reproduced!==7||result.total!==9||!fixedWordPuzzle||fixedWordPuzzle.reproduced||!knownNonReproduction||knownNonReproduction.reproduced)
-    throw new Error('Expected 7 remaining blockers, with R6 non-reproduced and R8 fixed; observed '+result.reproduced+'/'+result.total);
-  console.log('SESSION RESUME TRANSACTION DIAGNOSTICS: PASS (7 remaining blockers; R8 WordPuzzle regression fixed; R6 not reproduced)');
+  if(result.reproduced!==0||result.total!==9||result.results.length!==9)
+    throw new Error('Expected all 9 resume failure signatures to be absent after transactional rollback; observed '+result.reproduced+'/'+result.total);
+  console.log('SESSION RESUME TRANSACTION ACCEPTANCE: PASS (0/9 failure signatures; all rollback states preserved)');
  }finally{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));}
 })().catch(error=>{console.error(error);process.exitCode=1;});
