@@ -118,7 +118,7 @@
       successfulCapture===true&&manager.currentSession!==active&&
       manager.currentSession.status==="resumable"&&captured.status==="resumable"&&
       captured.engineState.questions[0].id==="capture-q",
-      "capture() replaces the active session only after a verified resumable snapshot is durable");
+      JSON.stringify({successfulCapture,activeStillCurrent:manager.currentSession===active,currentStatus:manager.currentSession&&manager.currentSession.status,rawStatus:captured.status,rawQuestion:captured.engineState&&captured.engineState.questions&&captured.engineState.questions[0]&&captured.engineState.questions[0].id,raw:window.__diag.store.get(key)}));
     manager.snapshot=originalSnapshot;
   } catch (error) {
     results.push({name:"Harness execution",passed:false,detail:error.stack||error.message});
