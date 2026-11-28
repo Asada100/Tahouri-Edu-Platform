@@ -32,6 +32,9 @@ const ActivitySessionManager = {
         ) return false;
         if (typeof session.activityId !== "string" || !session.activityId) return false;
         if (!["active", "resumable"].includes(session.status)) return false;
+        // A newly started activity is persisted before its first gameplay snapshot.
+        // The active/null state is valid for that short initial window only.
+        if (session.engineState === null && session.status === "active") return true;
         if (!session.engineState || typeof session.engineState !== "object" || Array.isArray(session.engineState)) return false;
 
         const type = session.activityType;
@@ -209,11 +212,22 @@ const ActivitySessionManager = {
     },
 
     begin(activity) {
-        if (!activity || !activity.id) return null;
+        if (!activity || typeof activity.id !== "string" || !activity.id) return null;
 
-        // Never replace an active session for the same activity. This is
-        // important because ActivityManager emits activityReady after the
-        // engine starts; that event must not create a second session.
+        const key = this.storageKey();
+        const profileId = typeof ProfileContext !== "undefined" &&
+            typeof ProfileContext.getStudentId === "function"
+            ? ProfileContext.getStudentId()
+            : null;
+        if (!key || typeof profileId !== "string" || !profileId ||
+            typeof SaveManager === "undefined" ||
+            typeof SaveManager.readRaw !== "function" ||
+            typeof SaveManager.writeRaw !== "function" ||
+            typeof SaveManager.restoreRaw !== "function") {
+            console.error("ActivitySessionManager: A valid profile-scoped raw storage contract is required.");
+            return null;
+        }
+
         if (
             this.currentSession &&
             this.currentSession.activityId === activity.id &&
@@ -224,9 +238,19 @@ const ActivitySessionManager = {
             return this.currentSession;
         }
 
-        const old = this.load(activity.id);
-        if (old && old.activityId === activity.id && old.status === "resumable") {
-            return old;
+        const rawSnapshot = SaveManager.readRaw(key);
+        if (!rawSnapshot || rawSnapshot.ok !== true) return null;
+
+        // Never replace malformed, unsupported, or foreign-profile data.
+        if (rawSnapshot.exists) {
+            if (typeof rawSnapshot.value !== "string") return null;
+            let existing;
+            try { existing = JSON.parse(rawSnapshot.value); } catch (_) { return null; }
+            if (!this.validateSession(existing)) return null;
+            if (existing.activityId === activity.id && existing.status === "resumable") {
+                this.currentSession = existing;
+                return existing;
+            }
         }
 
         let sessionId;
@@ -237,27 +261,68 @@ const ActivitySessionManager = {
             return null;
         }
 
+        const activityType = this.type(activity);
+        if (typeof activityType !== "string" || !activityType) return null;
+        const now = Date.now();
         const session = {
             version: this.VERSION,
             schemaVersion: this.SCHEMA_VERSION,
             id: sessionId,
-            profileId:
-                typeof ProfileContext !== "undefined" && typeof ProfileContext.getStudentId === "function"
-                    ? ProfileContext.getStudentId()
-                    : null,
+            profileId,
             activityId: activity.id,
-            activityType: this.type(activity),
+            activityType,
             status: "active",
-            startedAt: Date.now(),
-            updatedAt: Date.now(),
+            startedAt: now,
+            updatedAt: now,
             engineState: null
         };
+        const serialized = JSON.stringify(session);
+        let writeAttempted = false;
 
-        this.currentSession = session;
-        this.save(session);
-        this.gameplayActive = true;
-        document.body.classList.add("activity-playing");
-        return session;
+        const rollback = () => {
+            if (!writeAttempted) return true;
+            try {
+                if (!SaveManager.restoreRaw(key, rawSnapshot)) return false;
+                const verified = SaveManager.readRaw(key);
+                return !!verified && verified.ok === true &&
+                    verified.exists === rawSnapshot.exists &&
+                    verified.value === rawSnapshot.value;
+            } catch (error) {
+                console.error("ActivitySessionManager: Session creation rollback failed.", error);
+                return false;
+            }
+        };
+
+        try {
+            writeAttempted = true;
+            if (SaveManager.writeRaw(key, serialized) !== true) {
+                if (!rollback()) console.error("ActivitySessionManager: Session creation rollback incomplete.");
+                return null;
+            }
+            const readBack = SaveManager.readRaw(key);
+            if (!readBack || readBack.ok !== true || !readBack.exists || readBack.value !== serialized) {
+                if (!rollback()) console.error("ActivitySessionManager: Session creation rollback incomplete.");
+                return null;
+            }
+            const verified = JSON.parse(readBack.value);
+            if (verified.id !== session.id || verified.profileId !== profileId ||
+                verified.activityId !== activity.id || verified.activityType !== activityType ||
+                verified.status !== "active" || verified.engineState !== null ||
+                verified.version !== this.VERSION || verified.schemaVersion !== this.SCHEMA_VERSION) {
+                if (!rollback()) console.error("ActivitySessionManager: Session creation rollback incomplete.");
+                return null;
+            }
+
+            this.currentSession = session;
+            this.gameplayActive = true;
+            document.body.classList.add("activity-playing");
+            return session;
+        } catch (error) {
+            if (!rollback()) console.error("ActivitySessionManager: Session creation rollback incomplete.");
+            console.error("ActivitySessionManager: Session creation failed.", error);
+            return null;
+        }
+    },
     },
 
     capture(status) {
