@@ -20,6 +20,22 @@
       store.set(key, JSON.stringify(value));
       return true;
     },
+    readRaw(key) {
+      if (!key) return {ok:false,exists:false,value:null};
+      if (!store.has(key)) return {ok:true,exists:false,value:null};
+      const value=store.get(key);
+      if (corruptReadBack && key === "Tahouri_ActivitySession:SYNTHETIC_PROFILE_A") return {ok:true,exists:true,value:"corrupted-readback"};
+      return {ok:true,exists:true,value:typeof value==="string"?value:JSON.stringify(value)};
+    },
+    writeRaw(key,value) {
+      if (failWrites || !key || typeof value!=="string") return false;
+      store.set(key,value);return true;
+    },
+    restoreRaw(key,snapshot) {
+      if (!key || !snapshot || typeof snapshot.exists!=="boolean") return false;
+      if (snapshot.exists) store.set(key,snapshot.value); else store.delete(key);
+      return true;
+    },
     remove(key) { if (!key) return false; store.delete(key); return true; }
   };
   window.EventManager = { on() {}, emit() {} };
@@ -40,7 +56,7 @@
   const results = [];
   const activity = {id:"persistence-audit-activity",engine:"QuizEngine"};
   const key = "Tahouri_ActivitySession:SYNTHETIC_PROFILE_A";
-  function record(name, reproduced, detail) { results.push({name,reproduced,detail}); }
+  function record(name, passed, detail) { results.push({name,passed,detail}); }
   function unsupportedSnapshot() {
     return {version:"1.9",schemaVersion:99,id:"legacy-unsupported-snapshot",profileId:"SYNTHETIC_PROFILE_A",activityId:activity.id,activityType:"QuizEngine",status:"resumable",engineState:{kind:"quiz",state:{},questions:[{id:"q1"}],currentQuestion:0}};
   }
@@ -48,56 +64,47 @@
     manager.currentSession = null;
     window.__diag.setWriteFailure(true);
     const unsaved = manager.begin(activity);
-    record("P1 storage write failure must reject session creation",
-      !!unsaved && manager.currentSession === unsaved && !window.__diag.store.has(key),
-      "begin() returned and published an in-memory session although SaveManager.save() returned false");
-    manager.clear();
+    record("P1 failed storage write rejects creation without publication",
+      unsaved===null&&manager.currentSession===null&&!window.__diag.store.has(key),
+      "no in-memory session or gameplay publication is allowed when the durable write fails");
     window.__diag.setWriteFailure(false);
 
-    const unsupported = unsupportedSnapshot();
-    window.__diag.store.set(key, JSON.stringify(unsupported));
-    manager.currentSession = null;
-    const rejected = manager.load(activity.id) === null;
-    const preservedAtLoad = window.__diag.store.get(key) === JSON.stringify(unsupported);
+    const unsupported = unsupportedSnapshot(), unsupportedRaw=JSON.stringify(unsupported);
+    window.__diag.store.set(key,unsupportedRaw);manager.currentSession=null;
+    const rejected = manager.load(activity.id)===null;
     const fresh = manager.begin(activity);
-    record("P2 unsupported schema must remain untouched on attempted fresh start",
-      rejected && preservedAtLoad && !!fresh && JSON.parse(window.__diag.store.get(key)).id === fresh.id,
-      "load() preserved the unsupported snapshot, but begin() overwrote it with a new session");
-    manager.clear();
+    record("P2 unsupported schema remains byte-for-byte untouched",
+      rejected&&fresh===null&&window.__diag.store.get(key)===unsupportedRaw,
+      "an unsupported snapshot blocks fresh session creation and is preserved for migration");
 
-    const malformedRaw = "{not-valid-json";
-    window.__diag.store.set(key, malformedRaw);
-    manager.currentSession = null;
-    const malformedRejected = manager.load(activity.id) === null;
-    const malformedPreservedAtLoad = window.__diag.store.get(key) === malformedRaw;
-    const afterMalformedBegin = manager.begin(activity);
-    record("P3 malformed JSON must remain untouched on attempted fresh start",
-      malformedRejected && malformedPreservedAtLoad && !!afterMalformedBegin && window.__diag.store.get(key) !== malformedRaw,
-      "load() treated malformed JSON as absent; begin() then replaced the original raw bytes");
-    manager.clear();
+    const malformedRaw="{not-valid-json";
+    window.__diag.store.set(key,malformedRaw);manager.currentSession=null;
+    const malformedRejected=manager.load(activity.id)===null;
+    const afterMalformedBegin=manager.begin(activity);
+    record("P3 malformed JSON remains byte-for-byte untouched",
+      malformedRejected&&afterMalformedBegin===null&&window.__diag.store.get(key)===malformedRaw,
+      "malformed persisted bytes are never treated as an empty slot and overwritten");
 
-    window.__diag.setProfile(null);
-    manager.currentSession = null;
-    const noProfile = manager.begin(activity);
-    record("P4 missing profile must reject session creation",
-      !!noProfile && noProfile.profileId === null && manager.currentSession === noProfile,
-      "begin() created and published a session with null profileId despite having no scoped storage key");
+    window.__diag.store.delete(key);window.__diag.setProfile(null);manager.currentSession=null;
+    const noProfile=manager.begin(activity);
+    record("P4 missing profile rejects session creation",
+      noProfile===null&&manager.currentSession===null&&!window.__diag.store.has(key),
+      "a session cannot be created without a valid profile-scoped storage key and profile ID");
     window.__diag.setProfile("SYNTHETIC_PROFILE_A");
-    manager.currentSession = null;
 
-    window.__diag.setReadBackCorruption(true);
-    const readBack = manager.begin(activity);
-    record("P5 read-back failure must reject session creation",
-      !!readBack && manager.currentSession === readBack && window.__diag.store.has(key),
-      "begin() never verifies persisted data by reading it back; it accepted a session despite simulated read-back failure");
+    window.__diag.setReadBackCorruption(true);manager.currentSession=null;
+    const readBack=manager.begin(activity);
+    record("P5 read-back corruption rolls back exact storage and publication",
+      readBack===null&&manager.currentSession===null&&!window.__diag.store.has(key),
+      "a mismatched read-back causes rollback to the original absent-key snapshot");
     window.__diag.setReadBackCorruption(false);
   } catch (error) {
-    results.push({name:"Harness execution",reproduced:false,detail:error.stack || error.message});
+    results.push({name:"Harness execution",passed:false,detail:error.stack||error.message});
   }
-  const list = document.querySelector("#results");
-  results.forEach(item => { const li = document.createElement("li"); li.textContent = (item.reproduced ? "BLOCKER CONFIRMED — " : "NOT REPRODUCED — ") + item.name + " — " + item.detail; list.appendChild(li); });
-  const reproduced = results.filter(x => x.reproduced).length;
-  document.querySelector("#summary").textContent = reproduced + "/" + results.length + " persistence failure diagnostics reproduced";
-  window.__persistenceMigrationDiagnostic = {reproduced,total:results.length,results};
+  const list=document.querySelector("#results");
+  results.forEach(item=>{const li=document.createElement("li");li.textContent=(item.passed?"PASS — ":"FAIL — ")+item.name+" — "+item.detail;list.appendChild(li);});
+  const passed=results.filter(x=>x.passed).length;
+  document.querySelector("#summary").textContent=passed+"/"+results.length+" session creation acceptance checks";
+  window.__persistenceMigrationDiagnostic={passed,total:results.length,results};
 })();
 </script></body></html>
