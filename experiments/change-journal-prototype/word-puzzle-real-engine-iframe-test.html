@@ -50,11 +50,15 @@ const modeSelected=window.WordPuzzleEngine.state.mode==='wordBuilder';
 const gameplayRendered=!!document.querySelector('#app .wp-builder-card')&&!!document.querySelector('#app .wp-builder-grid');
 const first=window.WordPuzzleEngine.submitBuilder('آب');
 const rerenderAfterRealAction=!!document.querySelector('#app .wp-builder-card')&&window.WordPuzzleEngine.state.correct===1;
+const savedMidSession=window.WordPuzzleEngine.getSessionState();
 const second=window.WordPuzzleEngine.submitBuilder('بابا');
 const actualEngineProgress=window.WordPuzzleEngine.state.correct===2&&window.WordPuzzleEngine.state.finished===true;
+const restored=window.WordPuzzleEngine.restoreSession(savedMidSession);
+const actualRestoreState=restored===true&&window.WordPuzzleEngine.state.correct===1&&window.WordPuzzleEngine.state.finished===false&&window.WordPuzzleEngine.round.type==='wordBuilder';
+const actualRestoreScreen=!!document.querySelector('#app .wp-builder-card')&&document.querySelector('#app').textContent.includes('1 از 2 واژه');
 parent.postMessage({
 kind:'wp-real-engine',parentAccessBlocked:window.__parentAccessBlocked,cssLoaded,engineLoaded,
-modeSelectRendered,modeSelected,gameplayRendered,rerenderAfterRealAction,actualEngineProgress,
+modeSelectRendered,modeSelected,gameplayRendered,rerenderAfterRealAction,actualEngineProgress,actualRestoreState,actualRestoreScreen,
 activityReadyEvents:window.__events.activityReady,activityFinishedEvents:window.__events.activityFinished,
 state:{mode:window.WordPuzzleEngine.state.mode,correct:window.WordPuzzleEngine.state.correct,score:window.WordPuzzleEngine.state.score,finished:window.WordPuzzleEngine.state.finished},
 appText:document.getElementById('app').textContent
@@ -81,6 +85,8 @@ const checks=[
 ['actual gameplay screen renders after selection',result.gameplayRendered===true],
 ['real engine action emits and rerenders gameplay state',result.rerenderAfterRealAction===true],
 ['actual engine records both correct answers and finishes',result.actualEngineProgress===true],
+['actual restoreSession restores a saved mid-session state',result.actualRestoreState===true],
+['actual restoreSession rerenders the saved progress in the isolated screen',result.actualRestoreScreen===true],
 ['actual lifecycle events remain inside iframe',result.activityReadyEvents>=3&&result.activityFinishedEvents===1],
 ['iframe disposal leaves parent app unchanged',parentUnchanged]
 ];
