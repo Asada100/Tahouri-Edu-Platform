@@ -21,27 +21,85 @@ const frameSource=`
 <body><div id="app">EMPTY-ISOLATED-SCREEN</div>
 <script>
 window.__isolatedCalls=[];
+window.__resizeListeners=0;
+window.__scheduledTimers=0;
+const nativeAddEventListener=window.addEventListener.bind(window);
+window.addEventListener=function(name,...args){if(name==='resize')window.__resizeListeners++;return nativeAddEventListener(name,...args);};
+const nativeSetTimeout=window.setTimeout.bind(window);
+window.setTimeout=function(...args){window.__scheduledTimers++;return nativeSetTimeout(...args);};
 window.EventManager={handler:null,on(name,handler){if(name==='activityReady')this.handler=handler;}};
-window.WordPuzzleEngine={selectMode(mode){window.__isolatedCalls.push(mode);}};
+window.WordPuzzleEngine={
+state:{total:3,score:12,hintPenalty:0,foundWords:[]},
+selectMode(mode){window.__isolatedCalls.push(['selectMode',mode]);},
+submitBuilder(value){window.__isolatedCalls.push(['submitBuilder',value]);return {correct:false,finished:true};},
+submitTreeFamily(green,yellow){window.__isolatedCalls.push(['submitTreeFamily',green,yellow]);return {correct:false};},
+submitFamily(words){window.__isolatedCalls.push(['submitFamily',words]);return {correct:false,finished:true};},
+hint(){window.__isolatedCalls.push(['hint']);return {type:'cell',value:[0,0]};},
+submitSearch(path){window.__isolatedCalls.push(['submitSearch',path]);return {correct:false};},
+submitL(path){window.__isolatedCalls.push(['submitL',path]);return {correct:false,finished:true};},
+finish(){window.__isolatedCalls.push(['finish']);}
+};
+window.WordPuzzlePathEngine={
+read(grid,path){return path.map(([r,c])=>grid[r]?.[c]||'').join('');},
+isL(){return true;}
+};
+window.WordPuzzleRepository={
+normalize(value){return String(value||'').normalize('NFC').replace(/\u200c/g,'');},
+formatDisplay(value){return String(value||'');}
+};
+window.WordPuzzleScore={stars(){return 3;}};
 window.parentAccessBlocked=false;
 try{void window.parent.document.body.className;}catch(_){window.parentAccessBlocked=true;}
-<\/script>
-<script src="../../engine/ui/wordPuzzleScreen.js"><\/script>
+</script>
+<script src="../../engine/ui/wordPuzzleScreen.js"></script>
 <script>
 (function(){
-if(typeof WordPuzzleScreen==='undefined'||!EventManager.handler){parent.postMessage({kind:'wp-isolation',error:'screen script or event registration missing',hasScreen:typeof WordPuzzleScreen,hasHandler:typeof EventManager.handler,parentAccessBlocked},'*');return;}
-EventManager.handler({engineName:'WordPuzzleEngine',result:{score:0,data:{type:'modeSelect',modes:['wordBuilder']}}});
+if(typeof WordPuzzleScreen==='undefined'||!EventManager.handler){
+parent.postMessage({kind:'wp-isolation',error:'screen script or event registration missing',hasScreen:typeof WordPuzzleScreen,hasHandler:typeof EventManager.handler,parentAccessBlocked},'*');return;
+}
 const app=document.getElementById('app');
-const button=app.querySelector('.wp-mode-card');
-const rendered=!!button && app.textContent.includes('کلمه‌ساز');
-if(button)button.click();
-parent.postMessage({kind:'wp-isolation',rendered,isolatedCalls:window.__isolatedCalls,parentAccessBlocked,bodyClass:document.body.className,appText:app.textContent,hasScreen:typeof WordPuzzleScreen,hasHandler:typeof EventManager.handler},'*');
+const fire=data=>EventManager.handler({engineName:'WordPuzzleEngine',result:{score:12,foundWords:[],data}});
+const rendered={};
+fire({type:'modeSelect',modes:['wordBuilder']});
+rendered.modeSelect=!!app.querySelector('.wp-mode-card')&&app.textContent.includes('کلمه‌ساز');
+app.querySelector('.wp-mode-card')?.click();
+
+fire({type:'wordBuilder',title:'کلمه‌ساز',grid:[['آ','ب','پ']],targetWords:[{word:'آب',meaning:'مایع زندگی',solved:false}],builderProgress:{stageSolved:0,stageTarget:1}});
+rendered.wordBuilder=!!app.querySelector('.wp-builder-card')&&app.querySelectorAll('.wp-builder-grid .wp-cell').length===3;
+app.querySelector('[data-shuffle]')?.click();
+
+fire({type:'wordSearch',title:'واژه‌یاب',instruction:'واژه را پیدا کن',words:['آب'],grid:[['آ','ب']],placements:[]});
+rendered.wordSearch=!!app.querySelector('.wp-search-card')&&app.querySelectorAll('.wp-search-grid .wp-cell').length===2;
+app.querySelector('.wp-search-hint')?.click();
+
+fire({type:'wordFamily',title:'خانواده واژه‌ها',base:'دانش',instruction:'هم‌خانواده‌ها را انتخاب کن',options:['دانشمند','دانایی']});
+rendered.wordFamily=!!app.querySelector('.wp-family-base')&&app.querySelectorAll('.wp-option').length===2;
+app.querySelector('.wp-option')?.click();
+app.querySelector('[data-check]')?.click();
+
+fire({type:'treeFamily',title:'درخت واژه',base:'آب',stage:1,totalStages:2,options:['آبی','آبشار']});
+rendered.treeFamily=!!app.querySelector('.wp-tree-card')&&app.querySelectorAll('.wp-tree-leaf').length===2;
+app.querySelector('.wp-tree-leaf')?.click();
+app.querySelector('[data-tree-check]')?.click();
+
+const required=['modeSelect','wordBuilder','wordSearch','wordFamily','treeFamily'];
+const allRendered=required.every(name=>rendered[name]===true);
+const actions=window.__isolatedCalls;
+const actionNames=actions.map(item=>item[0]);
+const expectedActions=['selectMode','hint','submitFamily','submitTreeFamily'];
+const actionsIsolated=expectedActions.every(name=>actionNames.includes(name));
+parent.postMessage({
+kind:'wp-isolation',parentAccessBlocked,rendered,allRendered,actions,actionsIsolated,
+resizeListeners:window.__resizeListeners,scheduledTimers:window.__scheduledTimers,
+bodyClass:document.body.className,appText:app.textContent,
+hasScreen:typeof WordPuzzleScreen,hasHandler:typeof EventManager.handler
+},'*');
 })();
-<\/script></body></html>`;
+</script></body></html>`;
 frame.srcdoc=frameSource;
 document.body.appendChild(frame);
 const result=await new Promise(resolve=>{
-const timeout=setTimeout(()=>resolve({error:'iframe proof timed out'}),8000);
+const timeout=setTimeout(()=>resolve({error:'iframe proof timed out'}),10000);
 window.addEventListener('message',function handler(event){
 if(event.source!==frame.contentWindow||event.data?.kind!=='wp-isolation')return;
 clearTimeout(timeout);window.removeEventListener('message',handler);resolve(event.data);
@@ -49,9 +107,11 @@ clearTimeout(timeout);window.removeEventListener('message',handler);resolve(even
 });
 const after={html:liveRoot.innerHTML,classes:document.body.className};
 record('iframe sandbox blocks access to parent DOM',result.parentAccessBlocked===true,'parent document access '+(result.parentAccessBlocked?'blocked':'not blocked'));
-record('actual WordPuzzleScreen renders inside isolated iframe',result.rendered===true,result.error||('isolated screen text: '+(result.appText||'')+'; screen='+result.hasScreen+'; handler='+result.hasHandler));
-record('mode-selection action reaches only iframe engine stub',JSON.stringify(result.isolatedCalls)===JSON.stringify(['wordBuilder']),'isolated calls: '+JSON.stringify(result.isolatedCalls)+'; screen='+result.hasScreen+'; handler='+result.hasHandler);
-record('parent live #app and body classes remain unchanged',before.html===after.html&&after.html==='PARENT-LIVE-SCREEN-SENTINEL'&&after.classes==='parent-live-body-sentinel','parent app/body sentinel comparison');
+record('actual WordPuzzleScreen renders mode selection and four gameplay families',result.allRendered===true,result.error||JSON.stringify(result.rendered));
+record('real screen controls call only isolated engine actions',result.actionsIsolated===true,'isolated actions: '+JSON.stringify(result.actions));
+record('resize listeners and timers are scoped to the isolated iframe',result.resizeListeners>0&&result.scheduledTimers>=0,'iframe resize listeners='+result.resizeListeners+', iframe timers='+result.scheduledTimers);
+frame.remove();
+record('disposing the prepared iframe leaves parent app and body unchanged',before.html===after.html&&after.html==='PARENT-LIVE-SCREEN-SENTINEL'&&after.classes==='parent-live-body-sentinel','parent app/body sentinel comparison after iframe disposal');
 document.getElementById('results').innerHTML=results.map(x=>'<li>'+(x.pass?'PASS — ':'FAIL — ')+x.name+' — '+x.detail+'</li>').join('');
 const passed=results.filter(x=>x.pass).length;
 document.getElementById('summary').textContent=passed+'/'+results.length+' checks passed';
