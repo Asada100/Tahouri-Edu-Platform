@@ -22,8 +22,8 @@ const server = http.createServer((req,res)=>{
   await page.goto('http://127.0.0.1:4176/experiments/change-journal-prototype/session-persistence-migration-test.html',{waitUntil:'load'});
   await page.waitForFunction(()=>document.querySelector('#summary')?.textContent!=='running');
   const result=await page.evaluate(()=>window.__persistenceMigrationDiagnostic);
-  result.results.forEach(item=>console.log((item.reproduced?'BLOCKER CONFIRMED — ':'NOT REPRODUCED — ')+item.name+' — '+item.detail));
-  if(result.reproduced!==5||result.total!==5) throw new Error('Expected all 5 current-code failure diagnostics to reproduce; got '+result.reproduced+'/'+result.total);
-  console.log('SESSION PERSISTENCE FAILURE DIAGNOSTICS: PASS (5/5 defects reproduced; runtime acceptance remains BLOCKED)');
+  result.results.forEach(item=>console.log((item.passed?'PASS — ':'FAIL — ')+item.name+' — '+item.detail));
+  if(result.passed!==5||result.total!==5) throw new Error('Expected 5 durable session creation acceptance checks; got '+result.passed+'/'+result.total);
+  console.log('SESSION CREATION DURABILITY ACCEPTANCE: PASS (5/5 checks)');
  }finally{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));}
 })().catch(error=>{console.error(error);process.exitCode=1;});
