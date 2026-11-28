@@ -47,20 +47,28 @@
 
     manager.clear();
     const restartedSameTick = manager.begin(activity);
-    add("A3 same-tick restart generates a distinct ID", true,
-      restartedSameTick.id === firstId ? "timestamp collision reproduced" : "distinct ID", restartedSameTick.id === firstId);
+    add("A3 same-tick restart generates a distinct ID", restartedSameTick.id !== firstId,
+      restartedSameTick.id === firstId ? "timestamp collision reproduced" : "distinct cryptographic ID");
 
     manager.clear();
     window.__setProfile("PROFILE_B");
     manager.currentSession = null;
     const profileB = manager.begin(activity);
-    add("A4 same activity/time across profiles has distinct global ID", true,
-      profileB.id === restartedSameTick.id ? "profile-independent ID collision reproduced" : "distinct ID", profileB.id === restartedSameTick.id);
+    add("A4 same activity/time across profiles has distinct global ID", profileB.id !== restartedSameTick.id,
+      profileB.id === restartedSameTick.id ? "profile-independent ID collision reproduced" : "distinct cryptographic ID");
 
     Date.now = () => 1700000000001;
     manager.clear();
     const laterAttempt = manager.begin(activity);
-    add("A5 later timestamp produces a different ID", laterAttempt.id !== profileB.id, laterAttempt.id);
+    add("A5 later attempt produces a different ID", laterAttempt.id !== profileB.id, laterAttempt.id);
+
+    manager.clear();
+    const originalGenerator = manager.generateSessionId;
+    manager.generateSessionId = () => { throw new Error("secure randomness unavailable"); };
+    const blocked = manager.begin({id:"identity-no-crypto",engine:"QuizEngine"});
+    manager.generateSessionId = originalGenerator;
+    add("A6 missing secure randomness fails closed", blocked === null && manager.currentSession === null,
+      blocked === null ? "no session published" : "session incorrectly created");
   } catch(error) {
     add("Harness execution", false, error.stack || error.message);
   } finally {
