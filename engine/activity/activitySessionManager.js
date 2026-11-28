@@ -370,7 +370,21 @@ const ActivitySessionManager = {
 
         this.restoringSession = true;
         try {
-            if (await this.restoreEngine(activity, candidate) !== true) {
+            // Prepare the saved state on an isolated engine facade. restoreSession()
+            // writes only to this facade; the live engine remains untouched until
+            // the durable storage snapshot has passed exact read-back verification.
+            const engineData = candidate.engineState;
+            if (!engineData || engineData.kind !== "wordPuzzle" ||
+                typeof engine.restoreSession !== "function") {
+                const failures = rollback();
+                if (failures.length) console.error("WordPuzzle resume rollback incomplete", failures);
+                return false;
+            }
+            const preparedEngine = Object.create(engine);
+            preparedEngine.activity = engine.activity;
+            preparedEngine.state = engine.state;
+            preparedEngine.round = engine.round;
+            if (preparedEngine.restoreSession(engineData, { emitReady: false }) !== true) {
                 const failures = rollback();
                 if (failures.length) console.error("WordPuzzle resume rollback incomplete", failures);
                 return false;
@@ -400,6 +414,11 @@ const ActivitySessionManager = {
                 if (failures.length) console.error("WordPuzzle resume rollback incomplete", failures);
                 return false;
             }
+
+            // Commit the prepared engine only after persistence is durable and verified.
+            engine.activity = preparedEngine.activity;
+            engine.state = preparedEngine.state;
+            engine.round = preparedEngine.round;
 
             this.activateRestoredActivity(activity);
             this.currentSession = candidate;
