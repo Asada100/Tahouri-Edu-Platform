@@ -1245,7 +1245,7 @@ const ActivitySessionManager = {
             }
 
             // Do not call ClassificationEngine.start() on this path.
-            this.activateRestoredActivity(fullActivity);
+            // Platform activity publication is deferred until resume() verifies persistence.
             if (typeof ClassificationScreen !== "undefined" && typeof ClassificationScreen.show === "function") {
                 ClassificationScreen.currentActivity = fullActivity;
                 ClassificationScreen.currentState = engine.getState();
