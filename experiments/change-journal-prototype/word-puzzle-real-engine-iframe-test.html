@@ -21,14 +21,14 @@ window.EventManager={
 };
 window.__parentAccessBlocked=false;
 try{void window.parent.document.body.className;}catch(_){window.__parentAccessBlocked=true;}
-</script>
-<script src="../../engine/wordPuzzle/pathEngine.js"></script>
-<script src="../../engine/wordPuzzle/difficultyEngine.js"></script>
-<script src="../../engine/wordPuzzle/scoreEngine.js"></script>
-<script src="../../engine/wordPuzzle/wordRepository.js"></script>
-<script src="../../engine/wordPuzzle/wordPuzzleValidator.js"></script>
-<script src="../../engine/wordPuzzle/wordPuzzleEngine.js"></script>
-<script src="../../engine/ui/wordPuzzleScreen.js"></script>
+<\/script>
+<script src="../../engine/wordPuzzle/pathEngine.js"><\/script>
+<script src="../../engine/wordPuzzle/difficultyEngine.js"><\/script>
+<script src="../../engine/wordPuzzle/scoreEngine.js"><\/script>
+<script src="../../engine/wordPuzzle/wordRepository.js"><\/script>
+<script src="../../engine/wordPuzzle/wordPuzzleValidator.js"><\/script>
+<script src="../../engine/wordPuzzle/wordPuzzleEngine.js"><\/script>
+<script src="../../engine/ui/wordPuzzleScreen.js"><\/script>
 <script>
 (function(){
 const activity={
@@ -60,7 +60,7 @@ state:{mode:window.WordPuzzleEngine.state.mode,correct:window.WordPuzzleEngine.s
 appText:document.getElementById('app').textContent
 },'*');
 })();
-</script></body></html>`;
+<\/script></body></html>`;
 frame.srcdoc=source;
 document.body.appendChild(frame);
 const result=await new Promise(resolve=>{
