@@ -11,7 +11,7 @@ let mutateThenFailSet = false;
 const localStorage = {
   getItem(key) { if (failGet) throw new Error("read blocked"); return values.has(key) ? values.get(key) : null; },
   setItem(key, value) {
-    if (mutateThenFailSet) { values.set(key, String(value)); throw new Error("write failed after mutation"); }
+    if (mutateThenFailSet) { values.set(key, String(value)); mutateThenFailSet = false; throw new Error("write failed after mutation"); }
     if (failSet) throw new Error("write blocked");
     values.set(key, String(value));
   },
