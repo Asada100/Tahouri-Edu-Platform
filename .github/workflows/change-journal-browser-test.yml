@@ -6,6 +6,7 @@ on:
       - experiment/local-change-journal-prototype
     paths:
       - 'experiments/change-journal-prototype/**'
+      - '.github/scripts/word-puzzle-screen-isolation-test.js'
       - '.github/scripts/session-resume-transaction-test.js'
       - '.github/scripts/change-journal-browser-test.js'
       - '.github/scripts/activity-session-identity-browser-test.js'
@@ -50,6 +51,8 @@ jobs:
         run: node experiments/change-journal-prototype/sessionResumeTransaction.test.js
       - name: Run isolated WordPuzzle restore adapter tests
         run: node experiments/change-journal-prototype/wordPuzzleRestoreAdapter.test.js
+      - name: Run WordPuzzle isolated browsing context proof
+        run: node .github/scripts/word-puzzle-screen-isolation-test.js
       - name: Run runtime-compatible legacy session validator tests
         run: node experiments/change-journal-prototype/legacySessionValidator.test.js
       - name: Run isolated legacy session migration tests
