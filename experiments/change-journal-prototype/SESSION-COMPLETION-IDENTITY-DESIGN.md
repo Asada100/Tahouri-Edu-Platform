@@ -636,3 +636,21 @@ The proof checks:
 Scope limitation: this is the first seam proof for the mode-selection route only. It does not yet cover the gameplay renderers, drag-path listeners, timers, toast/finish behavior, CSS completeness, asset loading under all deployment base paths, or commit/rollback of a prepared full gameplay screen. It therefore does not establish a production-ready resume adapter. The iframe must be tested under the repository's real Pages base path before any integration proposal.
 
 No active runtime/UI files, Production services, Worker, or D1 resources were changed.
+
+
+## 21. Expanded WordPuzzle isolated-screen proof — 2026-11-28
+
+The browser proof now exercises five real screen states from the active WordPuzzleScreen source: mode selection, word builder, word search, word family, and tree family. It clicks representative controls and verifies that their calls reach only the iframe-local engine stub. The sandbox denies parent-document access; resize listeners are registered only in the iframe; removing the iframe leaves the parent application and body unchanged.
+
+The proof also exercises the delayed afterSubmit() rerender path. The iframe scheduler captures the pending callback, the test explicitly flushes it inside the isolated browsing context, and verifies that the actual screen rerenders there. This replaces the earlier vacuous timer check (which accepted zero timers).
+
+CI run 46122248761 passed all five isolation assertions before the timer-path extension:
+- five screen states, including the delayed rerender, are now targeted;
+- isolated controls invoke only the iframe stub;
+- parent DOM access is blocked;
+- resize listeners and the delayed rerender callback remain iframe-scoped;
+- iframe disposal preserves the parent screen.
+
+Remaining limitations: engine/action dependencies are still test stubs, not a restored live WordPuzzleEngine instance; the test does not load production WordPuzzle CSS or verify asset paths under GitHub Pages; it does not exercise drag-path interactions, toast animation cleanup, finish/navigation, actual storage commit/read-back, or atomic handoff/rollback between the iframe and the platform screen. This proves a viable browser-isolation seam, not a complete resume adapter.
+
+Next bounded task: build an experiment-only iframe host/adapter contract around the actual WordPuzzle engine and screen, beginning with script/style/asset loading and explicit message-based engine actions. Add tests for candidate preparation, no parent mutations, controlled commit, rollback, and disposal. Keep ActivitySessionManager and all production/runtime files untouched until that adapter passes and runtime integration is separately approved.
