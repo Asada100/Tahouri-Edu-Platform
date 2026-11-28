@@ -29,7 +29,7 @@ try{void window.parent.document.body.className;}catch(_){window.parentAccessBloc
 <script src="../../engine/ui/wordPuzzleScreen.js"><\/script>
 <script>
 (function(){
-if(!window.WordPuzzleScreen||!EventManager.handler){parent.postMessage({kind:'wp-isolation',error:'screen script or event registration missing',hasScreen:typeof WordPuzzleScreen,hasHandler:typeof EventManager.handler,parentAccessBlocked},'*');return;}
+if(typeof WordPuzzleScreen==='undefined'||!EventManager.handler){parent.postMessage({kind:'wp-isolation',error:'screen script or event registration missing',hasScreen:typeof WordPuzzleScreen,hasHandler:typeof EventManager.handler,parentAccessBlocked},'*');return;}
 EventManager.handler({engineName:'WordPuzzleEngine',result:{score:0,data:{type:'modeSelect',modes:['wordBuilder']}}});
 const app=document.getElementById('app');
 const button=app.querySelector('.wp-mode-card');
@@ -49,8 +49,8 @@ clearTimeout(timeout);window.removeEventListener('message',handler);resolve(even
 });
 const after={html:liveRoot.innerHTML,classes:document.body.className};
 record('iframe sandbox blocks access to parent DOM',result.parentAccessBlocked===true,'parent document access '+(result.parentAccessBlocked?'blocked':'not blocked'));
-record('actual WordPuzzleScreen renders inside isolated iframe',result.rendered===true,result.error||('isolated screen text: '+(result.appText||'')));
-record('mode-selection action reaches only iframe engine stub',JSON.stringify(result.isolatedCalls)===JSON.stringify(['wordBuilder']),'isolated calls: '+JSON.stringify(result.isolatedCalls));
+record('actual WordPuzzleScreen renders inside isolated iframe',result.rendered===true,result.error||('isolated screen text: '+(result.appText||'')+'; screen='+result.hasScreen+'; handler='+result.hasHandler));
+record('mode-selection action reaches only iframe engine stub',JSON.stringify(result.isolatedCalls)===JSON.stringify(['wordBuilder']),'isolated calls: '+JSON.stringify(result.isolatedCalls)+'; screen='+result.hasScreen+'; handler='+result.hasHandler);
 record('parent live #app and body classes remain unchanged',before.html===after.html&&after.html==='PARENT-LIVE-SCREEN-SENTINEL'&&after.classes==='parent-live-body-sentinel','parent app/body sentinel comparison');
 document.getElementById('results').innerHTML=results.map(x=>'<li>'+(x.pass?'PASS — ':'FAIL — ')+x.name+' — '+x.detail+'</li>').join('');
 const passed=results.filter(x=>x.pass).length;
