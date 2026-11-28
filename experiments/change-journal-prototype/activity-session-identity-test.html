@@ -38,7 +38,8 @@
     manager.currentSession = null;
     const first = manager.begin(activity);
     const firstId = first.id;
-    const firstStored = window.__identityStore.get("Tahouri_ActivitySession:PROFILE_A");
+    const firstStoredRaw = window.__identityStore.get("Tahouri_ActivitySession:PROFILE_A");
+    const firstStored = firstStoredRaw ? JSON.parse(firstStoredRaw) : null;
     add("A1 session is persisted before engine start", !!firstStored && firstStored.id === firstId, firstId);
 
     first.status = "resumable";
