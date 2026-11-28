@@ -5,14 +5,17 @@ window.EventManager={handlers:{},on(n,f){(this.handlers[n]||(this.handlers[n]=[]
 window.ProfileContext={getStudentId:()=> "student-resume-proof",key:base=>base+":student-resume-proof"};
 window.ActivityManager={currentActivity:null};
 window.ActivityState={current:"idle",set(v){this.current=v;},get(){return this.current;}};
-window.App={resolveActivityById:id=>id==="resume-proof-activity"?window.__activity:(id==="dictation-resume-proof"?window.__dictationActivity:null)};
-window.EngineManager={getEngine:name=>name==="WordPuzzleEngine"?window.WordPuzzleEngine:(name==="DictationEngine"?window.DictationEngine:null)};
+window.ScoreManager={score:0,correct:0,wrong:0,reset(){this.score=0;this.correct=0;this.wrong=0;}};
+window.App={resolveActivityById:id=>id==="resume-proof-activity"?window.__activity:(id==="dictation-resume-proof"?window.__dictationActivity:(id==="quiz-resume-proof"?window.__quizActivity:null))};
+window.EngineManager={getEngine:name=>name==="WordPuzzleEngine"?window.WordPuzzleEngine:(name==="DictationEngine"?window.DictationEngine:(name==="QuizEngine"?window.QuizEngine:null))};
 </script>
 <script src="../../engine/core/saveManager.js"></script>
 <script src="../../engine/wordPuzzle/wordPuzzleEngine.js"></script>
 <script src="../../engine/question/dictationProvider.js"></script>
 <script src="../../engine/activity/dictationEngine.js"></script>
 <script src="../../engine/ui/dictationScreen.js"></script>
+<script src="../../engine/activity/quizEngine.js"></script>
+<script src="../../engine/ui/quizScreen.js"></script>
 <script src="../../engine/activity/activitySessionManager.js"></script>
 <script>
 (async function(){
@@ -154,5 +157,62 @@ try{
  engine.restoreSession=originalRestore;window.DictationScreen.render=originalRender;window.SaveManager.writeRaw=originalWrite;window.SaveManager.readRaw=originalRead;manager.installExitControl=originalInstall;
  document.querySelector("#summary").textContent="FAIL — "+error.message;
  window.__dictationResumeDiagnostic={total:6,reproduced:report.length,error:error.message,results:report};throw error;
+}
+})();</script><script>
+(async function(){
+const report=[];const key=window.ProfileContext.key("Tahouri_ActivitySession");
+const engine=window.QuizEngine,manager=window.ActivitySessionManager;
+const activity={id:"quiz-resume-proof",title:"Quiz resume proof",engine:"QuizEngine",group:"test"};
+window.__quizActivity=activity;
+const question={type:"quiz",text:"دو به‌علاوهٔ دو چند می‌شود؟",answer:"۴",options:["۳","۴"]};
+const originalWrite=window.SaveManager.writeRaw,originalRead=window.SaveManager.readRaw,originalInstall=manager.installExitControl;
+manager.installExitControl=()=>{manager.removeExitControl();const b=document.createElement("button");b.id=manager.exitControlId;document.body.appendChild(b);};
+function seed(){
+ engine.activity=activity;engine.questions=[question];engine.currentQuestion=0;engine.state={started:true,isFinished:false};
+ window.ScoreManager.score=25;window.ScoreManager.correct=2;window.ScoreManager.wrong=1;
+ const session={version:"1.9",schemaVersion:1,id:"quiz-resume-session",profileId:"student-resume-proof",activityId:activity.id,activityType:"QuizEngine",status:"resumable",startedAt:1,updatedAt:1,engineState:{kind:"quiz",activity,questions:engine.questions,currentQuestion:0,state:engine.state,score:25,correct:2,wrong:1}};
+ if(!window.SaveManager.save(key,session))throw Error("Could not seed Quiz session");
+ return session;
+}
+function reset(){
+ manager.currentSession=null;manager.gameplayActive=false;manager.restoringSession=false;
+ window.ActivityManager.currentActivity=null;window.ActivityState.current="idle";
+ document.body.classList.remove("activity-playing");while(document.getElementById(manager.exitControlId))document.getElementById(manager.exitControlId).remove();
+ document.getElementById("app").innerHTML="";window.__events=[];manager.installExitControl=originalInstall;
+ window.SaveManager.writeRaw=originalWrite;window.SaveManager.readRaw=originalRead;
+}
+function check(ok,name,detail){if(!ok)throw Error("ASSERTION FAILED: "+name+" — "+detail);report.push({name,detail});console.log("PASS — "+name+" — "+detail);}
+try{
+ reset();let stored=seed();reset();manager.currentSession={id:"quiz-prior"};
+ let writeSawUnpublished=false;window.SaveManager.writeRaw=(k,v)=>{writeSawUnpublished=manager.currentSession.id==="quiz-prior"&&window.__events.length===0;return originalWrite.call(window.SaveManager,k,v);};
+ let ok=await manager.resume(activity.id);window.SaveManager.writeRaw=originalWrite;
+ const saved=JSON.parse(window.SaveManager.readRaw(key).value);
+ check(ok===true&&writeSawUnpublished&&saved.status==="active"&&manager.currentSession.id===stored.id&&engine.activity===activity&&engine.questions.length===1&&window.ScoreManager.score===25&&window.ScoreManager.correct===2&&window.ScoreManager.wrong===1&&manager.gameplayActive&&window.ActivityState.current==="playing"&&document.getElementById("app").querySelector(".quizScreen")&&document.getElementById(manager.exitControlId),"Quiz actual resume commits after durable write","actual QuizEngine, ScoreManager, QuizScreen and platform state publish after verified storage");
+
+ reset();stored=seed();reset();manager.currentSession={id:"quiz-prior-write"};const rawBefore=window.SaveManager.readRaw(key).value,markupBefore=document.getElementById("app").innerHTML,scoreBefore=window.ScoreManager.score;
+ window.SaveManager.writeRaw=()=>false;ok=await manager.resume(activity.id);window.SaveManager.writeRaw=originalWrite;
+ check(ok===false&&window.SaveManager.readRaw(key).value===rawBefore&&manager.currentSession.id==="quiz-prior-write"&&window.ScoreManager.score===scoreBefore&&document.getElementById("app").innerHTML===markupBefore&&!manager.gameplayActive&&window.__events.length===0,"Quiz write failure leaves runtime unchanged","failed storage commit preserves exact bytes, prior session, score, screen and activity publication");
+
+ reset();stored=seed();reset();manager.currentSession={id:"quiz-prior-mismatch"};const rawMismatch=window.SaveManager.readRaw(key).value;
+ let mismatch=false;window.SaveManager.writeRaw=(k,v)=>{const result=originalWrite.call(window.SaveManager,k,v);mismatch=true;return result;};
+ window.SaveManager.readRaw=(k)=>{if(mismatch){mismatch=false;return {ok:true,exists:true,value:"bad-readback"};}return originalRead.call(window.SaveManager,k);};
+ ok=await manager.resume(activity.id);window.SaveManager.writeRaw=originalWrite;window.SaveManager.readRaw=originalRead;
+ check(ok===false&&window.SaveManager.readRaw(key).value===rawMismatch&&manager.currentSession.id==="quiz-prior-mismatch"&&!manager.gameplayActive&&window.__events.length===0,"Quiz read-back mismatch aborts transaction","mismatched durable read-back restores exact prior snapshot and blocks publication");
+
+ reset();stored=seed();reset();manager.currentSession={id:"quiz-prior-invalid"};
+ const invalid=JSON.parse(window.SaveManager.readRaw(key).value);invalid.engineState.questions=[];window.SaveManager.writeRaw(key,JSON.stringify(invalid));
+ ok=await manager.resume(activity.id);
+ check(ok===false&&manager.currentSession.id==="quiz-prior-invalid"&&!manager.gameplayActive&&window.ActivityManager.currentActivity===null&&window.ActivityState.current==="idle"&&window.__events.length===0,"Quiz invalid candidate is rejected before commit","an invalid question set cannot publish engine, score, screen or platform state");
+
+ reset();stored=seed();reset();window.EventManager.on("activityResumed",()=>{throw Error("injected Quiz observer failure");});
+ ok=await manager.resume(activity.id);const committed=JSON.parse(window.SaveManager.readRaw(key).value);
+ check(ok===true&&committed.status==="active"&&manager.currentSession.id===stored.id&&manager.gameplayActive&&window.ActivityState.current==="playing","Quiz post-commit event failure does not undo commit","event observer failure is reported after commit without reverting durable session");
+ window.SaveManager.remove(key);
+ document.querySelector("#summary").textContent="PASS — "+(window.__activitySessionResumeDiagnostic.reproduced+window.__dictationResumeDiagnostic.reproduced+report.length)+"/18 actual runtime transaction assertions";
+ window.__quizResumeDiagnostic={total:5,reproduced:report.length,results:report};
+}catch(error){
+ window.SaveManager.writeRaw=originalWrite;window.SaveManager.readRaw=originalRead;manager.installExitControl=originalInstall;
+ document.querySelector("#summary").textContent="FAIL — "+error.message;
+ window.__quizResumeDiagnostic={total:5,reproduced:report.length,error:error.message,results:report};throw error;
 }
 })();</script></body></html>
