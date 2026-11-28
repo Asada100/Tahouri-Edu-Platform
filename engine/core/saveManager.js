@@ -21,6 +21,49 @@ const SaveManager = {
         }
     },
 
+    // Exact-byte access for transactional restore. Unlike load(), this API
+    // distinguishes a missing key from storage failure and never parses JSON.
+    readRaw: function (key) {
+        if (typeof key !== "string" || !key) return { ok: false, exists: false, value: null };
+        try {
+            const value = localStorage.getItem(key);
+            return { ok: true, exists: value !== null, value };
+        } catch (error) {
+            console.error("Raw Read Error:", error);
+            return { ok: false, exists: false, value: null };
+        }
+    },
+
+    // Writes an already-serialized value without changing a single character.
+    writeRaw: function (key, value) {
+        if (typeof key !== "string" || !key || typeof value !== "string") return false;
+        try {
+            localStorage.setItem(key, value);
+            return localStorage.getItem(key) === value;
+        } catch (error) {
+            console.error("Raw Write Error:", error);
+            return false;
+        }
+    },
+
+    // Restores the exact previous storage state, including key absence.
+    restoreRaw: function (key, snapshot) {
+        if (typeof key !== "string" || !key || !snapshot || snapshot.ok !== true ||
+            typeof snapshot.exists !== "boolean" ||
+            (snapshot.exists && typeof snapshot.value !== "string")) return false;
+        try {
+            if (snapshot.exists) {
+                localStorage.setItem(key, snapshot.value);
+                return localStorage.getItem(key) === snapshot.value;
+            }
+            localStorage.removeItem(key);
+            return localStorage.getItem(key) === null;
+        } catch (error) {
+            console.error("Raw Restore Error:", error);
+            return false;
+        }
+    },
+
     load: function (key) {
         if (!key) return null;
 
