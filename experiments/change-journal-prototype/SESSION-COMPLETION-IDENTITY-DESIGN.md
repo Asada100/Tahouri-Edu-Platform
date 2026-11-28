@@ -654,3 +654,12 @@ CI run 46122248761 passed all five isolation assertions before the timer-path ex
 Remaining limitations: engine/action dependencies are still test stubs, not a restored live WordPuzzleEngine instance; the test does not load production WordPuzzle CSS or verify asset paths under GitHub Pages; it does not exercise drag-path interactions, toast animation cleanup, finish/navigation, actual storage commit/read-back, or atomic handoff/rollback between the iframe and the platform screen. This proves a viable browser-isolation seam, not a complete resume adapter.
 
 Next bounded task: build an experiment-only iframe host/adapter contract around the actual WordPuzzle engine and screen, beginning with script/style/asset loading and explicit message-based engine actions. Add tests for candidate preparation, no parent mutations, controlled commit, rollback, and disposal. Keep ActivitySessionManager and all production/runtime files untouched until that adapter passes and runtime integration is separately approved.
+
+
+## 22. Actual WordPuzzle engine in isolated iframe — 2026-11-28
+
+Added an experiment-only browser proof that loads the repository's actual WordPuzzle production sources inside a sandboxed iframe: path engine, difficulty engine, score engine, word repository, validator, WordPuzzleEngine, WordPuzzleScreen, and the production WordPuzzle stylesheet. The parent page cannot be accessed from the iframe. A minimal EventManager is provided only inside the iframe to deliver the actual engine's lifecycle events.
+
+The test starts the actual engine with synthetic activity content, clicks the actual mode-selection control, verifies the real engine enters wordBuilder and the real screen renders, submits two valid answers through the actual engine API, and verifies the actual engine state and lifecycle events. It also checks stylesheet loading and that disposing the iframe leaves the parent application untouched.
+
+This is the first proof that the real WordPuzzle engine and screen can coexist inside the isolated browsing context. It is not yet a complete restore/resume adapter: the test starts a fresh synthetic activity rather than restoring a saved session; it does not prove message-based parent-to-iframe command transport, drag gesture completion, iframe host commit/rollback, persisted snapshot write/read-back, or recovery if the iframe crashes. The production ActivitySessionManager remains untouched. CI run 46122546237 is the acceptance gate for this experiment.
