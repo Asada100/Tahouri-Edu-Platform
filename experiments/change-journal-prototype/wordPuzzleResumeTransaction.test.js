@@ -19,7 +19,7 @@ async function scenario(fault){
  const publication={
   capture:()=>structuredClone(runtime),
   publish:()=>{publishCalls++;runtime={sessionId:"session-2",host:"candidate-B"};
-   if(fault==="publish-false"||fault==="rollback-fail")return false;if(fault==="publish-throw")throw Error("publish-throw");return true;},
+   if(fault==="publish-false"||fault==="rollback-fail"||fault==="publish-rollback-fail")return false;if(fault==="publish-throw")throw Error("publish-throw");return true;},
   restore:v=>{restoreCalls++;if(fault==="publish-rollback-fail")return false;runtime=structuredClone(v);return true;}
  };
  const result=await executeWordPuzzleResumeTransaction({
