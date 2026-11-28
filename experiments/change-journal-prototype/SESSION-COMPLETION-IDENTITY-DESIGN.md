@@ -621,3 +621,18 @@ The browser acceptance test must assert, during preparation and after disposal:
 - commit switches the visible surface exactly once; rollback restores the previous surface.
 
 This audit prevents a superficial root-parameter refactor from being mistaken for isolation. The next candidate is a dedicated isolated browsing context for the full WordPuzzle screen, subject to proving asset loading, dependency binding, event isolation, and safe disposal. No production/runtime files were changed.
+
+
+## 20. First isolated browsing-context proof — 2026-11-28
+
+Added an experiment-only browser proof that loads the actual `engine/ui/wordPuzzleScreen.js` into a sandboxed iframe with `allow-scripts` and no `allow-same-origin`. The iframe receives a minimal isolated EventManager and WordPuzzleEngine stub, then the actual screen's `activityReady` handler renders its mode-selection view.
+
+The proof checks:
+1. iframe script cannot read the parent document;
+2. the actual WordPuzzleScreen registers and renders inside the iframe;
+3. clicking the real mode-selection control calls only the iframe's engine stub;
+4. the parent live `#app` content and body classes remain byte-for-byte unchanged.
+
+Scope limitation: this is the first seam proof for the mode-selection route only. It does not yet cover the gameplay renderers, drag-path listeners, timers, toast/finish behavior, CSS completeness, asset loading under all deployment base paths, or commit/rollback of a prepared full gameplay screen. It therefore does not establish a production-ready resume adapter. The iframe must be tested under the repository's real Pages base path before any integration proposal.
+
+No active runtime/UI files, Production services, Worker, or D1 resources were changed.
