@@ -23,7 +23,7 @@ const server = http.createServer((req,res)=>{
   await page.waitForFunction(()=>document.querySelector('#summary')?.textContent!=='running');
   const result=await page.evaluate(()=>window.__persistenceMigrationDiagnostic);
   result.results.forEach(item=>console.log((item.passed?'PASS — ':'FAIL — ')+item.name+' — '+item.detail));
-  if(result.passed!==5||result.total!==5) throw new Error('Expected 5 durable session creation acceptance checks; got '+result.passed+'/'+result.total);
-  console.log('SESSION CREATION DURABILITY ACCEPTANCE: PASS (5/5 checks)');
+  if(result.passed!==7||result.total!==7) throw new Error('Expected 7 session persistence acceptance checks; got '+result.passed+'/'+result.total);
+  console.log('SESSION PERSISTENCE DURABILITY ACCEPTANCE: PASS (7/7 checks; begin and capture)');
  }finally{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));}
 })().catch(error=>{console.error(error);process.exitCode=1;});
