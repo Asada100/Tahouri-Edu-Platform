@@ -7,7 +7,7 @@ const {chromium}=require('playwright');
 const root=process.cwd();
 const htmlPath=path.join(root,'experiments/change-journal-prototype/word-puzzle-real-engine-iframe-test.html');
 const html=fs.readFileSync(htmlPath,'utf8');
-const inlineScripts=[...html.matchAll(/<script(?:\\s[^>]*)?>([\\s\\S]*?)<\\/script>/gi)];
+const inlineScripts=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)];
 if(inlineScripts.length!==1)throw new Error('Expected exactly one outer inline script; found '+inlineScripts.length);
 new vm.Script(inlineScripts[0][1],{filename:htmlPath});
 console.log('PASS — outer iframe harness JavaScript parses');
