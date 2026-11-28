@@ -301,12 +301,12 @@ getSessionState(){
 if(!this.activity||!this.state||!this.round)return null;
 return {kind:"wordPuzzle",activity:JSON.parse(JSON.stringify(this.activity)),state:JSON.parse(JSON.stringify(this.state)),round:JSON.parse(JSON.stringify(this.round))};
 },
-restoreSession(saved){
+restoreSession(saved, options){
 if(!saved||saved.kind!=="wordPuzzle"||!saved.state||!saved.round)return false;
 this.activity=saved.activity||this.activity;
 this.state=JSON.parse(JSON.stringify(saved.state));
 this.round=JSON.parse(JSON.stringify(saved.round));
-this.emitReady();
+if(!options||options.emitReady!==false)this.emitReady();
 return true;
 },
 emitReady(){if(typeof EventManager!=="undefined")EventManager.emit("activityReady",{engineName:"WordPuzzleEngine",engine:this,activity:this.activity,result:this.getState()});},
