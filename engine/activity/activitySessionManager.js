@@ -430,6 +430,7 @@ const ActivitySessionManager = {
             ScoreManager.correct = Number(data.correct || 0);
             ScoreManager.wrong = Number(data.wrong || 0);
 
+            this.activateRestoredActivity(activity);
             this.currentSession = candidate;
             this.gameplayActive = true;
             QuizScreen.reset();
@@ -569,6 +570,7 @@ const ActivitySessionManager = {
             engine.activity = preparedEngine.activity;
             engine.content = preparedEngine.content;
             engine.state = preparedEngine.state;
+            this.activateRestoredActivity(activity);
             this.currentSession = candidate;
             this.gameplayActive = true;
             screenRenderAttempted = true;
@@ -701,6 +703,7 @@ const ActivitySessionManager = {
             engine.state = preparedEngine.state;
             engine.round = preparedEngine.round;
 
+            this.activateRestoredActivity(activity);
             this.currentSession = candidate;
             this.gameplayActive = true;
             this.installExitControl();
@@ -731,7 +734,7 @@ const ActivitySessionManager = {
         // WordPuzzle reads the persisted candidate without publishing it into currentSession.
         const key = this.storageKey();
         if (key && typeof SaveManager !== "undefined" && typeof SaveManager.readRaw === "function") {
-            const raw = SaveManager.readRaw(legacyStorageKey);
+            const raw = SaveManager.readRaw(key);
             if (!raw || raw.ok !== true) return false;
             if (raw.exists && typeof raw.value === "string") {
                 let stored = null;
@@ -851,7 +854,7 @@ const ActivitySessionManager = {
             if (storageWriteAttempted) {
                 try {
                     if (!SaveManager.restoreRaw(legacyStorageKey, rawSnapshot)) throw new Error("raw restore returned false");
-                    const verified = SaveManager.readRaw(key);
+                    const verified = SaveManager.readRaw(legacyStorageKey);
                     if (!verified.ok || verified.exists !== rawSnapshot.exists ||
                         verified.value !== rawSnapshot.value) throw new Error("raw restore verification mismatch");
                 } catch (error) { failures.push("persisted-session"); }
@@ -876,7 +879,7 @@ const ActivitySessionManager = {
                 if (failures.length) console.error("Activity resume rollback incomplete", failures);
                 return false;
             }
-            const readBack = SaveManager.readRaw(key);
+            const readBack = SaveManager.readRaw(legacyStorageKey);
             if (!readBack.ok || !readBack.exists || readBack.value !== serialized) {
                 const failures = rollback();
                 if (failures.length) console.error("Activity resume rollback incomplete", failures);
@@ -891,6 +894,7 @@ const ActivitySessionManager = {
                 return false;
             }
 
+            this.activateRestoredActivity(activity);
             this.currentSession = candidate;
             this.gameplayActive = true;
             this.installExitControl();
