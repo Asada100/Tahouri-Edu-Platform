@@ -739,6 +739,10 @@ const ActivitySessionManager = {
             if (raw.exists && typeof raw.value === "string") {
                 let stored = null;
                 try { stored = JSON.parse(raw.value); } catch (_) { return false; }
+                // An existing but invalid or non-resumable snapshot is terminal.
+                // Never fall through to load(), which would publish null/invalid state.
+                if (!this.validateSession(stored) || stored.status !== "resumable" ||
+                    (activityId && stored.activityId !== activityId)) return false;
                 if (this.validateSession(stored) && stored.status === "resumable" &&
                     (!activityId || stored.activityId === activityId) &&
                     (stored.activityType === "QuizEngine" || stored.activityType === "quiz")) {
@@ -769,7 +773,9 @@ const ActivitySessionManager = {
             }
         }
 
+        const previousCurrentSession = this.currentSession;
         const session = this.getResumable(activityId);
+        this.currentSession = previousCurrentSession;
         if (!session) return false;
 
         if (typeof App === "undefined" || typeof App.resolveActivityById !== "function") {
@@ -787,7 +793,6 @@ const ActivitySessionManager = {
 
         // Mark the session as the active restore target before touching the
         // engine. This prevents lifecycle events from replacing it.
-        this.currentSession = session;
         this.restoringSession = true;
 
         try {
@@ -795,7 +800,8 @@ const ActivitySessionManager = {
             if (!restored) return false;
 
             session.status = "active";
-            this.save(session);
+            if (this.save(session) !== true) return false;
+            this.currentSession = session;
             this.gameplayActive = true;
             document.body.classList.add("activity-playing");
             this.installExitControl();
