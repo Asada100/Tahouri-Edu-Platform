@@ -332,7 +332,7 @@ const ActivitySessionManager = {
             bodyPlaying: document.body.classList.contains("activity-playing"),
             exitNode: document.getElementById(this.exitControlId)
         };
-        const exitClone = previous.exitNode ? previous.exitNode.cloneNode(true) : null;
+        const exitNode = previous.exitNode;
         const exitParent = previous.exitNode ? previous.exitNode.parentNode : null;
         const exitNext = previous.exitNode ? previous.exitNode.nextSibling : null;
         const candidate = JSON.parse(JSON.stringify(session));
@@ -353,8 +353,8 @@ const ActivitySessionManager = {
                 document.body.classList.toggle("activity-playing", previous.bodyPlaying);
                 const currentExit = document.getElementById(this.exitControlId);
                 if (currentExit) currentExit.remove();
-                if (exitClone && exitParent) {
-                    exitParent.insertBefore(exitClone, exitNext && exitNext.parentNode === exitParent ? exitNext : null);
+                if (exitNode && exitParent) {
+                    exitParent.insertBefore(exitNode, exitNext && exitNext.parentNode === exitParent ? exitNext : null);
                 }
             } catch (error) { failures.push("runtime-publication"); }
             if (storageWriteAttempted) {
