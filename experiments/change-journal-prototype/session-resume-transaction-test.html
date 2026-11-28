@@ -78,6 +78,7 @@
       activity:{id:"old-activity"},questions:[{id:"old-q",text:"old"}],currentQuestion:0,
       state:{started:false},getQuestion(){return this.questions[this.currentQuestion]||null;}
     };
+    activity.engine="QuizEngine";
     window.EngineManager={getEngine(name){return name==="QuizEngine"?quizEngine:null;}};
     window.ScoreManager={score:2,correct:1,wrong:3};
     window.QuizScreen={
@@ -86,6 +87,7 @@
     };
     manager.restoreEngine=actualRestoreEngine;
     const actualSession=validSession();
+    actualSession.activityType="QuizEngine";
     actualSession.engineState={kind:"quiz",activity,questions:[{id:"q-real",text:"real-question"}],
       currentQuestion:0,state:{started:true},score:77,correct:7,wrong:1};
     d.raw=JSON.stringify(actualSession);d.failSave=true;
