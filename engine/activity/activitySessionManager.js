@@ -145,7 +145,6 @@ const ActivitySessionManager = {
             return false;
         }
     },
-    },
 
     clear() {
         const key = this.storageKey();
@@ -367,7 +366,6 @@ const ActivitySessionManager = {
             console.error("ActivitySessionManager: Session creation failed.", error);
             return null;
         }
-    },
     },
 
     capture(status) {
