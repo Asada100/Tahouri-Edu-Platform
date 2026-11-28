@@ -424,6 +424,9 @@ const ActivitySessionManager = {
             this.currentSession = candidate;
             this.gameplayActive = true;
             this.installExitControl();
+            if (!document.getElementById(this.exitControlId)) {
+                throw new Error("WordPuzzle exit control was not published");
+            }
 
             try { if (typeof engine.emitReady === "function") engine.emitReady(); }
             catch (error) { console.error("WordPuzzle activityReady delivery failed after commit", error); }
