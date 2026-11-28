@@ -19,6 +19,7 @@ window.__activity=activity;
 const engine=window.WordPuzzleEngine,manager=window.ActivitySessionManager;
 const originalRestore=engine.restoreSession,originalWrite=window.SaveManager.writeRaw,originalRead=window.SaveManager.readRaw;
 manager.installExitControl=()=>{manager.removeExitControl();const b=document.createElement("button");b.id=manager.exitControlId;document.body.appendChild(b);window.__exitInstallCount=(window.__exitInstallCount||0)+1;};
+const originalInstallExitControl=manager.installExitControl;
 function seed(){
  engine.start(activity);
  engine.state={started:true,finished:false,round:0,total:2,correct:1,wrong:0,score:10,hints:0,hintPenalty:0,foundWords:[],mode:"wordBuilder",builderStages:[],builderStageIndex:0,builderSolvedWords:[]};
@@ -31,7 +32,7 @@ function reset(){
  manager.currentSession=null;manager.gameplayActive=false;manager.restoringSession=false;
  window.ActivityManager.currentActivity=null;window.ActivityState.current="idle";
  document.body.classList.remove("activity-playing");while(document.getElementById(manager.exitControlId)){document.getElementById(manager.exitControlId).remove();}
- window.__events=[];window.__exitInstallCount=0;engine.restoreSession=originalRestore;window.SaveManager.writeRaw=originalWrite;window.SaveManager.readRaw=originalRead;
+ window.__events=[];window.__exitInstallCount=0;manager.installExitControl=originalInstallExitControl;engine.restoreSession=originalRestore;window.SaveManager.writeRaw=originalWrite;window.SaveManager.readRaw=originalRead;
 }
 function check(ok,name,detail){if(!ok)throw Error("ASSERTION FAILED: "+name+" — "+detail);report.push({name,detail});console.log("PASS — "+name+" — "+detail);}
 try{
