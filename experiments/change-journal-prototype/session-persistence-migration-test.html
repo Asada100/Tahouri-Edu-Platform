@@ -38,6 +38,7 @@
     },
     remove(key) { if (!key) return false; store.delete(key); return true; }
   };
+  window.ActivityManager = { currentActivity:null, getCurrent(){ return window.__diagActivity || null; } };
   window.EventManager = { on() {}, emit() {} };
   document.addEventListener = function () {};
   window.addEventListener = function () {};
