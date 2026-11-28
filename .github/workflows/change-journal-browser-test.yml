@@ -42,6 +42,8 @@ jobs:
           node-version: 22
       - name: Install Playwright
         run: npm install --no-save playwright
+      - name: Syntax-check ActivitySessionManager
+        run: node --check engine/activity/activitySessionManager.js
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Run Change Journal browser tests
