@@ -34,6 +34,7 @@ const ActivitySessionManager = {
         if (!["active", "resumable"].includes(session.status)) return false;
         // A newly started activity is persisted before its first gameplay snapshot.
         // The active/null state is valid for that short initial window only.
+        if (typeof session.activityType !== "string" || !session.activityType) return false;
         if (session.engineState === null && session.status === "active") return true;
         if (!session.engineState || typeof session.engineState !== "object" || Array.isArray(session.engineState)) return false;
 
@@ -331,6 +332,7 @@ const ActivitySessionManager = {
 
         let session = this.currentSession;
         if (!session || session.activityId !== activity.id) session = this.begin(activity);
+        if (!session) return false;
 
         const state = this.snapshot(activity);
         if (!state) return false;
