@@ -49,7 +49,7 @@ async function scenario(fault){
  else assert.deepEqual(runtime,initialRuntime,fault+" must restore published runtime");
  if(fault==="prepare"){assert.equal(prepared,1);assert.equal(disposed,0);}
  else assert.equal(disposed,1,fault+" candidate host disposed");
- if(fault==="publish-false"||fault==="publish-throw"||fault==="publish-rollback-fail")assert.equal(restoreCalls,1);
+ if(fault==="publish-false"||fault==="publish-throw"||fault==="rollback-fail"||fault==="publish-rollback-fail")assert.equal(restoreCalls,1);
  else assert.equal(restoreCalls,0);
 }
 (async()=>{
