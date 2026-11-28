@@ -20,7 +20,7 @@ const active=frames.active=makeFrame('active');const activeWait=waitFor('active'
 candidate.contentWindow.postMessage({kind:'wp-two-host-command',action:'restore',phase:'invalid-prepare',snapshot:{kind:'wrong',state:{},round:{}}},'*');const invalid=await waitFor('candidate','invalid-prepare');active.contentWindow.postMessage({kind:'wp-two-host-command',action:'status',phase:'active-after-invalid'},'*');const activeAfterInvalid=await waitFor('active','active-after-invalid');activeAfterInvalid.connected=active.isConnected;
 candidate.contentWindow.postMessage({kind:'wp-two-host-command',action:'restore',phase:'valid-prepare',snapshot:activeReady.saved},'*');const prepared=await waitFor('candidate','valid-prepare');active.contentWindow.postMessage({kind:'wp-two-host-command',action:'status',phase:'active-after-prepare'},'*');const activeAfterPrepare=await waitFor('active','active-after-prepare');activeAfterPrepare.connected=active.isConnected;
 const persisted=JSON.parse(JSON.stringify(activeReady.saved));const persistenceVerified=JSON.stringify(persisted)===JSON.stringify(activeReady.saved);const injectedPersistenceFailure=true;
-active.contentWindow.postMessage({kind:'wp-two-host-command',action:'status',phase:'active-after-persistence-failure'},'*');const activeAfterPersistenceFailure=await waitFor('active','active-after-persistence-failure');activeAfterPersistenceFailure.connected=active.isConnected;const publishAllowed=persistenceVerified&&!injectedPersistenceFailure&&prepared.restoreResult===true;const published=publishAllowed;
+active.contentWindow.postMessage({kind:'wp-two-host-command',action:'status',phase:'active-after-persistence-failure'},'*');const activeAfterPersistenceFailure=await waitFor('active','active-after-persistence-failure');activeAfterPersistenceFailure.connected=active.isConnected;const activeRetainedAfterPersistenceFailure=frames.active===active&&active.isConnected&&activeAfterPersistenceFailure.state.correct===2;const publishAllowed=persistenceVerified&&!injectedPersistenceFailure&&prepared.restoreResult===true;const published=publishAllowed;
 const successfulReadback=JSON.parse(JSON.stringify(persisted));const successfulPersistence=JSON.stringify(successfulReadback)===JSON.stringify(persisted);const publishAfterVerified=successfulPersistence&&prepared.restoreResult===true;
 if(publishAfterVerified){frames.active=candidate;active.remove();}
 candidate.contentWindow.postMessage({kind:'wp-two-host-command',action:'status',phase:'candidate-after-publish'},'*');const promoted=await waitFor('candidate','candidate-after-publish');promoted.connected=candidate.isConnected;const oldHostDisposed=!active.isConnected;
@@ -29,12 +29,12 @@ const checks=[
 ['active host advances beyond captured snapshot',activeReady.advanced&&activeReady.activeState.correct===2],
 ['candidate starts independently without changing active host',candidateReady.state.correct===0&&activeAfterInvalid.connected&&activeAfterInvalid.state.correct===2],
 ['actual restoreSession rejects malformed snapshot',invalid.restoreResult===false],
-['failed preparation preserves active host',activeAfterInvalid.connected&&activeAfterInvalid.correct===2],
+['failed preparation preserves active host',activeAfterInvalid.connected&&activeAfterInvalid.state.correct===2],
 ['valid snapshot restores saved unfinished state in candidate',prepared.restoreResult===true&&prepared.state.correct===1&&prepared.state.finished===false],
 ['candidate screen renders restored one-of-two progress',prepared.screenText.includes('1 از 2 واژه')],
 ['candidate preparation does not mutate active engine',activeAfterPrepare.connected&&activeAfterPrepare.state.correct===2],
 ['persistence failure blocks candidate publication',injectedPersistenceFailure&&!publishAllowed&&activeRetainedAfterPersistenceFailure],
-['host swap is not performed when persistence fails',!published&&active.isConnected&&activeAfterPersistenceFailure.state.correct===2],
+['host swap is not performed when persistence fails',!published&&activeRetainedAfterPersistenceFailure],
 ['verified persistence permits candidate host publication',publishAfterVerified&&frames.active===candidate&&candidate.isConnected&&oldHostDisposed],
 ['published candidate retains restored unfinished gameplay state',promoted.connected&&promoted.state.correct===1&&promoted.state.finished===false],
 ['parent application DOM remains unchanged',parentUnchanged]];
