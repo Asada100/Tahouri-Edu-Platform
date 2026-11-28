@@ -5,11 +5,14 @@ window.EventManager={handlers:{},on(n,f){(this.handlers[n]||(this.handlers[n]=[]
 window.ProfileContext={getStudentId:()=> "student-resume-proof",key:base=>base+":student-resume-proof"};
 window.ActivityManager={currentActivity:null};
 window.ActivityState={current:"idle",set(v){this.current=v;},get(){return this.current;}};
-window.App={resolveActivityById:id=>id==="resume-proof-activity"?window.__activity:null};
-window.EngineManager={getEngine:name=>name==="WordPuzzleEngine"?window.WordPuzzleEngine:null};
+window.App={resolveActivityById:id=>id==="resume-proof-activity"?window.__activity:(id==="dictation-resume-proof"?window.__dictationActivity:null)};
+window.EngineManager={getEngine:name=>name==="WordPuzzleEngine"?window.WordPuzzleEngine:(name==="DictationEngine"?window.DictationEngine:null)};
 </script>
 <script src="../../engine/core/saveManager.js"></script>
 <script src="../../engine/wordPuzzle/wordPuzzleEngine.js"></script>
+<script src="../../engine/question/dictationProvider.js"></script>
+<script src="../../engine/activity/dictationEngine.js"></script>
+<script src="../../engine/ui/dictationScreen.js"></script>
 <script src="../../engine/activity/activitySessionManager.js"></script>
 <script>
 (async function(){
@@ -87,5 +90,69 @@ try{
  engine.restoreSession=originalRestore;window.SaveManager.writeRaw=originalWrite;window.SaveManager.readRaw=originalRead;
  document.querySelector("#summary").textContent="FAIL — "+error.message;
  window.__activitySessionResumeDiagnostic={total:7,reproduced:report.length,error:error.message,results:report};throw error;
+}
+})();</script><script>
+(async function(){
+const report=[];const key=window.ProfileContext.key("Tahouri_ActivitySession");
+const engine=window.DictationEngine,manager=window.ActivitySessionManager;
+const activity={id:"dictation-resume-proof",title:"Dictation resume proof",engine:"DictationEngine",dictation:{instruction:"املای واژه را کامل کن.",questions:[{id:"q1",answer:"کتاب",prompt:"واژه را بنویس."}]}};
+window.__dictationActivity=activity;
+const originalRestore=engine.restoreSession,originalRender=window.DictationScreen.render;
+const originalWrite=window.SaveManager.writeRaw,originalRead=window.SaveManager.readRaw;
+const originalInstall=manager.installExitControl;
+manager.installExitControl=()=>{manager.removeExitControl();const b=document.createElement("button");b.id=manager.exitControlId;document.body.appendChild(b);};
+async function seed(){
+ await engine.start(activity);
+ const session={version:"1.9",schemaVersion:1,id:"dictation-resume-session",profileId:"student-resume-proof",activityId:activity.id,activityType:"DictationEngine",status:"resumable",startedAt:1,updatedAt:1,engineState:{kind:"dictation",activity,content:engine.content,state:engine.getSessionState()}};
+ if(!window.SaveManager.save(key,session))throw Error("Could not seed Dictation session");
+ return session;
+}
+function reset(){
+ manager.currentSession=null;manager.gameplayActive=false;manager.restoringSession=false;
+ window.ActivityManager.currentActivity=null;window.ActivityState.current="idle";
+ document.body.classList.remove("activity-playing");
+ while(document.getElementById(manager.exitControlId))document.getElementById(manager.exitControlId).remove();
+ window.__events=[];manager.installExitControl=originalInstall;engine.restoreSession=originalRestore;
+ window.DictationScreen.render=originalRender;window.SaveManager.writeRaw=originalWrite;window.SaveManager.readRaw=originalRead;
+}
+function check(ok,name,detail){if(!ok)throw Error("ASSERTION FAILED: "+name+" — "+detail);report.push({name,detail});console.log("PASS — "+name+" — "+detail);}
+try{
+ reset();let stored=await seed();reset();manager.currentSession={id:"dictation-prior"};document.getElementById("app").innerHTML="<div>prior screen</div>";
+ let writeSawUnpublished=false;
+ window.SaveManager.writeRaw=(k,v)=>{writeSawUnpublished=manager.currentSession.id==="dictation-prior"&&window.__events.length===0;return originalWrite.call(window.SaveManager,k,v);};
+ let ok=await manager.resume(activity.id);window.SaveManager.writeRaw=originalWrite;
+ const saved=JSON.parse(window.SaveManager.readRaw(key).value);
+ check(ok===true&&writeSawUnpublished&&saved.status==="active"&&manager.currentSession.id===stored.id&&engine.activity===activity&&manager.gameplayActive&&window.ActivityState.current==="playing"&&document.getElementById("app").querySelector(".dictationScreen")&&document.getElementById(manager.exitControlId)&&window.__events.filter(x=>x.name==="activityResumed").length===1,"Dictation actual resume commits after durable write","actual DictationEngine state, rendered screen, exit control and activity publication commit only after exact storage read-back");
+
+ reset();stored=await seed();reset();manager.currentSession={id:"dictation-prior-write"};document.getElementById("app").innerHTML="<div>unchanged screen</div>";
+ const rawBefore=window.SaveManager.readRaw(key).value,engineBefore=JSON.stringify(engine.getSessionState()),markupBefore=document.getElementById("app").innerHTML;
+ window.SaveManager.writeRaw=()=>false;ok=await manager.resume(activity.id);window.SaveManager.writeRaw=originalWrite;
+ check(ok===false&&window.SaveManager.readRaw(key).value===rawBefore&&manager.currentSession.id==="dictation-prior-write"&&JSON.stringify(engine.getSessionState())===engineBefore&&document.getElementById("app").innerHTML===markupBefore&&!manager.gameplayActive&&window.__events.length===0,"Dictation write failure leaves runtime unchanged","exact raw bytes, engine state, screen markup and prior session survive failed persistence");
+
+ reset();stored=await seed();reset();manager.currentSession={id:"dictation-prior-mismatch"};const rawMismatch=window.SaveManager.readRaw(key).value;
+ let mismatch=false;window.SaveManager.writeRaw=(k,v)=>{const result=originalWrite.call(window.SaveManager,k,v);mismatch=true;return result;};
+ window.SaveManager.readRaw=(k)=>{if(mismatch){mismatch=false;return {ok:true,exists:true,value:"bad-readback"};}return originalRead.call(window.SaveManager,k);};
+ ok=await manager.resume(activity.id);window.SaveManager.writeRaw=originalWrite;window.SaveManager.readRaw=originalRead;
+ check(ok===false&&window.SaveManager.readRaw(key).value===rawMismatch&&manager.currentSession.id==="dictation-prior-mismatch"&&!manager.gameplayActive&&window.__events.length===0,"Dictation read-back mismatch aborts transaction","mismatched durable read-back restores exact original storage and does not publish the candidate");
+
+ reset();stored=await seed();reset();manager.currentSession={id:"dictation-prior-reject"};engine.restoreSession=()=>false;
+ ok=await manager.resume(activity.id);
+ check(ok===false&&manager.currentSession.id==="dictation-prior-reject"&&!manager.gameplayActive&&window.ActivityManager.currentActivity===null&&window.ActivityState.current==="idle"&&window.__events.length===0,"Dictation engine rejection is non-publishing","a rejected shadow restore cannot replace live session or platform state");
+
+ reset();stored=await seed();reset();manager.currentSession={id:"dictation-prior-throw"};const beforeThrow=JSON.stringify(engine.getSessionState());
+ engine.restoreSession=()=>{engine.state={started:true,currentIndex:99,totalQuestions:99};throw Error("injected shadow restore failure");};
+ ok=await manager.resume(activity.id);
+ check(ok===false&&manager.currentSession.id==="dictation-prior-throw"&&JSON.stringify(engine.getSessionState())===beforeThrow&&!manager.gameplayActive&&window.__events.length===0,"Dictation partial restore exception preserves live engine","an exception after injected live-state mutation is rolled back to the exact previous engine state");
+
+ reset();stored=await seed();reset();window.EventManager.on("activityResumed",()=>{throw Error("injected Dictation observer failure");});
+ ok=await manager.resume(activity.id);const committed=JSON.parse(window.SaveManager.readRaw(key).value);
+ check(ok===true&&committed.status==="active"&&manager.currentSession.id===stored.id&&manager.gameplayActive&&window.ActivityState.current==="playing","Dictation post-commit event failure does not undo commit","observer delivery failure is reported after commit and does not revert the durable session");
+ window.SaveManager.remove(key);
+ document.querySelector("#summary").textContent="PASS — "+(window.__activitySessionResumeDiagnostic.reproduced+report.length)+"/13 actual runtime transaction assertions";
+ window.__dictationResumeDiagnostic={total:6,reproduced:report.length,results:report};
+}catch(error){
+ engine.restoreSession=originalRestore;window.DictationScreen.render=originalRender;window.SaveManager.writeRaw=originalWrite;window.SaveManager.readRaw=originalRead;manager.installExitControl=originalInstall;
+ document.querySelector("#summary").textContent="FAIL — "+error.message;
+ window.__dictationResumeDiagnostic={total:6,reproduced:report.length,error:error.message,results:report};throw error;
 }
 })();</script></body></html>
