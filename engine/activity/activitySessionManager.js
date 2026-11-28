@@ -120,6 +120,28 @@ const ActivitySessionManager = {
         return activity ? (activity.engine || activity.type || null) : null;
     },
 
+    generateSessionId() {
+        const provider = typeof globalThis !== "undefined" ? globalThis.crypto : null;
+        if (!provider) throw new Error("Secure cryptographic randomness is unavailable.");
+        if (typeof provider.randomUUID === "function") {
+            const uuid = provider.randomUUID();
+            if (typeof uuid !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(uuid)) {
+                throw new Error("crypto.randomUUID() returned an invalid UUID v4.");
+            }
+            return "activity-session-" + uuid.toLowerCase();
+        }
+        if (typeof provider.getRandomValues !== "function") {
+            throw new Error("Secure crypto.getRandomValues() is unavailable.");
+        }
+        const bytes = new Uint8Array(16);
+        provider.getRandomValues(bytes);
+        bytes[6] = (bytes[6] & 0x0f) | 0x40;
+        bytes[8] = (bytes[8] & 0x3f) | 0x80;
+        const hex = Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
+        const uuid = hex.slice(0, 8) + "-" + hex.slice(8, 12) + "-" + hex.slice(12, 16) + "-" + hex.slice(16, 20) + "-" + hex.slice(20);
+        return "activity-session-" + uuid;
+    },
+
     snapshot(activity) {
         const engineName = this.type(activity);
         const engine = this.getEngine(engineName);
@@ -207,10 +229,18 @@ const ActivitySessionManager = {
             return old;
         }
 
+        let sessionId;
+        try {
+            sessionId = this.generateSessionId();
+        } catch (error) {
+            console.error("ActivitySessionManager: Secure session identity could not be generated.", error);
+            return null;
+        }
+
         const session = {
             version: this.VERSION,
             schemaVersion: this.SCHEMA_VERSION,
-            id: "activity-session-" + activity.id + "-" + Date.now(),
+            id: sessionId,
             profileId:
                 typeof ProfileContext !== "undefined" && typeof ProfileContext.getStudentId === "function"
                     ? ProfileContext.getStudentId()
