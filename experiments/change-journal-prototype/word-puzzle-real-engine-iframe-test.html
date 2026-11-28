@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>WordPuzzle real engine iframe proof</title></head>
+<body>
+<p id="summary">running</p><div id="app">PARENT-ENGINE-SENTINEL</div>
+<script>
+(async function(){
+'use strict';
+const frame=document.createElement('iframe');
+frame.setAttribute('sandbox','allow-scripts');
+frame.title='Actual WordPuzzle engine and screen isolated context';
+const source=`
+<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><base href="${location.href}"><link rel="stylesheet" href="../../engine/ui/wordPuzzle.css"></head>
+<body><div id="app">EMPTY</div>
+<script>
+window.__events={activityReady:0,activityFinished:0};
+window.EventManager={
+ handlers:{},
+ on(name,fn){(this.handlers[name]||(this.handlers[name]=[])).push(fn);},
+ emit(name,payload){window.__events[name]=(window.__events[name]||0)+1;(this.handlers[name]||[]).forEach(fn=>fn(payload));}
+};
+window.__parentAccessBlocked=false;
+try{void window.parent.document.body.className;}catch(_){window.__parentAccessBlocked=true;}
+</script>
+<script src="../../engine/wordPuzzle/pathEngine.js"></script>
+<script src="../../engine/wordPuzzle/difficultyEngine.js"></script>
+<script src="../../engine/wordPuzzle/scoreEngine.js"></script>
+<script src="../../engine/wordPuzzle/wordRepository.js"></script>
+<script src="../../engine/wordPuzzle/wordPuzzleValidator.js"></script>
+<script src="../../engine/wordPuzzle/wordPuzzleEngine.js"></script>
+<script src="../../engine/ui/wordPuzzleScreen.js"></script>
+<script>
+(function(){
+const activity={
+id:'iframe-proof-word-puzzle',
+settings:{modes:['wordBuilder'],builderMaxWordLength:8,difficulty:1},
+puzzle:{builderStages:[{id:'stage-1',title:'آب',targetCount:2,letters:['آ','ب','ا'],words:[
+{word:'آب',meaning:'مایع زندگی'},
+{word:'بابا',meaning:'پدر'}
+]}]}
+};
+const errors=[];
+const cssLoaded=!!document.querySelector('link[rel=stylesheet]')?.sheet;
+const engineLoaded=!!window.WordPuzzleEngine&&typeof window.WordPuzzleEngine.start==='function';
+if(!engineLoaded){parent.postMessage({kind:'wp-real-engine',error:'actual WordPuzzleEngine failed to load',cssLoaded,errors},'*');return;}
+const started=window.WordPuzzleEngine.start(activity);
+const modeSelectRendered=!!document.querySelector('#app .wp-mode-card');
+document.querySelector('#app .wp-mode-card')?.click();
+const modeSelected=window.WordPuzzleEngine.state.mode==='wordBuilder';
+const gameplayRendered=!!document.querySelector('#app .wp-builder-card')&&!!document.querySelector('#app .wp-builder-grid');
+const first=window.WordPuzzleEngine.submitBuilder('آب');
+const rerenderAfterRealAction=!!document.querySelector('#app .wp-builder-card')&&window.WordPuzzleEngine.state.correct===1;
+const second=window.WordPuzzleEngine.submitBuilder('بابا');
+const actualEngineProgress=window.WordPuzzleEngine.state.correct===2&&window.WordPuzzleEngine.state.finished===true;
+parent.postMessage({
+kind:'wp-real-engine',parentAccessBlocked:window.__parentAccessBlocked,cssLoaded,engineLoaded,
+modeSelectRendered,modeSelected,gameplayRendered,rerenderAfterRealAction,actualEngineProgress,
+activityReadyEvents:window.__events.activityReady,activityFinishedEvents:window.__events.activityFinished,
+state:{mode:window.WordPuzzleEngine.state.mode,correct:window.WordPuzzleEngine.state.correct,score:window.WordPuzzleEngine.state.score,finished:window.WordPuzzleEngine.state.finished},
+appText:document.getElementById('app').textContent
+},'*');
+})();
+</script></body></html>`;
+frame.srcdoc=source;
+document.body.appendChild(frame);
+const result=await new Promise(resolve=>{
+const timeout=setTimeout(()=>resolve({error:'actual engine iframe timed out'}),12000);
+window.addEventListener('message',function handler(event){
+if(event.source!==frame.contentWindow||event.data?.kind!=='wp-real-engine')return;
+clearTimeout(timeout);window.removeEventListener('message',handler);resolve(event.data);
+});
+});
+const parentUnchanged=document.getElementById('app').textContent==='PARENT-ENGINE-SENTINEL';
+frame.remove();
+const checks=[
+['sandbox blocks parent DOM access',result.parentAccessBlocked===true],
+['actual production CSS loads inside iframe',result.cssLoaded===true],
+['actual WordPuzzleEngine source loads',result.engineLoaded===true],
+['actual screen renders mode selection',result.modeSelectRendered===true],
+['real mode-selection control invokes actual engine',result.modeSelected===true],
+['actual gameplay screen renders after selection',result.gameplayRendered===true],
+['real engine action emits and rerenders gameplay state',result.rerenderAfterRealAction===true],
+['actual engine records both correct answers and finishes',result.actualEngineProgress===true],
+['actual lifecycle events remain inside iframe',result.activityReadyEvents>=3&&result.activityFinishedEvents===1],
+['iframe disposal leaves parent app unchanged',parentUnchanged]
+];
+const passed=checks.filter(x=>x[1]).length;
+window.__wordPuzzleRealEngineProof={total:checks.length,passed,checks,result,parentUnchanged};
+document.getElementById('summary').textContent=passed+'/'+checks.length+' checks passed';
+})();
+</script>
+</body></html>
