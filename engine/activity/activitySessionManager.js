@@ -430,7 +430,6 @@ const ActivitySessionManager = {
             ScoreManager.correct = Number(data.correct || 0);
             ScoreManager.wrong = Number(data.wrong || 0);
 
-            this.activateRestoredActivity(activity);
             this.currentSession = candidate;
             this.gameplayActive = true;
             QuizScreen.reset();
@@ -570,7 +569,6 @@ const ActivitySessionManager = {
             engine.activity = preparedEngine.activity;
             engine.content = preparedEngine.content;
             engine.state = preparedEngine.state;
-            this.activateRestoredActivity(activity);
             this.currentSession = candidate;
             this.gameplayActive = true;
             screenRenderAttempted = true;
@@ -703,7 +701,6 @@ const ActivitySessionManager = {
             engine.state = preparedEngine.state;
             engine.round = preparedEngine.round;
 
-            this.activateRestoredActivity(activity);
             this.currentSession = candidate;
             this.gameplayActive = true;
             this.installExitControl();
@@ -778,41 +775,140 @@ const ActivitySessionManager = {
         this.currentSession = previousCurrentSession;
         if (!session) return false;
 
-        if (typeof App === "undefined" || typeof App.resolveActivityById !== "function") {
-            return false;
-        }
-
+        if (typeof App === "undefined" || typeof App.resolveActivityById !== "function") return false;
         const activity = App.resolveActivityById(session.activityId);
-        if (
-            !activity ||
-            activity.id !== session.activityId ||
-            this.type(activity) !== session.activityType
-        ) {
-            return false;
-        }
+        if (!activity || activity.id !== session.activityId || this.type(activity) !== session.activityType) return false;
 
-        // Mark the session as the active restore target before touching the
-        // engine. This prevents lifecycle events from replacing it.
+        const key = this.storageKey();
+        const engine = this.getEngine(session.activityType);
+        if (!key || !engine || typeof SaveManager.readRaw !== "function" ||
+            typeof SaveManager.writeRaw !== "function" || typeof SaveManager.restoreRaw !== "function") return false;
+        const rawSnapshot = SaveManager.readRaw(key);
+        if (!rawSnapshot || rawSnapshot.ok !== true || !rawSnapshot.exists ||
+            typeof rawSnapshot.value !== "string") return false;
+
+        const app = document.getElementById("app");
+        const previous = {
+            currentSession: previousCurrentSession,
+            gameplayActive: this.gameplayActive,
+            engine: {},
+            score: typeof ScoreManager !== "undefined" ? {} : null,
+            screens: {},
+            jigsaw: {},
+            currentActivity: ActivityManager.currentActivity,
+            activityState: ActivityState.current,
+            bodyPlaying: document.body.classList.contains("activity-playing"),
+            appMarkup: app ? app.innerHTML : null,
+            exitNode: document.getElementById(this.exitControlId)
+        };
+        Object.keys(engine).forEach(name => { previous.engine[name] = engine[name]; });
+        if (previous.score) Object.keys(ScoreManager).forEach(name => { previous.score[name] = ScoreManager[name]; });
+        ["QuizScreen", "MemoryScreen", "PuzzleScreen", "ClassificationScreen", "DictationScreen"].forEach(name => {
+            const screen = typeof window !== "undefined" ? window[name] : null;
+            if (!screen) return;
+            previous.screens[name] = {};
+            Object.keys(screen).forEach(keyName => { previous.screens[name][keyName] = screen[keyName]; });
+        });
+        ["JigsawPuzzle", "JigsawImagePuzzle", "JigsawWordPuzzle"].forEach(name => {
+            const component = typeof window !== "undefined" ? window[name] : null;
+            if (component) previous.jigsaw[name] = component.state;
+        });
+        const exitParent = previous.exitNode ? previous.exitNode.parentNode : null;
+        const exitNext = previous.exitNode ? previous.exitNode.nextSibling : null;
+        const candidate = JSON.parse(JSON.stringify(session));
+        let storageWriteAttempted = false;
+
+        const rollback = () => {
+            const failures = [];
+            try {
+                Object.keys(engine).forEach(name => {
+                    if (!Object.prototype.hasOwnProperty.call(previous.engine, name)) delete engine[name];
+                });
+                Object.assign(engine, previous.engine);
+                if (previous.score) Object.assign(ScoreManager, previous.score);
+                Object.keys(previous.screens).forEach(name => {
+                    const screen = window[name];
+                    if (screen) Object.assign(screen, previous.screens[name]);
+                });
+                Object.keys(previous.jigsaw).forEach(name => {
+                    if (window[name]) window[name].state = previous.jigsaw[name];
+                });
+                if (app && previous.appMarkup !== null) app.innerHTML = previous.appMarkup;
+            } catch (error) { failures.push("engine-score-screen"); }
+            try {
+                ActivityManager.currentActivity = previous.currentActivity;
+                ActivityState.current = previous.activityState;
+                this.currentSession = previous.currentSession;
+                this.gameplayActive = previous.gameplayActive;
+                document.body.classList.toggle("activity-playing", previous.bodyPlaying);
+                const currentExit = document.getElementById(this.exitControlId);
+                if (currentExit) currentExit.remove();
+                if (previous.exitNode && exitParent) {
+                    exitParent.insertBefore(previous.exitNode,
+                        exitNext && exitNext.parentNode === exitParent ? exitNext : null);
+                }
+            } catch (error) { failures.push("runtime-publication"); }
+            if (storageWriteAttempted) {
+                try {
+                    if (!SaveManager.restoreRaw(key, rawSnapshot)) throw new Error("raw restore returned false");
+                    const verified = SaveManager.readRaw(key);
+                    if (!verified.ok || verified.exists !== rawSnapshot.exists ||
+                        verified.value !== rawSnapshot.value) throw new Error("raw restore verification mismatch");
+                } catch (error) { failures.push("persisted-session"); }
+            }
+            return failures;
+        };
+
         this.restoringSession = true;
-
         try {
-            const restored = await this.restoreEngine(activity, session);
-            if (!restored) return false;
+            if (await this.restoreEngine(activity, candidate) !== true) {
+                const failures = rollback();
+                if (failures.length) console.error("Activity resume rollback incomplete", failures);
+                return false;
+            }
 
-            session.status = "active";
-            if (this.save(session) !== true) return false;
-            this.currentSession = session;
+            candidate.status = "active";
+            candidate.updatedAt = Date.now();
+            const serialized = JSON.stringify(candidate);
+            storageWriteAttempted = true;
+            if (SaveManager.writeRaw(key, serialized) !== true) {
+                const failures = rollback();
+                if (failures.length) console.error("Activity resume rollback incomplete", failures);
+                return false;
+            }
+            const readBack = SaveManager.readRaw(key);
+            if (!readBack.ok || !readBack.exists || readBack.value !== serialized) {
+                const failures = rollback();
+                if (failures.length) console.error("Activity resume rollback incomplete", failures);
+                return false;
+            }
+            const verified = JSON.parse(readBack.value);
+            if (!this.validateSession(verified) || verified.id !== candidate.id ||
+                verified.profileId !== candidate.profileId || verified.activityId !== candidate.activityId ||
+                verified.activityType !== candidate.activityType || verified.status !== "active") {
+                const failures = rollback();
+                if (failures.length) console.error("Activity resume rollback incomplete", failures);
+                return false;
+            }
+
+            this.currentSession = candidate;
             this.gameplayActive = true;
-            document.body.classList.add("activity-playing");
             this.installExitControl();
-            EventManager.emit("activityResumed", session);
+            if (!document.getElementById(this.exitControlId)) {
+                throw new Error("Activity resume exit control was not published");
+            }
+            try { EventManager.emit("activityResumed", candidate); }
+            catch (error) { console.error("Activity resume event delivery failed after commit", error); }
 
-            console.log("ActivitySessionManager: Session restored", {
-                activityId: session.activityId,
-                activityType: session.activityType
+            console.log("ActivitySessionManager: Transactional session restored", {
+                activityId: candidate.activityId,
+                activityType: candidate.activityType
             });
-
             return true;
+        } catch (error) {
+            const failures = rollback();
+            console.error("Activity resume transaction failed", error, failures);
+            return false;
         } finally {
             this.restoringSession = false;
         }
@@ -868,7 +964,6 @@ const ActivitySessionManager = {
                 throw error;
             }
 
-            this.activateRestoredActivity(activity);
 
             if (typeof DictationScreen !== "undefined" && typeof DictationScreen.render === "function") {
                 DictationScreen.render(engine.getState());
@@ -961,7 +1056,6 @@ const ActivitySessionManager = {
                 throw error;
             }
 
-            this.activateRestoredActivity(activity);
             return true;
         }
 
@@ -1020,7 +1114,6 @@ const ActivitySessionManager = {
                 throw error;
             }
 
-            this.activateRestoredActivity(activity);
             return true;
         }
 
