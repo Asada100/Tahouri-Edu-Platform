@@ -37,7 +37,7 @@ function reset(){
 function check(ok,name,detail){if(!ok)throw Error("ASSERTION FAILED: "+name+" — "+detail);report.push({name,detail});console.log("PASS — "+name+" — "+detail);}
 try{
  // 1. Successful actual resume: durable write/readback precedes publication and events.
- let reset();stored=seed();reset();const prior={id:"prior-session",status:"active"};manager.currentSession=prior;
+ reset();let stored=seed();reset();const prior={id:"prior-session",status:"active"};manager.currentSession=prior;
  let writeSawUnpublished=false;
  window.SaveManager.writeRaw=(k,v)=>{writeSawUnpublished=manager.currentSession===prior&&window.__events.length===0;return originalWrite.call(window.SaveManager,k,v);};
  let ok=await manager.resume(activity.id);window.SaveManager.writeRaw=originalWrite;
