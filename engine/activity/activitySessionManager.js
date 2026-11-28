@@ -573,7 +573,8 @@ const ActivitySessionManager = {
                 throw error;
             }
 
-            this.activateRestoredActivity(activity);
+            // The transaction coordinator publishes ActivityManager and ActivityState after
+            // the session snapshot has been durably written and read back.
             return true;
         }
 
