@@ -698,3 +698,21 @@ The proof exercises this sequence:
 **CI evidence:** run `46170687130`, job `141058200619`; two-host transaction proof **12/12 PASS**; complete workflow success.
 
 **Boundary:** this is a browser-harness proof, not a production transaction. The persistence gate is a JSON clone/read-back simulation, not the active SaveManager or durable browser storage. The active host is an isolated test host, not the production ActivityManager/ActivityState. It does not yet prove browser-process termination/recovery, storage quota or corruption behavior, atomic publication of the platform's global activity/session state, exactly-once lifecycle fan-out, or integration across the other five restore families. No production runtime code was changed and the adapter remains unwired.
+
+## 24. Actual SaveManager localStorage gate in the two-host browser proof — 2026-11-28
+
+Extended the existing 12-check two-host Playwright harness to load the repository's actual `engine/core/saveManager.js` in the parent browser context.
+
+The persistence stage now calls the real `SaveManager.save()`, `SaveManager.load()`, and `SaveManager.remove()` methods against browser `localStorage`:
+
+1. Build a session-shaped record containing the actual WordPuzzle mid-session engine snapshot.
+2. Temporarily inject a write failure for the isolated test key through `Storage.prototype.setItem`.
+3. Confirm the real `SaveManager.save()` returns `false`, and a subsequent real `SaveManager.load()` finds no record.
+4. Confirm the active host remains active and candidate publication is blocked after the failed write.
+5. Restore the native storage method, write the record with the real SaveManager, read it back with the real SaveManager, and compare the full serialized record.
+6. Promote the candidate host only after the real write and read-back comparison succeed.
+7. Remove the isolated test key through the real SaveManager after the assertions.
+
+**CI evidence:** run `46171043229`, job `141059297909`; the two-host test reports **12/12 PASS** and the full workflow completed successfully. The SaveManager's expected injected write-failure log appears in the browser console as part of the negative-path test; it is not an unexpected application failure.
+
+**Boundary:** this now exercises the actual SaveManager and browser localStorage APIs, but it remains a harness-level test with an isolated synthetic key and session-shaped fixture. It does not call `ActivitySessionManager.resume()`, does not use the live profile's storage key or a student's real session, and does not wire the transaction prototype into production. The next required proof is a controlled adapter around the actual ActivitySessionManager resume path, with capture/restore of the live engine and host state, durable raw-value rollback, and lifecycle event count assertions. Production remains unchanged.
