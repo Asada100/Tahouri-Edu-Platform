@@ -98,6 +98,27 @@
       readBack===null&&manager.currentSession===null&&!window.__diag.store.has(key),
       "a mismatched read-back causes rollback to the original absent-key snapshot");
     window.__diag.setReadBackCorruption(false);
+
+    window.__diag.store.delete(key);manager.currentSession=null;
+    window.__diagActivity=activity;
+    const active=manager.begin(activity);
+    manager.snapshot=()=>({kind:"quiz",state:{started:true},questions:[{id:"capture-q"}],currentQuestion:0});
+    const beforeCaptureRaw=window.__diag.store.get(key);
+    window.__diag.setWriteFailure(true);
+    const failedCapture=manager.capture("resumable");
+    record("P6 failed capture write preserves prior session object and raw bytes",
+      failedCapture===false&&manager.currentSession===active&&active.status==="active"&&
+      window.__diag.store.get(key)===beforeCaptureRaw,
+      "capture() cannot mutate/publish a resumable snapshot when its exact raw write fails");
+    window.__diag.setWriteFailure(false);
+    const successfulCapture=manager.capture("resumable");
+    const captured=JSON.parse(window.__diag.store.get(key));
+    record("P7 successful capture publishes only after exact read-back",
+      successfulCapture===true&&manager.currentSession!==active&&
+      manager.currentSession.status==="resumable"&&captured.status==="resumable"&&
+      captured.engineState.questions[0].id==="capture-q",
+      "capture() replaces the active session only after a verified resumable snapshot is durable");
+    manager.snapshot=window.__originalSnapshot;
   } catch (error) {
     results.push({name:"Harness execution",passed:false,detail:error.stack||error.message});
   }
