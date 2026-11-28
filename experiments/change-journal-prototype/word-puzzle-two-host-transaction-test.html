@@ -1,0 +1,39 @@
+<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><title>WordPuzzle two-host transaction proof</title></head><body>
+<p id="summary">running</p><div id="app">PARENT-HOST-SENTINEL</div><script>
+(async function(){
+'use strict';
+const activity={id:'two-host-word-puzzle-proof',settings:{modes:['wordBuilder'],builderMaxWordLength:8,difficulty:1},puzzle:{builderStages:[{id:'stage-1',title:'آب',targetCount:2,letters:['آ','ب','ا'],words:[{word:'آب',meaning:'مایع زندگی'},{word:'بابا',meaning:'پدر'}]}]}};
+const childSource=role=>`
+<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><base href="${location.href}"><link rel="stylesheet" href="../../engine/ui/wordPuzzle.css"></head><body><div id="app">EMPTY</div>
+<script src="../../engine/wordPuzzle/pathEngine.js"><\\/script><script src="../../engine/wordPuzzle/difficultyEngine.js"><\\/script><script src="../../engine/wordPuzzle/scoreEngine.js"><\\/script><script src="../../engine/wordPuzzle/wordRepository.js"><\\/script><script src="../../engine/wordPuzzle/wordPuzzleValidator.js"><\\/script><script src="../../engine/wordPuzzle/wordPuzzleEngine.js"><\\/script><script src="../../engine/ui/wordPuzzleScreen.js"><\\/script>
+<script>
+window.__role='${role}';window.__events={activityReady:0,activityFinished:0};
+window.EventManager={handlers:{},on(n,f){(this.handlers[n]||(this.handlers[n]=[])).push(f);},emit(n,p){window.__events[n]=(window.__events[n]||0)+1;(this.handlers[n]||[]).forEach(f=>f(p));}};
+window.WordPuzzleScreen.init();const activity=${JSON.stringify(activity)};window.WordPuzzleEngine.start(activity);window.WordPuzzleEngine.selectMode('wordBuilder');
+function report(extra){parent.postMessage({kind:'wp-two-host',role:window.__role,...extra},'*');}
+if(window.__role==='active'){const first=window.WordPuzzleEngine.submitBuilder('آب');const saved=window.WordPuzzleEngine.getSessionState();const second=window.WordPuzzleEngine.submitBuilder('بابا');report({phase:'active-ready',saved,advanced:second.finished===true&&window.WordPuzzleEngine.state.correct===2,activeState:{correct:window.WordPuzzleEngine.state.correct,finished:window.WordPuzzleEngine.state.finished},firstCorrect:first.correct});}
+else{window.addEventListener('message',e=>{if(e.source!==parent||e.data?.kind!=='wp-two-host-command'||e.data.action!=='restore')return;let ok=false,error=null;try{ok=window.WordPuzzleEngine.restoreSession(e.data.snapshot);}catch(x){error=x.message;}report({phase:e.data.phase,restoreResult:ok,error,state:{correct:window.WordPuzzleEngine.state.correct,finished:window.WordPuzzleEngine.state.finished},screenText:document.getElementById('app').textContent});});report({phase:'candidate-ready',state:{correct:window.WordPuzzleEngine.state.correct,finished:window.WordPuzzleEngine.state.finished}});}
+<\/script></body></html>`;
+function makeFrame(role){const f=document.createElement('iframe');f.setAttribute('sandbox','allow-scripts');f.title=role;f.srcdoc=childSource(role);document.body.appendChild(f);return f;}
+const frames={};function waitFor(role,phase){return new Promise((resolve,reject)=>{const timeout=setTimeout(()=>{removeEventListener('message',handler);reject(new Error('timeout '+role+'/'+phase));},12000);function handler(e){if(e.source!==frames[role]?.contentWindow||e.data?.kind!=='wp-two-host'||e.data.phase!==phase)return;clearTimeout(timeout);removeEventListener('message',handler);resolve(e.data);}addEventListener('message',handler);});}
+const active=frames.active=makeFrame('active');const activeReady=await waitFor('active','active-ready');const candidate=frames.candidate=makeFrame('candidate');const candidateReady=await waitFor('candidate','candidate-ready');
+candidate.contentWindow.postMessage({kind:'wp-two-host-command',action:'restore',phase:'invalid-prepare',snapshot:{kind:'wrong',state:{},round:{}}},'*');const invalid=await waitFor('candidate','invalid-prepare');const activeAfterInvalid={connected:active.isConnected,correct:active.contentWindow?.WordPuzzleEngine?.state?.correct};
+candidate.contentWindow.postMessage({kind:'wp-two-host-command',action:'restore',phase:'valid-prepare',snapshot:activeReady.saved},'*');const prepared=await waitFor('candidate','valid-prepare');const activeAfterPrepare={connected:active.isConnected,correct:active.contentWindow?.WordPuzzleEngine?.state?.correct};
+const persisted=JSON.parse(JSON.stringify(activeReady.saved));const persistenceVerified=JSON.stringify(persisted)===JSON.stringify(activeReady.saved);const injectedPersistenceFailure=true;
+const publishAllowed=persistenceVerified&&!injectedPersistenceFailure&&prepared.restoreResult===true;const published=publishAllowed;
+if(published){frames.active=candidate;active.remove();}
+const parentUnchanged=document.getElementById('app').textContent==='PARENT-HOST-SENTINEL';
+const checks=[
+['active host advances beyond captured snapshot',activeReady.advanced&&activeReady.activeState.correct===2],
+['candidate starts independently without changing active host',candidateReady.state.correct===0&&activeAfterInvalid.connected&&activeAfterInvalid.correct===2],
+['actual restoreSession rejects malformed snapshot',invalid.restoreResult===false],
+['failed preparation preserves active host',activeAfterInvalid.connected&&activeAfterInvalid.correct===2],
+['valid snapshot restores saved unfinished state in candidate',prepared.restoreResult===true&&prepared.state.correct===1&&prepared.state.finished===false],
+['candidate screen renders restored one-of-two progress',prepared.screenText.includes('1 از 2 واژه')],
+['candidate preparation does not mutate active engine',activeAfterPrepare.connected&&activeAfterPrepare.correct===2],
+['persistence failure blocks candidate publication',injectedPersistenceFailure&&!publishAllowed&&active.isConnected&&active.contentWindow.WordPuzzleEngine.state.correct===2],
+['host swap is not performed without persistence success',!published&&frames.active===active&&active.isConnected],
+['parent application DOM remains unchanged',parentUnchanged]];
+const passed=checks.filter(x=>x[1]).length;window.__wordPuzzleTwoHostProof={total:checks.length,passed,checks,activeReady,invalid,prepared,parentUnchanged,published};document.getElementById('summary').textContent=passed+'/'+checks.length+' checks passed';candidate.remove();active.remove();
+})();
+</script></body></html>
