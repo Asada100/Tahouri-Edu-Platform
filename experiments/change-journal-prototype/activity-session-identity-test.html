@@ -10,8 +10,11 @@
     getStudentId(){ return activeProfile; }
   };
   window.SaveManager = {
-    load(key){ return store.has(key) ? JSON.parse(JSON.stringify(store.get(key))) : null; },
-    save(key,value){ store.set(key, JSON.parse(JSON.stringify(value))); return true; },
+    load(key){ if(!store.has(key))return null;try{return JSON.parse(store.get(key));}catch(_){return null;} },
+    save(key,value){ store.set(key, JSON.stringify(value)); return true; },
+    readRaw(key){return store.has(key)?{ok:true,exists:true,value:store.get(key)}:{ok:true,exists:false,value:null};},
+    writeRaw(key,value){if(!key||typeof value!=="string")return false;store.set(key,value);return true;},
+    restoreRaw(key,snapshot){if(!snapshot)return false;if(snapshot.exists)store.set(key,snapshot.value);else store.delete(key);return true;},
     remove(key){ store.delete(key); return true; }
   };
   window.EventManager = { on(){}, emit(){} };
