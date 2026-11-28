@@ -20,19 +20,31 @@ const engine=window.WordPuzzleEngine;const manager=window.ActivitySessionManager
 manager.installExitControl=()=>{window.__exitInstallCount=(window.__exitInstallCount||0)+1;};
 function seed(){engine.start(activity);engine.state={started:true,finished:false,round:0,total:2,correct:1,wrong:0,score:10,hints:0,hintPenalty:0,foundWords:[],mode:"wordBuilder",builderStages:[],builderStageIndex:0,builderSolvedWords:[]};engine.round={type:"wordBuilder",title:"کلمه‌ساز",grid:[["آ","ب"]],targetWords:[{word:"آب",meaning:"مایع زندگی"}],solvedWords:[],builderProgress:{current:1,total:2}};const engineState=engine.getSessionState();const session={version:"1.9",schemaVersion:1,id:"resume-proof-session",profileId:"student-resume-proof",activityId:activity.id,activityType:"WordPuzzleEngine",status:"resumable",startedAt:1,updatedAt:1,engineState};if(!window.SaveManager.save(key,session))throw Error("Could not seed actual SaveManager");return session;}
 function check(condition,name,detail){if(!condition)throw Error("ASSERTION FAILED: "+name+" — "+detail);report.push({name,detail});console.log("BLOCKER CONFIRMED — "+name+" — "+detail);}
+function resetPublishedState(){manager.currentSession=null;manager.gameplayActive=false;manager.restoringSession=false;window.ActivityManager.currentActivity=null;window.ActivityState.value="idle";document.body.classList.remove("activity-playing");window.__events=[];window.__exitInstallCount=0;}
 try{
- const first=seed();manager.currentSession=null;manager.gameplayActive=false;window.__events=[];
+ const first=seed();resetPublishedState();const priorSession={id:"previous-published-session",status:"active"};manager.currentSession=priorSession;
  const nativeSet=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){if(k===key)throw Error("Injected session persistence failure");return nativeSet.call(this,k,v);};
  const failedWriteResult=await manager.resume(activity.id);Storage.prototype.setItem=nativeSet;
- const rawAfterFailure=window.localStorage.getItem(key);const persistedAfterFailure=JSON.parse(rawAfterFailure);
+ const persistedAfterFailure=JSON.parse(window.localStorage.getItem(key));
  check(failedWriteResult===true&&persistedAfterFailure.status==="resumable"&&manager.currentSession.status==="active"&&manager.gameplayActive===true&&window.__events.filter(e=>e.name==="activityResumed").length===1,"failed SaveManager write is ignored by actual resume()","resume() returned success, published gameplay and emitted activityResumed although localStorage still contains resumable state");
- const second=seed();manager.currentSession=null;manager.gameplayActive=false;window.__events=[];
+ check(window.ActivityManager.currentActivity===activity&&window.ActivityState.value==="playing"&&document.body.classList.contains("activity-playing")&&window.__exitInstallCount===1,"failed persistence still publishes platform activity state","ActivityManager, ActivityState, body class and exit control were published despite the failed durable write");
+
+ const second=seed();resetPublishedState();const previousEngineState=JSON.stringify(engine.getSessionState());const priorSession2={id:"previous-published-session-2",status:"active"};manager.currentSession=priorSession2;
  const originalRestore=engine.restoreSession;engine.restoreSession=()=>false;
  const rejected=await manager.resume(activity.id);engine.restoreSession=originalRestore;
- check(rejected===false&&manager.currentSession&&manager.currentSession.id===second.id&&manager.gameplayActive===false&&window.__events.filter(e=>e.name==="activityResumed").length===0,"restore rejection leaves candidate currentSession published","actual resume() returns false but leaves the loaded candidate in currentSession instead of restoring the prior publication");
+ check(rejected===false&&manager.currentSession&&manager.currentSession.id===second.id&&manager.currentSession!==priorSession2&&manager.gameplayActive===false&&window.__events.filter(e=>e.name==="activityResumed").length===0,"restore rejection leaves candidate currentSession published","actual resume() returns false but leaves the loaded candidate in currentSession instead of restoring the previous publication");
+ check(JSON.stringify(engine.getSessionState())===previousEngineState&&window.ActivityManager.currentActivity===null&&window.ActivityState.value==="idle"&&!document.body.classList.contains("activity-playing"),"WordPuzzle false-restore branch rolls back engine and platform activity state","engine snapshot and platform activity state remain unchanged even though currentSession publication leaks");
+
+ const third=seed();resetPublishedState();const previousEngineStateBeforeThrow=JSON.stringify(engine.getSessionState());const priorSession3={id:"previous-published-session-3",status:"active"};manager.currentSession=priorSession3;
+ engine.restoreSession=()=>{engine.state={started:true,finished:true,correct:99,score:999};throw new Error("Injected restore exception after partial engine mutation");};
+ let thrown=false;try{await manager.resume(activity.id);}catch(error){thrown=error.message.includes("Injected restore exception");}
+ engine.restoreSession=originalRestore;
+ check(thrown&&manager.currentSession&&manager.currentSession.id===third.id&&manager.currentSession!==priorSession3,"restore exception leaves candidate currentSession published","resume() propagates the engine exception but does not restore the previously published session reference");
+ check(JSON.stringify(engine.getSessionState())===previousEngineStateBeforeThrow&&window.__events.filter(e=>e.name==="activityResumed").length===0,"WordPuzzle restore exception rolls engine state back without resume event","the WordPuzzle manager branch restores the engine snapshot and does not emit activityResumed");
+
  window.SaveManager.remove(key);
- document.querySelector("#summary").textContent="PASS — 2 actual runtime defects reproduced";
- window.__activitySessionResumeDiagnostic={total:2,reproduced:report.length,results:report};
-}catch(error){document.querySelector("#summary").textContent="FAIL — "+error.message;window.__activitySessionResumeDiagnostic={total:2,reproduced:report.length,error:error.message,results:report};throw error;}
+ document.querySelector("#summary").textContent="PASS — "+report.length+" actual runtime assertions; 4 failure behaviors reproduced";
+ window.__activitySessionResumeDiagnostic={total:6,reproduced:report.length,results:report};
+}catch(error){Storage.prototype.setItem=Storage.prototype.setItem;document.querySelector("#summary").textContent="FAIL — "+error.message;window.__activitySessionResumeDiagnostic={total:6,reproduced:report.length,error:error.message,results:report};throw error;}
 })();
 </script></body></html>
