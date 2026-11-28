@@ -314,6 +314,137 @@ const ActivitySessionManager = {
         return session;
     },
 
+    async resumeDictationTransactional(activity, session, rawSnapshot) {
+        const key = this.storageKey();
+        const engine = this.getEngine("DictationEngine");
+        if (!key || !engine || typeof engine.restoreSession !== "function" ||
+            !rawSnapshot || rawSnapshot.ok !== true || rawSnapshot.exists !== true ||
+            typeof rawSnapshot.value !== "string" ||
+            typeof DictationScreen === "undefined" || typeof DictationScreen.render !== "function") return false;
+
+        const app = document.getElementById("app");
+        if (!app) return false;
+        const previous = {
+            currentSession: this.currentSession,
+            gameplayActive: this.gameplayActive,
+            activity: engine.activity,
+            content: engine.content,
+            state: engine.state,
+            runToken: engine.runToken,
+            finishAuthorized: engine.finishAuthorized,
+            currentActivity: ActivityManager.currentActivity,
+            activityState: ActivityState.current,
+            bodyPlaying: document.body.classList.contains("activity-playing"),
+            appMarkup: app.innerHTML,
+            exitNode: document.getElementById(this.exitControlId)
+        };
+        const exitParent = previous.exitNode ? previous.exitNode.parentNode : null;
+        const exitNext = previous.exitNode ? previous.exitNode.nextSibling : null;
+        const candidate = JSON.parse(JSON.stringify(session));
+        let storageWriteAttempted = false;
+
+        const rollback = () => {
+            const failures = [];
+            try {
+                engine.activity = previous.activity;
+                engine.content = previous.content;
+                engine.state = previous.state;
+                engine.runToken = previous.runToken;
+                engine.finishAuthorized = previous.finishAuthorized;
+                app.innerHTML = previous.appMarkup;
+                if (previous.state) DictationScreen.render(engine.getState());
+            } catch (error) { failures.push("engine-and-screen"); }
+            try {
+                ActivityManager.currentActivity = previous.currentActivity;
+                ActivityState.current = previous.activityState;
+                this.currentSession = previous.currentSession;
+                this.gameplayActive = previous.gameplayActive;
+                document.body.classList.toggle("activity-playing", previous.bodyPlaying);
+                const currentExit = document.getElementById(this.exitControlId);
+                if (currentExit) currentExit.remove();
+                if (previous.exitNode && exitParent) {
+                    exitParent.insertBefore(previous.exitNode,
+                        exitNext && exitNext.parentNode === exitParent ? exitNext : null);
+                }
+            } catch (error) { failures.push("runtime-publication"); }
+            if (storageWriteAttempted) {
+                try {
+                    if (!SaveManager.restoreRaw(key, rawSnapshot)) throw new Error("raw restore returned false");
+                    const verified = SaveManager.readRaw(key);
+                    if (!verified.ok || verified.exists !== rawSnapshot.exists ||
+                        verified.value !== rawSnapshot.value) throw new Error("raw restore verification mismatch");
+                } catch (error) { failures.push("persisted-session"); }
+            }
+            return failures;
+        };
+
+        this.restoringSession = true;
+        try {
+            const data = candidate.engineState;
+            if (!data || data.kind !== "dictation") return false;
+
+            const preparedEngine = Object.create(engine);
+            preparedEngine.activity = data.activity || activity;
+            preparedEngine.content = data.content
+                ? JSON.parse(JSON.stringify(data.content))
+                : (typeof DictationProvider !== "undefined" && typeof DictationProvider.getContent === "function"
+                    ? DictationProvider.getContent(preparedEngine.activity)
+                    : null);
+            if (!preparedEngine.content || !Array.isArray(preparedEngine.content.questions) ||
+                !preparedEngine.content.questions.length ||
+                preparedEngine.restoreSession(data.state) !== true) return false;
+
+            candidate.status = "active";
+            candidate.updatedAt = Date.now();
+            const serialized = JSON.stringify(candidate);
+            storageWriteAttempted = true;
+            if (SaveManager.writeRaw(key, serialized) !== true) {
+                const failures = rollback();
+                if (failures.length) console.error("Dictation resume rollback incomplete", failures);
+                return false;
+            }
+            const readBack = SaveManager.readRaw(key);
+            if (!readBack.ok || !readBack.exists || readBack.value !== serialized) {
+                const failures = rollback();
+                if (failures.length) console.error("Dictation resume rollback incomplete", failures);
+                return false;
+            }
+            const verified = JSON.parse(readBack.value);
+            if (!this.validateSession(verified) || verified.id !== candidate.id ||
+                verified.status !== "active" || verified.activityType !== candidate.activityType) {
+                const failures = rollback();
+                if (failures.length) console.error("Dictation resume rollback incomplete", failures);
+                return false;
+            }
+
+            engine.activity = preparedEngine.activity;
+            engine.content = preparedEngine.content;
+            engine.state = preparedEngine.state;
+            this.activateRestoredActivity(activity);
+            this.currentSession = candidate;
+            this.gameplayActive = true;
+            DictationScreen.render(engine.getState());
+            this.installExitControl();
+            if (!document.getElementById(this.exitControlId)) {
+                throw new Error("Dictation exit control was not published");
+            }
+
+            try { EventManager.emit("activityResumed", candidate); }
+            catch (error) { console.error("Dictation activityResumed delivery failed after commit", error); }
+            console.log("ActivitySessionManager: Dictation session transaction committed", {
+                activityId: candidate.activityId,
+                sessionId: candidate.id
+            });
+            return true;
+        } catch (error) {
+            const failures = rollback();
+            console.error("Dictation resume transaction failed", error, failures);
+            return false;
+        } finally {
+            this.restoringSession = false;
+        }
+    },
+
     async resumeWordPuzzleTransactional(activity, session, rawSnapshot) {
         const key = this.storageKey();
         const engine = this.getEngine("WordPuzzleEngine");
@@ -456,6 +587,15 @@ const ActivitySessionManager = {
             if (raw.exists && typeof raw.value === "string") {
                 let stored = null;
                 try { stored = JSON.parse(raw.value); } catch (_) { return false; }
+                if (this.validateSession(stored) && stored.status === "resumable" &&
+                    (!activityId || stored.activityId === activityId) &&
+                    (stored.activityType === "DictationEngine" || stored.activityType === "dictation")) {
+                    if (typeof App === "undefined" || typeof App.resolveActivityById !== "function") return false;
+                    const dictationActivity = App.resolveActivityById(stored.activityId);
+                    if (!dictationActivity || dictationActivity.id !== stored.activityId ||
+                        this.type(dictationActivity) !== stored.activityType) return false;
+                    return this.resumeDictationTransactional(dictationActivity, stored, raw);
+                }
                 if (this.validateSession(stored) && stored.status === "resumable" &&
                     (!activityId || stored.activityId === activityId) &&
                     (stored.activityType === "WordPuzzleEngine" || stored.activityType === "wordPuzzle")) {
