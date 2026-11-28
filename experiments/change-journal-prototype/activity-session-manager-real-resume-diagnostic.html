@@ -69,9 +69,10 @@ try{
 
  // 6. Publication failure after durable write restores durable and visible state.
  stored=seed();reset();const prior6={id:"prior-publication"};manager.currentSession=prior6;const beforePublishRaw=window.SaveManager.readRaw(key).value;
+ const priorExit=document.createElement("button");priorExit.id=manager.exitControlId;const priorExitHandler=()=>{};priorExit.onclick=priorExitHandler;document.body.appendChild(priorExit);
  manager.installExitControl=()=>{const b=document.createElement("button");b.id=manager.exitControlId;document.body.appendChild(b);throw Error("injected exit-control failure");};
  ok=await manager.resume(activity.id);
- check(ok===false&&window.SaveManager.readRaw(key).value===beforePublishRaw&&manager.currentSession===prior6&&window.ActivityManager.currentActivity===null&&window.ActivityState.current==="idle"&&!manager.gameplayActive&&!document.body.classList.contains("activity-playing")&&!document.getElementById(manager.exitControlId)&&window.__events.length===0,"partial platform publication rolls back durable session","failed exit-control installation restores original storage, ActivityState, ActivityManager, body and session");
+ check(ok===false&&window.SaveManager.readRaw(key).value===beforePublishRaw&&manager.currentSession===prior6&&window.ActivityManager.currentActivity===null&&window.ActivityState.current==="idle"&&!manager.gameplayActive&&!document.body.classList.contains("activity-playing")&&document.getElementById(manager.exitControlId)===priorExit&&priorExit.onclick===priorExitHandler&&window.__events.length===0,"partial platform publication rolls back durable session","failed exit-control installation restores exact storage, prior DOM node and handler, ActivityState, ActivityManager, body and session");
 
  // 7. Event delivery is post-commit: failure is logged, not falsely rolled back.
  stored=seed();reset();window.EventManager.on("activityResumed",()=>{throw Error("injected observer failure");});
