@@ -5,7 +5,7 @@
 const activity={id:'two-host-word-puzzle-proof',settings:{modes:['wordBuilder'],builderMaxWordLength:8,difficulty:1},puzzle:{builderStages:[{id:'stage-1',title:'آب',targetCount:2,letters:['آ','ب','ا'],words:[{word:'آب',meaning:'مایع زندگی'},{word:'بابا',meaning:'پدر'}]}]}};
 const childSource=role=>`
 <!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><base href="${location.href}"><link rel="stylesheet" href="../../engine/ui/wordPuzzle.css"></head><body><div id="app">EMPTY</div>
-<script src="../../engine/wordPuzzle/pathEngine.js"><\\/script><script src="../../engine/wordPuzzle/difficultyEngine.js"><\\/script><script src="../../engine/wordPuzzle/scoreEngine.js"><\\/script><script src="../../engine/wordPuzzle/wordRepository.js"><\\/script><script src="../../engine/wordPuzzle/wordPuzzleValidator.js"><\\/script><script src="../../engine/wordPuzzle/wordPuzzleEngine.js"><\\/script><script src="../../engine/ui/wordPuzzleScreen.js"><\\/script>
+<script src="../../engine/wordPuzzle/pathEngine.js"><\/script><script src="../../engine/wordPuzzle/difficultyEngine.js"><\/script><script src="../../engine/wordPuzzle/scoreEngine.js"><\/script><script src="../../engine/wordPuzzle/wordRepository.js"><\/script><script src="../../engine/wordPuzzle/wordPuzzleValidator.js"><\/script><script src="../../engine/wordPuzzle/wordPuzzleEngine.js"><\/script><script src="../../engine/ui/wordPuzzleScreen.js"><\/script>
 <script>
 window.__role='${role}';window.__events={activityReady:0,activityFinished:0};
 window.EventManager={handlers:{},on(n,f){(this.handlers[n]||(this.handlers[n]=[])).push(f);},emit(n,p){window.__events[n]=(window.__events[n]||0)+1;(this.handlers[n]||[]).forEach(f=>f(p));}};
