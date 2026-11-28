@@ -4,7 +4,7 @@ window.__events=[];
 window.EventManager={handlers:{},on(n,f){(this.handlers[n]||(this.handlers[n]=[])).push(f);},emit(n,p){window.__events.push({name:n,payload:p});(this.handlers[n]||[]).forEach(f=>f(p));}};
 window.ProfileContext={getStudentId:()=> "student-resume-proof",key:base=>base+":student-resume-proof"};
 window.ActivityManager={currentActivity:null};
-window.ActivityState={value:"idle",set(v){this.value=v;}};
+window.ActivityState={current:"idle",set(v){this.current=v;},get(){return this.current;}};
 window.App={resolveActivityById:id=>id==="resume-proof-activity"?window.__activity:null};
 window.EngineManager={getEngine:name=>name==="WordPuzzleEngine"?window.WordPuzzleEngine:null};
 </script>
