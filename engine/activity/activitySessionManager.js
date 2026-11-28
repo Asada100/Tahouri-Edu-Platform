@@ -342,6 +342,7 @@ const ActivitySessionManager = {
         const exitNext = previous.exitNode ? previous.exitNode.nextSibling : null;
         const candidate = JSON.parse(JSON.stringify(session));
         let storageWriteAttempted = false;
+        let screenRenderAttempted = false;
 
         const rollback = () => {
             const failures = [];
@@ -352,7 +353,7 @@ const ActivitySessionManager = {
                 engine.runToken = previous.runToken;
                 engine.finishAuthorized = previous.finishAuthorized;
                 app.innerHTML = previous.appMarkup;
-                if (previous.state) DictationScreen.render(engine.getState());
+                if (screenRenderAttempted && previous.state) DictationScreen.render(engine.getState());
             } catch (error) { failures.push("engine-and-screen"); }
             try {
                 ActivityManager.currentActivity = previous.currentActivity;
@@ -423,6 +424,7 @@ const ActivitySessionManager = {
             this.activateRestoredActivity(activity);
             this.currentSession = candidate;
             this.gameplayActive = true;
+            screenRenderAttempted = true;
             DictationScreen.render(engine.getState());
             this.installExitControl();
             if (!document.getElementById(this.exitControlId)) {
