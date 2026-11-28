@@ -6,6 +6,8 @@ on:
       - experiment/local-change-journal-prototype
     paths:
       - 'experiments/change-journal-prototype/**'
+      - 'engine/activity/activitySessionManager.js'
+      - 'engine/wordPuzzle/wordPuzzleEngine.js'
       - '.github/scripts/word-puzzle-screen-isolation-test.js'
       - '.github/scripts/word-puzzle-real-engine-iframe-test.js'
       - '.github/scripts/word-puzzle-two-host-transaction-test.js'
@@ -19,6 +21,8 @@ on:
   pull_request:
     paths:
       - 'experiments/change-journal-prototype/**'
+      - 'engine/activity/activitySessionManager.js'
+      - 'engine/wordPuzzle/wordPuzzleEngine.js'
       - '.github/scripts/change-journal-browser-test.js'
       - '.github/scripts/activity-session-identity-browser-test.js'
       - '.github/scripts/session-identity-browser-test.js'
