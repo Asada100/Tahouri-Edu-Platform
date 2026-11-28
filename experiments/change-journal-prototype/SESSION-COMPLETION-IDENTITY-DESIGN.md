@@ -663,3 +663,20 @@ Added an experiment-only browser proof that loads the repository's actual WordPu
 The test starts the actual engine with synthetic activity content, clicks the actual mode-selection control, verifies the real engine enters wordBuilder and the real screen renders, submits two valid answers through the actual engine API, and verifies the actual engine state and lifecycle events. It also checks stylesheet loading and that disposing the iframe leaves the parent application untouched.
 
 This is the first proof that the real WordPuzzle engine and screen can coexist inside the isolated browsing context. It is not yet a complete restore/resume adapter: the test starts a fresh synthetic activity rather than restoring a saved session; it does not prove message-based parent-to-iframe command transport, drag gesture completion, iframe host commit/rollback, persisted snapshot write/read-back, or recovery if the iframe crashes. The production ActivitySessionManager remains untouched. CI run 46122546237 is the acceptance gate for this experiment.
+
+## 22. Actual WordPuzzle mid-session restore proof — 2026-11-28
+
+The real-engine iframe proof now exercises the production `WordPuzzleEngine.getSessionState()` and `restoreSession()` methods together with the production `WordPuzzleScreen` event listener and renderer.
+
+The browser test:
+- Starts the actual engine and selects the builder mode.
+- Submits one correct answer and captures a real mid-session snapshot.
+- Completes the activity, proving the live engine has advanced beyond the saved snapshot.
+- Calls the actual `restoreSession(savedMidSession)` method inside the isolated iframe.
+- Verifies that the engine returns to the saved unfinished state with one correct answer.
+- Verifies that the actual screen rerenders the saved progress (one of two words).
+- Confirms lifecycle events and UI remain inside the sandboxed iframe and the parent app remains unchanged.
+
+**CI evidence:** run `46123102890`, job `140911659127`, actual WordPuzzle engine iframe proof **12/12 PASS**; complete workflow success.
+
+**Boundary:** this proves the actual engine's snapshot/restore behavior and its screen event/render path in an isolated browsing context. It does not yet prove detached preparation against an already-running production engine, transactional storage write/read-back, atomic screen-host publication, rollback of the parent ActivityManager/ActivityState/body classes, exit controls, or exactly-once `activityResumed`. The active runtime remains unchanged and the adapter is not wired into it.
