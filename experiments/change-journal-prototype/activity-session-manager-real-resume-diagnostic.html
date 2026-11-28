@@ -1,0 +1,38 @@
+<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><title>Actual ActivitySessionManager resume diagnostic</title></head><body><p id="summary">running</p><div id="app"></div>
+<script>
+window.__events=[];
+window.EventManager={handlers:{},on(n,f){(this.handlers[n]||(this.handlers[n]=[])).push(f);},emit(n,p){window.__events.push({name:n,payload:p});(this.handlers[n]||[]).forEach(f=>f(p));}};
+window.ProfileContext={getStudentId:()=> "student-resume-proof",key:base=>base+":student-resume-proof"};
+window.ActivityManager={currentActivity:null};
+window.ActivityState={value:"idle",set(v){this.value=v;}};
+window.App={resolveActivityById:id=>id==="resume-proof-activity"?window.__activity:null};
+window.EngineManager={getEngine:name=>name==="WordPuzzleEngine"?window.WordPuzzleEngine:null};
+</script>
+<script src="../../engine/core/saveManager.js"></script>
+<script src="../../engine/wordPuzzle/wordPuzzleEngine.js"></script>
+<script src="../../engine/activity/activitySessionManager.js"></script>
+<script>
+(async function(){
+const report=[];const key=window.ProfileContext.key("Tahouri_ActivitySession");
+const activity={id:"resume-proof-activity",title:"Resume proof",engine:"WordPuzzleEngine",settings:{modes:["wordBuilder"],builderMaxWordLength:8},puzzle:{builderStages:[{id:"s1",targetCount:2,letters:["آ","ب","ا"],words:[{word:"آب",meaning:"مایع زندگی"},{word:"بابا",meaning:"پدر"}]}]}};
+window.__activity=activity;
+const engine=window.WordPuzzleEngine;const manager=window.ActivitySessionManager;
+manager.installExitControl=()=>{window.__exitInstallCount=(window.__exitInstallCount||0)+1;};
+function seed(){engine.start(activity);engine.selectMode("wordBuilder");engine.submitBuilder("آب");const engineState=engine.getSessionState();const session={version:"1.9",schemaVersion:1,id:"resume-proof-session",profileId:"student-resume-proof",activityId:activity.id,activityType:"WordPuzzleEngine",status:"resumable",startedAt:1,updatedAt:1,engineState};if(!window.SaveManager.save(key,session))throw Error("Could not seed actual SaveManager");return session;}
+function check(condition,name,detail){if(!condition)throw Error("ASSERTION FAILED: "+name+" — "+detail);report.push({name,detail});console.log("BLOCKER CONFIRMED — "+name+" — "+detail);}
+try{
+ const first=seed();manager.currentSession=null;manager.gameplayActive=false;window.__events=[];
+ const nativeSet=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){if(k===key)throw Error("Injected session persistence failure");return nativeSet.call(this,k,v);};
+ const failedWriteResult=await manager.resume(activity.id);Storage.prototype.setItem=nativeSet;
+ const rawAfterFailure=window.localStorage.getItem(key);const persistedAfterFailure=JSON.parse(rawAfterFailure);
+ check(failedWriteResult===true&&persistedAfterFailure.status==="resumable"&&manager.currentSession.status==="active"&&manager.gameplayActive===true&&window.__events.filter(e=>e.name==="activityResumed").length===1,"failed SaveManager write is ignored by actual resume()","resume() returned success, published gameplay and emitted activityResumed although localStorage still contains resumable state");
+ const second=seed();manager.currentSession=null;manager.gameplayActive=false;window.__events=[];
+ const originalRestore=engine.restoreSession;engine.restoreSession=()=>false;
+ const rejected=await manager.resume(activity.id);engine.restoreSession=originalRestore;
+ check(rejected===false&&manager.currentSession&&manager.currentSession.id===second.id&&manager.gameplayActive===false&&window.__events.filter(e=>e.name==="activityResumed").length===0,"restore rejection leaves candidate currentSession published","actual resume() returns false but leaves the loaded candidate in currentSession instead of restoring the prior publication");
+ window.SaveManager.remove(key);
+ document.querySelector("#summary").textContent="PASS — 2 actual runtime defects reproduced";
+ window.__activitySessionResumeDiagnostic={total:2,reproduced:report.length,results:report};
+}catch(error){document.querySelector("#summary").textContent="FAIL — "+error.message;window.__activitySessionResumeDiagnostic={total:2,reproduced:report.length,error:error.message,results:report};throw error;}
+})();
+</script></body></html>
