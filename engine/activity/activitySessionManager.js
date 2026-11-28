@@ -314,7 +314,138 @@ const ActivitySessionManager = {
         return session;
     },
 
+    async resumeWordPuzzleTransactional(activity, session, rawSnapshot) {
+        const key = this.storageKey();
+        const engine = this.getEngine("WordPuzzleEngine");
+        if (!key || !engine || typeof engine.restoreSession !== "function" ||
+            !rawSnapshot || rawSnapshot.ok !== true || rawSnapshot.exists !== true ||
+            typeof rawSnapshot.value !== "string") return false;
+
+        const previous = {
+            currentSession: this.currentSession,
+            gameplayActive: this.gameplayActive,
+            activity: engine.activity,
+            engineState: engine.state,
+            round: engine.round,
+            currentActivity: ActivityManager.currentActivity,
+            activityState: ActivityState.current,
+            bodyPlaying: document.body.classList.contains("activity-playing"),
+            exitNode: document.getElementById(this.exitControlId)
+        };
+        const exitClone = previous.exitNode ? previous.exitNode.cloneNode(true) : null;
+        const exitParent = previous.exitNode ? previous.exitNode.parentNode : null;
+        const exitNext = previous.exitNode ? previous.exitNode.nextSibling : null;
+        const candidate = JSON.parse(JSON.stringify(session));
+        let storageWriteAttempted = false;
+
+        const rollback = () => {
+            const failures = [];
+            try {
+                engine.activity = previous.activity;
+                engine.state = previous.engineState;
+                engine.round = previous.round;
+            } catch (error) { failures.push("engine"); }
+            try {
+                ActivityManager.currentActivity = previous.currentActivity;
+                ActivityState.current = previous.activityState;
+                this.currentSession = previous.currentSession;
+                this.gameplayActive = previous.gameplayActive;
+                document.body.classList.toggle("activity-playing", previous.bodyPlaying);
+                const currentExit = document.getElementById(this.exitControlId);
+                if (currentExit) currentExit.remove();
+                if (exitClone && exitParent) {
+                    exitParent.insertBefore(exitClone, exitNext && exitNext.parentNode === exitParent ? exitNext : null);
+                }
+            } catch (error) { failures.push("runtime-publication"); }
+            if (storageWriteAttempted) {
+                try {
+                    if (!SaveManager.restoreRaw(key, rawSnapshot)) throw new Error("raw restore returned false");
+                    const verified = SaveManager.readRaw(key);
+                    if (!verified.ok || verified.exists !== rawSnapshot.exists ||
+                        verified.value !== rawSnapshot.value) throw new Error("raw restore verification mismatch");
+                } catch (error) { failures.push("persisted-session"); }
+            }
+            return failures;
+        };
+
+        this.restoringSession = true;
+        try {
+            if (await this.restoreEngine(activity, candidate) !== true) {
+                const failures = rollback();
+                if (failures.length) console.error("WordPuzzle resume rollback incomplete", failures);
+                return false;
+            }
+
+            candidate.status = "active";
+            candidate.updatedAt = Date.now();
+            const serialized = JSON.stringify(candidate);
+            storageWriteAttempted = true;
+            if (SaveManager.writeRaw(key, serialized) !== true) {
+                const failures = rollback();
+                if (failures.length) console.error("WordPuzzle resume rollback incomplete", failures);
+                return false;
+            }
+            const readBack = SaveManager.readRaw(key);
+            if (!readBack.ok || !readBack.exists || readBack.value !== serialized) {
+                const failures = rollback();
+                if (failures.length) console.error("WordPuzzle resume rollback incomplete", failures);
+                return false;
+            }
+            let verified;
+            try { verified = JSON.parse(readBack.value); } catch (_) { verified = null; }
+            if (!verified || verified.id !== candidate.id || verified.profileId !== candidate.profileId ||
+                verified.activityId !== candidate.activityId || verified.status !== "active" ||
+                verified.activityType !== "WordPuzzleEngine") {
+                const failures = rollback();
+                if (failures.length) console.error("WordPuzzle resume rollback incomplete", failures);
+                return false;
+            }
+
+            this.activateRestoredActivity(activity);
+            this.currentSession = candidate;
+            this.gameplayActive = true;
+            this.installExitControl();
+
+            try { if (typeof engine.emitReady === "function") engine.emitReady(); }
+            catch (error) { console.error("WordPuzzle activityReady delivery failed after commit", error); }
+            try { EventManager.emit("activityResumed", candidate); }
+            catch (error) { console.error("WordPuzzle activityResumed delivery failed after commit", error); }
+
+            console.log("ActivitySessionManager: WordPuzzle session transaction committed", {
+                activityId: candidate.activityId,
+                sessionId: candidate.id
+            });
+            return true;
+        } catch (error) {
+            const failures = rollback();
+            console.error("WordPuzzle resume transaction failed", error, failures);
+            return false;
+        } finally {
+            this.restoringSession = false;
+        }
+    },
+
     async resume(activityId) {
+        // WordPuzzle reads the persisted candidate without publishing it into currentSession.
+        const key = this.storageKey();
+        if (key && typeof SaveManager !== "undefined" && typeof SaveManager.readRaw === "function") {
+            const raw = SaveManager.readRaw(key);
+            if (!raw || raw.ok !== true) return false;
+            if (raw.exists && typeof raw.value === "string") {
+                let stored = null;
+                try { stored = JSON.parse(raw.value); } catch (_) { return false; }
+                if (this.validateSession(stored) && stored.status === "resumable" &&
+                    (!activityId || stored.activityId === activityId) &&
+                    (stored.activityType === "WordPuzzleEngine" || stored.activityType === "wordPuzzle")) {
+                    if (typeof App === "undefined" || typeof App.resolveActivityById !== "function") return false;
+                    const wordPuzzleActivity = App.resolveActivityById(stored.activityId);
+                    if (!wordPuzzleActivity || wordPuzzleActivity.id !== stored.activityId ||
+                        this.type(wordPuzzleActivity) !== stored.activityType) return false;
+                    return this.resumeWordPuzzleTransactional(wordPuzzleActivity, stored, raw);
+                }
+            }
+        }
+
         const session = this.getResumable(activityId);
         if (!session) return false;
 
@@ -433,7 +564,7 @@ const ActivitySessionManager = {
             const rollbackEngineState = () => Object.assign(engine, previousEngineState);
 
             try {
-                if (!engine.restoreSession(data)) {
+                if (!engine.restoreSession(data, { emitReady: false })) {
                     rollbackEngineState();
                     return false;
                 }
@@ -648,7 +779,7 @@ const ActivitySessionManager = {
                 throw error;
             }
 
-            this.activateRestoredActivity(activity);
+            // Activity publication is deferred until the durable resume commit.
             return true;
         }
 
