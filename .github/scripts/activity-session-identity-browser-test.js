@@ -23,9 +23,10 @@ const server = http.createServer((req,res)=>{
   await page.waitForFunction(()=>document.querySelector('#summary')?.textContent!=='running');
   const result=await page.evaluate(()=>({summary:document.querySelector('#summary').textContent,lines:[...document.querySelectorAll('#results li')].map(x=>x.textContent),diagnostic:window.__identityDiagnostic}));
   result.lines.forEach(line=>console.log(line));
-  if(result.lines.length!==5||!result.summary.startsWith('5/5')||result.diagnostic?.passed!==5||result.diagnostic?.blockers!==2) throw new Error('Identity diagnostic harness failed: '+result.summary);
-  if(!result.lines.some(x=>x.includes('BLOCKER CONFIRMED')&&x.includes('timestamp collision reproduced'))) throw new Error('Expected timestamp collision was not reproduced; review harness assumptions.');
-  if(!result.lines.some(x=>x.includes('BLOCKER CONFIRMED')&&x.includes('profile-independent ID collision reproduced'))) throw new Error('Expected cross-profile ID collision was not reproduced; review harness assumptions.');
-  console.log('SESSION IDENTITY DIAGNOSTIC: PASS (5/5 diagnostic checks; 2 known blockers confirmed; acceptance gate remains BLOCKED)');
+  if(result.lines.length!==6||!result.summary.startsWith('6/6')||result.diagnostic?.passed!==6||result.diagnostic?.blockers!==0) throw new Error('Identity acceptance harness failed: '+result.summary);
+  if(!result.lines.some(x=>x.includes('PASS')&&x.includes('same-tick restart generates a distinct ID'))) throw new Error('Same-tick uniqueness acceptance check missing.');
+  if(!result.lines.some(x=>x.includes('PASS')&&x.includes('same activity/time across profiles has distinct global ID'))) throw new Error('Cross-profile uniqueness acceptance check missing.');
+  if(!result.lines.some(x=>x.includes('PASS')&&x.includes('missing secure randomness fails closed'))) throw new Error('Fail-closed acceptance check missing.');
+  console.log('SESSION IDENTITY ACCEPTANCE: PASS (6/6 checks; 0 blockers)');
  }finally{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));}
 })().catch(error=>{console.error(error);process.exitCode=1;});
